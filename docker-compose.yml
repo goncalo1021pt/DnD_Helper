@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-questboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-questboard}
+      POSTGRES_DB: ${POSTGRES_DB:-questboard}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-questboard}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Full self-host build: Vite build -> embedded into the Go binary.
+  # For day-to-day backend dev, run just postgres (`docker compose up postgres`)
+  # and `go run ./cmd/server` on the host instead.
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_ADDR: ":8080"
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+      SESSION_KEY: ${SESSION_KEY:?set SESSION_KEY in .env}
+      DATABASE_URL: postgres://${POSTGRES_USER:-questboard}:${POSTGRES_PASSWORD:-questboard}@postgres:5432/${POSTGRES_DB:-questboard}?sslmode=disable
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    ports:
+      - "8080:8080"
+    profiles:
+      - full
+
+volumes:
+  pgdata:

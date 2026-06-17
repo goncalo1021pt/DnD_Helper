@@ -1,0 +1,10 @@
+# Keep build context small & deterministic.
+**/node_modules
+frontend/dist
+backend/internal/static/assets/*
+bin
+.git
+.env
+.env.local
+data/official
+*.log
