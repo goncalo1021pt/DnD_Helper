@@ -56,6 +56,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join a campaign as a player using its invite code */
+        post: operations["joinCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/regenerate-invite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate a fresh invite code (DM only) */
+        post: operations["regenerateInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/quests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** List quests on a campaign's board (members only) */
+        get: operations["listQuests"];
+        put?: never;
+        /** Post a new quest (DM only) */
+        post: operations["createQuest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quests/{questId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a quest (DM only) */
+        delete: operations["deleteQuest"];
+        options?: never;
+        head?: never;
+        /** Update a quest, including its status and rewards (DM only) */
+        patch: operations["updateQuest"];
+        trace?: never;
+    };
+    "/quests/{questId}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim a quest (any campaign member) */
+        post: operations["claimQuest"];
+        /** Release a previously claimed quest */
+        delete: operations["unclaimQuest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -84,6 +180,8 @@ export interface components {
             ownerUserId: string;
             /** Format: date-time */
             createdAt: string;
+            /** @description Shareable code players use to join the campaign. */
+            inviteCode: string;
         };
         CampaignMembership: {
             campaign: components["schemas"]["Campaign"];
@@ -96,10 +194,90 @@ export interface components {
         CreateCampaignRequest: {
             name: string;
         };
+        JoinCampaignRequest: {
+            code: string;
+        };
+        /** @enum {string} */
+        QuestStatus: "available" | "active" | "completed" | "failed";
+        /** @enum {string} */
+        QuestDifficulty: "trivial" | "easy" | "medium" | "hard" | "deadly";
+        /** @enum {string} */
+        RewardType: "gold" | "item" | "xp" | "reputation" | "other";
+        QuestReward: {
+            /** Format: uuid */
+            id: string;
+            type: components["schemas"]["RewardType"];
+            label: string;
+            value?: string | null;
+        };
+        QuestClaim: {
+            /** Format: uuid */
+            userId: string;
+            userName: string;
+            /** Format: date-time */
+            claimedAt: string;
+        };
+        Quest: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaignId: string;
+            title: string;
+            description: string;
+            giver?: string | null;
+            location?: string | null;
+            difficulty: components["schemas"]["QuestDifficulty"];
+            status: components["schemas"]["QuestStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            rewards: components["schemas"]["QuestReward"][];
+            claims: components["schemas"]["QuestClaim"][];
+            claimedByMe: boolean;
+        };
+        RewardInput: {
+            type: components["schemas"]["RewardType"];
+            label: string;
+            value?: string | null;
+        };
+        CreateQuestRequest: {
+            title: string;
+            description?: string;
+            giver?: string | null;
+            location?: string | null;
+            difficulty?: components["schemas"]["QuestDifficulty"];
+            rewards?: components["schemas"]["RewardInput"][];
+        };
+        UpdateQuestRequest: {
+            title: string;
+            description?: string;
+            giver?: string | null;
+            location?: string | null;
+            difficulty: components["schemas"]["QuestDifficulty"];
+            status: components["schemas"]["QuestStatus"];
+            rewards?: components["schemas"]["RewardInput"][];
+        };
     };
     responses: {
         /** @description Not authenticated */
         Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Not allowed (not a member, or insufficient role) */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Resource not found */
+        NotFound: {
             headers: {
                 [name: string]: unknown;
             };
@@ -117,7 +295,10 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        CampaignId: string;
+        QuestId: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -219,6 +400,214 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    joinCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JoinCampaignRequest"];
+            };
+        };
+        responses: {
+            /** @description The joined campaign with the caller's role */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignMembership"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    regenerateInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaign with the new invite code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listQuests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quests with rewards and claims */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quest"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createQuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateQuestRequest"];
+            };
+        };
+        responses: {
+            /** @description Created quest */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteQuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateQuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateQuestRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated quest */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    claimQuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quest after claiming */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unclaimQuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Quest after unclaiming */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

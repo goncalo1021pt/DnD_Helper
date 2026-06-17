@@ -13,3 +13,16 @@ export type CampaignMembership =
   paths["/campaigns"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type Campaign = CampaignMembership["campaign"];
 export type Role = CampaignMembership["role"];
+
+export type Quest =
+  paths["/campaigns/{campaignId}/quests"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type QuestReward = Quest["rewards"][number];
+export type QuestClaim = Quest["claims"][number];
+export type QuestStatus = Quest["status"];
+export type QuestDifficulty = Quest["difficulty"];
+export type RewardType = QuestReward["type"];
+export type CreateQuestInput =
+  paths["/campaigns/{campaignId}/quests"]["post"]["requestBody"]["content"]["application/json"];
+export type UpdateQuestInput =
+  paths["/quests/{questId}"]["patch"]["requestBody"]["content"]["application/json"];
+export type RewardInput = NonNullable<CreateQuestInput["rewards"]>[number];

@@ -1,10 +1,22 @@
 -- name: CreateCampaign :one
-INSERT INTO campaigns (name, owner_user_id)
-VALUES ($1, $2)
+INSERT INTO campaigns (name, owner_user_id, invite_code)
+VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: GetCampaign :one
 SELECT * FROM campaigns WHERE id = $1;
+
+-- name: GetCampaignByInviteCode :one
+SELECT * FROM campaigns WHERE invite_code = $1;
+
+-- name: RegenerateInviteCode :one
+UPDATE campaigns SET invite_code = $2 WHERE id = $1 RETURNING *;
+
+-- name: JoinCampaign :exec
+-- Add the user as a player; never downgrades an existing (e.g. DM) membership.
+INSERT INTO memberships (user_id, campaign_id, role)
+VALUES ($1, $2, 'player')
+ON CONFLICT (user_id, campaign_id) DO NOTHING;
 
 -- name: AddMembership :one
 INSERT INTO memberships (user_id, campaign_id, role)

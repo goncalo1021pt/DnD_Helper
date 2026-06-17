@@ -1,8 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useCampaigns } from "../hooks";
+import QuestBoard from "./QuestBoard";
 
-// Placeholder campaign home. Phase 1 fills this with the tavern quest board;
-// it is already role-aware so DM-only tools can slot in.
 export default function CampaignView() {
   const { id } = useParams();
   const { data: campaigns, isLoading } = useCampaigns();
@@ -32,15 +31,7 @@ export default function CampaignView() {
         </span>
       </div>
 
-      <div className="rounded-xl bg-parchment/90 border-2 border-wood p-8 text-center text-ink/70">
-        <p className="font-display text-2xl text-wood-dark mb-2">🗺 The Quest Board</p>
-        <p>Coming in Phase 1 — quests, rewards, and self-claiming.</p>
-        {isDM && (
-          <p className="mt-4 text-sm text-ember">
-            As DM you'll post and manage quests here.
-          </p>
-        )}
-      </div>
+      <QuestBoard campaign={membership.campaign} role={membership.role} />
 
       <Link to="/" className="text-gold underline">
         ← Back to campaigns
