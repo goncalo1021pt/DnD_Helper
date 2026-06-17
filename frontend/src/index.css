@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* Tavern theme tokens. Tailwind v4 reads @theme for design tokens. */
+@theme {
+  --color-parchment: #f4e8d0;
+  --color-parchment-dark: #e8d5b0;
+  --color-ink: #2b2118;
+  --color-wood: #3a2a1a;
+  --color-wood-dark: #241810;
+  --color-ember: #b5532a;
+  --color-gold: #c9a227;
+  --font-display: "Cinzel", "Georgia", serif;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-wood-dark);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}

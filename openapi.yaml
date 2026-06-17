@@ -1,0 +1,187 @@
+openapi: 3.0.3
+info:
+  title: Quest Board API
+  version: 0.1.0
+  description: |
+    Self-hosted D&D campaign helper. This spec is the single source of truth for
+    the API contract: the Go server interface and the TypeScript client are both
+    generated from it (`make generate`).
+servers:
+  - url: /api
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness / readiness probe
+      security: []
+      responses:
+        "200":
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        "503":
+          description: Service degraded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /me:
+    get:
+      operationId: getCurrentUser
+      summary: The currently authenticated user and their campaign memberships
+      responses:
+        "200":
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /campaigns:
+    get:
+      operationId: listCampaigns
+      summary: Campaigns the current user belongs to
+      responses:
+        "200":
+          description: List of campaigns with the caller's role in each
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CampaignMembership"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createCampaign
+      summary: Create a campaign (caller becomes its DM)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCampaignRequest"
+      responses:
+        "201":
+          description: Created campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+  security:
+    - sessionCookie: []
+
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Role:
+      type: string
+      enum: [dm, player]
+
+    User:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+
+    Campaign:
+      type: object
+      required: [id, name, ownerUserId, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        ownerUserId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    CampaignMembership:
+      type: object
+      required: [campaign, role]
+      properties:
+        campaign:
+          $ref: "#/components/schemas/Campaign"
+        role:
+          $ref: "#/components/schemas/Role"
+
+    CurrentUser:
+      type: object
+      required: [user, campaigns]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/CampaignMembership"
+
+    CreateCampaignRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+
+security:
+  - sessionCookie: []

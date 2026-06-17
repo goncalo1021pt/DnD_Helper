@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS memberships;
+DROP TYPE IF EXISTS membership_role;
+DROP TABLE IF EXISTS campaigns;
+DROP TABLE IF EXISTS users;
