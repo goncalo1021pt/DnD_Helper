@@ -1,0 +1,31 @@
+# Secrets & local config
+.env
+.env.local
+*.local
+
+# Copyrighted / private game data — never commit (see plan: gitignored official JSON)
+/data/official/
+
+# Go
+/bin/
+/backend/server
+/backend/bin/
+*.test
+*.out
+
+# Node / frontend
+node_modules/
+/frontend/dist/
+/frontend/node_modules/
+*.log
+npm-debug.log*
+
+# Embedded build output (generated; the real SPA build is copied in at build time)
+/backend/internal/static/assets/*
+!/backend/internal/static/assets/.gitkeep
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
