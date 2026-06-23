@@ -35,8 +35,23 @@ services:
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+    # Optional: expose on the LAN too. Not required when only the tunnel serves
+    # traffic (cloudflared reaches the app over the internal network).
     ports:
       - "8080:8080"
+    profiles:
+      - full
+
+  # Cloudflare Tunnel: outbound-only connection to Cloudflare's edge — no inbound
+  # ports, no public IP. Create a remotely-managed tunnel in the Zero Trust
+  # dashboard, route the public hostname to http://app:8080, and put its token in
+  # .env as TUNNEL_TOKEN.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+    depends_on:
+      - app
     profiles:
       - full
 

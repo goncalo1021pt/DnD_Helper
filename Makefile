@@ -41,5 +41,8 @@ build: embed backend ## Full production build: SPA -> embed -> single Go binary
 run: ## Run the server from source (uses .env)
 	cd backend && go run ./cmd/server
 
+deploy: ## Build & start the full production stack (app + postgres + cloudflared)
+	docker compose --profile full up -d --build
+
 clean: ## Remove build artifacts
 	rm -rf bin frontend/dist
