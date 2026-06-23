@@ -4,7 +4,7 @@
 GOBIN := $(shell go env GOPATH)/bin
 STATIC := backend/internal/static
 
-.PHONY: help generate gen-backend gen-frontend frontend embed backend build run dev-server tools clean
+.PHONY: help generate gen-backend gen-frontend frontend embed backend build run deploy down restart ps logs dev-server tools clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -43,6 +43,18 @@ run: ## Run the server from source (uses .env)
 
 deploy: ## Build & start the full production stack (app + postgres + cloudflared)
 	docker compose --profile full up -d --build
+
+down: ## Stop & remove the stack (keeps the pgdata volume)
+	docker compose --profile full down
+
+restart: ## Restart the app container (re-runs migrations on startup)
+	docker compose --profile full restart app
+
+ps: ## Show stack status
+	docker compose --profile full ps
+
+logs: ## Follow logs (use: make logs S=app|postgres|cloudflared)
+	docker compose --profile full logs -f $(S)
 
 clean: ## Remove build artifacts
 	rm -rf bin frontend/dist
