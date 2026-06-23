@@ -79,6 +79,168 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /campaigns/join:
+    post:
+      operationId: joinCampaign
+      summary: Join a campaign as a player using its invite code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinCampaignRequest"
+      responses:
+        "200":
+          description: The joined campaign with the caller's role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignMembership"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{campaignId}/regenerate-invite:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: regenerateInvite
+      summary: Generate a fresh invite code (DM only)
+      responses:
+        "200":
+          description: Campaign with the new invite code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{campaignId}/quests:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listQuests
+      summary: List quests on a campaign's board (members only)
+      responses:
+        "200":
+          description: Quests with rewards and claims
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Quest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createQuest
+      summary: Post a new quest (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestRequest"
+      responses:
+        "201":
+          description: Created quest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /quests/{questId}:
+    parameters:
+      - $ref: "#/components/parameters/QuestId"
+    patch:
+      operationId: updateQuest
+      summary: Update a quest, including its status and rewards (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuestRequest"
+      responses:
+        "200":
+          description: Updated quest
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteQuest
+      summary: Remove a quest (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /quests/{questId}/claim:
+    parameters:
+      - $ref: "#/components/parameters/QuestId"
+    post:
+      operationId: claimQuest
+      summary: Claim a quest (any campaign member)
+      responses:
+        "200":
+          description: Quest after claiming
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: unclaimQuest
+      summary: Release a previously claimed quest
+      responses:
+        "200":
+          description: Quest after unclaiming
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     sessionCookie:
@@ -88,9 +250,37 @@ components:
   security:
     - sessionCookie: []
 
+  parameters:
+    CampaignId:
+      name: campaignId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    QuestId:
+      name: questId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
   responses:
     Unauthorized:
       description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Not allowed (not a member, or insufficient role)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
       content:
         application/json:
           schema:
@@ -140,7 +330,7 @@ components:
 
     Campaign:
       type: object
-      required: [id, name, ownerUserId, createdAt]
+      required: [id, name, ownerUserId, createdAt, inviteCode]
       properties:
         id:
           type: string
@@ -153,6 +343,9 @@ components:
         createdAt:
           type: string
           format: date-time
+        inviteCode:
+          type: string
+          description: Shareable code players use to join the campaign.
 
     CampaignMembership:
       type: object
@@ -182,6 +375,153 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+
+    JoinCampaignRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+
+    QuestStatus:
+      type: string
+      enum: [available, active, completed, failed]
+
+    QuestDifficulty:
+      type: string
+      enum: [trivial, easy, medium, hard, deadly]
+
+    RewardType:
+      type: string
+      enum: [gold, item, xp, reputation, other]
+
+    QuestReward:
+      type: object
+      required: [id, type, label]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/RewardType"
+        label:
+          type: string
+        value:
+          type: string
+          nullable: true
+
+    QuestClaim:
+      type: object
+      required: [userId, userName, claimedAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        userName:
+          type: string
+        claimedAt:
+          type: string
+          format: date-time
+
+    Quest:
+      type: object
+      required: [id, campaignId, title, description, difficulty, status, createdAt, rewards, claims, claimedByMe]
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        giver:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        difficulty:
+          $ref: "#/components/schemas/QuestDifficulty"
+        status:
+          $ref: "#/components/schemas/QuestStatus"
+        createdAt:
+          type: string
+          format: date-time
+        rewards:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestReward"
+        claims:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestClaim"
+        claimedByMe:
+          type: boolean
+
+    RewardInput:
+      type: object
+      required: [type, label]
+      properties:
+        type:
+          $ref: "#/components/schemas/RewardType"
+        label:
+          type: string
+          minLength: 1
+        value:
+          type: string
+          nullable: true
+
+    CreateQuestRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        giver:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        difficulty:
+          $ref: "#/components/schemas/QuestDifficulty"
+        rewards:
+          type: array
+          items:
+            $ref: "#/components/schemas/RewardInput"
+
+    UpdateQuestRequest:
+      type: object
+      required: [title, status, difficulty]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        giver:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        difficulty:
+          $ref: "#/components/schemas/QuestDifficulty"
+        status:
+          $ref: "#/components/schemas/QuestStatus"
+        rewards:
+          type: array
+          items:
+            $ref: "#/components/schemas/RewardInput"
 
 security:
   - sessionCookie: []

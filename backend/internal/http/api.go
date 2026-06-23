@@ -2,9 +2,11 @@ package http
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
@@ -82,30 +84,117 @@ func (s *Server) CreateCampaign(ctx context.Context, request api.CreateCampaignR
 		}}, nil
 	}
 
-	// Creating the campaign and the owner's DM membership must be atomic.
+	// Retry on the (rare) chance of an invite-code collision.
+	for attempt := 0; attempt < 5; attempt++ {
+		campaign, err := s.createCampaignTx(ctx, name, uid, generateInviteCode())
+		if err != nil {
+			if isUniqueViolation(err) {
+				continue
+			}
+			return nil, err
+		}
+		return api.CreateCampaign201JSONResponse(toAPICampaign(campaign)), nil
+	}
+	return nil, errors.New("could not generate a unique invite code")
+}
+
+// createCampaignTx atomically creates a campaign and the owner's DM membership.
+func (s *Server) createCampaignTx(ctx context.Context, name string, uid uuid.UUID, code string) (db.Campaign, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return db.Campaign{}, err
 	}
 	defer tx.Rollback(ctx)
 	qtx := s.queries.WithTx(tx)
 
-	campaign, err := qtx.CreateCampaign(ctx, db.CreateCampaignParams{Name: name, OwnerUserID: uid})
+	campaign, err := qtx.CreateCampaign(ctx, db.CreateCampaignParams{
+		Name: name, OwnerUserID: uid, InviteCode: code,
+	})
 	if err != nil {
-		return nil, err
+		return db.Campaign{}, err
 	}
 	if _, err := qtx.AddMembership(ctx, db.AddMembershipParams{
 		UserID:     uid,
 		CampaignID: campaign.ID,
 		Role:       db.MembershipRoleDm,
 	}); err != nil {
-		return nil, err
+		return db.Campaign{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return db.Campaign{}, err
+	}
+	return campaign, nil
+}
+
+// JoinCampaign adds the caller as a player using a campaign invite code.
+func (s *Server) JoinCampaign(ctx context.Context, request api.JoinCampaignRequestObject) (api.JoinCampaignResponseObject, error) {
+	uid, ok := auth.UserID(ctx)
+	if !ok {
+		return api.JoinCampaign401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	code := ""
+	if request.Body != nil {
+		code = normalizeInviteCode(request.Body.Code)
+	}
+	if code == "" {
+		return api.JoinCampaign400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "an invite code is required",
+		}}, nil
 	}
 
-	return api.CreateCampaign201JSONResponse(toAPICampaign(campaign)), nil
+	campaign, err := s.queries.GetCampaignByInviteCode(ctx, code)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.JoinCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	if err := s.queries.JoinCampaign(ctx, db.JoinCampaignParams{UserID: uid, CampaignID: campaign.ID}); err != nil {
+		return nil, err
+	}
+	m, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: campaign.ID})
+	if err != nil {
+		return nil, err
+	}
+	return api.JoinCampaign200JSONResponse{
+		Campaign: toAPICampaign(campaign),
+		Role:     toAPIRole(m.Role),
+	}, nil
+}
+
+// RegenerateInvite issues a fresh invite code for a campaign (DM only).
+func (s *Server) RegenerateInvite(ctx context.Context, request api.RegenerateInviteRequestObject) (api.RegenerateInviteResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	if _, err := s.queries.GetCampaign(ctx, campaignID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.RegenerateInvite404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	if _, err := s.requireDM(ctx, campaignID); err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.RegenerateInvite401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.RegenerateInvite403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+
+	for attempt := 0; attempt < 5; attempt++ {
+		campaign, err := s.queries.RegenerateInviteCode(ctx, db.RegenerateInviteCodeParams{
+			ID: campaignID, InviteCode: generateInviteCode(),
+		})
+		if err != nil {
+			if isUniqueViolation(err) {
+				continue
+			}
+			return nil, err
+		}
+		return api.RegenerateInvite200JSONResponse(toAPICampaign(campaign)), nil
+	}
+	return nil, errors.New("could not generate a unique invite code")
 }
 
 func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.CampaignMembership, error) {
@@ -121,6 +210,7 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 				Name:        row.Name,
 				OwnerUserId: row.OwnerUserID,
 				CreatedAt:   row.CreatedAt.Time,
+				InviteCode:  row.InviteCode,
 			},
 			Role: toAPIRole(row.Role),
 		})
@@ -143,6 +233,7 @@ func toAPICampaign(c db.Campaign) api.Campaign {
 		Name:        c.Name,
 		OwnerUserId: c.OwnerUserID,
 		CreatedAt:   c.CreatedAt.Time,
+		InviteCode:  c.InviteCode,
 	}
 }
 

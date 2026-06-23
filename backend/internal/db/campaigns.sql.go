@@ -38,30 +38,32 @@ func (q *Queries) AddMembership(ctx context.Context, arg AddMembershipParams) (M
 }
 
 const createCampaign = `-- name: CreateCampaign :one
-INSERT INTO campaigns (name, owner_user_id)
-VALUES ($1, $2)
-RETURNING id, name, owner_user_id, created_at
+INSERT INTO campaigns (name, owner_user_id, invite_code)
+VALUES ($1, $2, $3)
+RETURNING id, name, owner_user_id, created_at, invite_code
 `
 
 type CreateCampaignParams struct {
 	Name        string    `json:"name"`
 	OwnerUserID uuid.UUID `json:"owner_user_id"`
+	InviteCode  string    `json:"invite_code"`
 }
 
 func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) (Campaign, error) {
-	row := q.db.QueryRow(ctx, createCampaign, arg.Name, arg.OwnerUserID)
+	row := q.db.QueryRow(ctx, createCampaign, arg.Name, arg.OwnerUserID, arg.InviteCode)
 	var i Campaign
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.OwnerUserID,
 		&i.CreatedAt,
+		&i.InviteCode,
 	)
 	return i, err
 }
 
 const getCampaign = `-- name: GetCampaign :one
-SELECT id, name, owner_user_id, created_at FROM campaigns WHERE id = $1
+SELECT id, name, owner_user_id, created_at, invite_code FROM campaigns WHERE id = $1
 `
 
 func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, error) {
@@ -72,6 +74,24 @@ func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, erro
 		&i.Name,
 		&i.OwnerUserID,
 		&i.CreatedAt,
+		&i.InviteCode,
+	)
+	return i, err
+}
+
+const getCampaignByInviteCode = `-- name: GetCampaignByInviteCode :one
+SELECT id, name, owner_user_id, created_at, invite_code FROM campaigns WHERE invite_code = $1
+`
+
+func (q *Queries) GetCampaignByInviteCode(ctx context.Context, inviteCode string) (Campaign, error) {
+	row := q.db.QueryRow(ctx, getCampaignByInviteCode, inviteCode)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerUserID,
+		&i.CreatedAt,
+		&i.InviteCode,
 	)
 	return i, err
 }
@@ -98,8 +118,25 @@ func (q *Queries) GetMembership(ctx context.Context, arg GetMembershipParams) (M
 	return i, err
 }
 
+const joinCampaign = `-- name: JoinCampaign :exec
+INSERT INTO memberships (user_id, campaign_id, role)
+VALUES ($1, $2, 'player')
+ON CONFLICT (user_id, campaign_id) DO NOTHING
+`
+
+type JoinCampaignParams struct {
+	UserID     uuid.UUID `json:"user_id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
+// Add the user as a player; never downgrades an existing (e.g. DM) membership.
+func (q *Queries) JoinCampaign(ctx context.Context, arg JoinCampaignParams) error {
+	_, err := q.db.Exec(ctx, joinCampaign, arg.UserID, arg.CampaignID)
+	return err
+}
+
 const listCampaignsForUser = `-- name: ListCampaignsForUser :many
-SELECT c.id, c.name, c.owner_user_id, c.created_at, m.role
+SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, m.role
 FROM campaigns c
 JOIN memberships m ON m.campaign_id = c.id
 WHERE m.user_id = $1
@@ -111,6 +148,7 @@ type ListCampaignsForUserRow struct {
 	Name        string             `json:"name"`
 	OwnerUserID uuid.UUID          `json:"owner_user_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	InviteCode  string             `json:"invite_code"`
 	Role        MembershipRole     `json:"role"`
 }
 
@@ -129,6 +167,7 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 			&i.Name,
 			&i.OwnerUserID,
 			&i.CreatedAt,
+			&i.InviteCode,
 			&i.Role,
 		); err != nil {
 			return nil, err
@@ -139,4 +178,26 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const regenerateInviteCode = `-- name: RegenerateInviteCode :one
+UPDATE campaigns SET invite_code = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code
+`
+
+type RegenerateInviteCodeParams struct {
+	ID         uuid.UUID `json:"id"`
+	InviteCode string    `json:"invite_code"`
+}
+
+func (q *Queries) RegenerateInviteCode(ctx context.Context, arg RegenerateInviteCodeParams) (Campaign, error) {
+	row := q.db.QueryRow(ctx, regenerateInviteCode, arg.ID, arg.InviteCode)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerUserID,
+		&i.CreatedAt,
+		&i.InviteCode,
+	)
+	return i, err
 }

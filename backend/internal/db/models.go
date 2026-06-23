@@ -54,11 +54,146 @@ func (ns NullMembershipRole) Value() (driver.Value, error) {
 	return string(ns.MembershipRole), nil
 }
 
+type QuestDifficulty string
+
+const (
+	QuestDifficultyTrivial QuestDifficulty = "trivial"
+	QuestDifficultyEasy    QuestDifficulty = "easy"
+	QuestDifficultyMedium  QuestDifficulty = "medium"
+	QuestDifficultyHard    QuestDifficulty = "hard"
+	QuestDifficultyDeadly  QuestDifficulty = "deadly"
+)
+
+func (e *QuestDifficulty) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = QuestDifficulty(s)
+	case string:
+		*e = QuestDifficulty(s)
+	default:
+		return fmt.Errorf("unsupported scan type for QuestDifficulty: %T", src)
+	}
+	return nil
+}
+
+type NullQuestDifficulty struct {
+	QuestDifficulty QuestDifficulty `json:"quest_difficulty"`
+	Valid           bool            `json:"valid"` // Valid is true if QuestDifficulty is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullQuestDifficulty) Scan(value interface{}) error {
+	if value == nil {
+		ns.QuestDifficulty, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.QuestDifficulty.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullQuestDifficulty) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.QuestDifficulty), nil
+}
+
+type QuestStatus string
+
+const (
+	QuestStatusAvailable QuestStatus = "available"
+	QuestStatusActive    QuestStatus = "active"
+	QuestStatusCompleted QuestStatus = "completed"
+	QuestStatusFailed    QuestStatus = "failed"
+)
+
+func (e *QuestStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = QuestStatus(s)
+	case string:
+		*e = QuestStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for QuestStatus: %T", src)
+	}
+	return nil
+}
+
+type NullQuestStatus struct {
+	QuestStatus QuestStatus `json:"quest_status"`
+	Valid       bool        `json:"valid"` // Valid is true if QuestStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullQuestStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.QuestStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.QuestStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullQuestStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.QuestStatus), nil
+}
+
+type RewardType string
+
+const (
+	RewardTypeGold       RewardType = "gold"
+	RewardTypeItem       RewardType = "item"
+	RewardTypeXp         RewardType = "xp"
+	RewardTypeReputation RewardType = "reputation"
+	RewardTypeOther      RewardType = "other"
+)
+
+func (e *RewardType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = RewardType(s)
+	case string:
+		*e = RewardType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for RewardType: %T", src)
+	}
+	return nil
+}
+
+type NullRewardType struct {
+	RewardType RewardType `json:"reward_type"`
+	Valid      bool       `json:"valid"` // Valid is true if RewardType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullRewardType) Scan(value interface{}) error {
+	if value == nil {
+		ns.RewardType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.RewardType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullRewardType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.RewardType), nil
+}
+
 type Campaign struct {
 	ID          uuid.UUID          `json:"id"`
 	Name        string             `json:"name"`
 	OwnerUserID uuid.UUID          `json:"owner_user_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	InviteCode  string             `json:"invite_code"`
 }
 
 type Membership struct {
@@ -66,6 +201,34 @@ type Membership struct {
 	CampaignID uuid.UUID          `json:"campaign_id"`
 	Role       MembershipRole     `json:"role"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type Quest struct {
+	ID          uuid.UUID          `json:"id"`
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	Title       string             `json:"title"`
+	Description string             `json:"description"`
+	Giver       *string            `json:"giver"`
+	Location    *string            `json:"location"`
+	Difficulty  QuestDifficulty    `json:"difficulty"`
+	Status      QuestStatus        `json:"status"`
+	CreatedBy   uuid.UUID          `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type QuestClaim struct {
+	QuestID   uuid.UUID          `json:"quest_id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	ClaimedAt pgtype.Timestamptz `json:"claimed_at"`
+}
+
+type QuestReward struct {
+	ID      uuid.UUID  `json:"id"`
+	QuestID uuid.UUID  `json:"quest_id"`
+	Type    RewardType `json:"type"`
+	Label   string     `json:"label"`
+	Value   *string    `json:"value"`
 }
 
 type Session struct {

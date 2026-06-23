@@ -4,8 +4,9 @@ A self-hosted web app for running D&D campaigns: a **tavern quest board** (playe
 browse quests + rewards and claim them) and a **character builder** with two custom
 skill-tree systems, using 2024 (5.5e) rules.
 
-> Status: **Phase 0 complete** — scaffolding, auth, DB, codegen, and the deployable
-> container are in place. Phase 1 (the quest board) is next.
+> Status: **Phase 1 in progress** — the tavern quest board is built (DM authors
+> quests + rewards, players join via invite code and self-claim). Phase 0
+> foundations (auth, DB, codegen, deployable container) are in place.
 
 ## Stack
 

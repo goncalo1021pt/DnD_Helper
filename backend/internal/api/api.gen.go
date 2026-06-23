@@ -18,6 +18,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -37,6 +38,84 @@ func (e HealthStatus) Valid() bool {
 	case Degraded:
 		return true
 	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QuestDifficulty.
+const (
+	Deadly  QuestDifficulty = "deadly"
+	Easy    QuestDifficulty = "easy"
+	Hard    QuestDifficulty = "hard"
+	Medium  QuestDifficulty = "medium"
+	Trivial QuestDifficulty = "trivial"
+)
+
+// Valid indicates whether the value is a known member of the QuestDifficulty enum.
+func (e QuestDifficulty) Valid() bool {
+	switch e {
+	case Deadly:
+		return true
+	case Easy:
+		return true
+	case Hard:
+		return true
+	case Medium:
+		return true
+	case Trivial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QuestStatus.
+const (
+	Active    QuestStatus = "active"
+	Available QuestStatus = "available"
+	Completed QuestStatus = "completed"
+	Failed    QuestStatus = "failed"
+)
+
+// Valid indicates whether the value is a known member of the QuestStatus enum.
+func (e QuestStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Available:
+		return true
+	case Completed:
+		return true
+	case Failed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RewardType.
+const (
+	Gold       RewardType = "gold"
+	Item       RewardType = "item"
+	Other      RewardType = "other"
+	Reputation RewardType = "reputation"
+	Xp         RewardType = "xp"
+)
+
+// Valid indicates whether the value is a known member of the RewardType enum.
+func (e RewardType) Valid() bool {
+	switch e {
+	case Gold:
+		return true
+	case Item:
+		return true
+	case Other:
+		return true
+	case Reputation:
+		return true
+	case Xp:
 		return true
 	default:
 		return false
@@ -63,8 +142,11 @@ func (e Role) Valid() bool {
 
 // Campaign defines model for Campaign.
 type Campaign struct {
-	CreatedAt   time.Time          `json:"createdAt"`
-	Id          openapi_types.UUID `json:"id"`
+	CreatedAt time.Time          `json:"createdAt"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// InviteCode Shareable code players use to join the campaign.
+	InviteCode  string             `json:"inviteCode"`
 	Name        string             `json:"name"`
 	OwnerUserId openapi_types.UUID `json:"ownerUserId"`
 }
@@ -78,6 +160,16 @@ type CampaignMembership struct {
 // CreateCampaignRequest defines model for CreateCampaignRequest.
 type CreateCampaignRequest struct {
 	Name string `json:"name"`
+}
+
+// CreateQuestRequest defines model for CreateQuestRequest.
+type CreateQuestRequest struct {
+	Description *string          `json:"description,omitempty"`
+	Difficulty  *QuestDifficulty `json:"difficulty,omitempty"`
+	Giver       *string          `json:"giver,omitempty"`
+	Location    *string          `json:"location,omitempty"`
+	Rewards     *[]RewardInput   `json:"rewards,omitempty"`
+	Title       string           `json:"title"`
 }
 
 // CurrentUser defines model for CurrentUser.
@@ -99,8 +191,71 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// JoinCampaignRequest defines model for JoinCampaignRequest.
+type JoinCampaignRequest struct {
+	Code string `json:"code"`
+}
+
+// Quest defines model for Quest.
+type Quest struct {
+	CampaignId  openapi_types.UUID `json:"campaignId"`
+	ClaimedByMe bool               `json:"claimedByMe"`
+	Claims      []QuestClaim       `json:"claims"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	Description string             `json:"description"`
+	Difficulty  QuestDifficulty    `json:"difficulty"`
+	Giver       *string            `json:"giver,omitempty"`
+	Id          openapi_types.UUID `json:"id"`
+	Location    *string            `json:"location,omitempty"`
+	Rewards     []QuestReward      `json:"rewards"`
+	Status      QuestStatus        `json:"status"`
+	Title       string             `json:"title"`
+}
+
+// QuestClaim defines model for QuestClaim.
+type QuestClaim struct {
+	ClaimedAt time.Time          `json:"claimedAt"`
+	UserId    openapi_types.UUID `json:"userId"`
+	UserName  string             `json:"userName"`
+}
+
+// QuestDifficulty defines model for QuestDifficulty.
+type QuestDifficulty string
+
+// QuestReward defines model for QuestReward.
+type QuestReward struct {
+	Id    openapi_types.UUID `json:"id"`
+	Label string             `json:"label"`
+	Type  RewardType         `json:"type"`
+	Value *string            `json:"value,omitempty"`
+}
+
+// QuestStatus defines model for QuestStatus.
+type QuestStatus string
+
+// RewardInput defines model for RewardInput.
+type RewardInput struct {
+	Label string     `json:"label"`
+	Type  RewardType `json:"type"`
+	Value *string    `json:"value,omitempty"`
+}
+
+// RewardType defines model for RewardType.
+type RewardType string
+
 // Role defines model for Role.
 type Role string
+
+// UpdateQuestRequest defines model for UpdateQuestRequest.
+type UpdateQuestRequest struct {
+	Description *string         `json:"description,omitempty"`
+	Difficulty  QuestDifficulty `json:"difficulty"`
+	Giver       *string         `json:"giver,omitempty"`
+	Location    *string         `json:"location,omitempty"`
+	Rewards     *[]RewardInput  `json:"rewards,omitempty"`
+	Status      QuestStatus     `json:"status"`
+	Title       string          `json:"title"`
+}
 
 // User defines model for User.
 type User struct {
@@ -110,8 +265,20 @@ type User struct {
 	Name  string             `json:"name"`
 }
 
+// CampaignId defines model for CampaignId.
+type CampaignId = openapi_types.UUID
+
+// QuestId defines model for QuestId.
+type QuestId = openapi_types.UUID
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
@@ -122,6 +289,15 @@ type sessionCookieContextKey string
 // CreateCampaignJSONRequestBody defines body for CreateCampaign for application/json ContentType.
 type CreateCampaignJSONRequestBody = CreateCampaignRequest
 
+// JoinCampaignJSONRequestBody defines body for JoinCampaign for application/json ContentType.
+type JoinCampaignJSONRequestBody = JoinCampaignRequest
+
+// CreateQuestJSONRequestBody defines body for CreateQuest for application/json ContentType.
+type CreateQuestJSONRequestBody = CreateQuestRequest
+
+// UpdateQuestJSONRequestBody defines body for UpdateQuest for application/json ContentType.
+type UpdateQuestJSONRequestBody = UpdateQuestRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Campaigns the current user belongs to
@@ -130,12 +306,36 @@ type ServerInterface interface {
 	// Create a campaign (caller becomes its DM)
 	// (POST /campaigns)
 	CreateCampaign(w http.ResponseWriter, r *http.Request)
+	// Join a campaign as a player using its invite code
+	// (POST /campaigns/join)
+	JoinCampaign(w http.ResponseWriter, r *http.Request)
+	// List quests on a campaign's board (members only)
+	// (GET /campaigns/{campaignId}/quests)
+	ListQuests(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Post a new quest (DM only)
+	// (POST /campaigns/{campaignId}/quests)
+	CreateQuest(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Generate a fresh invite code (DM only)
+	// (POST /campaigns/{campaignId}/regenerate-invite)
+	RegenerateInvite(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
 	// The currently authenticated user and their campaign memberships
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request)
+	// Remove a quest (DM only)
+	// (DELETE /quests/{questId})
+	DeleteQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
+	// Update a quest, including its status and rewards (DM only)
+	// (PATCH /quests/{questId})
+	UpdateQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
+	// Release a previously claimed quest
+	// (DELETE /quests/{questId}/claim)
+	UnclaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
+	// Claim a quest (any campaign member)
+	// (POST /quests/{questId}/claim)
+	ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -154,6 +354,30 @@ func (_ Unimplemented) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Join a campaign as a player using its invite code
+// (POST /campaigns/join)
+func (_ Unimplemented) JoinCampaign(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// List quests on a campaign's board (members only)
+// (GET /campaigns/{campaignId}/quests)
+func (_ Unimplemented) ListQuests(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Post a new quest (DM only)
+// (POST /campaigns/{campaignId}/quests)
+func (_ Unimplemented) CreateQuest(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Generate a fresh invite code (DM only)
+// (POST /campaigns/{campaignId}/regenerate-invite)
+func (_ Unimplemented) RegenerateInvite(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Liveness / readiness probe
 // (GET /health)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +387,30 @@ func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
 // The currently authenticated user and their campaign memberships
 // (GET /me)
 func (_ Unimplemented) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a quest (DM only)
+// (DELETE /quests/{questId})
+func (_ Unimplemented) DeleteQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a quest, including its status and rewards (DM only)
+// (PATCH /quests/{questId})
+func (_ Unimplemented) UpdateQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Release a previously claimed quest
+// (DELETE /quests/{questId}/claim)
+func (_ Unimplemented) UnclaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Claim a quest (any campaign member)
+// (POST /quests/{questId}/claim)
+func (_ Unimplemented) ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -215,6 +463,122 @@ func (siw *ServerInterfaceWrapper) CreateCampaign(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// JoinCampaign operation middleware
+func (siw *ServerInterfaceWrapper) JoinCampaign(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.JoinCampaign(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListQuests operation middleware
+func (siw *ServerInterfaceWrapper) ListQuests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListQuests(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateQuest operation middleware
+func (siw *ServerInterfaceWrapper) CreateQuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateQuest(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RegenerateInvite operation middleware
+func (siw *ServerInterfaceWrapper) RegenerateInvite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RegenerateInvite(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -240,6 +604,134 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteQuest operation middleware
+func (siw *ServerInterfaceWrapper) DeleteQuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "questId" -------------
+	var questId QuestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "questId", chi.URLParam(r, "questId"), &questId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "questId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteQuest(w, r, questId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateQuest operation middleware
+func (siw *ServerInterfaceWrapper) UpdateQuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "questId" -------------
+	var questId QuestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "questId", chi.URLParam(r, "questId"), &questId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "questId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateQuest(w, r, questId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnclaimQuest operation middleware
+func (siw *ServerInterfaceWrapper) UnclaimQuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "questId" -------------
+	var questId QuestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "questId", chi.URLParam(r, "questId"), &questId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "questId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnclaimQuest(w, r, questId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClaimQuest operation middleware
+func (siw *ServerInterfaceWrapper) ClaimQuest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "questId" -------------
+	var questId QuestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "questId", chi.URLParam(r, "questId"), &questId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "questId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClaimQuest(w, r, questId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -369,16 +861,44 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/campaigns", wrapper.CreateCampaign)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/join", wrapper.JoinCampaign)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/quests", wrapper.ListQuests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/quests", wrapper.CreateQuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/regenerate-invite", wrapper.RegenerateInvite)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.GetHealth)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me", wrapper.GetCurrentUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/quests/{questId}", wrapper.DeleteQuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/quests/{questId}", wrapper.UpdateQuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/quests/{questId}/claim", wrapper.UnclaimQuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/quests/{questId}/claim", wrapper.ClaimQuest)
 	})
 
 	return r
 }
 
 type BadRequestJSONResponse Error
+
+type ForbiddenJSONResponse Error
+
+type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
 
@@ -467,6 +987,249 @@ func (response CreateCampaign401JSONResponse) VisitCreateCampaignResponse(w http
 	return err
 }
 
+type JoinCampaignRequestObject struct {
+	Body *JoinCampaignJSONRequestBody
+}
+
+type JoinCampaignResponseObject interface {
+	VisitJoinCampaignResponse(w http.ResponseWriter) error
+}
+
+type JoinCampaign200JSONResponse CampaignMembership
+
+func (response JoinCampaign200JSONResponse) VisitJoinCampaignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinCampaign400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response JoinCampaign400JSONResponse) VisitJoinCampaignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinCampaign401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response JoinCampaign401JSONResponse) VisitJoinCampaignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type JoinCampaign404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response JoinCampaign404JSONResponse) VisitJoinCampaignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListQuestsRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type ListQuestsResponseObject interface {
+	VisitListQuestsResponse(w http.ResponseWriter) error
+}
+
+type ListQuests200JSONResponse []Quest
+
+func (response ListQuests200JSONResponse) VisitListQuestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListQuests401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListQuests401JSONResponse) VisitListQuestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListQuests403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListQuests403JSONResponse) VisitListQuestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateQuestRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *CreateQuestJSONRequestBody
+}
+
+type CreateQuestResponseObject interface {
+	VisitCreateQuestResponse(w http.ResponseWriter) error
+}
+
+type CreateQuest201JSONResponse Quest
+
+func (response CreateQuest201JSONResponse) VisitCreateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateQuest400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateQuest400JSONResponse) VisitCreateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateQuest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateQuest401JSONResponse) VisitCreateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateQuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateQuest403JSONResponse) VisitCreateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RegenerateInviteRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type RegenerateInviteResponseObject interface {
+	VisitRegenerateInviteResponse(w http.ResponseWriter) error
+}
+
+type RegenerateInvite200JSONResponse Campaign
+
+func (response RegenerateInvite200JSONResponse) VisitRegenerateInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RegenerateInvite401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RegenerateInvite401JSONResponse) VisitRegenerateInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RegenerateInvite403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RegenerateInvite403JSONResponse) VisitRegenerateInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RegenerateInvite404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RegenerateInvite404JSONResponse) VisitRegenerateInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthRequestObject struct {
 }
 
@@ -537,6 +1300,271 @@ func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http
 	return err
 }
 
+type DeleteQuestRequestObject struct {
+	QuestId QuestId `json:"questId"`
+}
+
+type DeleteQuestResponseObject interface {
+	VisitDeleteQuestResponse(w http.ResponseWriter) error
+}
+
+type DeleteQuest204Response struct {
+}
+
+func (response DeleteQuest204Response) VisitDeleteQuestResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteQuest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteQuest401JSONResponse) VisitDeleteQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteQuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteQuest403JSONResponse) VisitDeleteQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteQuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteQuest404JSONResponse) VisitDeleteQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateQuestRequestObject struct {
+	QuestId QuestId `json:"questId"`
+	Body    *UpdateQuestJSONRequestBody
+}
+
+type UpdateQuestResponseObject interface {
+	VisitUpdateQuestResponse(w http.ResponseWriter) error
+}
+
+type UpdateQuest200JSONResponse Quest
+
+func (response UpdateQuest200JSONResponse) VisitUpdateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateQuest400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateQuest400JSONResponse) VisitUpdateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateQuest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateQuest401JSONResponse) VisitUpdateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateQuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateQuest403JSONResponse) VisitUpdateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateQuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateQuest404JSONResponse) VisitUpdateQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnclaimQuestRequestObject struct {
+	QuestId QuestId `json:"questId"`
+}
+
+type UnclaimQuestResponseObject interface {
+	VisitUnclaimQuestResponse(w http.ResponseWriter) error
+}
+
+type UnclaimQuest200JSONResponse Quest
+
+func (response UnclaimQuest200JSONResponse) VisitUnclaimQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnclaimQuest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UnclaimQuest401JSONResponse) VisitUnclaimQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnclaimQuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UnclaimQuest403JSONResponse) VisitUnclaimQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnclaimQuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UnclaimQuest404JSONResponse) VisitUnclaimQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClaimQuestRequestObject struct {
+	QuestId QuestId `json:"questId"`
+}
+
+type ClaimQuestResponseObject interface {
+	VisitClaimQuestResponse(w http.ResponseWriter) error
+}
+
+type ClaimQuest200JSONResponse Quest
+
+func (response ClaimQuest200JSONResponse) VisitClaimQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClaimQuest401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ClaimQuest401JSONResponse) VisitClaimQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClaimQuest403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ClaimQuest403JSONResponse) VisitClaimQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClaimQuest404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ClaimQuest404JSONResponse) VisitClaimQuestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Campaigns the current user belongs to
@@ -545,12 +1573,36 @@ type StrictServerInterface interface {
 	// Create a campaign (caller becomes its DM)
 	// (POST /campaigns)
 	CreateCampaign(ctx context.Context, request CreateCampaignRequestObject) (CreateCampaignResponseObject, error)
+	// Join a campaign as a player using its invite code
+	// (POST /campaigns/join)
+	JoinCampaign(ctx context.Context, request JoinCampaignRequestObject) (JoinCampaignResponseObject, error)
+	// List quests on a campaign's board (members only)
+	// (GET /campaigns/{campaignId}/quests)
+	ListQuests(ctx context.Context, request ListQuestsRequestObject) (ListQuestsResponseObject, error)
+	// Post a new quest (DM only)
+	// (POST /campaigns/{campaignId}/quests)
+	CreateQuest(ctx context.Context, request CreateQuestRequestObject) (CreateQuestResponseObject, error)
+	// Generate a fresh invite code (DM only)
+	// (POST /campaigns/{campaignId}/regenerate-invite)
+	RegenerateInvite(ctx context.Context, request RegenerateInviteRequestObject) (RegenerateInviteResponseObject, error)
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
 	// The currently authenticated user and their campaign memberships
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// Remove a quest (DM only)
+	// (DELETE /quests/{questId})
+	DeleteQuest(ctx context.Context, request DeleteQuestRequestObject) (DeleteQuestResponseObject, error)
+	// Update a quest, including its status and rewards (DM only)
+	// (PATCH /quests/{questId})
+	UpdateQuest(ctx context.Context, request UpdateQuestRequestObject) (UpdateQuestResponseObject, error)
+	// Release a previously claimed quest
+	// (DELETE /quests/{questId}/claim)
+	UnclaimQuest(ctx context.Context, request UnclaimQuestRequestObject) (UnclaimQuestResponseObject, error)
+	// Claim a quest (any campaign member)
+	// (POST /quests/{questId}/claim)
+	ClaimQuest(ctx context.Context, request ClaimQuestRequestObject) (ClaimQuestResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -637,6 +1689,122 @@ func (sh *strictHandler) CreateCampaign(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// JoinCampaign operation middleware
+func (sh *strictHandler) JoinCampaign(w http.ResponseWriter, r *http.Request) {
+	var request JoinCampaignRequestObject
+
+	var body JoinCampaignJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.JoinCampaign(ctx, request.(JoinCampaignRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "JoinCampaign")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(JoinCampaignResponseObject); ok {
+		if err := validResponse.VisitJoinCampaignResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListQuests operation middleware
+func (sh *strictHandler) ListQuests(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request ListQuestsRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListQuests(ctx, request.(ListQuestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListQuests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListQuestsResponseObject); ok {
+		if err := validResponse.VisitListQuestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateQuest operation middleware
+func (sh *strictHandler) CreateQuest(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request CreateQuestRequestObject
+
+	request.CampaignId = campaignId
+
+	var body CreateQuestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateQuest(ctx, request.(CreateQuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateQuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateQuestResponseObject); ok {
+		if err := validResponse.VisitCreateQuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RegenerateInvite operation middleware
+func (sh *strictHandler) RegenerateInvite(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request RegenerateInviteRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RegenerateInvite(ctx, request.(RegenerateInviteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RegenerateInvite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RegenerateInviteResponseObject); ok {
+		if err := validResponse.VisitRegenerateInviteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthRequestObject
@@ -685,28 +1853,155 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// DeleteQuest operation middleware
+func (sh *strictHandler) DeleteQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	var request DeleteQuestRequestObject
+
+	request.QuestId = questId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteQuest(ctx, request.(DeleteQuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteQuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteQuestResponseObject); ok {
+		if err := validResponse.VisitDeleteQuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateQuest operation middleware
+func (sh *strictHandler) UpdateQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	var request UpdateQuestRequestObject
+
+	request.QuestId = questId
+
+	var body UpdateQuestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateQuest(ctx, request.(UpdateQuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateQuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateQuestResponseObject); ok {
+		if err := validResponse.VisitUpdateQuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnclaimQuest operation middleware
+func (sh *strictHandler) UnclaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	var request UnclaimQuestRequestObject
+
+	request.QuestId = questId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnclaimQuest(ctx, request.(UnclaimQuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnclaimQuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnclaimQuestResponseObject); ok {
+		if err := validResponse.VisitUnclaimQuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClaimQuest operation middleware
+func (sh *strictHandler) ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	var request ClaimQuestRequestObject
+
+	request.QuestId = questId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClaimQuest(ctx, request.(ClaimQuestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClaimQuest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClaimQuestResponseObject); ok {
+		if err := validResponse.VisitClaimQuestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"jOHF/eL/AQAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
