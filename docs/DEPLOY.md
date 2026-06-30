@@ -104,6 +104,52 @@ docker compose --profile full down               # stop (keeps the pgdata volume
 docker compose exec postgres pg_dump -U questboard questboard > backup-$(date +%F).sql
 ```
 
+## Running a separate test environment (staging)
+
+Run a **second, fully isolated stack** on the same server to test before prod.
+Each stack is a separate Compose project, so its containers, network, and database
+volume are independent — you can wipe/seed staging with zero risk to prod data.
+
+```
+prod  clone  ~/DnD_Helper          → https://dnd.fontao.net       (tracks main)
+test  clone  ~/DnD_Helper-staging  → https://dnd-test.fontao.net  (any branch)
+```
+
+### One-time setup
+1. **Clone again** into a second directory:
+   ```bash
+   git clone <repo> ~/DnD_Helper-staging
+   ```
+2. **Second Cloudflare tunnel**: in the dashboard create another tunnel for
+   `dnd-test.fontao.net`, route its public hostname → `http://app:8080`, copy its
+   token.
+3. **OAuth**: add the staging redirect URLs to the *same* Discord/Google apps
+   (they allow multiple redirect URIs):
+   `https://dnd-test.fontao.net/api/auth/discord/callback` (and `/google/...`).
+4. **`.env`** in `~/DnD_Helper-staging` — the keys that MUST differ from prod:
+   ```ini
+   COMPOSE_PROJECT_NAME=questboard-staging   # isolates containers + DB volume
+   BASE_URL=https://dnd-test.fontao.net
+   TUNNEL_TOKEN=<staging tunnel token>
+   APP_HOST_PORT=8081                        # distinct host ports so the two
+   POSTGRES_HOST_PORT=5433                   # stacks never collide
+   SESSION_KEY=<its own openssl rand -base64 32>
+   # APP_ENV can stay 'development' on staging for the dev-login shortcut, or
+   # 'production' to mirror prod exactly.
+   ```
+
+### Deploy / promote workflow
+```bash
+# test a branch on staging
+cd ~/DnD_Helper-staging && git fetch && git checkout <branch> && make deploy
+#   → verify at https://dnd-test.fontao.net
+
+# once merged to main, promote to prod
+cd ~/DnD_Helper && git pull && make deploy
+```
+Prod only ever runs reviewed `main`; staging is where branches get tried first.
+`make down` / `make logs` run from inside a clone only affect that environment.
+
 ## Troubleshooting
 - **502 / tunnel can't reach app**: ensure the public hostname service is exactly
   `http://app:8080`, and `docker compose --profile full ps` shows `app` healthy.
