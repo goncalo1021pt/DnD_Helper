@@ -32,7 +32,7 @@ services:
       APP_ENV: ${APP_ENV:-production}
       APP_ADDR: ":8080"
       BASE_URL: ${BASE_URL:-http://localhost:8080}
-      SESSION_KEY: ${SESSION_KEY:?set SESSION_KEY in .env}
+      SESSION_KEY: ${SESSION_KEY:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-questboard}:${POSTGRES_PASSWORD:-questboard}@postgres:5432/${POSTGRES_DB:-questboard}?sslmode=disable
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
@@ -53,7 +53,10 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+    # TUNNEL_TOKEN is validated by cloudflared at runtime. We avoid the compose
+    # ${VAR:?} form because it errors during global interpolation and would block
+    # unrelated commands like `docker compose up postgres` when it's unset.
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN:-}
     depends_on:
       - app
     profiles:
