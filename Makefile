@@ -4,7 +4,7 @@
 GOBIN := $(shell go env GOPATH)/bin
 STATIC := backend/internal/static
 
-.PHONY: help generate gen-backend gen-frontend frontend embed backend build run deploy down restart ps logs dev-server tools clean
+.PHONY: help generate gen-backend gen-frontend frontend embed backend build run test prod deploy down restart ps logs dev-server tools clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -41,8 +41,17 @@ build: embed backend ## Full production build: SPA -> embed -> single Go binary
 run: ## Run the server from source (uses .env)
 	cd backend && go run ./cmd/server
 
-deploy: ## Build & start the full production stack (app + postgres + cloudflared)
+test: ## Run the WHOLE app locally in containers at http://localhost:8080 (no tunnel)
+	APP_ENV=development BASE_URL=http://localhost:8080 \
+		docker compose --profile full up -d --build postgres app
+	@echo ""
+	@echo "  ▶ Quest Board running at http://localhost:8080  (dev login enabled)"
+	@echo "    logs: make logs S=app   ·   stop: make down"
+
+prod: ## Build & start the full PRODUCTION stack (app + postgres + cloudflared)
 	docker compose --profile full up -d --build
+
+deploy: prod ## Alias for 'prod'
 
 down: ## Stop & remove the stack (keeps the pgdata volume)
 	docker compose --profile full down

@@ -1,13 +1,25 @@
 import { useState } from "react";
+import { useAuthConfig } from "../hooks";
 
 // Full-page redirect to the backend OAuth flow.
 function providerLogin(provider: string) {
   window.location.href = `/api/auth/${provider}/login`;
 }
 
+const PROVIDER_META: Record<string, { label: string; className: string }> = {
+  discord: { label: "Sign in with Discord", className: "bg-[#5865F2] text-white" },
+  google: {
+    label: "Sign in with Google",
+    className: "bg-white text-ink border border-ink/20",
+  },
+};
+
 export default function LoginScreen() {
+  const { data: config } = useAuthConfig();
   const [devName, setDevName] = useState("");
-  const isDev = import.meta.env.DEV;
+
+  const providers = config?.providers ?? [];
+  const devLogin = config?.devLogin ?? false;
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -16,21 +28,29 @@ export default function LoginScreen() {
         <p className="text-ink/70 mb-8">Sign in to view the board.</p>
 
         <div className="space-y-3">
-          <button
-            onClick={() => providerLogin("discord")}
-            className="w-full rounded-lg bg-[#5865F2] text-white font-semibold py-3 hover:opacity-90 transition"
-          >
-            Sign in with Discord
-          </button>
-          <button
-            onClick={() => providerLogin("google")}
-            className="w-full rounded-lg bg-white text-ink font-semibold py-3 border border-ink/20 hover:bg-ink/5 transition"
-          >
-            Sign in with Google
-          </button>
+          {providers.map((p) => {
+            const meta = PROVIDER_META[p] ?? {
+              label: `Sign in with ${p}`,
+              className: "bg-wood text-parchment",
+            };
+            return (
+              <button
+                key={p}
+                onClick={() => providerLogin(p)}
+                className={`w-full rounded-lg font-semibold py-3 hover:opacity-90 transition ${meta.className}`}
+              >
+                {meta.label}
+              </button>
+            );
+          })}
+          {config && providers.length === 0 && !devLogin && (
+            <p className="text-sm text-ink/60">
+              No login methods are configured yet.
+            </p>
+          )}
         </div>
 
-        {isDev && (
+        {devLogin && (
           <div className="mt-8 pt-6 border-t border-ink/15 text-left">
             <p className="text-xs uppercase tracking-wide text-ink/50 mb-2">
               Dev login

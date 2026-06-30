@@ -2,6 +2,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api/client";
 import type { CreateQuestInput, UpdateQuestInput } from "./api/client";
 
+export interface AuthConfig {
+  devLogin: boolean;
+  providers: string[];
+}
+
+// Public endpoint describing which login options the backend actually offers.
+// Lets a static SPA build render the right buttons (the build flag can't know
+// the backend's mode). Lives outside the OpenAPI surface (auth routes).
+export function useAuthConfig() {
+  return useQuery({
+    queryKey: ["auth-config"],
+    queryFn: async (): Promise<AuthConfig> => {
+      const res = await fetch("/api/auth/config");
+      if (!res.ok) throw new Error("failed to load auth config");
+      return res.json();
+    },
+  });
+}
+
 // Current user (or null when unauthenticated). A 401 is an expected, non-error
 // state for the login gate.
 export function useCurrentUser() {
