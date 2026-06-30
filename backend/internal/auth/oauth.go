@@ -3,7 +3,9 @@ package auth
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
+	"sort"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -56,6 +58,10 @@ func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled bool) *OAu
 
 // Routes mounts /auth/{provider}/login, /auth/{provider}/callback and /auth/logout.
 func (o *OAuth) Routes(r chi.Router) {
+	// Public: lets the login screen render the right options (which providers are
+	// configured, and whether the dev-login shortcut is available). The frontend
+	// is a static build, so it can't know the backend's mode without asking.
+	r.Get("/config", o.config)
 	r.Post("/logout", o.logout)
 	if o.devEnabled {
 		// Dev-only login shortcut (no real OAuth provider required).
@@ -63,6 +69,21 @@ func (o *OAuth) Routes(r chi.Router) {
 	}
 	r.Get("/{provider}/login", o.login)
 	r.Get("/{provider}/callback", o.callback)
+}
+
+// config reports the available auth options to the frontend.
+func (o *OAuth) config(w http.ResponseWriter, r *http.Request) {
+	providers := make([]string, 0, len(goth.GetProviders()))
+	for name := range goth.GetProviders() {
+		providers = append(providers, name)
+	}
+	sort.Strings(providers)
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"devLogin":  o.devEnabled,
+		"providers": providers,
+	})
 }
 
 func (o *OAuth) login(w http.ResponseWriter, r *http.Request) {
