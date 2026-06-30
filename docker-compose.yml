@@ -5,8 +5,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-questboard}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-questboard}
       POSTGRES_DB: ${POSTGRES_DB:-questboard}
+    # Host publish is only for local dev / direct LAN access. The app reaches
+    # postgres over the internal network, so this is not needed for the tunnel.
+    # Set POSTGRES_HOST_PORT to a free host port if 5432 is taken.
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -35,10 +38,11 @@ services:
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-    # Optional: expose on the LAN too. Not required when only the tunnel serves
-    # traffic (cloudflared reaches the app over the internal network).
+    # Optional LAN access. NOT required for the tunnel (cloudflared reaches the
+    # app over the internal network at app:8080 regardless of this mapping).
+    # Override APP_HOST_PORT to avoid conflicts with other apps on the host.
     ports:
-      - "8080:8080"
+      - "${APP_HOST_PORT:-8080}:8080"
     profiles:
       - full
 
