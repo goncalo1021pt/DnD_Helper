@@ -1,0 +1,358 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+<title>Skeleton Crest — Emblem Concepts</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --hearth-0: #140b06;
+    --hearth-1: #241408;
+    --hearth-2: #4a2a12;
+    --gold: #e7bd6a;
+    --gold-dim: #a87f3a;
+    --gold-hair: rgba(201, 162, 39, 0.3);
+    --cream: #f3e6c8;
+    --cream-soft: #cdba93;
+    --cream-mute: #a8967a;
+    --wax: #8b2520;
+    --serif: Georgia, "Times New Roman", serif;
+  }
+  html {
+    background: radial-gradient(120% 90% at 50% 115%, var(--hearth-2) 0%, var(--hearth-1) 40%, var(--hearth-0) 80%) fixed;
+  }
+  body {
+    margin: 0;
+    font-family: var(--serif);
+    color: var(--cream);
+    padding: 48px 24px 64px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  .eyebrow {
+    font-style: italic;
+    letter-spacing: 0.16em;
+    color: #c89a5a;
+    font-size: 15px;
+    text-align: center;
+  }
+  h1 {
+    margin: 10px 0 8px;
+    text-align: center;
+    font-size: clamp(30px, 5vw, 44px);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #f5e9cd;
+    text-wrap: balance;
+    text-shadow: 0 2px 30px rgba(0, 0, 0, 0.55);
+  }
+  .intro {
+    margin: 0 auto 40px;
+    max-width: 58ch;
+    text-align: center;
+    color: var(--cream-soft);
+    font-size: 16.5px;
+    line-height: 1.6;
+  }
+  .intro strong { color: var(--gold); font-weight: 600; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 26px;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(46, 30, 16, 0.7), rgba(28, 18, 10, 0.7));
+    box-shadow: inset 0 0 0 1px var(--gold-hair), 0 18px 40px rgba(0, 0, 0, 0.4);
+    padding: 26px 26px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .card-name { display: flex; align-items: baseline; gap: 12px; }
+  .letter {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: #2a1705;
+    background: linear-gradient(180deg, #e8b85a, #b07d22);
+    padding: 3px 9px 2px 11px;
+    clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+  }
+  h2 { margin: 0; font-size: 21px; font-weight: 700; letter-spacing: 0.03em; color: #f0e3c5; }
+  .wired {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8fb15f;
+    white-space: nowrap;
+  }
+  .blurb { margin: -8px 0 0; color: var(--cream-mute); font-size: 14.5px; line-height: 1.55; font-style: italic; }
+
+  .stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 26px 0 18px;
+    background: radial-gradient(70% 80% at 50% 30%, rgba(245, 165, 70, 0.14), transparent 70%);
+  }
+  .stage svg { color: var(--gold); filter: drop-shadow(0 0 22px rgba(224, 169, 78, 0.45)); }
+
+  .contexts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ctx {
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 78px;
+  }
+  .ctx-label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold-dim);
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .ctx-dark { background: rgba(16, 9, 5, 0.62); box-shadow: inset 0 0 0 1px var(--gold-hair); color: #e0a94e; }
+  .ctx-dark .lockup { line-height: 1.05; }
+  .ctx-dark .lockup .name { font-weight: 700; font-size: 15px; letter-spacing: 0.06em; color: var(--cream); }
+  .ctx-dark .lockup .est { font-style: italic; font-size: 9.5px; letter-spacing: 0.2em; color: #a98a5a; margin-top: 3px; }
+  .ctx-sizes { background: rgba(16, 9, 5, 0.62); box-shadow: inset 0 0 0 1px var(--gold-hair); color: var(--gold-dim); gap: 14px; }
+  .ctx-ox {
+    background: radial-gradient(80% 70% at 50% 36%, #6a2018, #3a120d 60%, #240a07 100%);
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6), inset 0 0 0 1px var(--gold-hair);
+    color: var(--gold);
+  }
+  .ctx-parch {
+    background: linear-gradient(150deg, #efe3c6, #dcc69d);
+    box-shadow: inset 0 0 24px rgba(150, 110, 60, 0.15);
+    color: var(--wax);
+  }
+
+  .foot {
+    margin-top: 44px;
+    text-align: center;
+    color: var(--cream-mute);
+    font-size: 14.5px;
+    font-style: italic;
+  }
+  .foot .divider {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    max-width: 560px;
+    margin: 0 auto 18px;
+  }
+  .foot .divider span { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(201, 162, 39, 0.45)); }
+  .foot .divider span:last-child { background: linear-gradient(90deg, rgba(201, 162, 39, 0.45), transparent); }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- shared skull: cranium + jaw (fill = currentColor), dark features -->
+    <g id="skull-core">
+      <path d="M60 45 C49.5 45 43 52 43 60.5 C43 66 45.5 70 49.5 72.5 L49.5 79 L70.5 79 L70.5 72.5 C74.5 70 77 66 77 60.5 C77 52 70.5 45 60 45 Z" fill="currentColor"></path>
+      <circle cx="53.5" cy="60.5" r="4.3" fill="#1c1108"></circle>
+      <circle cx="66.5" cy="60.5" r="4.3" fill="#1c1108"></circle>
+      <path d="M60 65.5 L57 71 L63 71 Z" fill="#1c1108"></path>
+      <g stroke="#1c1108" stroke-width="1.6">
+        <line x1="56.5" y1="73.5" x2="56.5" y2="78"></line>
+        <line x1="60" y1="74" x2="60" y2="79"></line>
+        <line x1="63.5" y1="73.5" x2="63.5" y2="78"></line>
+      </g>
+    </g>
+
+    <!-- A. Bounty Crest: skull shield over crossed bones -->
+    <symbol id="crest-a" viewBox="0 0 120 120">
+      <g fill="currentColor" stroke="currentColor">
+        <line x1="30" y1="32" x2="90" y2="92" stroke-width="5.5" stroke-linecap="round"></line>
+        <line x1="90" y1="32" x2="30" y2="92" stroke-width="5.5" stroke-linecap="round"></line>
+        <circle cx="26.2" cy="33" r="3.2" stroke="none"></circle><circle cx="31" cy="28.2" r="3.2" stroke="none"></circle>
+        <circle cx="89" cy="95.8" r="3.2" stroke="none"></circle><circle cx="93.8" cy="91" r="3.2" stroke="none"></circle>
+        <circle cx="89" cy="28.2" r="3.2" stroke="none"></circle><circle cx="93.8" cy="33" r="3.2" stroke="none"></circle>
+        <circle cx="26.2" cy="91" r="3.2" stroke="none"></circle><circle cx="31" cy="95.8" r="3.2" stroke="none"></circle>
+      </g>
+      <path d="M60 28 L86 38 V60 C86 80 75 91 60 98 C45 91 34 80 34 60 V38 Z" fill="#1c1108" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round"></path>
+      <use href="#skull-core"></use>
+    </symbol>
+
+    <!-- B. Crowned Seal: lich-king skull in a double seal ring -->
+    <symbol id="crest-b" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="45" fill="none" stroke="currentColor" stroke-width="3"></circle>
+      <circle cx="60" cy="60" r="39" fill="#1c1108" stroke="currentColor" stroke-width="1.4"></circle>
+      <path d="M46 38 L46 28 L52.5 33.5 L60 24 L67.5 33.5 L74 28 L74 38 Z" fill="currentColor"></path>
+      <g transform="translate(60 64) scale(1.12) translate(-60 -62)">
+        <use href="#skull-core"></use>
+      </g>
+      <path d="M32 58 L34.5 62 L32 66 L29.5 62 Z" fill="currentColor"></path>
+      <path d="M88 58 L90.5 62 L88 66 L85.5 62 Z" fill="currentColor"></path>
+    </symbol>
+
+    <!-- C. Wyrm Skull: horned dragon skull, standalone mark -->
+    <symbol id="crest-c" viewBox="0 0 120 120">
+      <path d="M44 49 C35 45 28 37 26 25 C34 31 43 36 48 40 C46.5 43 45 46 44 49 Z" fill="currentColor"></path>
+      <path d="M76 49 C85 45 92 37 94 25 C86 31 77 36 72 40 C73.5 43 75 46 76 49 Z" fill="currentColor"></path>
+      <g transform="translate(60 64) scale(1.3) translate(-60 -62)">
+        <use href="#skull-core"></use>
+      </g>
+      <path d="M50 85.5 L52.5 93 L55 85.5 Z" fill="currentColor"></path>
+      <path d="M65 85.5 L67.5 93 L70 85.5 Z" fill="currentColor"></path>
+    </symbol>
+
+    <!-- D. Reaper Arms: the old crossed sword & axe, skull on the shield -->
+    <symbol id="crest-d" viewBox="0 0 120 120">
+      <g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="30" y1="95" x2="90" y2="26"></line>
+        <circle cx="28" cy="98" r="3.2" fill="currentColor" stroke="none"></circle>
+        <line x1="35" y1="84" x2="49" y2="92"></line>
+        <line x1="90" y1="96" x2="42" y2="34"></line>
+        <path d="M42 34 C33 26 26 30 27 39 C34 38 39 38 44 43 Z" fill="currentColor" stroke="none"></path>
+      </g>
+      <path d="M60 28 L86 38 V60 C86 80 75 91 60 98 C45 91 34 80 34 60 V38 Z" fill="#1c1108" stroke="currentColor" stroke-width="3.2" stroke-linejoin="round"></path>
+      <use href="#skull-core"></use>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <div class="eyebrow">Quest Board — emblem concepts</div>
+  <h1>The Skeleton Crest</h1>
+  <p class="intro">
+    Four marks, one skull. Each is shown everywhere the emblem must survive:
+    the header lockup, tiny sizes, the oxblood emblem panel, and wax-red on
+    parchment. <strong>Say the letter</strong> and it goes site-wide — the
+    swap is a one-file change.
+  </p>
+
+  <div class="grid">
+    <!-- A -->
+    <section class="card">
+      <div class="card-head">
+        <div class="card-name"><span class="letter">A</span><h2>Bounty Crest</h2></div>
+        <span class="wired">● wired in now</span>
+      </div>
+      <p class="blurb">Skull shield over crossed bones — the mark of a board that pays in gold. Classic wanted-poster heraldry.</p>
+      <div class="stage"><svg width="150" height="150"><use href="#crest-a"></use></svg></div>
+      <div>
+        <span class="ctx-label">Header lockup · small sizes</span>
+        <div class="contexts">
+          <div class="ctx ctx-dark">
+            <svg width="40" height="40"><use href="#crest-a"></use></svg>
+            <div class="lockup"><div class="name">Quest Board</div><div class="est">EST. BY THE TABLE</div></div>
+          </div>
+          <div class="ctx ctx-sizes">
+            <svg width="46" height="46"><use href="#crest-a"></use></svg>
+            <svg width="30" height="30"><use href="#crest-a"></use></svg>
+            <svg width="22" height="22"><use href="#crest-a"></use></svg>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="ctx-label">Emblem panel · on parchment</span>
+        <div class="contexts">
+          <div class="ctx ctx-ox"><svg width="84" height="84"><use href="#crest-a"></use></svg></div>
+          <div class="ctx ctx-parch"><svg width="60" height="60"><use href="#crest-a"></use></svg></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- B -->
+    <section class="card">
+      <div class="card-head">
+        <div class="card-name"><span class="letter">B</span><h2>Crowned Seal</h2></div>
+      </div>
+      <p class="blurb">A crowned skull in a double seal ring — lich-king authority. Reads as a stamped wax seal at any size.</p>
+      <div class="stage"><svg width="150" height="150"><use href="#crest-b"></use></svg></div>
+      <div>
+        <span class="ctx-label">Header lockup · small sizes</span>
+        <div class="contexts">
+          <div class="ctx ctx-dark">
+            <svg width="40" height="40"><use href="#crest-b"></use></svg>
+            <div class="lockup"><div class="name">Quest Board</div><div class="est">EST. BY THE TABLE</div></div>
+          </div>
+          <div class="ctx ctx-sizes">
+            <svg width="46" height="46"><use href="#crest-b"></use></svg>
+            <svg width="30" height="30"><use href="#crest-b"></use></svg>
+            <svg width="22" height="22"><use href="#crest-b"></use></svg>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="ctx-label">Emblem panel · on parchment</span>
+        <div class="contexts">
+          <div class="ctx ctx-ox"><svg width="84" height="84"><use href="#crest-b"></use></svg></div>
+          <div class="ctx ctx-parch"><svg width="60" height="60"><use href="#crest-b"></use></svg></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- C -->
+    <section class="card">
+      <div class="card-head">
+        <div class="card-name"><span class="letter">C</span><h2>Wyrm Skull</h2></div>
+      </div>
+      <p class="blurb">A horned dragon skull with bared fangs — monster-hunter energy, no frame. The boldest and least heraldic.</p>
+      <div class="stage"><svg width="150" height="150"><use href="#crest-c"></use></svg></div>
+      <div>
+        <span class="ctx-label">Header lockup · small sizes</span>
+        <div class="contexts">
+          <div class="ctx ctx-dark">
+            <svg width="40" height="40"><use href="#crest-c"></use></svg>
+            <div class="lockup"><div class="name">Quest Board</div><div class="est">EST. BY THE TABLE</div></div>
+          </div>
+          <div class="ctx ctx-sizes">
+            <svg width="46" height="46"><use href="#crest-c"></use></svg>
+            <svg width="30" height="30"><use href="#crest-c"></use></svg>
+            <svg width="22" height="22"><use href="#crest-c"></use></svg>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="ctx-label">Emblem panel · on parchment</span>
+        <div class="contexts">
+          <div class="ctx ctx-ox"><svg width="84" height="84"><use href="#crest-c"></use></svg></div>
+          <div class="ctx ctx-parch"><svg width="60" height="60"><use href="#crest-c"></use></svg></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- D -->
+    <section class="card">
+      <div class="card-head">
+        <div class="card-name"><span class="letter">D</span><h2>Reaper Arms</h2></div>
+      </div>
+      <p class="blurb">The original crossed sword &amp; axe, skull on the shield — keeps the old crest's silhouette, trades the dragon for bone.</p>
+      <div class="stage"><svg width="150" height="150"><use href="#crest-d"></use></svg></div>
+      <div>
+        <span class="ctx-label">Header lockup · small sizes</span>
+        <div class="contexts">
+          <div class="ctx ctx-dark">
+            <svg width="40" height="40"><use href="#crest-d"></use></svg>
+            <div class="lockup"><div class="name">Quest Board</div><div class="est">EST. BY THE TABLE</div></div>
+          </div>
+          <div class="ctx ctx-sizes">
+            <svg width="46" height="46"><use href="#crest-d"></use></svg>
+            <svg width="30" height="30"><use href="#crest-d"></use></svg>
+            <svg width="22" height="22"><use href="#crest-d"></use></svg>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="ctx-label">Emblem panel · on parchment</span>
+        <div class="contexts">
+          <div class="ctx ctx-ox"><svg width="84" height="84"><use href="#crest-d"></use></svg></div>
+          <div class="ctx ctx-parch"><svg width="60" height="60"><use href="#crest-d"></use></svg></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="foot">
+    <div class="divider"><span></span><svg width="26" height="26" style="color:#a87f3a"><use href="#crest-a"></use></svg><span></span></div>
+    A is live in the app right now. To change it, name a letter — or ask for a remix
+    (crown from B on the shield of A, and so on).
+  </div>
+</div>
+</body></html>
