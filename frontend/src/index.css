@@ -1,20 +1,409 @@
 @import "tailwindcss";
 
-/* Tavern theme tokens. Tailwind v4 reads @theme for design tokens. */
+/*
+ * Quest Board design system — the lamplit "hall" language from the landing:
+ * hearth-glow dark backgrounds, gold hairlines, octagonal gold/wax buttons,
+ * ink-on-parchment cards (the one holdover from the tavern-board concept).
+ * Reference packages live in design/ (see docs/VISION.md).
+ */
 @theme {
-  --color-parchment: #f4e8d0;
-  --color-parchment-dark: #e8d5b0;
-  --color-ink: #2b2118;
-  --color-wood: #3a2a1a;
-  --color-wood-dark: #241810;
-  --color-ember: #b5532a;
-  --color-gold: #c9a227;
-  --font-display: "Cinzel", "Georgia", serif;
+  /* Type */
+  --font-display: "Cinzel Decorative", Georgia, serif; /* wordmark, hero, quest titles */
+  --font-heading: "Cinzel", Georgia, serif; /* headings, labels, buttons */
+  --font-body: "Spectral", Georgia, serif; /* reading text */
+  --font-accent: "IM Fell English", Georgia, serif; /* italic eyebrows, captions */
+
+  /* Ink (text on parchment) */
+  --color-ink: #2e1d0f;
+  --color-ink-strong: #3a2616;
+  --color-ink-value: #4a3320;
+  --color-ink-body: #5c4528;
+  --color-ink-label: #9a703a;
+  --color-ink-faded: #8a6a3a;
+
+  /* Cream + gold (text on dark) */
+  --color-cream: #f3e6c8;
+  --color-cream-soft: #cdba93;
+  --color-cream-muted: #a8967a;
+  --color-ember: #e0a94e;
+  --color-ember-bright: #ecc673;
+  --color-gold-muted: #a87f3a;
+  --color-gold-hair: #c9a96b;
+
+  /* Materials */
+  --color-parchment: #efe3c6;
+  --color-parchment-deep: #dcc69d;
+  --color-parchment-edge: #b39d76;
+  --color-wax: #8b2520;
+  --color-forest: #4d6b39;
 }
 
 body {
   margin: 0;
-  background-color: var(--color-wood-dark);
-  color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  background-color: #140b06;
+  color: var(--color-cream);
+  font-family: var(--font-body);
+}
+
+/* ---------- keyframes ---------- */
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.5deg);
+  }
+}
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  42% {
+    opacity: 0.62;
+  }
+  64% {
+    opacity: 0.84;
+  }
+  78% {
+    opacity: 0.7;
+  }
+}
+@keyframes flame {
+  0%,
+  100% {
+    transform: scaleY(1) translateY(0);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scaleY(1.12) scaleX(0.9) translateY(-1px);
+    opacity: 1;
+  }
+}
+@keyframes spark {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(-180px) scale(0.3);
+    opacity: 0;
+  }
+}
+@keyframes rise {
+  0% {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes sealglow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 14px rgba(224, 169, 78, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 26px rgba(224, 169, 78, 0.7));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-sway,
+  .anim-flicker,
+  .anim-flame,
+  .anim-spark,
+  .anim-sealglow {
+    animation: none !important;
+  }
+}
+
+@layer components {
+.anim-sway {
+  transform-origin: top center;
+  animation: sway 6.5s ease-in-out infinite;
+}
+.anim-flicker {
+  animation: flicker 5s ease-in-out infinite;
+}
+.anim-flame {
+  transform-origin: bottom;
+  animation: flame 1.5s ease-in-out infinite;
+}
+.anim-sealglow {
+  animation: sealglow 5.5s ease-in-out infinite;
+}
+.anim-rise {
+  animation: rise 0.7s ease-out both;
+}
+.anim-rise-slow {
+  animation: rise 0.9s ease-out both;
+}
+.anim-rise-fast {
+  animation: rise 0.26s ease-out both;
+}
+
+/* ---------- backgrounds & overlays ---------- */
+
+/* Hearth: warm radial rising from the bottom, like firelight. */
+.bg-hearth {
+  background: radial-gradient(
+    120% 90% at 50% 118%,
+    #4a2a12 0%,
+    #241408 38%,
+    #140b06 78%
+  );
+}
+
+.overlay-vignette {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    140% 120% at 50% 50%,
+    transparent 52%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+.overlay-grain {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(
+    96deg,
+    rgba(0, 0, 0, 0.06) 0 2px,
+    transparent 2px 7px
+  );
+}
+
+/* ---------- surfaces ---------- */
+
+/* Dark hall panel with a gold inset hairline (feature cards, board panel). */
+.panel-hall {
+  background: linear-gradient(
+    180deg,
+    rgba(46, 30, 16, 0.7),
+    rgba(28, 18, 10, 0.7)
+  );
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.18);
+}
+
+/* Translucent dark plate with gold hairline (chips, caption plates). */
+.chip-hall {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: rgba(16, 9, 5, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.32);
+}
+
+/* Parchment: aged vellum with faint stains. The card material. */
+.parchment {
+  position: relative;
+  border: 1px solid var(--color-parchment-edge);
+  border-radius: 2px;
+  background:
+    radial-gradient(
+      ellipse at 18% 12%,
+      rgba(120, 86, 42, 0.13),
+      rgba(0, 0, 0, 0) 42%
+    ),
+    radial-gradient(
+      ellipse at 84% 88%,
+      rgba(120, 86, 42, 0.12),
+      rgba(0, 0, 0, 0) 46%
+    ),
+    radial-gradient(
+      ellipse at 70% 30%,
+      rgba(90, 60, 28, 0.08),
+      rgba(0, 0, 0, 0) 40%
+    ),
+    linear-gradient(150deg, #efe3c6, #dcc69d);
+  box-shadow:
+    0 14px 26px rgba(0, 0, 0, 0.5),
+    inset 0 0 30px rgba(150, 110, 60, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  color: var(--color-ink-strong);
+}
+
+/* Nailhead pinning a notice. */
+.nailhead {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 36% 30%,
+    #9a8c79,
+    #2a241d 58%,
+    #100d0a
+  );
+  box-shadow:
+    0 3px 5px rgba(0, 0, 0, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
+}
+
+/* Torn dashed divider on parchment. */
+.torn-divider {
+  height: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    #9a805a 0 6px,
+    rgba(0, 0, 0, 0) 6px 11px
+  );
+}
+
+/* Stamped-lettering label: Cinzel caps, wide tracking. */
+.label-stamp {
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* ---------- buttons ---------- */
+
+.btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  border: none;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  transition: filter 0.15s ease;
+}
+.btn-base:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.btn-base:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn-base:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Octagonal corner cut for gold/wax buttons. */
+.clip-octagon {
+  clip-path: polygon(
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px),
+    0 10px
+  );
+}
+
+/* Solid gold primary (dark backgrounds). Pair with .clip-octagon. */
+.btn-gold {
+  background: linear-gradient(180deg, #e8b85a, #b07d22);
+  color: #2a1705;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  filter: drop-shadow(0 12px 26px rgba(224, 169, 78, 0.34));
+}
+.btn-gold:hover:not(:disabled) {
+  filter: drop-shadow(0 12px 30px rgba(224, 169, 78, 0.5)) brightness(1.05);
+}
+
+/* Wax-seal red primary (on parchment). Pair with .clip-octagon. */
+.btn-wax {
+  background: linear-gradient(180deg, #8b2520, #5e1611);
+  color: #f3d9c0;
+  letter-spacing: 0.05em;
+}
+
+/* Ghost with an inset ink hairline (secondary on parchment). */
+.btn-ghost-ink {
+  background: rgba(43, 32, 24, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(120, 80, 30, 0.4);
+  color: #4a3a24;
+  border-radius: 2px;
+}
+.btn-ghost-ink:hover:not(:disabled) {
+  background: rgba(43, 32, 24, 0.11);
+  filter: none;
+}
+.btn-ghost-red {
+  background: rgba(139, 37, 32, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(139, 37, 32, 0.45);
+  color: #8b2520;
+  border-radius: 2px;
+}
+.btn-ghost-red:hover:not(:disabled) {
+  background: rgba(139, 37, 32, 0.12);
+  filter: none;
+}
+
+/* OAuth brand buttons (login modal). */
+.btn-discord {
+  background: linear-gradient(180deg, #5b63d8, #3f47b8);
+  color: #f0eafc;
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 2px #1a1530,
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 4px 0 #2a2f7a;
+}
+.btn-google {
+  background: linear-gradient(180deg, #f6efe0, #e0d0aa);
+  color: #3a2616;
+  border-radius: 2px;
+  box-shadow:
+    inset 0 0 0 2px #8a6a3a,
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 4px 0 #b39564;
+}
+
+/* ---------- inputs ---------- */
+
+/* Ink-on-parchment input: square, inset hairline border. */
+.input-parchment {
+  height: 46px;
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.42);
+  border: none;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px #b69a68;
+  color: #2b2018;
+  font-family: var(--font-body);
+  font-size: 16px;
+  outline: none;
+  width: 100%;
+}
+.input-parchment:focus {
+  box-shadow: inset 0 0 0 1.5px #8b6a3a;
+}
+.input-parchment::placeholder {
+  color: #9a855e;
+}
+
+/* Compact input for dense forms. */
+.input-compact {
+  height: 40px;
+  font-size: 15px;
+}
+
+/* Stamped field label on parchment. */
+.field-label {
+  font-family: var(--font-accent);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7a5a32;
+}
 }
