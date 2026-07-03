@@ -26,11 +26,26 @@ func Handler() http.Handler {
 
 		if f, err := files.Open(reqPath); err == nil {
 			f.Close()
+			if strings.HasPrefix(reqPath, "assets/") {
+				// Asset filenames carry a content hash; cache them forever.
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				// index.html must revalidate so a new deploy is picked up.
+				w.Header().Set("Cache-Control", "no-cache")
+			}
 			serveFile(w, r, reqPath)
 			return
 		}
 
+		// A missing asset (e.g. a stale index.html requesting an old bundle) is
+		// a real 404 — the SPA fallback would serve it HTML masquerading as JS.
+		if strings.HasPrefix(reqPath, "assets/") {
+			http.NotFound(w, r)
+			return
+		}
+
 		// SPA fallback: any unknown route renders the app shell.
+		w.Header().Set("Cache-Control", "no-cache")
 		serveFile(w, r, "index.html")
 	})
 }
