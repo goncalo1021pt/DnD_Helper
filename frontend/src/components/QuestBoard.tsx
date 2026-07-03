@@ -1,8 +1,7 @@
-import { useState } from "react";
 import type { Campaign, Role } from "../api/client";
-import { useQuests, useCreateQuest, useRegenerateInvite } from "../hooks";
+import { useQuests } from "../hooks";
 import QuestCard from "./QuestCard";
-import QuestForm, { emptyQuest } from "./QuestForm";
+import { IconFolder } from "./ui/icons";
 
 export default function QuestBoard({
   campaign,
@@ -11,66 +10,53 @@ export default function QuestBoard({
   campaign: Campaign;
   role: Role;
 }) {
-  const isDM = role === "dm";
   const { data: quests, isLoading } = useQuests(campaign.id);
-  const createQuest = useCreateQuest(campaign.id);
-  const regenerate = useRegenerateInvite(campaign.id);
-  const [showForm, setShowForm] = useState(false);
+
+  const availableCount = quests?.filter((q) => q.status === "available").length ?? 0;
+  const activeCount = quests?.filter((q) => q.status === "active").length ?? 0;
 
   return (
-    <div className="space-y-6">
-      {isDM && (
-        <div className="rounded-lg bg-wood/60 border border-gold/30 p-4 text-parchment flex items-center justify-between gap-4">
-          <div>
-            <span className="text-xs uppercase tracking-wide opacity-70">Invite code</span>
-            <div className="font-display text-2xl tracking-widest">{campaign.inviteCode}</div>
-            <p className="text-xs opacity-60">Share this so players can join the campaign.</p>
-          </div>
-          <button
-            onClick={() => regenerate.mutate()}
-            disabled={regenerate.isPending}
-            className="text-sm rounded px-3 py-1 bg-wood-dark/60 hover:bg-wood-dark disabled:opacity-50"
+    <div className="panel-hall px-[30px] pb-11 pt-8">
+      {/* board header strip */}
+      <div
+        className="mb-[26px] flex flex-wrap items-center justify-between gap-4 pb-3.5"
+        style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
+      >
+        <div className="flex flex-wrap items-baseline gap-3.5">
+          <h2
+            className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
+            style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            Regenerate
-          </button>
+            The Quest Board
+          </h2>
+          <span className="label-stamp text-xs text-gold-muted">
+            {availableCount} open · {activeCount} afoot
+          </span>
         </div>
-      )}
-
-      {isDM && (
-        <div className="rounded-xl bg-parchment border-2 border-wood p-4">
-          {showForm ? (
-            <QuestForm
-              initial={emptyQuest}
-              mode="create"
-              isPending={createQuest.isPending}
-              onCancel={() => setShowForm(false)}
-              onSubmit={(v) =>
-                createQuest.mutate(v, { onSuccess: () => setShowForm(false) })
-              }
-            />
-          ) : (
-            <button
-              onClick={() => setShowForm(true)}
-              className="rounded bg-ember text-white px-4 py-2 font-semibold"
-            >
-              + Post a quest
-            </button>
-          )}
-        </div>
-      )}
+      </div>
 
       {isLoading ? (
-        <p className="text-parchment/60">Loading quests…</p>
+        <div className="font-accent px-5 py-[70px] text-center text-base italic text-[#9c855e]">
+          Unrolling the notices…
+        </div>
       ) : quests && quests.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(312px,1fr))] gap-x-[26px] gap-y-[34px]">
           {quests.map((q) => (
             <QuestCard key={q.id} quest={q} role={role} campaignId={campaign.id} />
           ))}
         </div>
       ) : (
-        <p className="text-parchment/60">
-          The board is empty. {isDM ? "Post the first quest above." : "Check back soon."}
-        </p>
+        <div className="px-5 py-[70px] text-center">
+          <div className="mb-4 inline-flex text-[#7a5e34]">
+            <IconFolder size={46} strokeWidth={1.4} />
+          </div>
+          <div className="font-display text-2xl text-[#cdb582]">
+            No quests posted
+          </div>
+          <div className="font-accent mt-2 text-base italic text-[#9c855e]">
+            — the board awaits. —
+          </div>
+        </div>
       )}
     </div>
   );

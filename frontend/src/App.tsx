@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useCurrentUser } from "./hooks";
-import LoginScreen from "./components/LoginScreen";
+import LandingPage from "./components/LandingPage";
 import AppShell from "./components/AppShell";
 import CampaignsPage from "./components/CampaignsPage";
 import CampaignView from "./components/CampaignView";
@@ -10,21 +10,27 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-parchment/70">
-        Loading…
+      <div className="bg-hearth font-accent flex min-h-screen items-center justify-center text-lg italic text-[#c89a5a]">
+        Stoking the hearth…
       </div>
     );
   }
 
-  if (!me) return <LoginScreen />;
-
   return (
     <Routes>
-      <Route element={<AppShell user={me.user} />}>
+      {/* The landing is always the front door, signed in or not. */}
+      <Route index element={<LandingPage me={me ?? null} />} />
+
+      {/* The tavern proper lives under /questboard and needs a seat at the table. */}
+      <Route
+        path="questboard"
+        element={me ? <AppShell user={me.user} /> : <Navigate to="/" replace />}
+      >
         <Route index element={<CampaignsPage />} />
         <Route path="campaigns/:id" element={<CampaignView />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -1,29 +1,45 @@
 import { Link, Outlet } from "react-router-dom";
 import type { CurrentUser } from "../api/client";
 import { useLogout } from "../hooks";
+import Crest from "./ui/Crest";
+import GoldFrameButton from "./ui/GoldFrameButton";
+import { IconLogOut } from "./ui/icons";
 
 export default function AppShell({ user }: { user: CurrentUser["user"] }) {
   const logout = useLogout();
 
   return (
-    <div className="min-h-screen bg-wood-dark">
-      <header className="bg-wood border-b-4 border-gold/40 shadow-lg">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="font-display text-2xl text-parchment tracking-wide">
-            ⚔ Quest Board
-          </Link>
-          <div className="flex items-center gap-4 text-parchment">
-            <span className="text-sm opacity-80">{user.name}</span>
-            <button
-              onClick={() => logout.mutate()}
-              className="text-sm rounded-md px-3 py-1 bg-wood-dark/60 hover:bg-wood-dark transition"
-            >
-              Sign out
-            </button>
+    <div className="bg-hearth font-body relative min-h-screen overflow-x-hidden text-cream">
+      <div className="overlay-vignette fixed" />
+      <div className="overlay-grain fixed" />
+
+      <header className="relative z-[6] mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-5 px-11 py-6">
+        <Link to="/" className="flex items-center gap-3.5 no-underline">
+          <Crest
+            size={46}
+            className="text-[#e0a94e] drop-shadow-[0_2px_6px_rgba(0,0,0,.5)]"
+          />
+          <div className="leading-none">
+            <div className="font-display text-[23px] font-black tracking-[.06em] text-[#f3e6c8]">
+              Quest Board
+            </div>
+            <div className="font-accent mt-[3px] text-xs italic tracking-[.22em] text-[#a98a5a]">
+              EST. BY THE TABLE
+            </div>
           </div>
+        </Link>
+        <div className="flex items-center gap-4">
+          <span className="label-stamp text-[11px] font-semibold text-gold-hair">
+            {user.name}
+          </span>
+          <GoldFrameButton onClick={() => logout.mutate()}>
+            <IconLogOut size={14} strokeWidth={1.9} />
+            Sign out
+          </GoldFrameButton>
         </div>
       </header>
-      <main className="max-w-5xl mx-auto px-6 py-8">
+
+      <main className="relative z-[5] mx-auto max-w-[1240px] px-11 pb-20 pt-4">
         <Outlet />
       </main>
     </div>
