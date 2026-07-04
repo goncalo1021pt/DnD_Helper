@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api/client";
-import type { CreateQuestInput, UpdateQuestInput } from "./api/client";
+import type {
+  CharacterInput,
+  CreateQuestInput,
+  UpdateQuestInput,
+} from "./api/client";
 
 export interface AuthConfig {
   devLogin: boolean;
@@ -159,6 +163,70 @@ export function useClaimQuest(campaignId: string) {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["quests", campaignId] }),
+  });
+}
+
+// --- Party roster ---
+
+export function useCharacters(campaignId: string) {
+  return useQuery({
+    queryKey: ["characters", campaignId],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/campaigns/{campaignId}/characters", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useCreateCharacter(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: CharacterInput) => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/characters", {
+        params: { path: { campaignId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
+  });
+}
+
+export function useUpdateCharacter(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      characterId,
+      body,
+    }: {
+      characterId: string;
+      body: CharacterInput;
+    }) => {
+      const { data, error } = await api.PATCH("/characters/{characterId}", {
+        params: { path: { characterId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
+  });
+}
+
+export function useDeleteCharacter(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (characterId: string) => {
+      const { error } = await api.DELETE("/characters/{characterId}", {
+        params: { path: { characterId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
   });
 }
 
