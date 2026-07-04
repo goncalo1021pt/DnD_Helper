@@ -56,8 +56,12 @@ New section with, roughly in order of value:
   owner-or-DM editing and quick ±HP. Deliberately minimal — it becomes the
   entry point to the character builder later.
 - Chronicle / activity feed — needs backend events
-- Next-session countdown — needs a sessions/schedule concept in backend
-- Dice roller — pure client-side, can ship anytime
+- ~~Next-session countdown~~ — **done (July 2026)**: `next_session_at` on
+  campaigns, DM schedules/clears via the toolbar chip, everyone sees the
+  ticking countdown.
+- ~~Dice roller~~ — **done (July 2026)**: floating "Dice Tower" tray on every
+  app page — d4–d100 + coin, modifier, d20 crit/fail call-outs, roll history.
+  Client-side only; shared rolls could land in the Chronicle later.
 - Quick actions — depends on what exists by then
 
 Each backend-touching feature follows the established flow: migration + queries

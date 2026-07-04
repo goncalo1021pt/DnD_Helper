@@ -40,7 +40,7 @@ func (q *Queries) AddMembership(ctx context.Context, arg AddMembershipParams) (M
 const createCampaign = `-- name: CreateCampaign :one
 INSERT INTO campaigns (name, owner_user_id, invite_code)
 VALUES ($1, $2, $3)
-RETURNING id, name, owner_user_id, created_at, invite_code
+RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at
 `
 
 type CreateCampaignParams struct {
@@ -58,12 +58,13 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 		&i.OwnerUserID,
 		&i.CreatedAt,
 		&i.InviteCode,
+		&i.NextSessionAt,
 	)
 	return i, err
 }
 
 const getCampaign = `-- name: GetCampaign :one
-SELECT id, name, owner_user_id, created_at, invite_code FROM campaigns WHERE id = $1
+SELECT id, name, owner_user_id, created_at, invite_code, next_session_at FROM campaigns WHERE id = $1
 `
 
 func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, error) {
@@ -75,12 +76,13 @@ func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, erro
 		&i.OwnerUserID,
 		&i.CreatedAt,
 		&i.InviteCode,
+		&i.NextSessionAt,
 	)
 	return i, err
 }
 
 const getCampaignByInviteCode = `-- name: GetCampaignByInviteCode :one
-SELECT id, name, owner_user_id, created_at, invite_code FROM campaigns WHERE invite_code = $1
+SELECT id, name, owner_user_id, created_at, invite_code, next_session_at FROM campaigns WHERE invite_code = $1
 `
 
 func (q *Queries) GetCampaignByInviteCode(ctx context.Context, inviteCode string) (Campaign, error) {
@@ -92,6 +94,7 @@ func (q *Queries) GetCampaignByInviteCode(ctx context.Context, inviteCode string
 		&i.OwnerUserID,
 		&i.CreatedAt,
 		&i.InviteCode,
+		&i.NextSessionAt,
 	)
 	return i, err
 }
@@ -136,7 +139,7 @@ func (q *Queries) JoinCampaign(ctx context.Context, arg JoinCampaignParams) erro
 }
 
 const listCampaignsForUser = `-- name: ListCampaignsForUser :many
-SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, m.role
+SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, c.next_session_at, m.role
 FROM campaigns c
 JOIN memberships m ON m.campaign_id = c.id
 WHERE m.user_id = $1
@@ -144,12 +147,13 @@ ORDER BY c.created_at
 `
 
 type ListCampaignsForUserRow struct {
-	ID          uuid.UUID          `json:"id"`
-	Name        string             `json:"name"`
-	OwnerUserID uuid.UUID          `json:"owner_user_id"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	InviteCode  string             `json:"invite_code"`
-	Role        MembershipRole     `json:"role"`
+	ID            uuid.UUID          `json:"id"`
+	Name          string             `json:"name"`
+	OwnerUserID   uuid.UUID          `json:"owner_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	InviteCode    string             `json:"invite_code"`
+	NextSessionAt pgtype.Timestamptz `json:"next_session_at"`
+	Role          MembershipRole     `json:"role"`
 }
 
 // Campaigns the user belongs to, with their per-campaign role.
@@ -168,6 +172,7 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 			&i.OwnerUserID,
 			&i.CreatedAt,
 			&i.InviteCode,
+			&i.NextSessionAt,
 			&i.Role,
 		); err != nil {
 			return nil, err
@@ -181,7 +186,7 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 }
 
 const regenerateInviteCode = `-- name: RegenerateInviteCode :one
-UPDATE campaigns SET invite_code = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code
+UPDATE campaigns SET invite_code = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at
 `
 
 type RegenerateInviteCodeParams struct {
@@ -198,6 +203,30 @@ func (q *Queries) RegenerateInviteCode(ctx context.Context, arg RegenerateInvite
 		&i.OwnerUserID,
 		&i.CreatedAt,
 		&i.InviteCode,
+		&i.NextSessionAt,
+	)
+	return i, err
+}
+
+const setNextSession = `-- name: SetNextSession :one
+UPDATE campaigns SET next_session_at = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at
+`
+
+type SetNextSessionParams struct {
+	ID            uuid.UUID          `json:"id"`
+	NextSessionAt pgtype.Timestamptz `json:"next_session_at"`
+}
+
+func (q *Queries) SetNextSession(ctx context.Context, arg SetNextSessionParams) (Campaign, error) {
+	row := q.db.QueryRow(ctx, setNextSession, arg.ID, arg.NextSessionAt)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerUserID,
+		&i.CreatedAt,
+		&i.InviteCode,
+		&i.NextSessionAt,
 	)
 	return i, err
 }

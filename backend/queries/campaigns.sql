@@ -35,3 +35,6 @@ FROM campaigns c
 JOIN memberships m ON m.campaign_id = c.id
 WHERE m.user_id = $1
 ORDER BY c.created_at;
+
+-- name: SetNextSession :one
+UPDATE campaigns SET next_session_at = $2 WHERE id = $1 RETURNING *;

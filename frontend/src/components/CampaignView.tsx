@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Link, NavLink, Outlet, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
 import { useCampaigns, useRegenerateInvite } from "../hooks";
+import NextSessionChip from "./ui/NextSessionChip";
 import RoleBadge from "./ui/RoleBadge";
 import { IconCopy, IconRefresh } from "./ui/icons";
 
@@ -119,19 +120,22 @@ export default function CampaignView() {
           <RoleBadge role={role} />
         </div>
 
-        {role === "dm" && (
-          <div className="flex flex-wrap items-center gap-3.5">
-            <InviteChip campaign={campaign} />
-            <button
-              onClick={() => regenerate.mutate()}
-              disabled={regenerate.isPending}
-              title="Forge a new invite code (the old one stops working)"
-              className="chip-hall cursor-pointer border-none p-[9px] text-gold-hair transition hover:brightness-125 disabled:opacity-55"
-            >
-              <IconRefresh strokeWidth={1.8} />
-            </button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3.5">
+          <NextSessionChip campaign={campaign} isDM={role === "dm"} />
+          {role === "dm" && (
+            <>
+              <InviteChip campaign={campaign} />
+              <button
+                onClick={() => regenerate.mutate()}
+                disabled={regenerate.isPending}
+                title="Forge a new invite code (the old one stops working)"
+                className="chip-hall cursor-pointer border-none p-[9px] text-gold-hair transition hover:brightness-125 disabled:opacity-55"
+              >
+                <IconRefresh strokeWidth={1.8} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* tabs */}

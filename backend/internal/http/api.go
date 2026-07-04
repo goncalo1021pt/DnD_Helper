@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
@@ -206,16 +208,25 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 	for _, row := range rows {
 		out = append(out, api.CampaignMembership{
 			Campaign: api.Campaign{
-				Id:          row.ID,
-				Name:        row.Name,
-				OwnerUserId: row.OwnerUserID,
-				CreatedAt:   row.CreatedAt.Time,
-				InviteCode:  row.InviteCode,
+				Id:            row.ID,
+				Name:          row.Name,
+				OwnerUserId:   row.OwnerUserID,
+				CreatedAt:     row.CreatedAt.Time,
+				InviteCode:    row.InviteCode,
+				NextSessionAt: tsPtr(row.NextSessionAt),
 			},
 			Role: toAPIRole(row.Role),
 		})
 	}
 	return out, nil
+}
+
+// tsPtr converts a nullable pg timestamp to the API's optional time.
+func tsPtr(t pgtype.Timestamptz) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	return &t.Time
 }
 
 func toAPIUser(u db.User) api.User {
@@ -229,11 +240,12 @@ func toAPIUser(u db.User) api.User {
 
 func toAPICampaign(c db.Campaign) api.Campaign {
 	return api.Campaign{
-		Id:          c.ID,
-		Name:        c.Name,
-		OwnerUserId: c.OwnerUserID,
-		CreatedAt:   c.CreatedAt.Time,
-		InviteCode:  c.InviteCode,
+		Id:            c.ID,
+		Name:          c.Name,
+		OwnerUserId:   c.OwnerUserID,
+		CreatedAt:     c.CreatedAt.Time,
+		InviteCode:    c.InviteCode,
+		NextSessionAt: tsPtr(c.NextSessionAt),
 	}
 }
 

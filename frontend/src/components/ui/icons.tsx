@@ -185,6 +185,17 @@ export const IconGem = (p: IconProps) => (
   </Icon>
 );
 
+export const IconDie = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="1.5" />
+    <circle cx="8" cy="8" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="8" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="8" cy="16" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="16" r="1.1" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
 export const IconHome = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 21V8l9-5 9 5v13M3 21h18M9 21v-6h6v6" />

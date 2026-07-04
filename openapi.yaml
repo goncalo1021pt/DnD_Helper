@@ -123,6 +123,34 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns/{campaignId}/next-session:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setNextSession
+      summary: Set or clear when the table gathers next (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetNextSessionRequest"
+      responses:
+        "200":
+          description: Campaign with the updated next session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /campaigns/{campaignId}/quests:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -435,6 +463,11 @@ components:
         inviteCode:
           type: string
           description: Shareable code players use to join the campaign.
+        nextSessionAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the table gathers next; null when unscheduled.
 
     CampaignMembership:
       type: object
@@ -472,6 +505,15 @@ components:
         code:
           type: string
           minLength: 1
+
+    SetNextSessionRequest:
+      type: object
+      properties:
+        nextSessionAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Omit or send null to clear the scheduled session.
 
     QuestStatus:
       type: string
