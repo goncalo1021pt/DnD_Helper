@@ -315,6 +315,300 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns/{campaignId}/trees:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listTrees
+      summary: The campaign's skill trees (members only)
+      responses:
+        "200":
+          description: Skill trees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SkillTree"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createTree
+      summary: Create a skill tree (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillTreeInput"
+      responses:
+        "201":
+          description: Created tree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillTree"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /trees/{treeId}:
+    parameters:
+      - $ref: "#/components/parameters/TreeId"
+    get:
+      operationId: getTree
+      summary: A skill tree with its full web (members only)
+      responses:
+        "200":
+          description: Tree with nodes and edges
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillTreeDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateTree
+      summary: Update a skill tree (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillTreeInput"
+      responses:
+        "200":
+          description: Updated tree
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillTree"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteTree
+      summary: Delete a skill tree and its web (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /trees/{treeId}/nodes:
+    parameters:
+      - $ref: "#/components/parameters/TreeId"
+    post:
+      operationId: createNode
+      summary: Add a power node to a tree (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillNodeInput"
+      responses:
+        "201":
+          description: Created node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillNode"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /trees/{treeId}/edges:
+    parameters:
+      - $ref: "#/components/parameters/TreeId"
+    put:
+      operationId: setEdges
+      summary: Replace the tree's web of connections (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillEdgesInput"
+      responses:
+        "200":
+          description: Tree with the new web
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillTreeDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /nodes/{nodeId}:
+    parameters:
+      - $ref: "#/components/parameters/NodeId"
+    patch:
+      operationId: updateNode
+      summary: Update a power node (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SkillNodeInput"
+      responses:
+        "200":
+          description: Updated node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SkillNode"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteNode
+      summary: Remove a power node (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /characters/{characterId}/tree:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    get:
+      operationId: getCharacterTree
+      summary: A character's pact and web progress (members only)
+      responses:
+        "200":
+          description: Pact state (assigned=false when no tree is bound)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharacterTreeState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: setCharacterTree
+      summary: Bind a character to a tree — the pact (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPactRequest"
+      responses:
+        "200":
+          description: New pact state (a changed tree resets progress)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharacterTreeState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /characters/{characterId}/tree/grants:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    post:
+      operationId: grantPicks
+      summary: Grant unspent picks at a story beat (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GrantPicksRequest"
+      responses:
+        "200":
+          description: Pact state with the new grant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharacterTreeState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /characters/{characterId}/tree/picks:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    post:
+      operationId: spendPick
+      summary: Spend a granted pick on a reachable node (owner or DM)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpendPickRequest"
+      responses:
+        "200":
+          description: Pact state including the new power
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CharacterTreeState"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /quests/{questId}/claim:
     parameters:
       - $ref: "#/components/parameters/QuestId"
@@ -377,6 +671,20 @@ components:
         format: uuid
     CharacterId:
       name: characterId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TreeId:
+      name: treeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    NodeId:
+      name: nodeId
       in: path
       required: true
       schema:
@@ -649,6 +957,189 @@ components:
         hpMax:
           type: integer
           minimum: 1
+
+    NodeRarity:
+      type: string
+      enum: [minor, keystone]
+
+    SkillTree:
+      type: object
+      required: [id, campaignId, name, description, keystonePickCost, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        keystonePickCost:
+          type: integer
+          description: How many picks a keystone eats (1 = gated only by the web).
+        createdAt:
+          type: string
+          format: date-time
+
+    SkillTreeInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+        keystonePickCost:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 1
+
+    SkillNode:
+      type: object
+      required: [id, treeId, name, description, rarity, limb, isEntry]
+      properties:
+        id:
+          type: string
+          format: uuid
+        treeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        tradeoff:
+          type: string
+          nullable: true
+          description: The price baked into a keystone.
+        rarity:
+          $ref: "#/components/schemas/NodeRarity"
+        limb:
+          type: string
+          description: Grouping label within the web, e.g. ENTROPY.
+        isEntry:
+          type: boolean
+          description: Pickable with no prior picks in the tree.
+        posX:
+          type: number
+          nullable: true
+        posY:
+          type: number
+          nullable: true
+
+    SkillNodeInput:
+      type: object
+      required: [name, rarity]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+        tradeoff:
+          type: string
+          nullable: true
+        rarity:
+          $ref: "#/components/schemas/NodeRarity"
+        limb:
+          type: string
+          maxLength: 40
+        isEntry:
+          type: boolean
+          default: false
+        posX:
+          type: number
+          nullable: true
+        posY:
+          type: number
+          nullable: true
+
+    SkillEdge:
+      type: object
+      required: [a, b]
+      properties:
+        a:
+          type: string
+          format: uuid
+        b:
+          type: string
+          format: uuid
+
+    SkillEdgesInput:
+      type: object
+      required: [edges]
+      properties:
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillEdge"
+
+    SkillTreeDetail:
+      type: object
+      required: [tree, nodes, edges]
+      properties:
+        tree:
+          $ref: "#/components/schemas/SkillTree"
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillNode"
+        edges:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillEdge"
+
+    CharacterTreeState:
+      type: object
+      required: [assigned]
+      properties:
+        assigned:
+          type: boolean
+        tree:
+          $ref: "#/components/schemas/SkillTreeDetail"
+        picksGranted:
+          type: integer
+        picksSpent:
+          type: integer
+          description: Picks consumed by taken nodes (keystones may cost more).
+        picksRemaining:
+          type: integer
+        takenNodeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    SetPactRequest:
+      type: object
+      required: [treeId]
+      properties:
+        treeId:
+          type: string
+          format: uuid
+
+    GrantPicksRequest:
+      type: object
+      required: [picks]
+      properties:
+        picks:
+          type: integer
+          minimum: 1
+          maximum: 10
+
+    SpendPickRequest:
+      type: object
+      required: [nodeId]
+      properties:
+        nodeId:
+          type: string
+          format: uuid
 
     RewardInput:
       type: object

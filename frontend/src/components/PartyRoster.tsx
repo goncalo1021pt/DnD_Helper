@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import type { Character, CharacterInput } from "../api/client";
 import {
   useCharacters,
+  useCharacterTree,
   useCreateCharacter,
   useDeleteCharacter,
+  useSetPact,
+  useTrees,
   useUpdateCharacter,
 } from "../hooks";
 import { hpColor, initials, medallionFor } from "../lib/party";
@@ -150,13 +153,75 @@ function CharacterForm({
   );
 }
 
+/* The character's pact line: tree name + waiting picks, or a DM bind control. */
+function PactRow({
+  character,
+  isDM,
+  campaignId,
+}: {
+  character: Character;
+  isDM: boolean;
+  campaignId: string;
+}) {
+  const { data: state } = useCharacterTree(character.id);
+  const { data: trees } = useTrees(campaignId);
+  const setPact = useSetPact(character.id);
+  const [choice, setChoice] = useState("");
+
+  if (!state) return null;
+
+  if (!state.assigned) {
+    if (!isDM || !trees || trees.length === 0) return null;
+    return (
+      <div className="mt-3 flex items-center gap-2">
+        <select
+          value={choice}
+          onChange={(e) => setChoice(e.target.value)}
+          className="input-parchment input-compact flex-1 cursor-pointer text-[13px]"
+        >
+          <option value="">Bind to a tree…</option>
+          {trees.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => choice && setPact.mutate(choice)}
+          disabled={!choice || setPact.isPending}
+          className="btn-base btn-ghost-ink h-10 px-3 text-[10px]"
+        >
+          Bind
+        </button>
+      </div>
+    );
+  }
+
+  const remaining = state.picksRemaining ?? 0;
+  return (
+    <div className="mt-3 flex items-center justify-between gap-2">
+      <span className="label-stamp truncate text-[9.5px] tracking-[1.5px] text-ink-label">
+        ◆ {state.tree?.tree.name}
+      </span>
+      <Link
+        to={`../characters/${character.id}/web`}
+        className="label-stamp flex-none text-[10px] font-semibold text-[#8b2520] no-underline hover:underline"
+      >
+        {remaining > 0 ? `${remaining} waiting · ` : ""}Open the web →
+      </Link>
+    </div>
+  );
+}
+
 function CharacterCard({
   character,
   canEdit,
+  isDM,
   campaignId,
 }: {
   character: Character;
   canEdit: boolean;
+  isDM: boolean;
   campaignId: string;
 }) {
   const [editing, setEditing] = useState(false);
@@ -242,6 +307,8 @@ function CharacterCard({
           />
         </div>
       </div>
+
+      <PactRow character={character} isDM={isDM} campaignId={campaignId} />
 
       {/* actions */}
       {canEdit && (
@@ -350,13 +417,21 @@ export default function PartyRoster() {
           )}
         </div>
 
-        <button
-          onClick={() => setAdding(true)}
-          className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
-        >
-          <IconPlus size={15} strokeWidth={2} />
-          Take a Seat
-        </button>
+        <div className="flex flex-wrap items-center gap-4">
+          <Link
+            to="../trees"
+            className="label-stamp text-[11px] font-semibold text-ember-bright no-underline transition hover:text-cream"
+          >
+            The Skill Trees →
+          </Link>
+          <button
+            onClick={() => setAdding(true)}
+            className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
+          >
+            <IconPlus size={15} strokeWidth={2} />
+            Take a Seat
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -370,6 +445,7 @@ export default function PartyRoster() {
               key={c.id}
               character={c}
               canEdit={c.mine || isDM}
+              isDM={isDM}
               campaignId={campaign.id}
             />
           ))}

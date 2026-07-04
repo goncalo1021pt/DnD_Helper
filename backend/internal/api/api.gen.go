@@ -44,6 +44,24 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for NodeRarity.
+const (
+	Keystone NodeRarity = "keystone"
+	Minor    NodeRarity = "minor"
+)
+
+// Valid indicates whether the value is a known member of the NodeRarity enum.
+func (e NodeRarity) Valid() bool {
+	switch e {
+	case Keystone:
+		return true
+	case Minor:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for QuestDifficulty.
 const (
 	Deadly  QuestDifficulty = "deadly"
@@ -190,6 +208,18 @@ type CharacterInput struct {
 	Name      string  `json:"name"`
 }
 
+// CharacterTreeState defines model for CharacterTreeState.
+type CharacterTreeState struct {
+	Assigned       bool `json:"assigned"`
+	PicksGranted   *int `json:"picksGranted,omitempty"`
+	PicksRemaining *int `json:"picksRemaining,omitempty"`
+
+	// PicksSpent Picks consumed by taken nodes (keystones may cost more).
+	PicksSpent   *int                  `json:"picksSpent,omitempty"`
+	TakenNodeIds *[]openapi_types.UUID `json:"takenNodeIds,omitempty"`
+	Tree         *SkillTreeDetail      `json:"tree,omitempty"`
+}
+
 // CreateCampaignRequest defines model for CreateCampaignRequest.
 type CreateCampaignRequest struct {
 	Name string `json:"name"`
@@ -216,6 +246,11 @@ type Error struct {
 	Error string `json:"error"`
 }
 
+// GrantPicksRequest defines model for GrantPicksRequest.
+type GrantPicksRequest struct {
+	Picks int `json:"picks"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	Status HealthStatus `json:"status"`
@@ -228,6 +263,9 @@ type HealthStatus string
 type JoinCampaignRequest struct {
 	Code string `json:"code"`
 }
+
+// NodeRarity defines model for NodeRarity.
+type NodeRarity string
 
 // Quest defines model for Quest.
 type Quest struct {
@@ -285,6 +323,85 @@ type SetNextSessionRequest struct {
 	NextSessionAt *time.Time `json:"nextSessionAt,omitempty"`
 }
 
+// SetPactRequest defines model for SetPactRequest.
+type SetPactRequest struct {
+	TreeId openapi_types.UUID `json:"treeId"`
+}
+
+// SkillEdge defines model for SkillEdge.
+type SkillEdge struct {
+	A openapi_types.UUID `json:"a"`
+	B openapi_types.UUID `json:"b"`
+}
+
+// SkillEdgesInput defines model for SkillEdgesInput.
+type SkillEdgesInput struct {
+	Edges []SkillEdge `json:"edges"`
+}
+
+// SkillNode defines model for SkillNode.
+type SkillNode struct {
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// IsEntry Pickable with no prior picks in the tree.
+	IsEntry bool `json:"isEntry"`
+
+	// Limb Grouping label within the web, e.g. ENTROPY.
+	Limb   string     `json:"limb"`
+	Name   string     `json:"name"`
+	PosX   *float32   `json:"posX,omitempty"`
+	PosY   *float32   `json:"posY,omitempty"`
+	Rarity NodeRarity `json:"rarity"`
+
+	// Tradeoff The price baked into a keystone.
+	Tradeoff *string            `json:"tradeoff,omitempty"`
+	TreeId   openapi_types.UUID `json:"treeId"`
+}
+
+// SkillNodeInput defines model for SkillNodeInput.
+type SkillNodeInput struct {
+	Description *string    `json:"description,omitempty"`
+	IsEntry     *bool      `json:"isEntry,omitempty"`
+	Limb        *string    `json:"limb,omitempty"`
+	Name        string     `json:"name"`
+	PosX        *float32   `json:"posX,omitempty"`
+	PosY        *float32   `json:"posY,omitempty"`
+	Rarity      NodeRarity `json:"rarity"`
+	Tradeoff    *string    `json:"tradeoff,omitempty"`
+}
+
+// SkillTree defines model for SkillTree.
+type SkillTree struct {
+	CampaignId  openapi_types.UUID `json:"campaignId"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+
+	// KeystonePickCost How many picks a keystone eats (1 = gated only by the web).
+	KeystonePickCost int    `json:"keystonePickCost"`
+	Name             string `json:"name"`
+}
+
+// SkillTreeDetail defines model for SkillTreeDetail.
+type SkillTreeDetail struct {
+	Edges []SkillEdge `json:"edges"`
+	Nodes []SkillNode `json:"nodes"`
+	Tree  SkillTree   `json:"tree"`
+}
+
+// SkillTreeInput defines model for SkillTreeInput.
+type SkillTreeInput struct {
+	Description      *string `json:"description,omitempty"`
+	KeystonePickCost *int    `json:"keystonePickCost,omitempty"`
+	Name             string  `json:"name"`
+}
+
+// SpendPickRequest defines model for SpendPickRequest.
+type SpendPickRequest struct {
+	NodeId openapi_types.UUID `json:"nodeId"`
+}
+
 // UpdateQuestRequest defines model for UpdateQuestRequest.
 type UpdateQuestRequest struct {
 	Description *string         `json:"description,omitempty"`
@@ -310,8 +427,14 @@ type CampaignId = openapi_types.UUID
 // CharacterId defines model for CharacterId.
 type CharacterId = openapi_types.UUID
 
+// NodeId defines model for NodeId.
+type NodeId = openapi_types.UUID
+
 // QuestId defines model for QuestId.
 type QuestId = openapi_types.UUID
+
+// TreeId defines model for TreeId.
+type TreeId = openapi_types.UUID
 
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
@@ -343,11 +466,35 @@ type SetNextSessionJSONRequestBody = SetNextSessionRequest
 // CreateQuestJSONRequestBody defines body for CreateQuest for application/json ContentType.
 type CreateQuestJSONRequestBody = CreateQuestRequest
 
+// CreateTreeJSONRequestBody defines body for CreateTree for application/json ContentType.
+type CreateTreeJSONRequestBody = SkillTreeInput
+
 // UpdateCharacterJSONRequestBody defines body for UpdateCharacter for application/json ContentType.
 type UpdateCharacterJSONRequestBody = CharacterInput
 
+// SetCharacterTreeJSONRequestBody defines body for SetCharacterTree for application/json ContentType.
+type SetCharacterTreeJSONRequestBody = SetPactRequest
+
+// GrantPicksJSONRequestBody defines body for GrantPicks for application/json ContentType.
+type GrantPicksJSONRequestBody = GrantPicksRequest
+
+// SpendPickJSONRequestBody defines body for SpendPick for application/json ContentType.
+type SpendPickJSONRequestBody = SpendPickRequest
+
+// UpdateNodeJSONRequestBody defines body for UpdateNode for application/json ContentType.
+type UpdateNodeJSONRequestBody = SkillNodeInput
+
 // UpdateQuestJSONRequestBody defines body for UpdateQuest for application/json ContentType.
 type UpdateQuestJSONRequestBody = UpdateQuestRequest
+
+// UpdateTreeJSONRequestBody defines body for UpdateTree for application/json ContentType.
+type UpdateTreeJSONRequestBody = SkillTreeInput
+
+// SetEdgesJSONRequestBody defines body for SetEdges for application/json ContentType.
+type SetEdgesJSONRequestBody = SkillEdgesInput
+
+// CreateNodeJSONRequestBody defines body for CreateNode for application/json ContentType.
+type CreateNodeJSONRequestBody = SkillNodeInput
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -378,18 +525,42 @@ type ServerInterface interface {
 	// Generate a fresh invite code (DM only)
 	// (POST /campaigns/{campaignId}/regenerate-invite)
 	RegenerateInvite(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// The campaign's skill trees (members only)
+	// (GET /campaigns/{campaignId}/trees)
+	ListTrees(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Create a skill tree (DM only)
+	// (POST /campaigns/{campaignId}/trees)
+	CreateTree(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// Remove a character (its owner or the DM)
 	// (DELETE /characters/{characterId})
 	DeleteCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId)
 	// Update a character (its owner or the DM)
 	// (PATCH /characters/{characterId})
 	UpdateCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId)
+	// A character's pact and web progress (members only)
+	// (GET /characters/{characterId}/tree)
+	GetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId)
+	// Bind a character to a tree — the pact (DM only)
+	// (PUT /characters/{characterId}/tree)
+	SetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId)
+	// Grant unspent picks at a story beat (DM only)
+	// (POST /characters/{characterId}/tree/grants)
+	GrantPicks(w http.ResponseWriter, r *http.Request, characterId CharacterId)
+	// Spend a granted pick on a reachable node (owner or DM)
+	// (POST /characters/{characterId}/tree/picks)
+	SpendPick(w http.ResponseWriter, r *http.Request, characterId CharacterId)
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
 	// The currently authenticated user and their campaign memberships
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request)
+	// Remove a power node (DM only)
+	// (DELETE /nodes/{nodeId})
+	DeleteNode(w http.ResponseWriter, r *http.Request, nodeId NodeId)
+	// Update a power node (DM only)
+	// (PATCH /nodes/{nodeId})
+	UpdateNode(w http.ResponseWriter, r *http.Request, nodeId NodeId)
 	// Remove a quest (DM only)
 	// (DELETE /quests/{questId})
 	DeleteQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
@@ -402,6 +573,21 @@ type ServerInterface interface {
 	// Claim a quest (any campaign member)
 	// (POST /quests/{questId}/claim)
 	ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
+	// Delete a skill tree and its web (DM only)
+	// (DELETE /trees/{treeId})
+	DeleteTree(w http.ResponseWriter, r *http.Request, treeId TreeId)
+	// A skill tree with its full web (members only)
+	// (GET /trees/{treeId})
+	GetTree(w http.ResponseWriter, r *http.Request, treeId TreeId)
+	// Update a skill tree (DM only)
+	// (PATCH /trees/{treeId})
+	UpdateTree(w http.ResponseWriter, r *http.Request, treeId TreeId)
+	// Replace the tree's web of connections (DM only)
+	// (PUT /trees/{treeId}/edges)
+	SetEdges(w http.ResponseWriter, r *http.Request, treeId TreeId)
+	// Add a power node to a tree (DM only)
+	// (POST /trees/{treeId}/nodes)
+	CreateNode(w http.ResponseWriter, r *http.Request, treeId TreeId)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -462,6 +648,18 @@ func (_ Unimplemented) RegenerateInvite(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// The campaign's skill trees (members only)
+// (GET /campaigns/{campaignId}/trees)
+func (_ Unimplemented) ListTrees(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Create a skill tree (DM only)
+// (POST /campaigns/{campaignId}/trees)
+func (_ Unimplemented) CreateTree(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Remove a character (its owner or the DM)
 // (DELETE /characters/{characterId})
 func (_ Unimplemented) DeleteCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
@@ -474,6 +672,30 @@ func (_ Unimplemented) UpdateCharacter(w http.ResponseWriter, r *http.Request, c
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// A character's pact and web progress (members only)
+// (GET /characters/{characterId}/tree)
+func (_ Unimplemented) GetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Bind a character to a tree — the pact (DM only)
+// (PUT /characters/{characterId}/tree)
+func (_ Unimplemented) SetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Grant unspent picks at a story beat (DM only)
+// (POST /characters/{characterId}/tree/grants)
+func (_ Unimplemented) GrantPicks(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Spend a granted pick on a reachable node (owner or DM)
+// (POST /characters/{characterId}/tree/picks)
+func (_ Unimplemented) SpendPick(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Liveness / readiness probe
 // (GET /health)
 func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
@@ -483,6 +705,18 @@ func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
 // The currently authenticated user and their campaign memberships
 // (GET /me)
 func (_ Unimplemented) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a power node (DM only)
+// (DELETE /nodes/{nodeId})
+func (_ Unimplemented) DeleteNode(w http.ResponseWriter, r *http.Request, nodeId NodeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a power node (DM only)
+// (PATCH /nodes/{nodeId})
+func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, nodeId NodeId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -507,6 +741,36 @@ func (_ Unimplemented) UnclaimQuest(w http.ResponseWriter, r *http.Request, ques
 // Claim a quest (any campaign member)
 // (POST /quests/{questId}/claim)
 func (_ Unimplemented) ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Delete a skill tree and its web (DM only)
+// (DELETE /trees/{treeId})
+func (_ Unimplemented) DeleteTree(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// A skill tree with its full web (members only)
+// (GET /trees/{treeId})
+func (_ Unimplemented) GetTree(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Update a skill tree (DM only)
+// (PATCH /trees/{treeId})
+func (_ Unimplemented) UpdateTree(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Replace the tree's web of connections (DM only)
+// (PUT /trees/{treeId}/edges)
+func (_ Unimplemented) SetEdges(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add a power node to a tree (DM only)
+// (POST /trees/{treeId}/nodes)
+func (_ Unimplemented) CreateNode(w http.ResponseWriter, r *http.Request, treeId TreeId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -771,6 +1035,70 @@ func (siw *ServerInterfaceWrapper) RegenerateInvite(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// ListTrees operation middleware
+func (siw *ServerInterfaceWrapper) ListTrees(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTrees(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateTree operation middleware
+func (siw *ServerInterfaceWrapper) CreateTree(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateTree(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteCharacter operation middleware
 func (siw *ServerInterfaceWrapper) DeleteCharacter(w http.ResponseWriter, r *http.Request) {
 
@@ -835,6 +1163,134 @@ func (siw *ServerInterfaceWrapper) UpdateCharacter(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetCharacterTree operation middleware
+func (siw *ServerInterfaceWrapper) GetCharacterTree(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "characterId" -------------
+	var characterId CharacterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "characterId", chi.URLParam(r, "characterId"), &characterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "characterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCharacterTree(w, r, characterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetCharacterTree operation middleware
+func (siw *ServerInterfaceWrapper) SetCharacterTree(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "characterId" -------------
+	var characterId CharacterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "characterId", chi.URLParam(r, "characterId"), &characterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "characterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetCharacterTree(w, r, characterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GrantPicks operation middleware
+func (siw *ServerInterfaceWrapper) GrantPicks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "characterId" -------------
+	var characterId CharacterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "characterId", chi.URLParam(r, "characterId"), &characterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "characterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GrantPicks(w, r, characterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SpendPick operation middleware
+func (siw *ServerInterfaceWrapper) SpendPick(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "characterId" -------------
+	var characterId CharacterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "characterId", chi.URLParam(r, "characterId"), &characterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "characterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SpendPick(w, r, characterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -860,6 +1316,70 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNode operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "nodeId" -------------
+	var nodeId NodeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "nodeId", chi.URLParam(r, "nodeId"), &nodeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "nodeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNode(w, r, nodeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNode operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "nodeId" -------------
+	var nodeId NodeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "nodeId", chi.URLParam(r, "nodeId"), &nodeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "nodeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNode(w, r, nodeId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -988,6 +1508,166 @@ func (siw *ServerInterfaceWrapper) ClaimQuest(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ClaimQuest(w, r, questId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTree operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTree(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "treeId" -------------
+	var treeId TreeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "treeId", chi.URLParam(r, "treeId"), &treeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "treeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTree(w, r, treeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTree operation middleware
+func (siw *ServerInterfaceWrapper) GetTree(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "treeId" -------------
+	var treeId TreeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "treeId", chi.URLParam(r, "treeId"), &treeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "treeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTree(w, r, treeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateTree operation middleware
+func (siw *ServerInterfaceWrapper) UpdateTree(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "treeId" -------------
+	var treeId TreeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "treeId", chi.URLParam(r, "treeId"), &treeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "treeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateTree(w, r, treeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetEdges operation middleware
+func (siw *ServerInterfaceWrapper) SetEdges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "treeId" -------------
+	var treeId TreeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "treeId", chi.URLParam(r, "treeId"), &treeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "treeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetEdges(w, r, treeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNode operation middleware
+func (siw *ServerInterfaceWrapper) CreateNode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "treeId" -------------
+	var treeId TreeId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "treeId", chi.URLParam(r, "treeId"), &treeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "treeId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNode(w, r, treeId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1138,16 +1818,40 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/campaigns/{campaignId}/regenerate-invite", wrapper.RegenerateInvite)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/trees", wrapper.ListTrees)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/trees", wrapper.CreateTree)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/characters/{characterId}", wrapper.DeleteCharacter)
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/characters/{characterId}", wrapper.UpdateCharacter)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/characters/{characterId}/tree", wrapper.GetCharacterTree)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/characters/{characterId}/tree", wrapper.SetCharacterTree)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/characters/{characterId}/tree/grants", wrapper.GrantPicks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/characters/{characterId}/tree/picks", wrapper.SpendPick)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.GetHealth)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me", wrapper.GetCurrentUser)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/nodes/{nodeId}", wrapper.DeleteNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/nodes/{nodeId}", wrapper.UpdateNode)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/quests/{questId}", wrapper.DeleteQuest)
@@ -1160,6 +1864,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/quests/{questId}/claim", wrapper.ClaimQuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/trees/{treeId}", wrapper.DeleteTree)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/trees/{treeId}", wrapper.GetTree)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/trees/{treeId}", wrapper.UpdateTree)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/trees/{treeId}/edges", wrapper.SetEdges)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/trees/{treeId}/nodes", wrapper.CreateNode)
 	})
 
 	return r
@@ -1695,6 +2414,121 @@ func (response RegenerateInvite404JSONResponse) VisitRegenerateInviteResponse(w 
 	return err
 }
 
+type ListTreesRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type ListTreesResponseObject interface {
+	VisitListTreesResponse(w http.ResponseWriter) error
+}
+
+type ListTrees200JSONResponse []SkillTree
+
+func (response ListTrees200JSONResponse) VisitListTreesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTrees401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListTrees401JSONResponse) VisitListTreesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTrees403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListTrees403JSONResponse) VisitListTreesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTreeRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *CreateTreeJSONRequestBody
+}
+
+type CreateTreeResponseObject interface {
+	VisitCreateTreeResponse(w http.ResponseWriter) error
+}
+
+type CreateTree201JSONResponse SkillTree
+
+func (response CreateTree201JSONResponse) VisitCreateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTree400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateTree400JSONResponse) VisitCreateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTree401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateTree401JSONResponse) VisitCreateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateTree403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateTree403JSONResponse) VisitCreateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteCharacterRequestObject struct {
 	CharacterId CharacterId `json:"characterId"`
 }
@@ -1832,6 +2666,307 @@ func (response UpdateCharacter404JSONResponse) VisitUpdateCharacterResponse(w ht
 	return err
 }
 
+type GetCharacterTreeRequestObject struct {
+	CharacterId CharacterId `json:"characterId"`
+}
+
+type GetCharacterTreeResponseObject interface {
+	VisitGetCharacterTreeResponse(w http.ResponseWriter) error
+}
+
+type GetCharacterTree200JSONResponse CharacterTreeState
+
+func (response GetCharacterTree200JSONResponse) VisitGetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCharacterTree401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetCharacterTree401JSONResponse) VisitGetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCharacterTree403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetCharacterTree403JSONResponse) VisitGetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCharacterTree404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetCharacterTree404JSONResponse) VisitGetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCharacterTreeRequestObject struct {
+	CharacterId CharacterId `json:"characterId"`
+	Body        *SetCharacterTreeJSONRequestBody
+}
+
+type SetCharacterTreeResponseObject interface {
+	VisitSetCharacterTreeResponse(w http.ResponseWriter) error
+}
+
+type SetCharacterTree200JSONResponse CharacterTreeState
+
+func (response SetCharacterTree200JSONResponse) VisitSetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCharacterTree400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SetCharacterTree400JSONResponse) VisitSetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCharacterTree401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetCharacterTree401JSONResponse) VisitSetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCharacterTree403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetCharacterTree403JSONResponse) VisitSetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCharacterTree404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetCharacterTree404JSONResponse) VisitSetCharacterTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPicksRequestObject struct {
+	CharacterId CharacterId `json:"characterId"`
+	Body        *GrantPicksJSONRequestBody
+}
+
+type GrantPicksResponseObject interface {
+	VisitGrantPicksResponse(w http.ResponseWriter) error
+}
+
+type GrantPicks200JSONResponse CharacterTreeState
+
+func (response GrantPicks200JSONResponse) VisitGrantPicksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPicks400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GrantPicks400JSONResponse) VisitGrantPicksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPicks401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GrantPicks401JSONResponse) VisitGrantPicksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPicks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GrantPicks403JSONResponse) VisitGrantPicksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPicks404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GrantPicks404JSONResponse) VisitGrantPicksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SpendPickRequestObject struct {
+	CharacterId CharacterId `json:"characterId"`
+	Body        *SpendPickJSONRequestBody
+}
+
+type SpendPickResponseObject interface {
+	VisitSpendPickResponse(w http.ResponseWriter) error
+}
+
+type SpendPick200JSONResponse CharacterTreeState
+
+func (response SpendPick200JSONResponse) VisitSpendPickResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SpendPick400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SpendPick400JSONResponse) VisitSpendPickResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SpendPick401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SpendPick401JSONResponse) VisitSpendPickResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SpendPick403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SpendPick403JSONResponse) VisitSpendPickResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SpendPick404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SpendPick404JSONResponse) VisitSpendPickResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthRequestObject struct {
 }
 
@@ -1898,6 +3033,143 @@ func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteNodeRequestObject struct {
+	NodeId NodeId `json:"nodeId"`
+}
+
+type DeleteNodeResponseObject interface {
+	VisitDeleteNodeResponse(w http.ResponseWriter) error
+}
+
+type DeleteNode204Response struct {
+}
+
+func (response DeleteNode204Response) VisitDeleteNodeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteNode401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteNode401JSONResponse) VisitDeleteNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteNode403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteNode403JSONResponse) VisitDeleteNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteNode404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteNode404JSONResponse) VisitDeleteNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateNodeRequestObject struct {
+	NodeId NodeId `json:"nodeId"`
+	Body   *UpdateNodeJSONRequestBody
+}
+
+type UpdateNodeResponseObject interface {
+	VisitUpdateNodeResponse(w http.ResponseWriter) error
+}
+
+type UpdateNode200JSONResponse SkillNode
+
+func (response UpdateNode200JSONResponse) VisitUpdateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateNode400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateNode400JSONResponse) VisitUpdateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateNode401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateNode401JSONResponse) VisitUpdateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateNode403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateNode403JSONResponse) VisitUpdateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateNode404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateNode404JSONResponse) VisitUpdateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2167,6 +3439,365 @@ func (response ClaimQuest404JSONResponse) VisitClaimQuestResponse(w http.Respons
 	return err
 }
 
+type DeleteTreeRequestObject struct {
+	TreeId TreeId `json:"treeId"`
+}
+
+type DeleteTreeResponseObject interface {
+	VisitDeleteTreeResponse(w http.ResponseWriter) error
+}
+
+type DeleteTree204Response struct {
+}
+
+func (response DeleteTree204Response) VisitDeleteTreeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteTree401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteTree401JSONResponse) VisitDeleteTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTree403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteTree403JSONResponse) VisitDeleteTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteTree404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteTree404JSONResponse) VisitDeleteTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTreeRequestObject struct {
+	TreeId TreeId `json:"treeId"`
+}
+
+type GetTreeResponseObject interface {
+	VisitGetTreeResponse(w http.ResponseWriter) error
+}
+
+type GetTree200JSONResponse SkillTreeDetail
+
+func (response GetTree200JSONResponse) VisitGetTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTree401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetTree401JSONResponse) VisitGetTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTree403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetTree403JSONResponse) VisitGetTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTree404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTree404JSONResponse) VisitGetTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTreeRequestObject struct {
+	TreeId TreeId `json:"treeId"`
+	Body   *UpdateTreeJSONRequestBody
+}
+
+type UpdateTreeResponseObject interface {
+	VisitUpdateTreeResponse(w http.ResponseWriter) error
+}
+
+type UpdateTree200JSONResponse SkillTree
+
+func (response UpdateTree200JSONResponse) VisitUpdateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTree400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateTree400JSONResponse) VisitUpdateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTree401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateTree401JSONResponse) VisitUpdateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTree403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateTree403JSONResponse) VisitUpdateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateTree404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateTree404JSONResponse) VisitUpdateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetEdgesRequestObject struct {
+	TreeId TreeId `json:"treeId"`
+	Body   *SetEdgesJSONRequestBody
+}
+
+type SetEdgesResponseObject interface {
+	VisitSetEdgesResponse(w http.ResponseWriter) error
+}
+
+type SetEdges200JSONResponse SkillTreeDetail
+
+func (response SetEdges200JSONResponse) VisitSetEdgesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetEdges400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SetEdges400JSONResponse) VisitSetEdgesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetEdges401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetEdges401JSONResponse) VisitSetEdgesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetEdges403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetEdges403JSONResponse) VisitSetEdgesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetEdges404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetEdges404JSONResponse) VisitSetEdgesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateNodeRequestObject struct {
+	TreeId TreeId `json:"treeId"`
+	Body   *CreateNodeJSONRequestBody
+}
+
+type CreateNodeResponseObject interface {
+	VisitCreateNodeResponse(w http.ResponseWriter) error
+}
+
+type CreateNode201JSONResponse SkillNode
+
+func (response CreateNode201JSONResponse) VisitCreateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateNode400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateNode400JSONResponse) VisitCreateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateNode401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateNode401JSONResponse) VisitCreateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateNode403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateNode403JSONResponse) VisitCreateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateNode404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateNode404JSONResponse) VisitCreateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// Campaigns the current user belongs to
@@ -2196,18 +3827,42 @@ type StrictServerInterface interface {
 	// Generate a fresh invite code (DM only)
 	// (POST /campaigns/{campaignId}/regenerate-invite)
 	RegenerateInvite(ctx context.Context, request RegenerateInviteRequestObject) (RegenerateInviteResponseObject, error)
+	// The campaign's skill trees (members only)
+	// (GET /campaigns/{campaignId}/trees)
+	ListTrees(ctx context.Context, request ListTreesRequestObject) (ListTreesResponseObject, error)
+	// Create a skill tree (DM only)
+	// (POST /campaigns/{campaignId}/trees)
+	CreateTree(ctx context.Context, request CreateTreeRequestObject) (CreateTreeResponseObject, error)
 	// Remove a character (its owner or the DM)
 	// (DELETE /characters/{characterId})
 	DeleteCharacter(ctx context.Context, request DeleteCharacterRequestObject) (DeleteCharacterResponseObject, error)
 	// Update a character (its owner or the DM)
 	// (PATCH /characters/{characterId})
 	UpdateCharacter(ctx context.Context, request UpdateCharacterRequestObject) (UpdateCharacterResponseObject, error)
+	// A character's pact and web progress (members only)
+	// (GET /characters/{characterId}/tree)
+	GetCharacterTree(ctx context.Context, request GetCharacterTreeRequestObject) (GetCharacterTreeResponseObject, error)
+	// Bind a character to a tree — the pact (DM only)
+	// (PUT /characters/{characterId}/tree)
+	SetCharacterTree(ctx context.Context, request SetCharacterTreeRequestObject) (SetCharacterTreeResponseObject, error)
+	// Grant unspent picks at a story beat (DM only)
+	// (POST /characters/{characterId}/tree/grants)
+	GrantPicks(ctx context.Context, request GrantPicksRequestObject) (GrantPicksResponseObject, error)
+	// Spend a granted pick on a reachable node (owner or DM)
+	// (POST /characters/{characterId}/tree/picks)
+	SpendPick(ctx context.Context, request SpendPickRequestObject) (SpendPickResponseObject, error)
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
 	// The currently authenticated user and their campaign memberships
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// Remove a power node (DM only)
+	// (DELETE /nodes/{nodeId})
+	DeleteNode(ctx context.Context, request DeleteNodeRequestObject) (DeleteNodeResponseObject, error)
+	// Update a power node (DM only)
+	// (PATCH /nodes/{nodeId})
+	UpdateNode(ctx context.Context, request UpdateNodeRequestObject) (UpdateNodeResponseObject, error)
 	// Remove a quest (DM only)
 	// (DELETE /quests/{questId})
 	DeleteQuest(ctx context.Context, request DeleteQuestRequestObject) (DeleteQuestResponseObject, error)
@@ -2220,6 +3875,21 @@ type StrictServerInterface interface {
 	// Claim a quest (any campaign member)
 	// (POST /quests/{questId}/claim)
 	ClaimQuest(ctx context.Context, request ClaimQuestRequestObject) (ClaimQuestResponseObject, error)
+	// Delete a skill tree and its web (DM only)
+	// (DELETE /trees/{treeId})
+	DeleteTree(ctx context.Context, request DeleteTreeRequestObject) (DeleteTreeResponseObject, error)
+	// A skill tree with its full web (members only)
+	// (GET /trees/{treeId})
+	GetTree(ctx context.Context, request GetTreeRequestObject) (GetTreeResponseObject, error)
+	// Update a skill tree (DM only)
+	// (PATCH /trees/{treeId})
+	UpdateTree(ctx context.Context, request UpdateTreeRequestObject) (UpdateTreeResponseObject, error)
+	// Replace the tree's web of connections (DM only)
+	// (PUT /trees/{treeId}/edges)
+	SetEdges(ctx context.Context, request SetEdgesRequestObject) (SetEdgesResponseObject, error)
+	// Add a power node to a tree (DM only)
+	// (POST /trees/{treeId}/nodes)
+	CreateNode(ctx context.Context, request CreateNodeRequestObject) (CreateNodeResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2514,6 +4184,65 @@ func (sh *strictHandler) RegenerateInvite(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// ListTrees operation middleware
+func (sh *strictHandler) ListTrees(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request ListTreesRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTrees(ctx, request.(ListTreesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTrees")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTreesResponseObject); ok {
+		if err := validResponse.VisitListTreesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateTree operation middleware
+func (sh *strictHandler) CreateTree(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request CreateTreeRequestObject
+
+	request.CampaignId = campaignId
+
+	var body CreateTreeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateTree(ctx, request.(CreateTreeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateTree")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateTreeResponseObject); ok {
+		if err := validResponse.VisitCreateTreeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DeleteCharacter operation middleware
 func (sh *strictHandler) DeleteCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
 	var request DeleteCharacterRequestObject
@@ -2573,6 +4302,131 @@ func (sh *strictHandler) UpdateCharacter(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// GetCharacterTree operation middleware
+func (sh *strictHandler) GetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	var request GetCharacterTreeRequestObject
+
+	request.CharacterId = characterId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCharacterTree(ctx, request.(GetCharacterTreeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCharacterTree")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCharacterTreeResponseObject); ok {
+		if err := validResponse.VisitGetCharacterTreeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetCharacterTree operation middleware
+func (sh *strictHandler) SetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	var request SetCharacterTreeRequestObject
+
+	request.CharacterId = characterId
+
+	var body SetCharacterTreeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetCharacterTree(ctx, request.(SetCharacterTreeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetCharacterTree")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetCharacterTreeResponseObject); ok {
+		if err := validResponse.VisitSetCharacterTreeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GrantPicks operation middleware
+func (sh *strictHandler) GrantPicks(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	var request GrantPicksRequestObject
+
+	request.CharacterId = characterId
+
+	var body GrantPicksJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GrantPicks(ctx, request.(GrantPicksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GrantPicks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GrantPicksResponseObject); ok {
+		if err := validResponse.VisitGrantPicksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SpendPick operation middleware
+func (sh *strictHandler) SpendPick(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	var request SpendPickRequestObject
+
+	request.CharacterId = characterId
+
+	var body SpendPickJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SpendPick(ctx, request.(SpendPickRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SpendPick")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SpendPickResponseObject); ok {
+		if err := validResponse.VisitSpendPickResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthRequestObject
@@ -2614,6 +4468,65 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
 		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNode operation middleware
+func (sh *strictHandler) DeleteNode(w http.ResponseWriter, r *http.Request, nodeId NodeId) {
+	var request DeleteNodeRequestObject
+
+	request.NodeId = nodeId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNode(ctx, request.(DeleteNodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNodeResponseObject); ok {
+		if err := validResponse.VisitDeleteNodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateNode operation middleware
+func (sh *strictHandler) UpdateNode(w http.ResponseWriter, r *http.Request, nodeId NodeId) {
+	var request UpdateNodeRequestObject
+
+	request.NodeId = nodeId
+
+	var body UpdateNodeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateNode(ctx, request.(UpdateNodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateNode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateNodeResponseObject); ok {
+		if err := validResponse.VisitUpdateNodeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2732,52 +4645,222 @@ func (sh *strictHandler) ClaimQuest(w http.ResponseWriter, r *http.Request, ques
 	}
 }
 
+// DeleteTree operation middleware
+func (sh *strictHandler) DeleteTree(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	var request DeleteTreeRequestObject
+
+	request.TreeId = treeId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteTree(ctx, request.(DeleteTreeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteTree")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteTreeResponseObject); ok {
+		if err := validResponse.VisitDeleteTreeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTree operation middleware
+func (sh *strictHandler) GetTree(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	var request GetTreeRequestObject
+
+	request.TreeId = treeId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTree(ctx, request.(GetTreeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTree")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTreeResponseObject); ok {
+		if err := validResponse.VisitGetTreeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateTree operation middleware
+func (sh *strictHandler) UpdateTree(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	var request UpdateTreeRequestObject
+
+	request.TreeId = treeId
+
+	var body UpdateTreeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateTree(ctx, request.(UpdateTreeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateTree")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateTreeResponseObject); ok {
+		if err := validResponse.VisitUpdateTreeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetEdges operation middleware
+func (sh *strictHandler) SetEdges(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	var request SetEdgesRequestObject
+
+	request.TreeId = treeId
+
+	var body SetEdgesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetEdges(ctx, request.(SetEdgesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetEdges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetEdgesResponseObject); ok {
+		if err := validResponse.VisitSetEdgesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateNode operation middleware
+func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, treeId TreeId) {
+	var request CreateNodeRequestObject
+
+	request.TreeId = treeId
+
+	var body CreateNodeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateNode(ctx, request.(CreateNodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateNode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateNodeResponseObject); ok {
+		if err := validResponse.VisitCreateNodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"KK8iq5Dr+MaumObIy0SMh7hPUooXXxb/DgAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -54,6 +54,48 @@ func (ns NullMembershipRole) Value() (driver.Value, error) {
 	return string(ns.MembershipRole), nil
 }
 
+type NodeRarity string
+
+const (
+	NodeRarityMinor    NodeRarity = "minor"
+	NodeRarityKeystone NodeRarity = "keystone"
+)
+
+func (e *NodeRarity) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = NodeRarity(s)
+	case string:
+		*e = NodeRarity(s)
+	default:
+		return fmt.Errorf("unsupported scan type for NodeRarity: %T", src)
+	}
+	return nil
+}
+
+type NullNodeRarity struct {
+	NodeRarity NodeRarity `json:"node_rarity"`
+	Valid      bool       `json:"valid"` // Valid is true if NodeRarity is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullNodeRarity) Scan(value interface{}) error {
+	if value == nil {
+		ns.NodeRarity, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.NodeRarity.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullNodeRarity) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.NodeRarity), nil
+}
+
 type QuestDifficulty string
 
 const (
@@ -210,6 +252,18 @@ type Character struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type CharacterNode struct {
+	CharacterID uuid.UUID          `json:"character_id"`
+	NodeID      uuid.UUID          `json:"node_id"`
+	PickedAt    pgtype.Timestamptz `json:"picked_at"`
+}
+
+type CharacterTree struct {
+	CharacterID  uuid.UUID `json:"character_id"`
+	TreeID       uuid.UUID `json:"tree_id"`
+	PicksGranted int32     `json:"picks_granted"`
+}
+
 type Membership struct {
 	UserID     uuid.UUID          `json:"user_id"`
 	CampaignID uuid.UUID          `json:"campaign_id"`
@@ -249,6 +303,35 @@ type Session struct {
 	Token  string             `json:"token"`
 	Data   []byte             `json:"data"`
 	Expiry pgtype.Timestamptz `json:"expiry"`
+}
+
+type SkillEdge struct {
+	TreeID uuid.UUID `json:"tree_id"`
+	NodeA  uuid.UUID `json:"node_a"`
+	NodeB  uuid.UUID `json:"node_b"`
+}
+
+type SkillNode struct {
+	ID          uuid.UUID          `json:"id"`
+	TreeID      uuid.UUID          `json:"tree_id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Tradeoff    *string            `json:"tradeoff"`
+	Rarity      NodeRarity         `json:"rarity"`
+	Limb        string             `json:"limb"`
+	IsEntry     bool               `json:"is_entry"`
+	PosX        *float32           `json:"pos_x"`
+	PosY        *float32           `json:"pos_y"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type SkillTree struct {
+	ID               uuid.UUID          `json:"id"`
+	CampaignID       uuid.UUID          `json:"campaign_id"`
+	Name             string             `json:"name"`
+	Description      string             `json:"description"`
+	KeystonePickCost int32              `json:"keystone_pick_cost"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
 type User struct {
