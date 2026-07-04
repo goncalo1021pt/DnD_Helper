@@ -1,39 +1,31 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { Campaign } from "../../api/client";
 import { useSetNextSession } from "../../hooks";
+import { countdownParts, formatWhen, toLocalInput } from "../../lib/dates";
 import ParchmentModal from "./ParchmentModal";
-import { IconFlag } from "./icons";
+import { IconFlag, IconPencil } from "./icons";
 
-/* "yyyy-MM-ddTHH:mm" in local time, for <input type="datetime-local">. */
-function toLocalInput(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
+const pad2 = (n: number) => String(n).padStart(2, "0");
 
-function countdown(target: Date, now: number): string {
-  const diff = target.getTime() - now;
-  if (diff <= 0) return "the table is gathered!";
-  const mins = Math.floor(diff / 60_000);
-  const days = Math.floor(mins / 1440);
-  const hours = Math.floor((mins % 1440) / 60);
-  if (days > 0) return `in ${days}d ${hours}h`;
-  if (hours > 0) return `in ${hours}h ${mins % 60}m`;
-  return `in ${Math.max(mins, 1)}m`;
-}
-
-function formatWhen(date: Date): string {
-  return `${date.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })} · ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+function Tile({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="chip-hall flex-col justify-center gap-0.5 px-2 py-3">
+      <span className="font-heading text-[26px] font-bold leading-none tabular-nums text-ember-bright">
+        {pad2(value)}
+      </span>
+      <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 /**
- * Next-gathering countdown. Everyone sees it; the DM can click it to
- * schedule, move, or clear the session.
+ * Next-gathering dashboard card (the Emberhall countdown, in hall skin):
+ * date line + Days/Hrs/Min tiles ticking live. The DM schedules, moves,
+ * or clears the session from here.
  */
-export default function NextSessionChip({
+export default function NextGatheringCard({
   campaign,
   isDM,
 }: {
@@ -52,12 +44,9 @@ export default function NextSessionChip({
   }, []);
 
   const scheduled = campaign.nextSessionAt ? new Date(campaign.nextSessionAt) : null;
-
-  // Players see nothing until the DM schedules a session.
-  if (!scheduled && !isDM) return null;
+  const parts = scheduled ? countdownParts(scheduled, now) : null;
 
   function open() {
-    if (!isDM) return;
     setValue(scheduled ? toLocalInput(scheduled) : "");
     setEditing(true);
   }
@@ -74,35 +63,55 @@ export default function NextSessionChip({
     setSession.mutate(null, { onSuccess: () => setEditing(false) });
   }
 
-  const Chip = isDM ? "button" : "div";
-
   return (
-    <>
-      <Chip
-        onClick={isDM ? open : undefined}
-        title={isDM ? "Schedule the next gathering" : undefined}
-        className={`chip-hall border-none px-3.5 py-[9px] ${
-          isDM ? "cursor-pointer transition hover:brightness-125" : ""
-        }`}
-      >
-        <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">
+    <div className="panel-hall relative overflow-hidden px-6 pb-6 pt-5">
+      {/* ember glow, top-right */}
+      <div
+        className="anim-flicker pointer-events-none absolute -right-10 -top-10 h-36 w-36"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(217,124,49,.28), transparent 68%)",
+        }}
+      />
+
+      <div className="mb-1 flex items-center justify-between">
+        <span className="label-stamp text-[10px] tracking-[2.5px] text-gold-muted">
           Next Gathering
         </span>
-        {scheduled ? (
-          <>
-            <span className="font-heading text-[12.5px] font-semibold text-[#e6d5af]">
-              {formatWhen(scheduled)}
-            </span>
-            <span className="font-accent text-[12.5px] italic text-ember-bright">
-              {countdown(scheduled, now)}
-            </span>
-          </>
-        ) : (
-          <span className="font-accent text-[12.5px] italic text-cream-muted">
-            unscheduled — set one
-          </span>
+        {isDM && (
+          <button
+            onClick={open}
+            title={scheduled ? "Move or clear the date" : "Mark the date"}
+            className="relative inline-flex cursor-pointer border-none bg-transparent p-1 text-gold-muted transition hover:text-ember-bright"
+          >
+            <IconPencil size={14} strokeWidth={1.8} />
+          </button>
         )}
-      </Chip>
+      </div>
+
+      {scheduled && parts ? (
+        <>
+          <div className="font-heading mb-4 text-xl font-semibold text-cream">
+            {formatWhen(scheduled)}
+          </div>
+          {parts.past ? (
+            <div className="font-accent py-3 text-center text-lg italic text-ember-bright">
+              — the table is gathered! —
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2.5 text-center">
+              <Tile value={parts.days} label="Days" />
+              <Tile value={parts.hours} label="Hrs" />
+              <Tile value={parts.mins} label="Min" />
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="font-accent py-4 text-[15px] italic text-cream-muted">
+          No session marked —{" "}
+          {isDM ? "the quill awaits your date." : "ask your Dungeon Master."}
+        </div>
+      )}
 
       {editing && (
         <ParchmentModal onClose={() => setEditing(false)} maxWidth="max-w-[400px]">
@@ -113,7 +122,7 @@ export default function NextSessionChip({
             When Does the Table Meet?
           </h3>
           <p className="font-body m-0 mb-5 text-center text-[13.5px] italic leading-relaxed text-ink-body">
-            The whole party sees the countdown by the campaign name.
+            The whole party sees the countdown in the campaign hall.
           </p>
           <form onSubmit={save} className="flex flex-col gap-4">
             <label className="flex flex-col gap-1.5">
@@ -162,6 +171,6 @@ export default function NextSessionChip({
           </form>
         </ParchmentModal>
       )}
-    </>
+    </div>
   );
 }

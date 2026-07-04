@@ -2,7 +2,6 @@ import { Link, Outlet } from "react-router-dom";
 import type { CurrentUser } from "../api/client";
 import { useLogout } from "../hooks";
 import Crest from "./ui/Crest";
-import DiceTray from "./ui/DiceTray";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import { IconLogOut } from "./ui/icons";
 
@@ -43,8 +42,6 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
       <main className="relative z-[5] mx-auto max-w-[1240px] px-11 pb-20 pt-4">
         <Outlet />
       </main>
-
-      <DiceTray />
     </div>
   );
 }

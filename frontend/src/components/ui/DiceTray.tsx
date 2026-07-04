@@ -2,9 +2,11 @@ import { useRef, useState } from "react";
 import { IconDie, IconX } from "./icons";
 
 /**
- * The Dice Tower: a floating dice tray available on every app page.
- * Pure client-side — d4 to d100 (plus a coin), modifier, crit/fail
- * call-outs for the d20, and a short roll history.
+ * The Dice Tower. `DiceTowerPanel` is the tray itself — embedded as a
+ * dashboard block. `FloatingDiceTray` (default) wraps it in a corner
+ * button + pop-up for the solo pages, so dice stay one click away mid-game.
+ * Pure client-side: d4–d100 plus a coin, modifier, d20 crit/fail call-outs,
+ * and a short roll history.
  */
 
 const COIN = 2;
@@ -32,8 +34,7 @@ function rollColor(r: Roll): string {
   return "#2e1d0f";
 }
 
-export default function DiceTray() {
-  const [open, setOpen] = useState(false);
+export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
   const [die, setDie] = useState(20);
   const [mod, setMod] = useState(0);
   const [rolling, setRolling] = useState(false);
@@ -60,31 +61,21 @@ export default function DiceTray() {
     }, 480);
   }
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        title="Open the dice tower"
-        className="btn-base btn-gold clip-octagon fixed bottom-6 right-6 z-40 h-12 w-14"
-      >
-        <IconDie size={22} strokeWidth={1.8} />
-      </button>
-    );
-  }
-
   return (
-    <div className="parchment anim-rise-fast fixed bottom-6 right-6 z-40 w-[330px] max-w-[calc(100vw-3rem)] px-5 pb-5 pt-4">
+    <div className="parchment px-5 pb-5 pt-4">
       <div className="mb-3 flex items-center justify-between">
         <span className="label-stamp text-[11px] font-bold tracking-[3px] text-ink-label">
           The Dice Tower
         </span>
-        <button
-          onClick={() => setOpen(false)}
-          title="Close"
-          className="inline-flex cursor-pointer border-none bg-transparent p-1 text-ink-faded hover:text-ink"
-        >
-          <IconX size={18} strokeWidth={2} />
-        </button>
+        {onClose && (
+          <button
+            onClick={onClose}
+            title="Close"
+            className="inline-flex cursor-pointer border-none bg-transparent p-1 text-ink-faded hover:text-ink"
+          >
+            <IconX size={18} strokeWidth={2} />
+          </button>
+        )}
       </div>
 
       {/* result face */}
@@ -215,6 +206,29 @@ export default function DiceTray() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** Corner-button variant for the solo pages (board, party). */
+export default function FloatingDiceTray() {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        title="Open the dice tower"
+        className="btn-base btn-gold clip-octagon fixed bottom-6 right-6 z-40 h-12 w-14"
+      >
+        <IconDie size={22} strokeWidth={1.8} />
+      </button>
+    );
+  }
+
+  return (
+    <div className="anim-rise-fast fixed bottom-6 right-6 z-40 w-[330px] max-w-[calc(100vw-3rem)]">
+      <DiceTowerPanel onClose={() => setOpen(false)} />
     </div>
   );
 }
