@@ -4,6 +4,8 @@ import LandingPage from "./components/LandingPage";
 import AppShell from "./components/AppShell";
 import CampaignsPage from "./components/CampaignsPage";
 import CampaignView from "./components/CampaignView";
+import QuestBoard from "./components/QuestBoard";
+import PartyRoster from "./components/PartyRoster";
 
 export default function App() {
   const { data: me, isLoading } = useCurrentUser();
@@ -27,7 +29,10 @@ export default function App() {
         element={me ? <AppShell user={me.user} /> : <Navigate to="/" replace />}
       >
         <Route index element={<CampaignsPage />} />
-        <Route path="campaigns/:id" element={<CampaignView />} />
+        <Route path="campaigns/:id" element={<CampaignView />}>
+          <Route index element={<QuestBoard />} />
+          <Route path="party" element={<PartyRoster />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

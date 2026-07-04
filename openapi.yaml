@@ -205,6 +205,88 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns/{campaignId}/characters:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listCharacters
+      summary: The campaign's party roster (members only)
+      responses:
+        "200":
+          description: Characters in the campaign
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Character"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createCharacter
+      summary: Add a character owned by the caller (any campaign member)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CharacterInput"
+      responses:
+        "201":
+          description: Created character
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /characters/{characterId}:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    patch:
+      operationId: updateCharacter
+      summary: Update a character (its owner or the DM)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CharacterInput"
+      responses:
+        "200":
+          description: Updated character
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteCharacter
+      summary: Remove a character (its owner or the DM)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /quests/{questId}/claim:
     parameters:
       - $ref: "#/components/parameters/QuestId"
@@ -260,6 +342,13 @@ components:
         format: uuid
     QuestId:
       name: questId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CharacterId:
+      name: characterId
       in: path
       required: true
       schema:
@@ -461,6 +550,63 @@ components:
             $ref: "#/components/schemas/QuestClaim"
         claimedByMe:
           type: boolean
+
+    Character:
+      type: object
+      required:
+        [id, campaignId, ownerUserId, ownerName, name, class, level, hpCurrent, hpMax, createdAt, mine]
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        ownerUserId:
+          type: string
+          format: uuid
+        ownerName:
+          type: string
+          description: Display name of the member who plays this character.
+        name:
+          type: string
+        class:
+          type: string
+          description: 'Freeform class/ancestry line, e.g. "Half-Elf Bard".'
+        level:
+          type: integer
+        hpCurrent:
+          type: integer
+        hpMax:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        mine:
+          type: boolean
+          description: True when the caller owns this character.
+
+    CharacterInput:
+      type: object
+      required: [name, level, hpCurrent, hpMax]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        class:
+          type: string
+          maxLength: 80
+        level:
+          type: integer
+          minimum: 1
+          maximum: 20
+        hpCurrent:
+          type: integer
+          minimum: 0
+        hpMax:
+          type: integer
+          minimum: 1
 
     RewardInput:
       type: object

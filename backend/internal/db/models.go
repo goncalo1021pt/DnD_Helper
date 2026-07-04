@@ -196,6 +196,19 @@ type Campaign struct {
 	InviteCode  string             `json:"invite_code"`
 }
 
+type Character struct {
+	ID          uuid.UUID          `json:"id"`
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	OwnerUserID uuid.UUID          `json:"owner_user_id"`
+	Name        string             `json:"name"`
+	Class       string             `json:"class"`
+	Level       int32              `json:"level"`
+	HpCurrent   int32              `json:"hp_current"`
+	HpMax       int32              `json:"hp_max"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Membership struct {
 	UserID     uuid.UUID          `json:"user_id"`
 	CampaignID uuid.UUID          `json:"campaign_id"`

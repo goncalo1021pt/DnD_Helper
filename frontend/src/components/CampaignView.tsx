@@ -1,22 +1,15 @@
 import { useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import type { Campaign } from "../api/client";
-import {
-  useCampaigns,
-  useCreateQuest,
-  useQuests,
-  useRegenerateInvite,
-} from "../hooks";
-import QuestBoard from "./QuestBoard";
-import QuestForm, { emptyQuest } from "./QuestForm";
-import ParchmentModal from "./ui/ParchmentModal";
+import { Link, NavLink, Outlet, useParams } from "react-router-dom";
+import type { Campaign, Role } from "../api/client";
+import { useCampaigns, useRegenerateInvite } from "../hooks";
 import RoleBadge from "./ui/RoleBadge";
-import {
-  IconCheckSquare,
-  IconCopy,
-  IconPlus,
-  IconRefresh,
-} from "./ui/icons";
+import { IconCopy, IconRefresh } from "./ui/icons";
+
+/** Context handed to the campaign tabs (quest board, party roster). */
+export interface CampaignContext {
+  campaign: Campaign;
+  role: Role;
+}
 
 /* Invite-code plate: click to copy, with a transient confirmation. */
 function InviteChip({ campaign }: { campaign: Campaign }) {
@@ -54,14 +47,27 @@ function InviteChip({ campaign }: { campaign: Campaign }) {
   );
 }
 
+function Tab({ to, end, children }: { to: string; end?: boolean; children: string }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        `label-stamp -mb-px border-b-2 px-1 pb-2.5 text-xs font-semibold no-underline transition ${
+          isActive
+            ? "border-[#e0a94e] text-ember-bright"
+            : "border-transparent text-gold-muted hover:text-gold-hair"
+        }`
+      }
+    >
+      {children}
+    </NavLink>
+  );
+}
+
 export default function CampaignView() {
   const { id } = useParams();
   const { data: campaigns, isLoading } = useCampaigns();
-  const [posting, setPosting] = useState(false);
-
-  // Same query key as the board below — served from the cache, no double fetch.
-  const { data: quests } = useQuests(id ?? "");
-  const createQuest = useCreateQuest(id ?? "");
   const regenerate = useRegenerateInvite(id ?? "");
 
   if (isLoading) {
@@ -88,8 +94,7 @@ export default function CampaignView() {
   }
 
   const { campaign, role } = membership;
-  const isDM = role === "dm";
-  const myClaims = quests?.filter((q) => q.claimedByMe).length ?? 0;
+  const context: CampaignContext = { campaign, role };
 
   return (
     <div>
@@ -101,7 +106,7 @@ export default function CampaignView() {
       </Link>
 
       {/* campaign toolbar */}
-      <div className="mb-[26px] mt-3 flex flex-wrap items-center justify-between gap-5">
+      <div className="mb-5 mt-3 flex flex-wrap items-center justify-between gap-5">
         <div className="flex min-w-0 flex-wrap items-center gap-[18px]">
           <div className="min-w-0">
             <div className="font-accent text-sm italic tracking-[.16em] text-[#c89a5a]">
@@ -114,66 +119,33 @@ export default function CampaignView() {
           <RoleBadge role={role} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3.5">
-          {isDM ? (
-            <>
-              <InviteChip campaign={campaign} />
-              <button
-                onClick={() => regenerate.mutate()}
-                disabled={regenerate.isPending}
-                title="Forge a new invite code (the old one stops working)"
-                className="chip-hall cursor-pointer border-none p-[9px] text-gold-hair transition hover:brightness-125 disabled:opacity-55"
-              >
-                <IconRefresh strokeWidth={1.8} />
-              </button>
-              <button
-                onClick={() => setPosting(true)}
-                className="btn-base btn-gold clip-octagon h-11 px-6 text-sm"
-              >
-                <IconPlus size={16} strokeWidth={2} />
-                Post a Quest
-              </button>
-            </>
-          ) : (
-            <div className="chip-hall px-[15px] py-[9px]">
-              <span className="text-gold-hair">
-                <IconCheckSquare size={16} />
-              </span>
-              <span className="label-stamp text-[11px] font-semibold text-[#e6d5af]">
-                {myClaims} claimed by you
-              </span>
-            </div>
-          )}
-        </div>
+        {role === "dm" && (
+          <div className="flex flex-wrap items-center gap-3.5">
+            <InviteChip campaign={campaign} />
+            <button
+              onClick={() => regenerate.mutate()}
+              disabled={regenerate.isPending}
+              title="Forge a new invite code (the old one stops working)"
+              className="chip-hall cursor-pointer border-none p-[9px] text-gold-hair transition hover:brightness-125 disabled:opacity-55"
+            >
+              <IconRefresh strokeWidth={1.8} />
+            </button>
+          </div>
+        )}
       </div>
 
-      <QuestBoard campaign={campaign} role={role} />
+      {/* tabs */}
+      <div
+        className="mb-[26px] flex gap-7"
+        style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
+      >
+        <Tab to="." end>
+          The Board
+        </Tab>
+        <Tab to="party">The Party</Tab>
+      </div>
 
-      {posting && (
-        <ParchmentModal onClose={() => setPosting(false)} maxWidth="max-w-[560px]">
-          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Dungeon Master's Quill
-          </div>
-          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Nail Up a Notice
-          </h3>
-          <QuestForm
-            initial={emptyQuest}
-            mode="create"
-            isPending={createQuest.isPending}
-            errorText={
-              createQuest.isError
-                ? ((createQuest.error as { error?: string } | null)?.error ??
-                  "The notice would not pin — check the fields and try again.")
-                : undefined
-            }
-            onCancel={() => setPosting(false)}
-            onSubmit={(v) =>
-              createQuest.mutate(v, { onSuccess: () => setPosting(false) })
-            }
-          />
-        </ParchmentModal>
-      )}
+      <Outlet context={context} />
     </div>
   );
 }

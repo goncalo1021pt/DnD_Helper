@@ -1,19 +1,22 @@
-import type { Campaign, Role } from "../api/client";
-import { useQuests } from "../hooks";
+import { useState } from "react";
+import { useOutletContext } from "react-router-dom";
+import { useCreateQuest, useQuests } from "../hooks";
+import type { CampaignContext } from "./CampaignView";
 import QuestCard from "./QuestCard";
-import { IconFolder } from "./ui/icons";
+import QuestForm, { emptyQuest } from "./QuestForm";
+import ParchmentModal from "./ui/ParchmentModal";
+import { IconCheckSquare, IconFolder, IconPlus } from "./ui/icons";
 
-export default function QuestBoard({
-  campaign,
-  role,
-}: {
-  campaign: Campaign;
-  role: Role;
-}) {
+export default function QuestBoard() {
+  const { campaign, role } = useOutletContext<CampaignContext>();
+  const isDM = role === "dm";
   const { data: quests, isLoading } = useQuests(campaign.id);
+  const createQuest = useCreateQuest(campaign.id);
+  const [posting, setPosting] = useState(false);
 
   const availableCount = quests?.filter((q) => q.status === "available").length ?? 0;
   const activeCount = quests?.filter((q) => q.status === "active").length ?? 0;
+  const myClaims = quests?.filter((q) => q.claimedByMe).length ?? 0;
 
   return (
     <div className="panel-hall px-[30px] pb-11 pt-8">
@@ -33,6 +36,25 @@ export default function QuestBoard({
             {availableCount} open · {activeCount} afoot
           </span>
         </div>
+
+        {isDM ? (
+          <button
+            onClick={() => setPosting(true)}
+            className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
+          >
+            <IconPlus size={15} strokeWidth={2} />
+            Post a Quest
+          </button>
+        ) : (
+          <div className="chip-hall px-[15px] py-[9px]">
+            <span className="text-gold-hair">
+              <IconCheckSquare size={16} />
+            </span>
+            <span className="label-stamp text-[11px] font-semibold text-[#e6d5af]">
+              {myClaims} claimed by you
+            </span>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -57,6 +79,32 @@ export default function QuestBoard({
             — the board awaits. —
           </div>
         </div>
+      )}
+
+      {posting && (
+        <ParchmentModal onClose={() => setPosting(false)} maxWidth="max-w-[560px]">
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            The Dungeon Master's Quill
+          </div>
+          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
+            Nail Up a Notice
+          </h3>
+          <QuestForm
+            initial={emptyQuest}
+            mode="create"
+            isPending={createQuest.isPending}
+            errorText={
+              createQuest.isError
+                ? ((createQuest.error as { error?: string } | null)?.error ??
+                  "The notice would not pin — check the fields and try again.")
+                : undefined
+            }
+            onCancel={() => setPosting(false)}
+            onSubmit={(v) =>
+              createQuest.mutate(v, { onSuccess: () => setPosting(false) })
+            }
+          />
+        </ParchmentModal>
       )}
     </div>
   );

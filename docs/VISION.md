@@ -51,7 +51,10 @@ the existing API, routing split, proper static cache headers.
 
 ### Phase 2b — Party Menu (Emberhall features, tavern skin)
 New section with, roughly in order of value:
-- Party roster (characters, class/level/HP) — needs new backend domain
+- ~~Party roster~~ — **done (July 2026)**: campaigns have Board/Party tabs;
+  lightweight characters (name, freeform class line, level, HP) with
+  owner-or-DM editing and quick ±HP. Deliberately minimal — it becomes the
+  entry point to the character builder later.
 - Chronicle / activity feed — needs backend events
 - Next-session countdown — needs a sessions/schedule concept in backend
 - Dice roller — pure client-side, can ship anytime
@@ -62,7 +65,11 @@ Each backend-touching feature follows the established flow: migration + queries
 
 ### Later
 - Character builder with two custom skill-tree systems (2024 / 5.5e rules) —
-  the long-standing Phase 2+ goal from the README.
+  the long-standing Phase 2+ goal from the README. The party roster's
+  characters are the seed: roster entries should grow into full sheets.
+- **XP system**: track XP per character, with the DM giving or taking XP
+  depending on the campaign's progression mode (e.g. XP vs milestone).
+  Its own PR, after the Party Menu settles.
 
 ## Open questions
 - **Branding**: repo says Quest Board; designs use QuestBoard / The Tavern /

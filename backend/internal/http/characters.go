@@ -1,0 +1,233 @@
+package http
+
+import (
+	"context"
+	"errors"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/goncalo1021pt/questboard/backend/internal/api"
+	"github.com/goncalo1021pt/questboard/backend/internal/db"
+)
+
+// ListCharacters returns the campaign's party roster (members only).
+func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersRequestObject) (api.ListCharactersResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	member, err := s.requireMember(ctx, campaignID)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.ListCharacters401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.ListCharacters403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+
+	rows, err := s.queries.ListCharactersByCampaign(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]api.Character, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, toAPICharacter(db.Character{
+			ID: row.ID, CampaignID: row.CampaignID, OwnerUserID: row.OwnerUserID,
+			Name: row.Name, Class: row.Class, Level: row.Level,
+			HpCurrent: row.HpCurrent, HpMax: row.HpMax, CreatedAt: row.CreatedAt,
+		}, row.OwnerName, member.UserID))
+	}
+	return api.ListCharacters200JSONResponse(out), nil
+}
+
+// CreateCharacter adds a character owned by the caller (any campaign member).
+func (s *Server) CreateCharacter(ctx context.Context, request api.CreateCharacterRequestObject) (api.CreateCharacterResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	member, err := s.requireMember(ctx, campaignID)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.CreateCharacter401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.CreateCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+
+	in, errMsg := validateCharacterInput(request.Body)
+	if errMsg != "" {
+		return api.CreateCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errMsg}}, nil
+	}
+
+	character, err := s.queries.CreateCharacter(ctx, db.CreateCharacterParams{
+		CampaignID:  campaignID,
+		OwnerUserID: member.UserID,
+		Name:        in.name,
+		Class:       in.class,
+		Level:       in.level,
+		HpCurrent:   in.hpCurrent,
+		HpMax:       in.hpMax,
+	})
+	if err != nil {
+		return nil, err
+	}
+	ownerName, err := s.ownerName(ctx, member.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return api.CreateCharacter201JSONResponse(toAPICharacter(character, ownerName, member.UserID)), nil
+}
+
+// UpdateCharacter edits a character (its owner or the DM).
+func (s *Server) UpdateCharacter(ctx context.Context, request api.UpdateCharacterRequestObject) (api.UpdateCharacterResponseObject, error) {
+	characterID := uuid.UUID(request.CharacterId)
+	character, err := s.queries.GetCharacter(ctx, characterID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.UpdateCharacter404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+
+	member, err := s.requireCharacterEditor(ctx, character)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.UpdateCharacter401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.UpdateCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+
+	in, errMsg := validateCharacterInput(request.Body)
+	if errMsg != "" {
+		return api.UpdateCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errMsg}}, nil
+	}
+
+	updated, err := s.queries.UpdateCharacter(ctx, db.UpdateCharacterParams{
+		ID:        characterID,
+		Name:      in.name,
+		Class:     in.class,
+		Level:     in.level,
+		HpCurrent: in.hpCurrent,
+		HpMax:     in.hpMax,
+	})
+	if err != nil {
+		return nil, err
+	}
+	ownerName, err := s.ownerName(ctx, updated.OwnerUserID)
+	if err != nil {
+		return nil, err
+	}
+	return api.UpdateCharacter200JSONResponse(toAPICharacter(updated, ownerName, member.UserID)), nil
+}
+
+// DeleteCharacter removes a character (its owner or the DM).
+func (s *Server) DeleteCharacter(ctx context.Context, request api.DeleteCharacterRequestObject) (api.DeleteCharacterResponseObject, error) {
+	characterID := uuid.UUID(request.CharacterId)
+	character, err := s.queries.GetCharacter(ctx, characterID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.DeleteCharacter404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+
+	if _, err := s.requireCharacterEditor(ctx, character); err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.DeleteCharacter401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.DeleteCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+
+	if err := s.queries.DeleteCharacter(ctx, characterID); err != nil {
+		return nil, err
+	}
+	return api.DeleteCharacter204Response{}, nil
+}
+
+// requireCharacterEditor allows the character's owner or the campaign DM.
+func (s *Server) requireCharacterEditor(ctx context.Context, character db.Character) (db.Membership, error) {
+	member, err := s.requireMember(ctx, character.CampaignID)
+	if err != nil {
+		return member, err
+	}
+	if member.UserID != character.OwnerUserID && member.Role != db.MembershipRoleDm {
+		return member, errForbidden
+	}
+	return member, nil
+}
+
+type characterInput struct {
+	name      string
+	class     string
+	level     int32
+	hpCurrent int32
+	hpMax     int32
+}
+
+// validateCharacterInput normalizes and bounds-checks the shared create/update
+// body. HP current is clamped into [0, hpMax] rather than rejected.
+func validateCharacterInput(body *api.CharacterInput) (characterInput, string) {
+	if body == nil {
+		return characterInput{}, "a character body is required"
+	}
+	name := strings.TrimSpace(body.Name)
+	if name == "" || len([]rune(name)) > 80 {
+		return characterInput{}, "name must be between 1 and 80 characters"
+	}
+	class := ""
+	if body.Class != nil {
+		class = strings.TrimSpace(*body.Class)
+	}
+	if len([]rune(class)) > 80 {
+		return characterInput{}, "class must be at most 80 characters"
+	}
+	if body.Level < 1 || body.Level > 20 {
+		return characterInput{}, "level must be between 1 and 20"
+	}
+	if body.HpMax < 1 || body.HpMax > 9999 {
+		return characterInput{}, "max HP must be between 1 and 9999"
+	}
+	hpCurrent := min(max(body.HpCurrent, 0), body.HpMax)
+	return characterInput{
+		name:      name,
+		class:     class,
+		level:     int32(body.Level),
+		hpCurrent: int32(hpCurrent),
+		hpMax:     int32(body.HpMax),
+	}, ""
+}
+
+func (s *Server) ownerName(ctx context.Context, ownerID uuid.UUID) (string, error) {
+	owner, err := s.queries.GetUserByID(ctx, ownerID)
+	if err != nil {
+		return "", err
+	}
+	return owner.Name, nil
+}
+
+func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Character {
+	return api.Character{
+		Id:          c.ID,
+		CampaignId:  c.CampaignID,
+		OwnerUserId: c.OwnerUserID,
+		OwnerName:   ownerName,
+		Name:        c.Name,
+		Class:       c.Class,
+		Level:       int(c.Level),
+		HpCurrent:   int(c.HpCurrent),
+		HpMax:       int(c.HpMax),
+		CreatedAt:   c.CreatedAt.Time,
+		Mine:        c.OwnerUserID == viewer,
+	}
+}

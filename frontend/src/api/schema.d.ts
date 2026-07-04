@@ -132,6 +132,46 @@ export interface paths {
         patch: operations["updateQuest"];
         trace?: never;
     };
+    "/campaigns/{campaignId}/characters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The campaign's party roster (members only) */
+        get: operations["listCharacters"];
+        put?: never;
+        /** Add a character owned by the caller (any campaign member) */
+        post: operations["createCharacter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a character (its owner or the DM) */
+        delete: operations["deleteCharacter"];
+        options?: never;
+        head?: never;
+        /** Update a character (its owner or the DM) */
+        patch: operations["updateCharacter"];
+        trace?: never;
+    };
     "/quests/{questId}/claim": {
         parameters: {
             query?: never;
@@ -234,6 +274,33 @@ export interface components {
             claims: components["schemas"]["QuestClaim"][];
             claimedByMe: boolean;
         };
+        Character: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaignId: string;
+            /** Format: uuid */
+            ownerUserId: string;
+            /** @description Display name of the member who plays this character. */
+            ownerName: string;
+            name: string;
+            /** @description Freeform class/ancestry line, e.g. "Half-Elf Bard". */
+            class: string;
+            level: number;
+            hpCurrent: number;
+            hpMax: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description True when the caller owns this character. */
+            mine: boolean;
+        };
+        CharacterInput: {
+            name: string;
+            class?: string;
+            level: number;
+            hpCurrent: number;
+            hpMax: number;
+        };
         RewardInput: {
             type: components["schemas"]["RewardType"];
             label: string;
@@ -298,6 +365,7 @@ export interface components {
     parameters: {
         CampaignId: string;
         QuestId: string;
+        CharacterId: string;
     };
     requestBodies: never;
     headers: never;
@@ -552,6 +620,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Quest"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listCharacters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Characters in the campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CharacterInput"];
+            };
+        };
+        responses: {
+            /** @description Created character */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CharacterInput"];
+            };
+        };
+        responses: {
+            /** @description Updated character */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
                 };
             };
             400: components["responses"]["BadRequest"];
