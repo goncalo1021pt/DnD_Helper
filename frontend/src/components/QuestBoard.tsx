@@ -4,6 +4,7 @@ import { useCreateQuest, useQuests } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 import QuestCard from "./QuestCard";
 import QuestForm, { emptyQuest } from "./QuestForm";
+import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
 import { IconCheckSquare, IconFolder, IconPlus } from "./ui/icons";
 
@@ -106,6 +107,8 @@ export default function QuestBoard() {
           />
         </ParchmentModal>
       )}
+
+      <FloatingDiceTray />
     </div>
   );
 }

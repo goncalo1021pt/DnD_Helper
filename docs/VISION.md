@@ -36,8 +36,18 @@ built and then retired.
   `frontend/src/components/ui/Crest.tsx`. Alternate variants to choose from:
   `design/crest-concepts.html`.
 - **Routing**: `/` is always the landing (signed in or not; CTA becomes "Enter
-  the Tavern" → app). The app lives under `/questboard` and
-  `/questboard/campaigns/:id`; logged-out visits redirect to `/`.
+  the Tavern" → app). The app lives under `/questboard`; logged-out visits
+  redirect to `/`.
+- **The campaign hall (settled July 2026)**: opening a campaign lands on a
+  dashboard hub à la the Emberhall reference — blocks showing the campaign at
+  a glance (quest-board preview, party rows with ±HP, Next Gathering countdown
+  tiles, Dice Tower), with the heavy tools as solo pages:
+  `/questboard/campaigns/:id` (hub) → `…/board`, `…/party`. The floating dice
+  button appears only on solo pages. New features (Chronicle, XP) arrive as
+  hub blocks + solo pages where needed.
+- **Dates (house rule)**: dd/mm order and a 24h clock everywhere, English day
+  names — never locale-dependent. All formatting goes through
+  `frontend/src/lib/dates.ts`.
 
 Emberhall's dark-gold rounded style is **not** the direction; only its feature
 set carries over.
@@ -56,9 +66,16 @@ New section with, roughly in order of value:
   owner-or-DM editing and quick ±HP. Deliberately minimal — it becomes the
   entry point to the character builder later.
 - Chronicle / activity feed — needs backend events
-- Next-session countdown — needs a sessions/schedule concept in backend
-- Dice roller — pure client-side, can ship anytime
+- ~~Next-session countdown~~ — **done (July 2026)**: `next_session_at` on
+  campaigns; the DM schedules/clears from the hub's Next Gathering card
+  (Emberhall-style Days/Hrs/Min tiles), everyone sees the ticking countdown.
+- ~~Dice roller~~ — **done (July 2026)**: "Dice Tower" — a hub block, plus a
+  floating corner button on solo pages. d4–d100 + coin, modifier, d20
+  crit/fail call-outs, roll history. Client-side only; shared rolls could
+  land in the Chronicle later.
 - Quick actions — depends on what exists by then
+- Hub polish (user note, July 2026): the quest-board block's integration on
+  the hall needs another pass later.
 
 Each backend-touching feature follows the established flow: migration + queries
 → `openapi.yaml` → `make generate` → handlers → hooks.

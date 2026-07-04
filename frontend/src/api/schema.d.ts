@@ -92,6 +92,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/next-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Set or clear when the table gathers next (DM only) */
+        put: operations["setNextSession"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/quests": {
         parameters: {
             query?: never;
@@ -222,6 +241,11 @@ export interface components {
             createdAt: string;
             /** @description Shareable code players use to join the campaign. */
             inviteCode: string;
+            /**
+             * Format: date-time
+             * @description When the table gathers next; null when unscheduled.
+             */
+            nextSessionAt?: string | null;
         };
         CampaignMembership: {
             campaign: components["schemas"]["Campaign"];
@@ -236,6 +260,13 @@ export interface components {
         };
         JoinCampaignRequest: {
             code: string;
+        };
+        SetNextSessionRequest: {
+            /**
+             * Format: date-time
+             * @description Omit or send null to clear the scheduled session.
+             */
+            nextSessionAt?: string | null;
         };
         /** @enum {string} */
         QuestStatus: "available" | "active" | "completed" | "failed";
@@ -517,6 +548,36 @@ export interface operations {
                     "application/json": components["schemas"]["Campaign"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setNextSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetNextSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Campaign with the updated next session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

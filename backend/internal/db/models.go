@@ -189,11 +189,12 @@ func (ns NullRewardType) Value() (driver.Value, error) {
 }
 
 type Campaign struct {
-	ID          uuid.UUID          `json:"id"`
-	Name        string             `json:"name"`
-	OwnerUserID uuid.UUID          `json:"owner_user_id"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	InviteCode  string             `json:"invite_code"`
+	ID            uuid.UUID          `json:"id"`
+	Name          string             `json:"name"`
+	OwnerUserID   uuid.UUID          `json:"owner_user_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	InviteCode    string             `json:"invite_code"`
+	NextSessionAt pgtype.Timestamptz `json:"next_session_at"`
 }
 
 type Character struct {

@@ -166,6 +166,21 @@ export function useClaimQuest(campaignId: string) {
   });
 }
 
+export function useSetNextSession(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (nextSessionAt: string | null) => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/next-session", {
+        params: { path: { campaignId } },
+        body: { nextSessionAt },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaigns"] }),
+  });
+}
+
 // --- Party roster ---
 
 export function useCharacters(campaignId: string) {

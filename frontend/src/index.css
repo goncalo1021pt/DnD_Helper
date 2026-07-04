@@ -114,13 +114,43 @@ body {
     filter: drop-shadow(0 0 26px rgba(224, 169, 78, 0.7));
   }
 }
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes shake {
+  0%,
+  100% {
+    transform: rotate(0) translate(0, 0);
+  }
+  25% {
+    transform: rotate(-6deg) translate(-1px, 1px);
+  }
+  50% {
+    transform: rotate(5deg) translate(1px, -1px);
+  }
+  75% {
+    transform: rotate(-4deg) translate(1px, 1px);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .anim-sway,
   .anim-flicker,
   .anim-flame,
   .anim-spark,
-  .anim-sealglow {
+  .anim-sealglow,
+  .anim-pop,
+  .anim-shake {
     animation: none !important;
   }
 }
@@ -148,6 +178,12 @@ body {
 }
 .anim-rise-fast {
   animation: rise 0.26s ease-out both;
+}
+.anim-pop {
+  animation: pop 0.35s ease-out both;
+}
+.anim-shake {
+  animation: shake 0.48s ease-in-out infinite;
 }
 
 /* ---------- backgrounds & overlays ---------- */

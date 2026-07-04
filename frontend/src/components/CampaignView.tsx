@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
-import { Link, NavLink, Outlet, useParams } from "react-router-dom";
+import { Link, Outlet, useLocation, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
 import { useCampaigns, useRegenerateInvite } from "../hooks";
 import RoleBadge from "./ui/RoleBadge";
 import { IconCopy, IconRefresh } from "./ui/icons";
 
-/** Context handed to the campaign tabs (quest board, party roster). */
+/** Context handed to the campaign pages (dashboard, board, party). */
 export interface CampaignContext {
   campaign: Campaign;
   role: Role;
@@ -47,26 +47,13 @@ function InviteChip({ campaign }: { campaign: Campaign }) {
   );
 }
 
-function Tab({ to, end, children }: { to: string; end?: boolean; children: string }) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        `label-stamp -mb-px border-b-2 px-1 pb-2.5 text-xs font-semibold no-underline transition ${
-          isActive
-            ? "border-[#e0a94e] text-ember-bright"
-            : "border-transparent text-gold-muted hover:text-gold-hair"
-        }`
-      }
-    >
-      {children}
-    </NavLink>
-  );
-}
-
+/**
+ * Campaign layout: header (name, role, invite) over the current page —
+ * the dashboard hub at the index route, or a solo page (board, party).
+ */
 export default function CampaignView() {
   const { id } = useParams();
+  const location = useLocation();
   const { data: campaigns, isLoading } = useCampaigns();
   const regenerate = useRegenerateInvite(id ?? "");
 
@@ -96,17 +83,20 @@ export default function CampaignView() {
   const { campaign, role } = membership;
   const context: CampaignContext = { campaign, role };
 
+  // On the hub, back means the campaign list; on a solo page, back means the hub.
+  const onDashboard = location.pathname.replace(/\/$/, "").endsWith(campaign.id);
+
   return (
     <div>
       <Link
-        to="/questboard"
+        to={onDashboard ? "/questboard" : "."}
         className="label-stamp text-[11px] text-gold-muted no-underline transition hover:text-ember-bright"
       >
-        ← All campaigns
+        {onDashboard ? "← All campaigns" : "← The campaign hall"}
       </Link>
 
       {/* campaign toolbar */}
-      <div className="mb-5 mt-3 flex flex-wrap items-center justify-between gap-5">
+      <div className="mb-[26px] mt-3 flex flex-wrap items-center justify-between gap-5">
         <div className="flex min-w-0 flex-wrap items-center gap-[18px]">
           <div className="min-w-0">
             <div className="font-accent text-sm italic tracking-[.16em] text-[#c89a5a]">
@@ -132,17 +122,6 @@ export default function CampaignView() {
             </button>
           </div>
         )}
-      </div>
-
-      {/* tabs */}
-      <div
-        className="mb-[26px] flex gap-7"
-        style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
-      >
-        <Tab to="." end>
-          The Board
-        </Tab>
-        <Tab to="party">The Party</Tab>
       </div>
 
       <Outlet context={context} />

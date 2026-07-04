@@ -4,6 +4,7 @@ import LandingPage from "./components/LandingPage";
 import AppShell from "./components/AppShell";
 import CampaignsPage from "./components/CampaignsPage";
 import CampaignView from "./components/CampaignView";
+import CampaignDashboard from "./components/CampaignDashboard";
 import QuestBoard from "./components/QuestBoard";
 import PartyRoster from "./components/PartyRoster";
 
@@ -30,7 +31,8 @@ export default function App() {
       >
         <Route index element={<CampaignsPage />} />
         <Route path="campaigns/:id" element={<CampaignView />}>
-          <Route index element={<QuestBoard />} />
+          <Route index element={<CampaignDashboard />} />
+          <Route path="board" element={<QuestBoard />} />
           <Route path="party" element={<PartyRoster />} />
         </Route>
       </Route>
