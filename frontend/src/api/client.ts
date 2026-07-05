@@ -31,3 +31,16 @@ export type Character =
   paths["/campaigns/{campaignId}/characters"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type CharacterInput =
   paths["/campaigns/{campaignId}/characters"]["post"]["requestBody"]["content"]["application/json"];
+
+export type SkillTree =
+  paths["/campaigns/{campaignId}/trees"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type SkillTreeInput =
+  paths["/campaigns/{campaignId}/trees"]["post"]["requestBody"]["content"]["application/json"];
+export type SkillTreeDetail =
+  paths["/trees/{treeId}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type SkillNode = SkillTreeDetail["nodes"][number];
+export type SkillEdge = SkillTreeDetail["edges"][number];
+export type SkillNodeInput =
+  paths["/trees/{treeId}/nodes"]["post"]["requestBody"]["content"]["application/json"];
+export type CharacterTreeState =
+  paths["/characters/{characterId}/tree"]["get"]["responses"]["200"]["content"]["application/json"];

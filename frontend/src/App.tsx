@@ -7,6 +7,9 @@ import CampaignView from "./components/CampaignView";
 import CampaignDashboard from "./components/CampaignDashboard";
 import QuestBoard from "./components/QuestBoard";
 import PartyRoster from "./components/PartyRoster";
+import SkillTreesPage from "./components/SkillTreesPage";
+import TreeEditorPage from "./components/TreeEditorPage";
+import CharacterWebPage from "./components/CharacterWebPage";
 
 export default function App() {
   const { data: me, isLoading } = useCurrentUser();
@@ -34,6 +37,9 @@ export default function App() {
           <Route index element={<CampaignDashboard />} />
           <Route path="board" element={<QuestBoard />} />
           <Route path="party" element={<PartyRoster />} />
+          <Route path="trees" element={<SkillTreesPage />} />
+          <Route path="trees/:treeId" element={<TreeEditorPage />} />
+          <Route path="characters/:charId/web" element={<CharacterWebPage />} />
         </Route>
       </Route>
 

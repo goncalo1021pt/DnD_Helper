@@ -80,13 +80,49 @@ New section with, roughly in order of value:
 Each backend-touching feature follows the established flow: migration + queries
 → `openapi.yaml` → `make generate` → handlers → hooks.
 
+### Phase 3 — skill trees + character builder (planned July 2026)
+
+**Priority ordering (campaign starts in weeks): skill-tree engine first, 2024
+builder wizard second.** The app's first purpose is the user's own table.
+
+**Skill trees** — two custom story-gated progression webs, separate from
+standard D&D advancement (Vecna's tree first, Raven Queen's later; design doc
+lives in the user's campaign notes). **Engine built July 2026** (branch
+`skill-trees`, in user testing): the Loom (tree/node/edge editor), pacts,
+DM-granted picks, reachability-gated spending, party-card integration, and a
+functional SVG web view — demoed with a 50-node six-limb Vecna web. Still
+open before PR: user testing; then later a full personal visual design pass
+(user note: "full personal design, think about later"). Engine principles,
+all agreed:
+- Content-as-data: trees → limbs → nodes (minor/keystone, flavor + trade-off
+  text) → edges (a PoE-style web). The DM designs powers in a tree editor as
+  the campaign design firms up; the engine never hardcodes content.
+- Picks are granted by the DM at story beats (artifacts/dreams/favors), spent
+  by the player on *reachable* nodes (entry nodes or adjacent to taken ones) —
+  keystones gate deep in limbs via the web itself.
+- **One tree per character** (exclusive pact, DM-assigned) — enforced in schema.
+- Open design choices stay config, not code: keystone pick-cost (Option A = 2
+  picks vs Option B = prereq-gated) is a per-tree dial; pick budget is pacing,
+  not schema. **Corruption: undecided — deliberately not in the engine yet**
+  (additive later).
+- Visual web gets a dedicated design pass (Claude Design session) once the
+  node list is locked; v1 renders a functional SVG web.
+
+**Character builder (2024 rules)** — after the trees:
+- **Account-level characters** (user decision): characters belong to the user
+  and are seated into campaigns; current roster becomes "seated here".
+- Legal architecture: the repo ships the rules **engine + SRD 5.2 seed data**
+  (CC-BY-4.0, attribution file required); everything else (subclasses, feats,
+  spells from owned books) enters through an in-app content editor into the
+  instance's own DB — never committed. Private content packs exportable as
+  gitignored JSON. Trademarks stay out of public branding.
+- Creation wizard first (Class → Background → Species → Ability Scores),
+  then the sheet view, then level-ups integrating the skill trees.
+
 ### Later
-- Character builder with two custom skill-tree systems (2024 / 5.5e rules) —
-  the long-standing Phase 2+ goal from the README. The party roster's
-  characters are the seed: roster entries should grow into full sheets.
 - **XP system**: track XP per character, with the DM giving or taking XP
   depending on the campaign's progression mode (e.g. XP vs milestone).
-  Its own PR, after the Party Menu settles.
+  Pairs with the Chronicle's events.
 
 ## Open questions
 - **Branding**: repo says Quest Board; designs use QuestBoard / The Tavern /

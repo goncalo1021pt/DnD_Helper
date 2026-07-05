@@ -191,6 +191,163 @@ export interface paths {
         patch: operations["updateCharacter"];
         trace?: never;
     };
+    "/campaigns/{campaignId}/trees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The campaign's skill trees (members only) */
+        get: operations["listTrees"];
+        put?: never;
+        /** Create a skill tree (DM only) */
+        post: operations["createTree"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trees/{treeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treeId: components["parameters"]["TreeId"];
+            };
+            cookie?: never;
+        };
+        /** A skill tree with its full web (members only) */
+        get: operations["getTree"];
+        put?: never;
+        post?: never;
+        /** Delete a skill tree and its web (DM only) */
+        delete: operations["deleteTree"];
+        options?: never;
+        head?: never;
+        /** Update a skill tree (DM only) */
+        patch: operations["updateTree"];
+        trace?: never;
+    };
+    "/trees/{treeId}/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treeId: components["parameters"]["TreeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a power node to a tree (DM only) */
+        post: operations["createNode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trees/{treeId}/edges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treeId: components["parameters"]["TreeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace the tree's web of connections (DM only) */
+        put: operations["setEdges"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/nodes/{nodeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nodeId: components["parameters"]["NodeId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a power node (DM only) */
+        delete: operations["deleteNode"];
+        options?: never;
+        head?: never;
+        /** Update a power node (DM only) */
+        patch: operations["updateNode"];
+        trace?: never;
+    };
+    "/characters/{characterId}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        /** A character's pact and web progress (members only) */
+        get: operations["getCharacterTree"];
+        /** Bind a character to a tree — the pact (DM only) */
+        put: operations["setCharacterTree"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/tree/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grant unspent picks at a story beat (DM only) */
+        post: operations["grantPicks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/tree/picks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Spend a granted pick on a reachable node (owner or DM) */
+        post: operations["spendPick"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/quests/{questId}/claim": {
         parameters: {
             query?: never;
@@ -332,6 +489,88 @@ export interface components {
             hpCurrent: number;
             hpMax: number;
         };
+        /** @enum {string} */
+        NodeRarity: "minor" | "keystone";
+        SkillTree: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaignId: string;
+            name: string;
+            description: string;
+            /** @description How many picks a keystone eats (1 = gated only by the web). */
+            keystonePickCost: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        SkillTreeInput: {
+            name: string;
+            description?: string;
+            /** @default 1 */
+            keystonePickCost: number;
+        };
+        SkillNode: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            treeId: string;
+            name: string;
+            description: string;
+            /** @description The price baked into a keystone. */
+            tradeoff?: string | null;
+            rarity: components["schemas"]["NodeRarity"];
+            /** @description Grouping label within the web, e.g. ENTROPY. */
+            limb: string;
+            /** @description Pickable with no prior picks in the tree. */
+            isEntry: boolean;
+            posX?: number | null;
+            posY?: number | null;
+        };
+        SkillNodeInput: {
+            name: string;
+            description?: string;
+            tradeoff?: string | null;
+            rarity: components["schemas"]["NodeRarity"];
+            limb?: string;
+            /** @default false */
+            isEntry: boolean;
+            posX?: number | null;
+            posY?: number | null;
+        };
+        SkillEdge: {
+            /** Format: uuid */
+            a: string;
+            /** Format: uuid */
+            b: string;
+        };
+        SkillEdgesInput: {
+            edges: components["schemas"]["SkillEdge"][];
+        };
+        SkillTreeDetail: {
+            tree: components["schemas"]["SkillTree"];
+            nodes: components["schemas"]["SkillNode"][];
+            edges: components["schemas"]["SkillEdge"][];
+        };
+        CharacterTreeState: {
+            assigned: boolean;
+            tree?: components["schemas"]["SkillTreeDetail"];
+            picksGranted?: number;
+            /** @description Picks consumed by taken nodes (keystones may cost more). */
+            picksSpent?: number;
+            picksRemaining?: number;
+            takenNodeIds?: string[];
+        };
+        SetPactRequest: {
+            /** Format: uuid */
+            treeId: string;
+        };
+        GrantPicksRequest: {
+            picks: number;
+        };
+        SpendPickRequest: {
+            /** Format: uuid */
+            nodeId: string;
+        };
         RewardInput: {
             type: components["schemas"]["RewardType"];
             label: string;
@@ -397,6 +636,8 @@ export interface components {
         CampaignId: string;
         QuestId: string;
         CharacterId: string;
+        TreeId: string;
+        NodeId: string;
     };
     requestBodies: never;
     headers: never;
@@ -787,6 +1028,365 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listTrees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Skill trees */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillTree"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillTreeInput"];
+            };
+        };
+        responses: {
+            /** @description Created tree */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillTree"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treeId: components["parameters"]["TreeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tree with nodes and edges */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillTreeDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treeId: components["parameters"]["TreeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treeId: components["parameters"]["TreeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillTreeInput"];
+            };
+        };
+        responses: {
+            /** @description Updated tree */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillTree"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treeId: components["parameters"]["TreeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillNodeInput"];
+            };
+        };
+        responses: {
+            /** @description Created node */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillNode"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setEdges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                treeId: components["parameters"]["TreeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillEdgesInput"];
+            };
+        };
+        responses: {
+            /** @description Tree with the new web */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillTreeDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nodeId: components["parameters"]["NodeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateNode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nodeId: components["parameters"]["NodeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SkillNodeInput"];
+            };
+        };
+        responses: {
+            /** @description Updated node */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SkillNode"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCharacterTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pact state (assigned=false when no tree is bound) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterTreeState"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setCharacterTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPactRequest"];
+            };
+        };
+        responses: {
+            /** @description New pact state (a changed tree resets progress) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterTreeState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    grantPicks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantPicksRequest"];
+            };
+        };
+        responses: {
+            /** @description Pact state with the new grant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterTreeState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    spendPick: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpendPickRequest"];
+            };
+        };
+        responses: {
+            /** @description Pact state including the new power */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterTreeState"];
                 };
             };
             400: components["responses"]["BadRequest"];
