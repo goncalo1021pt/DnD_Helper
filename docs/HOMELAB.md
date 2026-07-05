@@ -35,6 +35,21 @@ qm start 200
 
 SSH comes up in under a minute (`ssh goncalo@192.168.0.70`).
 
+## Access
+
+- **SSH (primary)**: `ssh goncalo@192.168.0.70` — key-only; the authorized
+  keys are whatever `/tmp/keys.pub` contained at creation (currently the
+  laptop and WSL keys). Root: `sudo -i` (passwordless sudo, no direct root
+  login).
+- **Proxmox UI console**: node `pve` → VM `200` → Console. The VM uses a
+  serial console (`--vga serial0`), so this is an xterm.js terminal. Console
+  login needs a *password*, which cloud-init did not set — create one once
+  via SSH with `sudo passwd goncalo`, then console login works as a fallback
+  when SSH/network is broken.
+- **Adding another machine's key**: append its pubkey to
+  `~/.ssh/authorized_keys` on the VM, or redo `qm set 200 --sshkeys` with the
+  full key list and reboot.
+
 ### Gotchas learned the hard way
 
 - **Stale SSH host keys.** After destroying and recreating a VM on the same IP,
