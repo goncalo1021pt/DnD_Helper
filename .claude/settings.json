@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new root@192.168.0.70 \"hostname; docker --version 2>/dev/null; ls ~ /opt 2>/dev/null | head -12\")",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new root@192.168.0.70 'hostname; docker --version 2>/dev/null; ls ~; ls /opt 2>/dev/null'\")",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"qm config 200; echo ---; qm agent 200 ping && echo AGENT_OK\")",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=8 goncalo@192.168.0.70 \"hostname; docker --version 2>/dev/null; ls ~ 2>/dev/null; ls /opt 2>/dev/null\")",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 'qm cloudinit dump 200 user 2>/dev/null | grep -A3 ssh_authorized_keys | grep -o '\\\\''ssh-ed25519 [^\"]*'\\\\'' > /tmp/keys.pub; echo '\\\\''__CMDSUB_OUTPUT__'\\\\'' >> /tmp/keys.pub; cat /tmp/keys.pub; qm set 200 --sshkeys /tmp/keys.pub && qm reboot 200 && echo REBOOTING')",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"qm stop 200 2>/dev/null; sleep 3; qm start 200 && echo STARTED\")",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=8 goncalo@192.168.0.70 \"hostname && whoami && docker --version 2>/dev/null; ls ~; sudo -n true 2>/dev/null && echo SUDO_OK || echo SUDO_NEEDS_PASSWORD\")",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=5 goncalo@192.168.0.70 true)",
+      "Bash(ssh -o BatchMode=yes goncalo@192.168.0.70 \"hostname && whoami; docker --version 2>/dev/null || echo NO_DOCKER; ls ~; sudo -n true 2>/dev/null && echo SUDO_OK || echo SUDO_NEEDS_PASSWORD; df -h / | tail -1; free -h | head -2\")",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=5 goncalo@192.168.0.70 \"echo CONNECTED\")",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"qm status 200; timeout 3 bash -c 'cat < /dev/null > /dev/tcp/192.168.0.70/22' 2>/dev/null && echo PORT22_OPEN || echo PORT22_CLOSED\")",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 'ping -c2 -W2 192.168.0.70 >/dev/null 2>&1 && echo PING_OK || echo PING_FAIL; for p in 22 80 443 8080; do timeout 2 bash -c \"cat < /dev/null > /dev/tcp/192.168.0.70/$p\" 2>/dev/null && echo PORT_${p}_OPEN; done; qm status 200')",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"printf '\\\\n' | timeout 8 socat - UNIX-CONNECT:/var/run/qemu-server/200.serial0 2>&1 | tail -15\")",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"printf '\\\\r\\\\n\\\\r\\\\n' | timeout 12 socat -,ignoreeof UNIX-CONNECT:/var/run/qemu-server/200.serial0 2>&1 | strings | tail -20\")",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"qm stop 200 2>/dev/null; sleep 2; qm destroy 200 --purge && echo DESTROYED; pvesm status | head -5; ls /var/lib/vz/template/iso/ 2>/dev/null | head; ls /var/lib/vz/template/*.qcow2 2>/dev/null\")",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 ' *)",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"find /var/lib/vz -name '*.qcow2' 2>/dev/null; ls /var/lib/vz/template/\")",
+      "Bash(timeout 150 bash -c 'until ssh -o BatchMode=yes -o ConnectTimeout=4 -o StrictHostKeyChecking=accept-new goncalo@192.168.0.70 true 2>/dev/null; do sleep 5; done')",
+      "Bash(ssh -o BatchMode=yes goncalo@192.168.0.70 \"hostname; whoami; sudo -n true && echo SUDO_OK; df -h / | tail -1; nproc; free -h | awk 'NR==2{print \\\\$2}'\")",
+      "Bash(ssh-keygen -R 192.168.0.70)",
+      "Bash(ssh -o BatchMode=yes root@192.168.0.5 \"ping -c1 -W2 192.168.0.70 >/dev/null && echo PING_OK || echo PING_FAIL; timeout 2 bash -c 'cat < /dev/null > /dev/tcp/192.168.0.70/22' 2>/dev/null && echo PORT22_OPEN || echo PORT22_CLOSED; qm status 200\")",
+      "Bash(ssh -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new goncalo@192.168.0.70 \"echo CONNECTED as \\\\$\\(whoami\\)\")",
+      "Bash(scp -q /tmp/claude-1000/-home-goncalo1021pt-Documents-personal-dnd-DnD-Helper/6a5bd36d-e5d1-4e0c-bd89-c9be60bdcb1d/scratchpad/provision-vm.sh goncalo@192.168.0.70:~/provision-vm.sh)",
+      "Bash(ssh -o BatchMode=yes goncalo@192.168.0.70 \"chmod +x ~/provision-vm.sh && ~/provision-vm.sh\")"
+    ]
+  }
+}

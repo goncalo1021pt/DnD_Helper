@@ -1,0 +1,50 @@
+WHISPER	minor	1	Surface Whisper	Once per short rest, read the surface thoughts of a creature you can see.
+WHISPER	minor	0	Tongue of Ash	You understand all spoken languages — they reach you as dry whispers.
+WHISPER	minor	0	Echoed Secret	When a creature lies within 30 ft of you, you feel it as a cold breath.
+WHISPER	minor	0	Name of Power	1/long rest, learn a creature's true name; your next save-forcing effect against it has advantage.
+WHISPER	minor	0	Whispered Command	1/long rest, murmur into a humanoid's mind — nudge its next action (WIS negates).
+WHISPER	minor	0	Mind Worm	Leave a whisper in a mind you have read; hear through its ears for 1 minute, 1/long rest.
+WHISPER	minor	0	Secret-Keeper	Your thoughts cannot be read. Divination that targets your mind simply fails.
+WHISPER	keystone	0	The Whispered Voice	Speak into every mind within 60 ft; each makes a WIS save or obeys one whispered command.	Vecna hears everything you hear until your next long rest.
+EYE	minor	1	Third Sight	1/short rest, see invisible creatures within 30 ft for 1 minute.
+EYE	minor	0	Grave Sight	You see the wound-state of every creature at a glance — fresh, bloodied, or failing.
+EYE	minor	0	Peer Beyond	1/long rest, see through up to 1 ft of stone or wood for 1 round.
+EYE	minor	0	Omen Glimpse	1/long rest, force a reroll of one d20 rolled within 60 ft — you saw it fall wrong.
+EYE	minor	0	Unblinking	You cannot be blinded. Darkness is dim light to you.
+EYE	minor	0	Servant's Eye	1/long rest, scry for 10 minutes on a creature you have touched.
+EYE	minor	0	Watcher's Toll	When a creature you can see rolls a natural 1, your next roll against it has advantage.
+EYE	keystone	0	The Withered Eye	Pluck out your eye; the empty socket sees all — truesight 60 ft for 1 minute, 1/long rest.	Your own eye is gone: −2 to mundane sight Perception. Kas sees you each time you use it.
+HAND	minor	1	Cold Grip	Creatures you grapple take 1d6 necrotic at the start of their turn.
+HAND	minor	0	Beckon	1/short rest, drag a Medium or smaller creature 10 ft toward you with a gesture.
+HAND	minor	0	Puppet Twitch	1/long rest, as a reaction redirect an attack that hit you into an adjacent enemy.
+HAND	minor	0	Stay the Blade	1/short rest, seize a weapon arm from afar — the next attack against you has disadvantage.
+HAND	minor	0	Marionette	Puppet an unconscious or dead body for 1 minute — it walks, gestures, cannot fight.
+HAND	minor	0	Crushing Will	Your grip counts as magical. +2 to grapple and shove checks.
+HAND	minor	0	Chain of Command	A creature that fails a save against your control is marked: your next control DC against it is +2.
+HAND	keystone	0	The Withered Hand	1/long rest, a killing touch: CON save or the target's hit points are halved; a critical failure drops it to 0.	Your hand blackens for all to see. Divine magic cannot heal you until your next long rest.
+ENTROPY	minor	1	Withering Touch	Your hits deal +1d6 necrotic damage.
+ENTROPY	minor	0	Lingering Rot	A creature you deal necrotic damage to takes 1d6 again at the start of its next turn.
+ENTROPY	minor	0	Hunger	When an enemy within 30 ft dies, you gain 1d6 temporary hit points.
+ENTROPY	minor	0	Rustworm	Nonmagical armor you strike corrodes: −1 AC, once per suit of armor.
+ENTROPY	minor	0	Sour Ground	1/long rest, blight a 10-ft radius for 1 minute — plants die, healing is halved inside.
+ENTROPY	minor	0	Carrion Call	Carrion birds and vermin within 60 ft obey your simple commands.
+ENTROPY	minor	0	Grave Chill	Creatures that start their turn adjacent to you take 1 necrotic. You may still the aura at will.
+ENTROPY	keystone	0	Rotten Fate	1/long rest, one creature makes a CON save or takes massive necrotic damage; a humanoid it kills rises as YOUR zombie.	The corruption deepens a step — Kas can smell it. Healing on you is halved until your next long rest.
+DREAD	minor	1	Grave Whisper	The dead lend you their voice. Advantage on Intimidation checks.
+DREAD	minor	0	Wrong Shadow	Your shadow moves a half-beat late. Beasts and commoners will not willingly approach you.
+DREAD	minor	0	Face of the Forgotten	1/short rest, wear the face of someone the target buried — WIS save or frightened 1 round.
+DREAD	minor	0	Terror's Toll	Your attacks deal +1d4 damage to frightened creatures.
+DREAD	minor	0	Spectral Echo	1/long rest, leave a screaming afterimage where you stood as you move away.
+DREAD	minor	0	Dread Herald	When you drop a creature to 0 HP, enemies within 15 ft make a WIS save or are frightened 1 round.
+DREAD	minor	0	Nightmare Root	Creatures frightened of you cannot willingly move closer to you.
+DREAD	keystone	0	Flight of the Damned	1/long rest, a 60-ft cone of shrieking spectral dead: WIS save or 4d8 necrotic and frightened 1 minute.	The dead remember your voice. Undead within 120 ft always know exactly where you are.
+UNDEATH	minor	1	Pale Vigor	You need half the food and water of the living. Poison damage against you is halved.
+UNDEATH	minor	0	Deathless Breath	You no longer need to breathe.
+UNDEATH	minor	0	Grave-Speaker	Cast speak with dead once per long rest.
+UNDEATH	minor	0	Stitcher	Mend a corpse with a touch — it no longer decays and stays viable for raising.
+UNDEATH	minor	0	Bone Household	Raise one Small skeleton servant. It labors, carries and watches; it cannot fight.
+UNDEATH	minor	0	Half-Light	1/long rest, when you would drop to 0 hit points, drop to 1 instead.
+UNDEATH	minor	0	Cold Blood	Critical hits against you become normal hits.
+UNDEATH	keystone	0	The Undying Fragment	If slain, your soul refuses. You return in 1d10 days at a place of death you know.	Each return you read more as UNDEAD — to detection, and to Kas. Something of you stays behind every time.
+BRIDGE	minor	0	The Compass Turns	When Vecna's compass pulls, you may ask the DM one yes-or-no question. He answers honestly. He always answers.
+BRIDGE	minor	0	Ash Covenant	Undead you raise or command deal +1d6 necrotic on their hits.
