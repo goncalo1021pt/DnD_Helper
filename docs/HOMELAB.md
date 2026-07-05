@@ -46,9 +46,13 @@ SSH comes up in under a minute (`ssh goncalo@192.168.0.70`).
   login needs a *password*, which cloud-init did not set — create one once
   via SSH with `sudo passwd goncalo`, then console login works as a fallback
   when SSH/network is broken.
+- **From the PVE host**: `ssh goncalo@192.168.0.70` works — the PVE root key
+  (`/root/.ssh/id_ed25519.pub`) is authorized on the VM. Handy as a jump path
+  from any device that can reach the PVE host: `ssh -J root@192.168.0.5
+  goncalo@192.168.0.70`.
 - **Adding another machine's key**: append its pubkey to
   `~/.ssh/authorized_keys` on the VM, or redo `qm set 200 --sshkeys` with the
-  full key list and reboot.
+  full key list (kept in `/tmp/keys.pub` on the PVE host) and reboot.
 
 ### Gotchas learned the hard way
 
