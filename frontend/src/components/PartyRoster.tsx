@@ -1,16 +1,19 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import type { Character, CharacterInput } from "../api/client";
+import type { Character } from "../api/client";
 import {
   useCharacters,
   useCharacterTree,
   useCreateCharacter,
   useDeleteCharacter,
+  useMyCharacters,
+  useSeatCharacter,
   useSetPact,
   useTrees,
   useUpdateCharacter,
 } from "../hooks";
 import { hpColor, initials, medallionFor } from "../lib/party";
+import CharacterForm, { emptyHero } from "./CharacterForm";
 import type { CampaignContext } from "./CampaignView";
 import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
@@ -20,138 +23,6 @@ import {
   IconTrash,
   IconUsers,
 } from "./ui/icons";
-
-interface FormValues {
-  name: string;
-  class: string;
-  level: number;
-  hpCurrent: number;
-  hpMax: number;
-}
-
-function CharacterForm({
-  initial,
-  mode,
-  isPending,
-  errorText,
-  onSubmit,
-  onCancel,
-}: {
-  initial: FormValues;
-  mode: "create" | "edit";
-  isPending: boolean;
-  errorText?: string;
-  onSubmit: (values: CharacterInput) => void;
-  onCancel: () => void;
-}) {
-  const [v, setV] = useState<FormValues>(initial);
-
-  function set<K extends keyof FormValues>(key: K, val: FormValues[K]) {
-    setV((prev) => ({ ...prev, [key]: val }));
-  }
-
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    if (!v.name.trim()) return;
-    onSubmit({
-      name: v.name.trim(),
-      class: v.class.trim(),
-      level: v.level,
-      // A fresh hero arrives at full health.
-      hpCurrent: mode === "create" ? v.hpMax : v.hpCurrent,
-      hpMax: v.hpMax,
-    });
-  }
-
-  const input = "input-parchment input-compact";
-
-  return (
-    <form onSubmit={submit} className="flex flex-col gap-4 text-ink-strong">
-      <label className="flex flex-col gap-1.5">
-        <span className="field-label">Name</span>
-        <input
-          className={`${input} font-heading font-semibold`}
-          placeholder="e.g. Thorne Ashmantle"
-          value={v.name}
-          maxLength={80}
-          onChange={(e) => set("name", e.target.value)}
-        />
-      </label>
-
-      <label className="flex flex-col gap-1.5">
-        <span className="field-label">Class &amp; ancestry</span>
-        <input
-          className={input}
-          placeholder="e.g. Dragonborn Paladin"
-          value={v.class}
-          maxLength={80}
-          onChange={(e) => set("class", e.target.value)}
-        />
-      </label>
-
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <label className="flex flex-col gap-1.5">
-          <span className="field-label">Level</span>
-          <input
-            type="number"
-            min={1}
-            max={20}
-            className={input}
-            value={v.level}
-            onChange={(e) => set("level", Number(e.target.value))}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="field-label">Max HP</span>
-          <input
-            type="number"
-            min={1}
-            max={9999}
-            className={input}
-            value={v.hpMax}
-            onChange={(e) => set("hpMax", Number(e.target.value))}
-          />
-        </label>
-        {mode === "edit" && (
-          <label className="flex flex-col gap-1.5">
-            <span className="field-label">Current HP</span>
-            <input
-              type="number"
-              min={0}
-              max={9999}
-              className={input}
-              value={v.hpCurrent}
-              onChange={(e) => set("hpCurrent", Number(e.target.value))}
-            />
-          </label>
-        )}
-      </div>
-
-      <div className="torn-divider" />
-
-      {errorText && (
-        <p className="font-body m-0 text-sm italic text-[#8b2520]">{errorText}</p>
-      )}
-
-      <div className="flex gap-2.5">
-        <button
-          type="submit"
-          disabled={isPending || !v.name.trim()}
-          className="btn-base btn-wax clip-octagon px-6 py-[11px] text-xs"
-        >
-          {mode === "create" ? "Take a seat" : "Save the hero"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="btn-base btn-ghost-ink px-5 py-[11px] text-xs"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
 
 /* The character's pact line: tree name + waiting picks, or a DM bind control. */
 function PactRow({
@@ -389,6 +260,50 @@ function CharacterCard({
   );
 }
 
+/* Bring one of your resting heroes from My Heroes to this table. */
+function SummonControl({ campaignId }: { campaignId: string }) {
+  const { data: myHeroes } = useMyCharacters();
+  const seat = useSeatCharacter();
+  const [choice, setChoice] = useState("");
+  const resting = (myHeroes ?? []).filter((h) => !h.campaignId);
+
+  if (resting.length === 0) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={choice}
+        onChange={(e) => setChoice(e.target.value)}
+        className="input-parchment input-compact w-44 cursor-pointer text-[13px]"
+      >
+        <option value="">Summon a hero…</option>
+        {resting.map((h) => (
+          <option key={h.id} value={h.id}>
+            {h.name}
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={() =>
+          choice &&
+          seat.mutate(
+            { characterId: choice, campaignId },
+            { onSuccess: () => setChoice("") },
+          )
+        }
+        disabled={!choice || seat.isPending}
+        className="btn-base h-10 px-3 text-[10px]"
+        style={{
+          background: "rgba(16,9,5,.4)",
+          boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)",
+          color: "#e6d5af",
+        }}
+      >
+        Summon
+      </button>
+    </div>
+  );
+}
+
 export default function PartyRoster() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
@@ -424,6 +339,7 @@ export default function PartyRoster() {
           >
             The Skill Trees →
           </Link>
+          <SummonControl campaignId={campaign.id} />
           <button
             onClick={() => setAdding(true)}
             className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
@@ -473,7 +389,7 @@ export default function PartyRoster() {
             Take a Seat at the Table
           </h3>
           <CharacterForm
-            initial={{ name: "", class: "", level: 1, hpCurrent: 10, hpMax: 10 }}
+            initial={emptyHero}
             mode="create"
             isPending={create.isPending}
             errorText={

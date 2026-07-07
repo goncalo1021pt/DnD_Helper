@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/config"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 	apphttp "github.com/goncalo1021pt/questboard/backend/internal/http"
+	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
 func main() {
@@ -40,6 +41,11 @@ func run() error {
 		return err
 	}
 	defer pool.Close()
+
+	// Seed/refresh the SRD rules content (idempotent upsert).
+	if err := rules.Seed(ctx, db.New(pool)); err != nil {
+		return err
+	}
 
 	// Auth: register OAuth providers and a Postgres-backed session manager.
 	auth.RegisterProviders(cfg)

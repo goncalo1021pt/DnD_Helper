@@ -1,0 +1,46 @@
+[
+  {
+    "name": "Acolyte",
+    "summary": "You devoted your years to service in a temple, learning rites, letters and the shape of the divine.",
+    "data": {
+      "abilityScores": ["INT", "WIS", "CHA"],
+      "feat": "Magic Initiate (Cleric)",
+      "skills": ["Insight", "Religion"],
+      "tool": "Calligrapher's Supplies",
+      "equipment": "Calligrapher's supplies, book of prayers, holy symbol, parchment, robe, 8 gp"
+    }
+  },
+  {
+    "name": "Criminal",
+    "summary": "You earned your keep in the shadows — picking locks, picking pockets, and knowing when to run.",
+    "data": {
+      "abilityScores": ["DEX", "CON", "INT"],
+      "feat": "Alert",
+      "skills": ["Sleight of Hand", "Stealth"],
+      "tool": "Thieves' Tools",
+      "equipment": "Two daggers, thieves' tools, crowbar, two pouches, traveler's clothes, 16 gp"
+    }
+  },
+  {
+    "name": "Sage",
+    "summary": "You spent years among books and scrolls, chasing the answers behind the world.",
+    "data": {
+      "abilityScores": ["CON", "INT", "WIS"],
+      "feat": "Magic Initiate (Wizard)",
+      "skills": ["Arcana", "History"],
+      "tool": "Calligrapher's Supplies",
+      "equipment": "Quarterstaff, calligrapher's supplies, book of lore, parchment, robe, 8 gp"
+    }
+  },
+  {
+    "name": "Soldier",
+    "summary": "You trained, marched and fought under a banner. Discipline and violence are old friends.",
+    "data": {
+      "abilityScores": ["STR", "DEX", "CON"],
+      "feat": "Savage Attacker",
+      "skills": ["Athletics", "Intimidation"],
+      "tool": "Gaming Set (choice)",
+      "equipment": "Spear, shortbow with 20 arrows, gaming set, healer's kit, quiver, traveler's clothes, 14 gp"
+    }
+  }
+]

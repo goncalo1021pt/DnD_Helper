@@ -7,10 +7,25 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
+	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 )
+
+// pgUUID wraps a uuid for the nullable campaign_id column.
+func pgUUID(id uuid.UUID) pgtype.UUID {
+	return pgtype.UUID{Bytes: id, Valid: true}
+}
+
+// seatedCampaign returns the campaign a hero is seated at, if any.
+func seatedCampaign(c db.Character) (uuid.UUID, bool) {
+	if !c.CampaignID.Valid {
+		return uuid.UUID{}, false
+	}
+	return uuid.UUID(c.CampaignID.Bytes), true
+}
 
 // ListCharacters returns the campaign's party roster (members only).
 func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersRequestObject) (api.ListCharactersResponseObject, error) {
@@ -27,7 +42,7 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 		}
 	}
 
-	rows, err := s.queries.ListCharactersByCampaign(ctx, campaignID)
+	rows, err := s.queries.ListCharactersByCampaign(ctx, pgUUID(campaignID))
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +78,7 @@ func (s *Server) CreateCharacter(ctx context.Context, request api.CreateCharacte
 	}
 
 	character, err := s.queries.CreateCharacter(ctx, db.CreateCharacterParams{
-		CampaignID:  campaignID,
+		CampaignID:  pgUUID(campaignID),
 		OwnerUserID: member.UserID,
 		Name:        in.name,
 		Class:       in.class,
@@ -155,9 +170,21 @@ func (s *Server) DeleteCharacter(ctx context.Context, request api.DeleteCharacte
 	return api.DeleteCharacter204Response{}, nil
 }
 
-// requireCharacterEditor allows the character's owner or the campaign DM.
+// requireCharacterEditor allows the character's owner or, when the hero is
+// seated at a campaign, that campaign's DM. Unseated heroes are owner-only.
 func (s *Server) requireCharacterEditor(ctx context.Context, character db.Character) (db.Membership, error) {
-	member, err := s.requireMember(ctx, character.CampaignID)
+	campaignID, seated := seatedCampaign(character)
+	if !seated {
+		uid, ok := auth.UserID(ctx)
+		if !ok {
+			return db.Membership{}, errNoAuth
+		}
+		if uid != character.OwnerUserID {
+			return db.Membership{}, errForbidden
+		}
+		return db.Membership{UserID: uid}, nil
+	}
+	member, err := s.requireMember(ctx, campaignID)
 	if err != nil {
 		return member, err
 	}
@@ -217,9 +244,13 @@ func (s *Server) ownerName(ctx context.Context, ownerID uuid.UUID) (string, erro
 }
 
 func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Character {
+	var campaignID *uuid.UUID
+	if id, ok := seatedCampaign(c); ok {
+		campaignID = &id
+	}
 	return api.Character{
 		Id:          c.ID,
-		CampaignId:  c.CampaignID,
+		CampaignId:  campaignID,
 		OwnerUserId: c.OwnerUserID,
 		OwnerName:   ownerName,
 		Name:        c.Name,

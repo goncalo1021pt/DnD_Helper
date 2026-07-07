@@ -12,6 +12,91 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ContentKind string
+
+const (
+	ContentKindClass      ContentKind = "class"
+	ContentKindSpecies    ContentKind = "species"
+	ContentKindBackground ContentKind = "background"
+)
+
+func (e *ContentKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContentKind(s)
+	case string:
+		*e = ContentKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContentKind: %T", src)
+	}
+	return nil
+}
+
+type NullContentKind struct {
+	ContentKind ContentKind `json:"content_kind"`
+	Valid       bool        `json:"valid"` // Valid is true if ContentKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContentKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContentKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContentKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContentKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContentKind), nil
+}
+
+type ContentSource string
+
+const (
+	ContentSourceSrd      ContentSource = "srd"
+	ContentSourceHomebrew ContentSource = "homebrew"
+)
+
+func (e *ContentSource) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ContentSource(s)
+	case string:
+		*e = ContentSource(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ContentSource: %T", src)
+	}
+	return nil
+}
+
+type NullContentSource struct {
+	ContentSource ContentSource `json:"content_source"`
+	Valid         bool          `json:"valid"` // Valid is true if ContentSource is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullContentSource) Scan(value interface{}) error {
+	if value == nil {
+		ns.ContentSource, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ContentSource.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullContentSource) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ContentSource), nil
+}
+
 type MembershipRole string
 
 const (
@@ -241,7 +326,7 @@ type Campaign struct {
 
 type Character struct {
 	ID          uuid.UUID          `json:"id"`
-	CampaignID  uuid.UUID          `json:"campaign_id"`
+	CampaignID  pgtype.UUID        `json:"campaign_id"`
 	OwnerUserID uuid.UUID          `json:"owner_user_id"`
 	Name        string             `json:"name"`
 	Class       string             `json:"class"`
@@ -297,6 +382,18 @@ type QuestReward struct {
 	Type    RewardType `json:"type"`
 	Label   string     `json:"label"`
 	Value   *string    `json:"value"`
+}
+
+type RulesContent struct {
+	ID        uuid.UUID          `json:"id"`
+	Kind      ContentKind        `json:"kind"`
+	Source    ContentSource      `json:"source"`
+	Name      string             `json:"name"`
+	Summary   string             `json:"summary"`
+	Data      []byte             `json:"data"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Session struct {
