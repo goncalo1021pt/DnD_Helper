@@ -1,0 +1,52 @@
+Surface Whisper|Tongue of Ash
+Surface Whisper|Echoed Secret
+Tongue of Ash|Name of Power
+Echoed Secret|Whispered Command
+Name of Power|Mind Worm
+Whispered Command|Secret-Keeper
+Mind Worm|The Whispered Voice
+Secret-Keeper|The Whispered Voice
+Third Sight|Grave Sight
+Third Sight|Peer Beyond
+Grave Sight|Omen Glimpse
+Peer Beyond|Unblinking
+Omen Glimpse|Servant's Eye
+Unblinking|Watcher's Toll
+Servant's Eye|The Withered Eye
+Watcher's Toll|The Withered Eye
+Cold Grip|Beckon
+Cold Grip|Puppet Twitch
+Beckon|Stay the Blade
+Puppet Twitch|Marionette
+Stay the Blade|Crushing Will
+Marionette|Chain of Command
+Crushing Will|The Withered Hand
+Chain of Command|The Withered Hand
+Withering Touch|Lingering Rot
+Withering Touch|Hunger
+Lingering Rot|Rustworm
+Hunger|Sour Ground
+Rustworm|Carrion Call
+Sour Ground|Grave Chill
+Carrion Call|Rotten Fate
+Grave Chill|Rotten Fate
+Grave Whisper|Wrong Shadow
+Grave Whisper|Face of the Forgotten
+Wrong Shadow|Terror's Toll
+Face of the Forgotten|Spectral Echo
+Terror's Toll|Dread Herald
+Spectral Echo|Nightmare Root
+Dread Herald|Flight of the Damned
+Nightmare Root|Flight of the Damned
+Pale Vigor|Deathless Breath
+Pale Vigor|Grave-Speaker
+Deathless Breath|Stitcher
+Grave-Speaker|Bone Household
+Stitcher|Half-Light
+Bone Household|Cold Blood
+Half-Light|The Undying Fragment
+Cold Blood|The Undying Fragment
+Echoed Secret|The Compass Turns
+The Compass Turns|Omen Glimpse
+Grave Chill|Ash Covenant
+Ash Covenant|Bone Household
