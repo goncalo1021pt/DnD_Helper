@@ -248,6 +248,55 @@ export function useDeleteCharacter(campaignId: string) {
   });
 }
 
+// --- My Heroes (account-level characters) ---
+
+export function useMyCharacters() {
+  return useQuery({
+    queryKey: ["my-characters"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/me/characters");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useCreateMyCharacter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: CharacterInput) => {
+      const { data, error } = await api.POST("/me/characters", { body });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-characters"] }),
+  });
+}
+
+export function useSeatCharacter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      characterId,
+      campaignId,
+    }: {
+      characterId: string;
+      campaignId: string | null;
+    }) => {
+      const { data, error } = await api.PUT("/characters/{characterId}/seat", {
+        params: { path: { characterId } },
+        body: { campaignId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+    },
+  });
+}
+
 // --- Skill trees ---
 
 export function useTrees(campaignId: string) {

@@ -158,6 +158,66 @@ func (e Role) Valid() bool {
 	}
 }
 
+// Defines values for RulesContentKind.
+const (
+	RulesContentKindBackground RulesContentKind = "background"
+	RulesContentKindClass      RulesContentKind = "class"
+	RulesContentKindSpecies    RulesContentKind = "species"
+)
+
+// Valid indicates whether the value is a known member of the RulesContentKind enum.
+func (e RulesContentKind) Valid() bool {
+	switch e {
+	case RulesContentKindBackground:
+		return true
+	case RulesContentKindClass:
+		return true
+	case RulesContentKindSpecies:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RulesContentSource.
+const (
+	Homebrew RulesContentSource = "homebrew"
+	Srd      RulesContentSource = "srd"
+)
+
+// Valid indicates whether the value is a known member of the RulesContentSource enum.
+func (e RulesContentSource) Valid() bool {
+	switch e {
+	case Homebrew:
+		return true
+	case Srd:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentKind.
+const (
+	ContentKindBackground ContentKind = "background"
+	ContentKindClass      ContentKind = "class"
+	ContentKindSpecies    ContentKind = "species"
+)
+
+// Valid indicates whether the value is a known member of the ContentKind enum.
+func (e ContentKind) Valid() bool {
+	switch e {
+	case ContentKindBackground:
+		return true
+	case ContentKindClass:
+		return true
+	case ContentKindSpecies:
+		return true
+	default:
+		return false
+	}
+}
+
 // Campaign defines model for Campaign.
 type Campaign struct {
 	CreatedAt time.Time          `json:"createdAt"`
@@ -180,7 +240,11 @@ type CampaignMembership struct {
 
 // Character defines model for Character.
 type Character struct {
-	CampaignId openapi_types.UUID `json:"campaignId"`
+	// CampaignId The campaign this hero is seated at; null while in My Heroes.
+	CampaignId *openapi_types.UUID `json:"campaignId,omitempty"`
+
+	// CampaignName Name of the seated campaign, when known.
+	CampaignName *string `json:"campaignName,omitempty"`
 
 	// Class Freeform class/ancestry line, e.g. "Half-Elf Bard".
 	Class     string             `json:"class"`
@@ -317,6 +381,29 @@ type RewardType string
 // Role defines model for Role.
 type Role string
 
+// RulesContent defines model for RulesContent.
+type RulesContent struct {
+	// Data Kind-specific payload (hit die, traits, features…).
+	Data    map[string]interface{} `json:"data"`
+	Id      openapi_types.UUID     `json:"id"`
+	Kind    RulesContentKind       `json:"kind"`
+	Name    string                 `json:"name"`
+	Source  RulesContentSource     `json:"source"`
+	Summary string                 `json:"summary"`
+}
+
+// RulesContentKind defines model for RulesContent.Kind.
+type RulesContentKind string
+
+// RulesContentSource defines model for RulesContent.Source.
+type RulesContentSource string
+
+// SeatRequest defines model for SeatRequest.
+type SeatRequest struct {
+	// CampaignId Omit or null to unseat the hero back to My Heroes.
+	CampaignId *openapi_types.UUID `json:"campaignId,omitempty"`
+}
+
 // SetNextSessionRequest defines model for SetNextSessionRequest.
 type SetNextSessionRequest struct {
 	// NextSessionAt Omit or send null to clear the scheduled session.
@@ -427,6 +514,9 @@ type CampaignId = openapi_types.UUID
 // CharacterId defines model for CharacterId.
 type CharacterId = openapi_types.UUID
 
+// ContentKind defines model for ContentKind.
+type ContentKind string
+
 // NodeId defines model for NodeId.
 type NodeId = openapi_types.UUID
 
@@ -472,6 +562,9 @@ type CreateTreeJSONRequestBody = SkillTreeInput
 // UpdateCharacterJSONRequestBody defines body for UpdateCharacter for application/json ContentType.
 type UpdateCharacterJSONRequestBody = CharacterInput
 
+// SeatCharacterJSONRequestBody defines body for SeatCharacter for application/json ContentType.
+type SeatCharacterJSONRequestBody = SeatRequest
+
 // SetCharacterTreeJSONRequestBody defines body for SetCharacterTree for application/json ContentType.
 type SetCharacterTreeJSONRequestBody = SetPactRequest
 
@@ -480,6 +573,9 @@ type GrantPicksJSONRequestBody = GrantPicksRequest
 
 // SpendPickJSONRequestBody defines body for SpendPick for application/json ContentType.
 type SpendPickJSONRequestBody = SpendPickRequest
+
+// CreateMyCharacterJSONRequestBody defines body for CreateMyCharacter for application/json ContentType.
+type CreateMyCharacterJSONRequestBody = CharacterInput
 
 // UpdateNodeJSONRequestBody defines body for UpdateNode for application/json ContentType.
 type UpdateNodeJSONRequestBody = SkillNodeInput
@@ -537,6 +633,9 @@ type ServerInterface interface {
 	// Update a character (its owner or the DM)
 	// (PATCH /characters/{characterId})
 	UpdateCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId)
+	// Seat a hero at a campaign, or null to return them to My Heroes (owner only)
+	// (PUT /characters/{characterId}/seat)
+	SeatCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId)
 	// A character's pact and web progress (members only)
 	// (GET /characters/{characterId}/tree)
 	GetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId)
@@ -555,6 +654,12 @@ type ServerInterface interface {
 	// The currently authenticated user and their campaign memberships
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request)
+	// The caller's heroes across all campaigns, including unseated ones
+	// (GET /me/characters)
+	ListMyCharacters(w http.ResponseWriter, r *http.Request)
+	// Forge a hero in My Heroes (not seated at any campaign)
+	// (POST /me/characters)
+	CreateMyCharacter(w http.ResponseWriter, r *http.Request)
 	// Remove a power node (DM only)
 	// (DELETE /nodes/{nodeId})
 	DeleteNode(w http.ResponseWriter, r *http.Request, nodeId NodeId)
@@ -573,6 +678,9 @@ type ServerInterface interface {
 	// Claim a quest (any campaign member)
 	// (POST /quests/{questId}/claim)
 	ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
+	// Rules content of one kind (SRD + this instance's homebrew)
+	// (GET /rules/{kind})
+	ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind)
 	// Delete a skill tree and its web (DM only)
 	// (DELETE /trees/{treeId})
 	DeleteTree(w http.ResponseWriter, r *http.Request, treeId TreeId)
@@ -672,6 +780,12 @@ func (_ Unimplemented) UpdateCharacter(w http.ResponseWriter, r *http.Request, c
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Seat a hero at a campaign, or null to return them to My Heroes (owner only)
+// (PUT /characters/{characterId}/seat)
+func (_ Unimplemented) SeatCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // A character's pact and web progress (members only)
 // (GET /characters/{characterId}/tree)
 func (_ Unimplemented) GetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
@@ -708,6 +822,18 @@ func (_ Unimplemented) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// The caller's heroes across all campaigns, including unseated ones
+// (GET /me/characters)
+func (_ Unimplemented) ListMyCharacters(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Forge a hero in My Heroes (not seated at any campaign)
+// (POST /me/characters)
+func (_ Unimplemented) CreateMyCharacter(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Remove a power node (DM only)
 // (DELETE /nodes/{nodeId})
 func (_ Unimplemented) DeleteNode(w http.ResponseWriter, r *http.Request, nodeId NodeId) {
@@ -741,6 +867,12 @@ func (_ Unimplemented) UnclaimQuest(w http.ResponseWriter, r *http.Request, ques
 // Claim a quest (any campaign member)
 // (POST /quests/{questId}/claim)
 func (_ Unimplemented) ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Rules content of one kind (SRD + this instance's homebrew)
+// (GET /rules/{kind})
+func (_ Unimplemented) ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1163,6 +1295,38 @@ func (siw *ServerInterfaceWrapper) UpdateCharacter(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// SeatCharacter operation middleware
+func (siw *ServerInterfaceWrapper) SeatCharacter(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "characterId" -------------
+	var characterId CharacterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "characterId", chi.URLParam(r, "characterId"), &characterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "characterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SeatCharacter(w, r, characterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetCharacterTree operation middleware
 func (siw *ServerInterfaceWrapper) GetCharacterTree(w http.ResponseWriter, r *http.Request) {
 
@@ -1316,6 +1480,46 @@ func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetCurrentUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMyCharacters operation middleware
+func (siw *ServerInterfaceWrapper) ListMyCharacters(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMyCharacters(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMyCharacter operation middleware
+func (siw *ServerInterfaceWrapper) CreateMyCharacter(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMyCharacter(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1508,6 +1712,38 @@ func (siw *ServerInterfaceWrapper) ClaimQuest(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ClaimQuest(w, r, questId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRules operation middleware
+func (siw *ServerInterfaceWrapper) ListRules(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "kind" -------------
+	var kind ContentKind
+
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", chi.URLParam(r, "kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRules(w, r, kind)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1830,6 +2066,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Patch(options.BaseURL+"/characters/{characterId}", wrapper.UpdateCharacter)
 	})
 	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/characters/{characterId}/seat", wrapper.SeatCharacter)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/characters/{characterId}/tree", wrapper.GetCharacterTree)
 	})
 	r.Group(func(r chi.Router) {
@@ -1848,6 +2087,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/me", wrapper.GetCurrentUser)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/me/characters", wrapper.ListMyCharacters)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/me/characters", wrapper.CreateMyCharacter)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/nodes/{nodeId}", wrapper.DeleteNode)
 	})
 	r.Group(func(r chi.Router) {
@@ -1864,6 +2109,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/quests/{questId}/claim", wrapper.ClaimQuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/rules/{kind}", wrapper.ListRules)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/trees/{treeId}", wrapper.DeleteTree)
@@ -2666,6 +2914,85 @@ func (response UpdateCharacter404JSONResponse) VisitUpdateCharacterResponse(w ht
 	return err
 }
 
+type SeatCharacterRequestObject struct {
+	CharacterId CharacterId `json:"characterId"`
+	Body        *SeatCharacterJSONRequestBody
+}
+
+type SeatCharacterResponseObject interface {
+	VisitSeatCharacterResponse(w http.ResponseWriter) error
+}
+
+type SeatCharacter200JSONResponse Character
+
+func (response SeatCharacter200JSONResponse) VisitSeatCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SeatCharacter400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SeatCharacter400JSONResponse) VisitSeatCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SeatCharacter401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SeatCharacter401JSONResponse) VisitSeatCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SeatCharacter403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SeatCharacter403JSONResponse) VisitSeatCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SeatCharacter404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SeatCharacter404JSONResponse) VisitSeatCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetCharacterTreeRequestObject struct {
 	CharacterId CharacterId `json:"characterId"`
 }
@@ -3026,6 +3353,91 @@ func (response GetCurrentUser200JSONResponse) VisitGetCurrentUserResponse(w http
 type GetCurrentUser401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response GetCurrentUser401JSONResponse) VisitGetCurrentUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyCharactersRequestObject struct {
+}
+
+type ListMyCharactersResponseObject interface {
+	VisitListMyCharactersResponse(w http.ResponseWriter) error
+}
+
+type ListMyCharacters200JSONResponse []Character
+
+func (response ListMyCharacters200JSONResponse) VisitListMyCharactersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMyCharacters401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListMyCharacters401JSONResponse) VisitListMyCharactersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyCharacterRequestObject struct {
+	Body *CreateMyCharacterJSONRequestBody
+}
+
+type CreateMyCharacterResponseObject interface {
+	VisitCreateMyCharacterResponse(w http.ResponseWriter) error
+}
+
+type CreateMyCharacter201JSONResponse Character
+
+func (response CreateMyCharacter201JSONResponse) VisitCreateMyCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyCharacter400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateMyCharacter400JSONResponse) VisitCreateMyCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMyCharacter401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateMyCharacter401JSONResponse) VisitCreateMyCharacterResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -3439,6 +3851,42 @@ func (response ClaimQuest404JSONResponse) VisitClaimQuestResponse(w http.Respons
 	return err
 }
 
+type ListRulesRequestObject struct {
+	Kind ContentKind `json:"kind"`
+}
+
+type ListRulesResponseObject interface {
+	VisitListRulesResponse(w http.ResponseWriter) error
+}
+
+type ListRules200JSONResponse []RulesContent
+
+func (response ListRules200JSONResponse) VisitListRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRules401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListRules401JSONResponse) VisitListRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteTreeRequestObject struct {
 	TreeId TreeId `json:"treeId"`
 }
@@ -3839,6 +4287,9 @@ type StrictServerInterface interface {
 	// Update a character (its owner or the DM)
 	// (PATCH /characters/{characterId})
 	UpdateCharacter(ctx context.Context, request UpdateCharacterRequestObject) (UpdateCharacterResponseObject, error)
+	// Seat a hero at a campaign, or null to return them to My Heroes (owner only)
+	// (PUT /characters/{characterId}/seat)
+	SeatCharacter(ctx context.Context, request SeatCharacterRequestObject) (SeatCharacterResponseObject, error)
 	// A character's pact and web progress (members only)
 	// (GET /characters/{characterId}/tree)
 	GetCharacterTree(ctx context.Context, request GetCharacterTreeRequestObject) (GetCharacterTreeResponseObject, error)
@@ -3857,6 +4308,12 @@ type StrictServerInterface interface {
 	// The currently authenticated user and their campaign memberships
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
+	// The caller's heroes across all campaigns, including unseated ones
+	// (GET /me/characters)
+	ListMyCharacters(ctx context.Context, request ListMyCharactersRequestObject) (ListMyCharactersResponseObject, error)
+	// Forge a hero in My Heroes (not seated at any campaign)
+	// (POST /me/characters)
+	CreateMyCharacter(ctx context.Context, request CreateMyCharacterRequestObject) (CreateMyCharacterResponseObject, error)
 	// Remove a power node (DM only)
 	// (DELETE /nodes/{nodeId})
 	DeleteNode(ctx context.Context, request DeleteNodeRequestObject) (DeleteNodeResponseObject, error)
@@ -3875,6 +4332,9 @@ type StrictServerInterface interface {
 	// Claim a quest (any campaign member)
 	// (POST /quests/{questId}/claim)
 	ClaimQuest(ctx context.Context, request ClaimQuestRequestObject) (ClaimQuestResponseObject, error)
+	// Rules content of one kind (SRD + this instance's homebrew)
+	// (GET /rules/{kind})
+	ListRules(ctx context.Context, request ListRulesRequestObject) (ListRulesResponseObject, error)
 	// Delete a skill tree and its web (DM only)
 	// (DELETE /trees/{treeId})
 	DeleteTree(ctx context.Context, request DeleteTreeRequestObject) (DeleteTreeResponseObject, error)
@@ -4302,6 +4762,39 @@ func (sh *strictHandler) UpdateCharacter(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// SeatCharacter operation middleware
+func (sh *strictHandler) SeatCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	var request SeatCharacterRequestObject
+
+	request.CharacterId = characterId
+
+	var body SeatCharacterJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SeatCharacter(ctx, request.(SeatCharacterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SeatCharacter")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SeatCharacterResponseObject); ok {
+		if err := validResponse.VisitSeatCharacterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetCharacterTree operation middleware
 func (sh *strictHandler) GetCharacterTree(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
 	var request GetCharacterTreeRequestObject
@@ -4468,6 +4961,61 @@ func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCurrentUserResponseObject); ok {
 		if err := validResponse.VisitGetCurrentUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMyCharacters operation middleware
+func (sh *strictHandler) ListMyCharacters(w http.ResponseWriter, r *http.Request) {
+	var request ListMyCharactersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMyCharacters(ctx, request.(ListMyCharactersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMyCharacters")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMyCharactersResponseObject); ok {
+		if err := validResponse.VisitListMyCharactersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateMyCharacter operation middleware
+func (sh *strictHandler) CreateMyCharacter(w http.ResponseWriter, r *http.Request) {
+	var request CreateMyCharacterRequestObject
+
+	var body CreateMyCharacterJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMyCharacter(ctx, request.(CreateMyCharacterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMyCharacter")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateMyCharacterResponseObject); ok {
+		if err := validResponse.VisitCreateMyCharacterResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4645,6 +5193,32 @@ func (sh *strictHandler) ClaimQuest(w http.ResponseWriter, r *http.Request, ques
 	}
 }
 
+// ListRules operation middleware
+func (sh *strictHandler) ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind) {
+	var request ListRulesRequestObject
+
+	request.Kind = kind
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRules(ctx, request.(ListRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRulesResponseObject); ok {
+		if err := validResponse.VisitListRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DeleteTree operation middleware
 func (sh *strictHandler) DeleteTree(w http.ResponseWriter, r *http.Request, treeId TreeId) {
 	var request DeleteTreeRequestObject
@@ -4801,66 +5375,74 @@ func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, tree
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7Fz9bts4tn8VgvcCTQA3djqdiwtfzB9t0un07jSTJil2B22BoaVji41EakjKrjcwsA+xT7hPsuCHvmxK",
-	"luPYdYL9L474cXjO73zySHc44EnKGTAl8fAOp0SQBBQI8+uMJCmhE/Yu1L8ow0OcEhXhHmYkATzEQTmg",
-	"hwX8mVEBIR4qkUEPyyCChOiZYy4SovAQZxnVI9U81bOlEpRN8GLRw2cRESRQIJq3qozYbq8LHkLjNsw+",
-	"3G6HDxlI1bjFn+7pdnvcCGg+hbIPt9lhoSfLlDMJBguvSXgFhnT9K+BMATN/kjSNaUAU5az/VXKm/1du",
-	"898CxniI/6tf4qxvn8r+GyG4sFuFIANBU70IHuJ3bEpiGiLhNlz08M9cjGgYAtv97hdcIRLHfAYhOmL6",
-	"B0ogGYHoIS4QZTIbj2lAgSkkeAzH2GBK/cwzFu6euiuQPBMBIE3Z2Oy56OGPjGQq4oL+HcI9cShTETCl",
-	"V4bQINJNqxoOY1IET0EoamEUCNATXqkaBkOi4LmiCawCsYdp2AGvPUzZlCo44yHo4XWCryMigIxiQAEP",
-	"AaUxmYOQKJOAFEdfOWVIRYByc3biW9+q1p3nAXxT1yAl5cweq773XyOwqytDwISoSO+tZ/0fYlkco5ke",
-	"kTHNvzCLIdTbe1mjR+tFcm1eIYXPGIiPMjej661IaR8+YTPEnLK+UK8itBqbvxQr8tFXCIye5pJ/bzRG",
-	"RjT1YKCCjjb8FSjShPIY1o2/0mOWT1Vs5tbwEp37lmZa33UDYRATKVcx8LMA0HORed4nLACpxBzFlEEP",
-	"wcnkBH3Gv5B4/PxNPEaviQg/Yy8I76E+UXqWCeGMgXtKmYIJCPv4Pfnmf9RR8WKYQuxfIaHMo403IgML",
-	"eqt0cQwC8RmTSEVUosLTVzgw4jwGwlr10GD2wj2t73hOpdZ5pOciPjb7WpuOZhE39qBl84fUr1rEVNey",
-	"kv5CDS2cchZXZZkLrq6cht+tCH/H0kx5YJ7jNiHffgU2UREe/u9gHZoSymiSJXhYjvQhqxh26htWwCch",
-	"3+ywF4Pemjk5BpaoTSjLf56uk4bjcDNnW9moo69rRRSsspJISSfMuuFV9KY0uJVvBWGqNqJyNjPiChJC",
-	"maa7ecx16sRQx/qlfoYCzmSWQIhGc6TILTCkI1uJjm5hLhVnIFFC5ijgUqGECziu4L2ykZlqA2ZzOKog",
-	"kZ2sgvsHEYLMzW8Baw349S2NY83ac1CExisyK1jrlY3Rg9xnVGLVung80Dl9cR/sNNNgwv9GAmrS8pix",
-	"kOrwMovVfB27zD7n5fBFD0/o1HqxtaFCzG1M2GmwgBkRSwho9cRmvLU1PixQFS8L4cVgQyHYRbxSsJqs",
-	"DWuzQ+9+GE9I4zlT5nZrW8lQtHwOM7FXoct3JBuKrxwG8n+3s8oO861rLNGltTgNeDW2pmafT9fY56Xd",
-	"7QK+3X8BEmtZL28pFVGZPSDTe3zC/BbrJGQiSFhT/4YDuwV8e/4/p2ytkQhcFrEJHoOmkFibzysiqFXo",
-	"/EQJZVzLPbfHnkO5QsJDBKU0gfD1/D34nZIZ0F0hDFVneo5PEe4Roh6ISewa7+7ScjrfoSf5mFtqxtpF",
-	"ru3QqrndND61E+vyqUmjIKgehuaHLpBVx6BPSSqY8gWneu4miMq6xuh26IU/p/BYasOXYkqvQlvjqc5r",
-	"6M31Xwk6pUSHnkCk5mQCIc0SHX5q2WumkzCeN5sFB5IVbnVFMRnVsrblyK2Lg7/RIxc9PCVxBh3UwQc4",
-	"MyQnp5GH1ysegUwJtXv1MAkUnRpp8CSNQYfWPTwmNPb6ih6uhicr/CsY02r898imtRyq7FJh0ITHmg3a",
-	"6uAe/pYavUwzRZwacxWB8LPH1VrylUK9gK2Zecdfg7ooa2DNkXd7ney3hCrEBZLAQlsXUxwFMRBh0vWi",
-	"OoakXeO+VbKFh4PXoC5J0Byzq6LYvlnK7+b5hGZynTfhxJdBdlLg0ebkEKyntVIjG7QC9LPOXqw83IoP",
-	"Ww5NzbqNJF24QGyzFKprxVi+YUrM/Sm0KdbOqIoQ4ygVlAtkAlnkasVatP4CVUyT0eqabwXPUsomyOix",
-	"WdmtNIORqwG+ubi5+u3y983KzymXf2sxKizTWYsb+HungaIIVttkXAlrTXpPQuDjsafaF4HmXwBoRG4h",
-	"RJQpjgjK496TLnXt++qfHZJfhrmSTz2acYd1YitB0QrJBiVZi8sq4MYkixUejkksoQ1GlRz55aAFGJvU",
-	"wg4RNZs5RSdLt2mjsG5c1Wm7/OnhM5qOFipXEm2Qzrj0eM1f+AwlhM2dcSr1CgFREh2dop/QRFOPOIvn",
-	"phpoTU5DwY91ioRXUwWvbq2QX+Vlq8xcAXB3bqhnbvo3XMp4o21rm94gAef09NZ5RHPvfz/z40eTs0On",
-	"vbLA8+O+6u/eU6bAQk1icyBZNHBs5g3cPN+mH9PwP4Xb9YXb7coP21d7K/WGCre9AvUWfyFxVuWhakE0",
-	"IRPotOAGhrVBNTT/Icisl/10h10edMb5LQU8/PRl8aUcca1l4aqp9XGuYSiwP4uWITeqPCRJ6V9gbts/",
-	"KBtzT1cFxOPnEZfau5x/zgaDF/9zXvRQoAjiFMQJuomoRDKFAFFpMznKJjEg18bCx0iJTEVozMVnpp+/",
-	"unyHAs6UIIEamhlvOZIgpiB08AhiTAJAhIXmmU57rw1RKIhNUw4RgEZcRZ/ZBBgI4/zGgieIKnT0R0Ju",
-	"AeUP/jg++cyKQtfQ1hrQa05EqMnAPTwFIe1pByenJwNzCZwCIynFQ/zDyeDkB50bExUZVvdrtwsTMFZE",
-	"A9BorLZZ+Fcq1VkxaqnJ6sVgsFH3zoPdX6z2+Gg6tXCKE9lkqLyxfyZN+5POh4AEkV7z5eC0iZjimP1a",
-	"q5IBdZYkREfFRfOIxUlgr3FQJkGgEcScTSRS3AWlHtbWbwBd9xtI9ZqH8wdrivJfMy7qiqxtwGJFtqcP",
-	"R0TRGbMqOEtgWAjOCmawXjCVDr+HkKUhA5HSIBy5To8RBDwBiaiS6Pz9sZlXKk7/K6e2b8wr4+r1zY4k",
-	"7Lsh6iTfwYPLt6qyq5LWmbXmVkXYDUq6PwzoSS/XTyr6Jeug0ayvQobojMZWHlGm/YYBjW1BM618y+C5",
-	"K5OSRb/o5VljjcthezHHRbNZBytc0oaWehS3kM8P6yeV7bZ1Ad1UKHgmUUqEmiOhQwCBjmxHlTSZpumK",
-	"rXaTf/JvWQ7pV7rNdSTTauMLHu7IyNfbpfZt3UuEtJj3Koz2p9tbYOdVGGrdzulGfMZcf1LZBXhE2LxU",
-	"fwuo41YlZ/BNPc+D16U3GDbHXOaBXP16Y0eI89+hfCe348XdiofJTM4cmk7m/FLmkMG4nWu6BnM7ZS+k",
-	"Zs093ejo/H1uAVtga47e7pc+2CH78EkfckGs80eWJosBV1swmZi75/8udsVkKpafiFfDh2cSjUwqt0fP",
-	"ZDm5y9SjVqTas2f6UG7q90oVjX4EHumSS4UIYjCzhHfUXQF5/eC5DUW39zteRF0V+7yz2xyM6dccq0Xh",
-	"j8KEv3XcRASNBcioeoSOolcCoN1q35gR+zDalRuF9YbbDEaW/EPIHGRJzz7N8429a9lJBFe/ndmzZa5e",
-	"LzVaZ+XA8iiMc1FAKqGyoqRFdty/q7wfvLCl6hisZa7j4Nz8v55A1mTy0vP6ENimssdh5q4g4VOopVpH",
-	"VMdGM6azLttOZQpvGyta5R1so2lEBdEqi+1l2iHm6IP95OgfXWb0KHL07cBmj9oFbG0K289v0L1u9S2o",
-	"2otXeB9yLd/w8gj4kgQKSf0UHeUvJf1kOnlsasi4tVdUZyAZC48fiTRflWI01b1AmexuBiOUCj4RIB/A",
-	"Wy8bkYaay6rId1J1qfZ9fi8b0oq1C5hZSeR40zJiE+fOkQAJShbiOX66puY1ZfUCoukjNEz41z/+aQyN",
-	"4VPHIMHYnP5EEM+nT+6BYm/QWb5etSMAr76/dZAYrtjLWg5puP90EWukgzImU2Aq79BTOqRVXMzRCMiG",
-	"aC3exdsFWIvGq10Z2+XGrkOHKmVBnIWUTQq8pnz2lIM5IyFErFpCaBBrS6oCSBCZWjczxZIivCtCu6h4",
-	"l7MphnNve+5Qwm4HX/kDxJQGgCyVppftR8vaPW1cvLu61Mb1pV7JngLTMVZfMzyk5u9U8JG7507aY+TK",
-	"a8+7VKPKNp4Dv6p+F8j07jxEN8lN2Q8Uz+vfHrL9Qa4djIrl20MZ0VRa9pkO2/6dbQPtUCQw7b5PuD5g",
-	"rJlT6NILbRrPu8+pra0HFNzcUemtfC9jz36l0hreXApgRZn8SVcB/JDSymcv6Pp37ut3HdSvvEp7ovq3",
-	"cue0qerl3xlcq3u7vJX0tM7vWQEbbyVz5Tv4W8kH0j5DdK8St1Ilke2YNw4yv7Ffo5r9IH8Pv0lBPzIz",
-	"pEFD9yBZ26hNxgoEyiwxrs/+URiAGIg05lLAlPJMxnPkPiRQYnULU+C/ADsciT0yeRnOlfa6uUXNXGf2",
-	"7+wLpx08nL+Y/egdnKW2fnOnzY+2RjMY1T1eUzaz60L/6rfGVvurNeHuFfAQrAm1b+c9lmp+RQDmHFoC",
-	"Y/PJUS2GLQv57gvEa4OPA7tzH+znzj2PPQ79zv2BQo/mS/q6UewXb/DeH2wNF0bm8xW7BFrl+xjfC2ld",
-	"jFVerJzB6OkC7wrSmARQfIrjmXUtfIwCzhgEmityDRSLN8DvD8WWVqMDq3ec7qfekbcaPe16h32VoVLs",
-	"KK8iq5Dr+MaumObIy0SMh7hPUooXXxb/DgAA//8=",
+	"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",
+	"uZ53Z/BZgbycJ8FhMMQZUR7lfwIAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

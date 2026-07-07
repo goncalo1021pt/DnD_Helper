@@ -3,6 +3,7 @@ import { useCurrentUser } from "./hooks";
 import LandingPage from "./components/LandingPage";
 import AppShell from "./components/AppShell";
 import CampaignsPage from "./components/CampaignsPage";
+import MyHeroesPage from "./components/MyHeroesPage";
 import CampaignView from "./components/CampaignView";
 import CampaignDashboard from "./components/CampaignDashboard";
 import QuestBoard from "./components/QuestBoard";
@@ -33,6 +34,7 @@ export default function App() {
         element={me ? <AppShell user={me.user} /> : <Navigate to="/" replace />}
       >
         <Route index element={<CampaignsPage />} />
+        <Route path="heroes" element={<MyHeroesPage />} />
         <Route path="campaigns/:id" element={<CampaignView />}>
           <Route index element={<CampaignDashboard />} />
           <Route path="board" element={<QuestBoard />} />

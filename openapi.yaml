@@ -233,6 +233,88 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /me/characters:
+    get:
+      operationId: listMyCharacters
+      summary: The caller's heroes across all campaigns, including unseated ones
+      responses:
+        "200":
+          description: Heroes with where they are seated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Character"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createMyCharacter
+      summary: Forge a hero in My Heroes (not seated at any campaign)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CharacterInput"
+      responses:
+        "201":
+          description: Created hero
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /characters/{characterId}/seat:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    put:
+      operationId: seatCharacter
+      summary: Seat a hero at a campaign, or null to return them to My Heroes (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SeatRequest"
+      responses:
+        "200":
+          description: Hero after moving
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /rules/{kind}:
+    parameters:
+      - $ref: "#/components/parameters/ContentKind"
+    get:
+      operationId: listRules
+      summary: Rules content of one kind (SRD + this instance's homebrew)
+      responses:
+        "200":
+          description: Content entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RulesContent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /campaigns/{campaignId}/characters:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -683,6 +765,13 @@ components:
       schema:
         type: string
         format: uuid
+    ContentKind:
+      name: kind
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [class, species, background]
     NodeId:
       name: nodeId
       in: path
@@ -904,7 +993,7 @@ components:
     Character:
       type: object
       required:
-        [id, campaignId, ownerUserId, ownerName, name, class, level, hpCurrent, hpMax, createdAt, mine]
+        [id, ownerUserId, ownerName, name, class, level, hpCurrent, hpMax, createdAt, mine]
       properties:
         id:
           type: string
@@ -912,6 +1001,12 @@ components:
         campaignId:
           type: string
           format: uuid
+          nullable: true
+          description: The campaign this hero is seated at; null while in My Heroes.
+        campaignName:
+          type: string
+          nullable: true
+          description: Name of the seated campaign, when known.
         ownerUserId:
           type: string
           format: uuid
@@ -957,6 +1052,37 @@ components:
         hpMax:
           type: integer
           minimum: 1
+
+    SeatRequest:
+      type: object
+      properties:
+        campaignId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Omit or null to unseat the hero back to My Heroes.
+
+    RulesContent:
+      type: object
+      required: [id, kind, source, name, summary, data]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [class, species, background]
+        source:
+          type: string
+          enum: [srd, homebrew]
+        name:
+          type: string
+        summary:
+          type: string
+        data:
+          type: object
+          description: Kind-specific payload (hit die, traits, features…).
+          additionalProperties: true
 
     NodeRarity:
       type: string

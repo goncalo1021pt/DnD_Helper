@@ -1,0 +1,125 @@
+[
+  {
+    "name": "Dragonborn",
+    "summary": "Draconic blood given mortal form — scaled, proud, and carrying an ancestor's breath.",
+    "data": {
+      "size": "Medium",
+      "speed": 30,
+      "traits": [
+        { "name": "Draconic Ancestry", "summary": "Choose a dragon ancestor; it sets your breath weapon and resistance damage type." },
+        { "name": "Breath Weapon", "summary": "Replace one attack with a 15-ft cone or 30-ft line exhalation (DEX save, 1d10 of your ancestry's damage, scaling by level). Uses per long rest scale with proficiency." },
+        { "name": "Damage Resistance", "summary": "Resistance to your ancestry's damage type." },
+        { "name": "Darkvision", "summary": "See in dim light within 60 ft as if bright." },
+        { "name": "Draconic Flight", "summary": "At level 5, sprout spectral wings for 10 minutes (1/long rest) and gain a fly speed equal to your speed." }
+      ]
+    }
+  },
+  {
+    "name": "Dwarf",
+    "summary": "Stone-born and stubborn, dwarves endure what would break lesser folk.",
+    "data": {
+      "size": "Medium",
+      "speed": 30,
+      "traits": [
+        { "name": "Darkvision", "summary": "See in dim light within 120 ft as if bright." },
+        { "name": "Dwarven Resilience", "summary": "Resistance to poison damage; advantage on saves against the poisoned condition." },
+        { "name": "Dwarven Toughness", "summary": "+1 hit point per level." },
+        { "name": "Stonecunning", "summary": "As a bonus action, gain tremorsense 60 ft for 10 minutes while on stone (uses scale with proficiency)." }
+      ]
+    }
+  },
+  {
+    "name": "Elf",
+    "summary": "Long-lived and fey-touched, elves walk between the mortal world and older ones.",
+    "data": {
+      "size": "Medium",
+      "speed": 30,
+      "traits": [
+        { "name": "Darkvision", "summary": "See in dim light within 60 ft as if bright." },
+        { "name": "Elven Lineage", "summary": "Choose a lineage (Drow, High, or Wood); it grants a cantrip and later spells, plus lineage benefits." },
+        { "name": "Fey Ancestry", "summary": "Advantage on saves against the charmed condition." },
+        { "name": "Keen Senses", "summary": "Proficiency in Insight, Perception, or Survival." },
+        { "name": "Trance", "summary": "You don't sleep; a 4-hour trance gives the benefit of a long rest." }
+      ]
+    }
+  },
+  {
+    "name": "Gnome",
+    "summary": "Small, quick-minded and quicker-fingered, gnomes treat the world as a puzzle half-solved.",
+    "data": {
+      "size": "Small",
+      "speed": 30,
+      "traits": [
+        { "name": "Darkvision", "summary": "See in dim light within 60 ft as if bright." },
+        { "name": "Gnomish Cunning", "summary": "Advantage on Intelligence, Wisdom, and Charisma saving throws." },
+        { "name": "Gnomish Lineage", "summary": "Choose Forest (minor illusion + speak with small beasts) or Rock (prestidigitation + tinkering clockwork devices)." }
+      ]
+    }
+  },
+  {
+    "name": "Goliath",
+    "summary": "Descendants of giants — tall as doorframes, strong as arguments.",
+    "data": {
+      "size": "Medium",
+      "speed": 35,
+      "traits": [
+        { "name": "Giant Ancestry", "summary": "Choose a giant lineage granting a supernatural boon (e.g. Stone's Endurance: reduce damage by 1d12 + CON as a reaction)." },
+        { "name": "Large Form", "summary": "At level 5, become Large for 10 minutes (1/long rest): advantage on Strength checks, +10 ft speed." },
+        { "name": "Powerful Build", "summary": "Advantage on saves against grappled; count as one size larger for carrying." }
+      ]
+    }
+  },
+  {
+    "name": "Halfling",
+    "summary": "Small folk with outsized luck and the good sense to stay out from underfoot.",
+    "data": {
+      "size": "Small",
+      "speed": 30,
+      "traits": [
+        { "name": "Brave", "summary": "Advantage on saves against the frightened condition." },
+        { "name": "Halfling Nimbleness", "summary": "Move through the space of any larger creature." },
+        { "name": "Luck", "summary": "Reroll any natural 1 on a d20 test; keep the new roll." },
+        { "name": "Naturally Stealthy", "summary": "Hide even when obscured only by a larger creature." }
+      ]
+    }
+  },
+  {
+    "name": "Human",
+    "summary": "Everywhere, adaptable, and annoyingly good at everything they set their minds to.",
+    "data": {
+      "size": "Medium or Small",
+      "speed": 30,
+      "traits": [
+        { "name": "Resourceful", "summary": "Gain Heroic Inspiration after each long rest." },
+        { "name": "Skillful", "summary": "Proficiency in one skill of your choice." },
+        { "name": "Versatile", "summary": "An Origin feat of your choice." }
+      ]
+    }
+  },
+  {
+    "name": "Orc",
+    "summary": "Broad-shouldered and relentless, orcs meet the world head-on and rarely blink first.",
+    "data": {
+      "size": "Medium",
+      "speed": 30,
+      "traits": [
+        { "name": "Adrenaline Rush", "summary": "Dash as a bonus action and gain temporary hit points equal to your proficiency bonus (uses scale with proficiency)." },
+        { "name": "Darkvision", "summary": "See in dim light within 120 ft as if bright." },
+        { "name": "Relentless Endurance", "summary": "Once per long rest, drop to 1 hit point instead of 0." }
+      ]
+    }
+  },
+  {
+    "name": "Tiefling",
+    "summary": "A fiendish thread in the bloodline — horns, an otherworldly poise, and inherited fire.",
+    "data": {
+      "size": "Medium or Small",
+      "speed": 30,
+      "traits": [
+        { "name": "Darkvision", "summary": "See in dim light within 60 ft as if bright." },
+        { "name": "Fiendish Legacy", "summary": "Choose Abyssal, Chthonic, or Infernal: each grants a resistance, a cantrip, and later spells." },
+        { "name": "Otherworldly Presence", "summary": "You know the thaumaturgy cantrip." }
+      ]
+    }
+  }
+]

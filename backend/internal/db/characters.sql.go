@@ -12,6 +12,47 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createAccountCharacter = `-- name: CreateAccountCharacter :one
+INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
+VALUES (NULL, $1, $2, $3, $4, $5, $6)
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at
+`
+
+type CreateAccountCharacterParams struct {
+	OwnerUserID uuid.UUID `json:"owner_user_id"`
+	Name        string    `json:"name"`
+	Class       string    `json:"class"`
+	Level       int32     `json:"level"`
+	HpCurrent   int32     `json:"hp_current"`
+	HpMax       int32     `json:"hp_max"`
+}
+
+// A hero created in My Heroes, not yet seated anywhere.
+func (q *Queries) CreateAccountCharacter(ctx context.Context, arg CreateAccountCharacterParams) (Character, error) {
+	row := q.db.QueryRow(ctx, createAccountCharacter,
+		arg.OwnerUserID,
+		arg.Name,
+		arg.Class,
+		arg.Level,
+		arg.HpCurrent,
+		arg.HpMax,
+	)
+	var i Character
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.OwnerUserID,
+		&i.Name,
+		&i.Class,
+		&i.Level,
+		&i.HpCurrent,
+		&i.HpMax,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createCharacter = `-- name: CreateCharacter :one
 INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -19,13 +60,13 @@ RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max
 `
 
 type CreateCharacterParams struct {
-	CampaignID  uuid.UUID `json:"campaign_id"`
-	OwnerUserID uuid.UUID `json:"owner_user_id"`
-	Name        string    `json:"name"`
-	Class       string    `json:"class"`
-	Level       int32     `json:"level"`
-	HpCurrent   int32     `json:"hp_current"`
-	HpMax       int32     `json:"hp_max"`
+	CampaignID  pgtype.UUID `json:"campaign_id"`
+	OwnerUserID uuid.UUID   `json:"owner_user_id"`
+	Name        string      `json:"name"`
+	Class       string      `json:"class"`
+	Level       int32       `json:"level"`
+	HpCurrent   int32       `json:"hp_current"`
+	HpMax       int32       `json:"hp_max"`
 }
 
 func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams) (Character, error) {
@@ -95,7 +136,7 @@ ORDER BY c.created_at ASC
 
 type ListCharactersByCampaignRow struct {
 	ID          uuid.UUID          `json:"id"`
-	CampaignID  uuid.UUID          `json:"campaign_id"`
+	CampaignID  pgtype.UUID        `json:"campaign_id"`
 	OwnerUserID uuid.UUID          `json:"owner_user_id"`
 	Name        string             `json:"name"`
 	Class       string             `json:"class"`
@@ -107,7 +148,7 @@ type ListCharactersByCampaignRow struct {
 	OwnerName   string             `json:"owner_name"`
 }
 
-func (q *Queries) ListCharactersByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListCharactersByCampaignRow, error) {
+func (q *Queries) ListCharactersByCampaign(ctx context.Context, campaignID pgtype.UUID) ([]ListCharactersByCampaignRow, error) {
 	rows, err := q.db.Query(ctx, listCharactersByCampaign, campaignID)
 	if err != nil {
 		return nil, err
@@ -137,6 +178,91 @@ func (q *Queries) ListCharactersByCampaign(ctx context.Context, campaignID uuid.
 		return nil, err
 	}
 	return items, nil
+}
+
+const listCharactersByOwner = `-- name: ListCharactersByOwner :many
+SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, camp.name AS campaign_name
+FROM characters c
+LEFT JOIN campaigns camp ON camp.id = c.campaign_id
+WHERE c.owner_user_id = $1
+ORDER BY c.created_at ASC
+`
+
+type ListCharactersByOwnerRow struct {
+	ID           uuid.UUID          `json:"id"`
+	CampaignID   pgtype.UUID        `json:"campaign_id"`
+	OwnerUserID  uuid.UUID          `json:"owner_user_id"`
+	Name         string             `json:"name"`
+	Class        string             `json:"class"`
+	Level        int32              `json:"level"`
+	HpCurrent    int32              `json:"hp_current"`
+	HpMax        int32              `json:"hp_max"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	CampaignName *string            `json:"campaign_name"`
+}
+
+// The user's heroes across all campaigns, including unseated ones.
+func (q *Queries) ListCharactersByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]ListCharactersByOwnerRow, error) {
+	rows, err := q.db.Query(ctx, listCharactersByOwner, ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCharactersByOwnerRow
+	for rows.Next() {
+		var i ListCharactersByOwnerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.OwnerUserID,
+			&i.Name,
+			&i.Class,
+			&i.Level,
+			&i.HpCurrent,
+			&i.HpMax,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CampaignName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const seatCharacter = `-- name: SeatCharacter :one
+UPDATE characters SET campaign_id = $2, updated_at = now()
+WHERE id = $1
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at
+`
+
+type SeatCharacterParams struct {
+	ID         uuid.UUID   `json:"id"`
+	CampaignID pgtype.UUID `json:"campaign_id"`
+}
+
+// Seat a hero at a campaign (or NULL to return them to My Heroes).
+func (q *Queries) SeatCharacter(ctx context.Context, arg SeatCharacterParams) (Character, error) {
+	row := q.db.QueryRow(ctx, seatCharacter, arg.ID, arg.CampaignID)
+	var i Character
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.OwnerUserID,
+		&i.Name,
+		&i.Class,
+		&i.Level,
+		&i.HpCurrent,
+		&i.HpMax,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateCharacter = `-- name: UpdateCharacter :one

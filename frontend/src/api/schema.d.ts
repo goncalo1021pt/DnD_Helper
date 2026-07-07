@@ -151,6 +151,62 @@ export interface paths {
         patch: operations["updateQuest"];
         trace?: never;
     };
+    "/me/characters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's heroes across all campaigns, including unseated ones */
+        get: operations["listMyCharacters"];
+        put?: never;
+        /** Forge a hero in My Heroes (not seated at any campaign) */
+        post: operations["createMyCharacter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/seat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Seat a hero at a campaign, or null to return them to My Heroes (owner only) */
+        put: operations["seatCharacter"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["parameters"]["ContentKind"];
+            };
+            cookie?: never;
+        };
+        /** Rules content of one kind (SRD + this instance's homebrew) */
+        get: operations["listRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/characters": {
         parameters: {
             query?: never;
@@ -465,8 +521,13 @@ export interface components {
         Character: {
             /** Format: uuid */
             id: string;
-            /** Format: uuid */
-            campaignId: string;
+            /**
+             * Format: uuid
+             * @description The campaign this hero is seated at; null while in My Heroes.
+             */
+            campaignId?: string | null;
+            /** @description Name of the seated campaign, when known. */
+            campaignName?: string | null;
             /** Format: uuid */
             ownerUserId: string;
             /** @description Display name of the member who plays this character. */
@@ -488,6 +549,27 @@ export interface components {
             level: number;
             hpCurrent: number;
             hpMax: number;
+        };
+        SeatRequest: {
+            /**
+             * Format: uuid
+             * @description Omit or null to unseat the hero back to My Heroes.
+             */
+            campaignId?: string | null;
+        };
+        RulesContent: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "class" | "species" | "background";
+            /** @enum {string} */
+            source: "srd" | "homebrew";
+            name: string;
+            summary: string;
+            /** @description Kind-specific payload (hit die, traits, features…). */
+            data: {
+                [key: string]: unknown;
+            };
         };
         /** @enum {string} */
         NodeRarity: "minor" | "keystone";
@@ -637,6 +719,7 @@ export interface components {
         QuestId: string;
         CharacterId: string;
         TreeId: string;
+        ContentKind: "class" | "species" | "background";
         NodeId: string;
     };
     requestBodies: never;
@@ -928,6 +1011,106 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listMyCharacters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Heroes with where they are seated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createMyCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CharacterInput"];
+            };
+        };
+        responses: {
+            /** @description Created hero */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    seatCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeatRequest"];
+            };
+        };
+        responses: {
+            /** @description Hero after moving */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["parameters"]["ContentKind"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Content entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesContent"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listCharacters: {

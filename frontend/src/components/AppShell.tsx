@@ -28,7 +28,13 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
             </div>
           </div>
         </Link>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
+          <Link
+            to="/questboard/heroes"
+            className="label-stamp text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
+          >
+            My Heroes
+          </Link>
           <span className="label-stamp text-[11px] font-semibold text-gold-hair">
             {user.name}
           </span>

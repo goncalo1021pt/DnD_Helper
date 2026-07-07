@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
+	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 )
 
@@ -347,7 +348,19 @@ func (s *Server) GetCharacterTree(ctx context.Context, request api.GetCharacterT
 		}
 		return nil, err
 	}
-	if _, err := s.requireMember(ctx, character.CampaignID); err != nil {
+	campaignID, seated := seatedCampaign(character)
+	if !seated {
+		// An unseated hero's web is dormant: visible to the owner as "no pact".
+		uid, ok := auth.UserID(ctx)
+		if !ok {
+			return api.GetCharacterTree401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		}
+		if uid != character.OwnerUserID {
+			return api.GetCharacterTree403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return api.GetCharacterTree200JSONResponse(api.CharacterTreeState{Assigned: false}), nil
+	}
+	if _, err := s.requireMember(ctx, campaignID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.GetCharacterTree401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -372,7 +385,13 @@ func (s *Server) SetCharacterTree(ctx context.Context, request api.SetCharacterT
 		}
 		return nil, err
 	}
-	if _, err := s.requireDM(ctx, character.CampaignID); err != nil {
+	campaignID, seated := seatedCampaign(character)
+	if !seated {
+		return api.SetCharacterTree400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "the hero is not seated at a campaign",
+		}}, nil
+	}
+	if _, err := s.requireDM(ctx, campaignID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.SetCharacterTree401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -392,7 +411,7 @@ func (s *Server) SetCharacterTree(ctx context.Context, request api.SetCharacterT
 		}
 		return nil, err
 	}
-	if tree.CampaignID != character.CampaignID {
+	if tree.CampaignID != campaignID {
 		return api.SetCharacterTree400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
 			Error: "the tree belongs to another campaign",
 		}}, nil
@@ -434,7 +453,13 @@ func (s *Server) GrantPicks(ctx context.Context, request api.GrantPicksRequestOb
 		}
 		return nil, err
 	}
-	if _, err := s.requireDM(ctx, character.CampaignID); err != nil {
+	grantCampaign, grantSeated := seatedCampaign(character)
+	if !grantSeated {
+		return api.GrantPicks400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "the hero is not seated at a campaign",
+		}}, nil
+	}
+	if _, err := s.requireDM(ctx, grantCampaign); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.GrantPicks401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -478,7 +503,13 @@ func (s *Server) SpendPick(ctx context.Context, request api.SpendPickRequestObje
 		}
 		return nil, err
 	}
-	member, err := s.requireMember(ctx, character.CampaignID)
+	spendCampaign, spendSeated := seatedCampaign(character)
+	if !spendSeated {
+		return api.SpendPick400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "the hero is not seated at a campaign",
+		}}, nil
+	}
+	member, err := s.requireMember(ctx, spendCampaign)
 	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
