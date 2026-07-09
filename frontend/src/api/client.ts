@@ -44,3 +44,10 @@ export type SkillNodeInput =
   paths["/trees/{treeId}/nodes"]["post"]["requestBody"]["content"]["application/json"];
 export type CharacterTreeState =
   paths["/characters/{characterId}/tree"]["get"]["responses"]["200"]["content"]["application/json"];
+
+export type RulesContent =
+  paths["/rules/{kind}"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type RulesKind = "class" | "species" | "background";
+export type ForgeRequest =
+  paths["/me/characters/forge"]["post"]["requestBody"]["content"]["application/json"];
+export type AbilityScores = ForgeRequest["abilities"];

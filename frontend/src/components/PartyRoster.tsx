@@ -13,6 +13,7 @@ import {
   useUpdateCharacter,
 } from "../hooks";
 import { hpColor, initials, medallionFor } from "../lib/party";
+import AbilityRow from "./ui/AbilityRow";
 import CharacterForm, { emptyHero } from "./CharacterForm";
 import type { CampaignContext } from "./CampaignView";
 import FloatingDiceTray from "./ui/DiceTray";
@@ -178,6 +179,18 @@ function CharacterCard({
           />
         </div>
       </div>
+
+      {/* sheet (wizard-forged heroes) */}
+      {character.sheet && (
+        <div className="mt-3.5">
+          <AbilityRow abilities={character.sheet.abilities} />
+          {character.sheet.skills.length > 0 && (
+            <div className="label-stamp mt-2 text-[8.5px] leading-relaxed tracking-[1px] text-ink-label">
+              {character.sheet.skills.join(" · ")}
+            </div>
+          )}
+        </div>
+      )}
 
       <PactRow character={character} isDM={isDM} campaignId={campaignId} />
 

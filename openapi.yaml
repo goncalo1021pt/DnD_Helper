@@ -269,6 +269,28 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /me/characters/forge:
+    post:
+      operationId: forgeCharacter
+      summary: Create a hero through the builder — full sheet, derived HP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgeRequest"
+      responses:
+        "201":
+          description: The forged hero, resting in My Heroes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /characters/{characterId}/seat:
     parameters:
       - $ref: "#/components/parameters/CharacterId"
@@ -1030,6 +1052,69 @@ components:
         mine:
           type: boolean
           description: True when the caller owns this character.
+        sheet:
+          $ref: "#/components/schemas/CharacterSheet"
+
+    CharacterSheet:
+      type: object
+      description: Present only on wizard-forged heroes.
+      required: [abilities, skills]
+      properties:
+        abilities:
+          $ref: "#/components/schemas/AbilityScores"
+        skills:
+          type: array
+          items:
+            type: string
+        classId:
+          type: string
+          format: uuid
+          nullable: true
+        speciesId:
+          type: string
+          format: uuid
+          nullable: true
+        backgroundId:
+          type: string
+          format: uuid
+          nullable: true
+
+    AbilityScores:
+      type: object
+      required: [str, dex, con, int, wis, cha]
+      properties:
+        str: { type: integer, minimum: 3, maximum: 30 }
+        dex: { type: integer, minimum: 3, maximum: 30 }
+        con: { type: integer, minimum: 3, maximum: 30 }
+        int: { type: integer, minimum: 3, maximum: 30 }
+        wis: { type: integer, minimum: 3, maximum: 30 }
+        cha: { type: integer, minimum: 3, maximum: 30 }
+
+    ForgeRequest:
+      type: object
+      required: [name, classId, speciesId, backgroundId, abilities, skills]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        classId:
+          type: string
+          format: uuid
+        speciesId:
+          type: string
+          format: uuid
+        backgroundId:
+          type: string
+          format: uuid
+        abilities:
+          $ref: "#/components/schemas/AbilityScores"
+          description: Final scores, background bonuses already applied.
+        skills:
+          type: array
+          items:
+            type: string
+          description: Chosen class skills (background skills are implied).
 
     CharacterInput:
       type: object

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { Character } from "../api/client";
 import {
   useCampaigns,
@@ -10,6 +11,7 @@ import {
 } from "../hooks";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import CharacterForm, { emptyHero } from "./CharacterForm";
+import AbilityRow from "./ui/AbilityRow";
 import ParchmentModal from "./ui/ParchmentModal";
 import { IconPencil, IconPlus, IconTrash, IconUsers } from "./ui/icons";
 
@@ -71,6 +73,18 @@ function HeroCard({ character }: { character: Character }) {
           />
         </div>
       </div>
+
+      {/* sheet (wizard-forged heroes) */}
+      {character.sheet && (
+        <div className="mt-3.5">
+          <AbilityRow abilities={character.sheet.abilities} />
+          {character.sheet.skills.length > 0 && (
+            <div className="label-stamp mt-2 text-[8.5px] leading-relaxed tracking-[1px] text-ink-label">
+              {character.sheet.skills.join(" · ")}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* seat */}
       <div className="mt-3.5">
@@ -205,13 +219,21 @@ export default function MyHeroesPage() {
             </span>
           )}
         </div>
-        <button
-          onClick={() => setForging(true)}
-          className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
-        >
-          <IconPlus size={15} strokeWidth={2} />
-          Forge a Hero
-        </button>
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            onClick={() => setForging(true)}
+            className="label-stamp cursor-pointer border-none bg-transparent text-[11px] font-semibold text-gold-muted transition hover:text-ember-bright"
+          >
+            Quick add
+          </button>
+          <Link
+            to="forge"
+            className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px] no-underline"
+          >
+            <IconPlus size={15} strokeWidth={2} />
+            Forge a Hero
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
