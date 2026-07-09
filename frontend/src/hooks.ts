@@ -3,6 +3,8 @@ import { api } from "./api/client";
 import type {
   CharacterInput,
   CreateQuestInput,
+  ForgeRequest,
+  RulesKind,
   SkillEdge,
   SkillNodeInput,
   SkillTreeInput,
@@ -294,6 +296,34 @@ export function useSeatCharacter() {
       qc.invalidateQueries({ queryKey: ["my-characters"] });
       qc.invalidateQueries({ queryKey: ["characters"] });
     },
+  });
+}
+
+// --- Rules content + the forge ---
+
+export function useRules(kind: RulesKind) {
+  return useQuery({
+    queryKey: ["rules", kind],
+    staleTime: 5 * 60_000, // rules change on deploy, not per click
+    queryFn: async () => {
+      const { data, error } = await api.GET("/rules/{kind}", {
+        params: { path: { kind } },
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useForgeCharacter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: ForgeRequest) => {
+      const { data, error } = await api.POST("/me/characters/forge", { body });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-characters"] }),
   });
 }
 

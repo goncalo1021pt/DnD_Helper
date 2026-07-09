@@ -35,6 +35,10 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			ID: row.ID, CampaignID: row.CampaignID, OwnerUserID: row.OwnerUserID,
 			Name: row.Name, Class: row.Class, Level: row.Level,
 			HpCurrent: row.HpCurrent, HpMax: row.HpMax, CreatedAt: row.CreatedAt,
+			Strength: row.Strength, Dexterity: row.Dexterity, Constitution: row.Constitution,
+			Intelligence: row.Intelligence, Wisdom: row.Wisdom, Charisma: row.Charisma,
+			Skills: row.Skills, ClassID: row.ClassID, SpeciesID: row.SpeciesID,
+			BackgroundID: row.BackgroundID,
 		}, me.Name, uid)
 		c.CampaignName = row.CampaignName
 		out = append(out, c)

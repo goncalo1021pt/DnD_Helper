@@ -46,3 +46,12 @@ RETURNING *;
 INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
 VALUES (NULL, $1, $2, $3, $4, $5, $6)
 RETURNING *;
+
+-- name: ForgeCharacter :one
+-- A wizard-built hero: full sheet, created unseated in My Heroes.
+INSERT INTO characters (
+    campaign_id, owner_user_id, name, class, level, hp_current, hp_max,
+    strength, dexterity, constitution, intelligence, wisdom, charisma,
+    skills, class_id, species_id, background_id
+) VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+RETURNING *;

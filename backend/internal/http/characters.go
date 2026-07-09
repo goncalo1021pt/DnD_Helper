@@ -52,6 +52,10 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			ID: row.ID, CampaignID: row.CampaignID, OwnerUserID: row.OwnerUserID,
 			Name: row.Name, Class: row.Class, Level: row.Level,
 			HpCurrent: row.HpCurrent, HpMax: row.HpMax, CreatedAt: row.CreatedAt,
+			Strength: row.Strength, Dexterity: row.Dexterity, Constitution: row.Constitution,
+			Intelligence: row.Intelligence, Wisdom: row.Wisdom, Charisma: row.Charisma,
+			Skills: row.Skills, ClassID: row.ClassID, SpeciesID: row.SpeciesID,
+			BackgroundID: row.BackgroundID,
 		}, row.OwnerName, member.UserID))
 	}
 	return api.ListCharacters200JSONResponse(out), nil
@@ -248,7 +252,33 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 	if id, ok := seatedCampaign(c); ok {
 		campaignID = &id
 	}
+	var sheet *api.CharacterSheet
+	if c.Strength != nil && c.Dexterity != nil && c.Constitution != nil &&
+		c.Intelligence != nil && c.Wisdom != nil && c.Charisma != nil {
+		uuidPtr := func(u pgtype.UUID) *uuid.UUID {
+			if !u.Valid {
+				return nil
+			}
+			id := uuid.UUID(u.Bytes)
+			return &id
+		}
+		skills := c.Skills
+		if skills == nil {
+			skills = []string{}
+		}
+		sheet = &api.CharacterSheet{
+			Abilities: api.AbilityScores{
+				Str: int(*c.Strength), Dex: int(*c.Dexterity), Con: int(*c.Constitution),
+				Int: int(*c.Intelligence), Wis: int(*c.Wisdom), Cha: int(*c.Charisma),
+			},
+			Skills:       skills,
+			ClassId:      uuidPtr(c.ClassID),
+			SpeciesId:    uuidPtr(c.SpeciesID),
+			BackgroundId: uuidPtr(c.BackgroundID),
+		}
+	}
 	return api.Character{
+		Sheet: sheet,
 		Id:          c.ID,
 		CampaignId:  campaignID,
 		OwnerUserId: c.OwnerUserID,

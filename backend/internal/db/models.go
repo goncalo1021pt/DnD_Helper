@@ -325,16 +325,26 @@ type Campaign struct {
 }
 
 type Character struct {
-	ID          uuid.UUID          `json:"id"`
-	CampaignID  pgtype.UUID        `json:"campaign_id"`
-	OwnerUserID uuid.UUID          `json:"owner_user_id"`
-	Name        string             `json:"name"`
-	Class       string             `json:"class"`
-	Level       int32              `json:"level"`
-	HpCurrent   int32              `json:"hp_current"`
-	HpMax       int32              `json:"hp_max"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID           uuid.UUID          `json:"id"`
+	CampaignID   pgtype.UUID        `json:"campaign_id"`
+	OwnerUserID  uuid.UUID          `json:"owner_user_id"`
+	Name         string             `json:"name"`
+	Class        string             `json:"class"`
+	Level        int32              `json:"level"`
+	HpCurrent    int32              `json:"hp_current"`
+	HpMax        int32              `json:"hp_max"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Strength     *int16             `json:"strength"`
+	Dexterity    *int16             `json:"dexterity"`
+	Constitution *int16             `json:"constitution"`
+	Intelligence *int16             `json:"intelligence"`
+	Wisdom       *int16             `json:"wisdom"`
+	Charisma     *int16             `json:"charisma"`
+	Skills       []string           `json:"skills"`
+	ClassID      pgtype.UUID        `json:"class_id"`
+	SpeciesID    pgtype.UUID        `json:"species_id"`
+	BackgroundID pgtype.UUID        `json:"background_id"`
 }
 
 type CharacterNode struct {

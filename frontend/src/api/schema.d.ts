@@ -169,6 +169,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/characters/forge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a hero through the builder — full sheet, derived HP */
+        post: operations["forgeCharacter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/characters/{characterId}/seat": {
         parameters: {
             query?: never;
@@ -542,6 +559,39 @@ export interface components {
             createdAt: string;
             /** @description True when the caller owns this character. */
             mine: boolean;
+            sheet?: components["schemas"]["CharacterSheet"];
+        };
+        /** @description Present only on wizard-forged heroes. */
+        CharacterSheet: {
+            abilities: components["schemas"]["AbilityScores"];
+            skills: string[];
+            /** Format: uuid */
+            classId?: string | null;
+            /** Format: uuid */
+            speciesId?: string | null;
+            /** Format: uuid */
+            backgroundId?: string | null;
+        };
+        AbilityScores: {
+            str: number;
+            dex: number;
+            con: number;
+            int: number;
+            wis: number;
+            cha: number;
+        };
+        ForgeRequest: {
+            name: string;
+            /** Format: uuid */
+            classId: string;
+            /** Format: uuid */
+            speciesId: string;
+            /** Format: uuid */
+            backgroundId: string;
+            /** @description Final scores, background bonuses already applied. */
+            abilities: components["schemas"]["AbilityScores"];
+            /** @description Chosen class skills (background skills are implied). */
+            skills: string[];
         };
         CharacterInput: {
             name: string;
@@ -1048,6 +1098,32 @@ export interface operations {
         };
         responses: {
             /** @description Created hero */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    forgeCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgeRequest"];
+            };
+        };
+        responses: {
+            /** @description The forged hero, resting in My Heroes */
             201: {
                 headers: {
                     [name: string]: unknown;
