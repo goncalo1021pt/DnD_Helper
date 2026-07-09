@@ -119,7 +119,9 @@ export default function TreeWeb({
   }
 
   return (
-    <div className="overflow-x-auto">
+    // Phones get a capped, two-axis panning window so a big web can't
+    // swallow the page; from sm up the full height renders as before.
+    <div className="max-h-[70vh] overflow-auto overscroll-contain sm:max-h-none">
       <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="mx-auto block">
         {/* limb labels */}
         {limbs.map((l, i) => (
