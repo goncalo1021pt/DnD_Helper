@@ -119,10 +119,14 @@ export default function TreeWeb({
   }
 
   return (
-    // Phones get a capped, two-axis panning window so a big web can't
-    // swallow the page; from sm up the full height renders as before.
-    <div className="max-h-[70vh] overflow-auto overscroll-contain sm:max-h-none">
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="mx-auto block">
+    // The web scales to fit 70vh, so the card never grows past the screen:
+    // vertical swipes scroll the page, horizontal swipes pan the web.
+    <div className="overflow-x-auto overflow-y-hidden">
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="mx-auto block"
+        style={{ height: `min(70vh, ${h}px)`, width: "auto" }}
+      >
         {/* limb labels */}
         {limbs.map((l, i) => (
           <text
