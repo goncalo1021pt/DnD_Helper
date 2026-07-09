@@ -33,7 +33,7 @@ export default function SkillTreesPage() {
   }
 
   return (
-    <div className="panel-hall px-[30px] pb-11 pt-8">
+    <div className="panel-hall px-5 sm:px-[30px] pb-11 pt-8">
       <div
         className="mb-[26px] flex flex-wrap items-center justify-between gap-4 pb-3.5"
         style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
@@ -67,7 +67,7 @@ export default function SkillTreesPage() {
           Reading the strands…
         </div>
       ) : trees && trees.length > 0 ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-6">
           {trees.map((t) => (
             <Link
               key={t.id}

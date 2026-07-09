@@ -165,7 +165,7 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
       <Embers />
 
       {/* header */}
-      <header className="relative z-[6] mx-auto flex max-w-[1240px] items-center justify-between px-11 py-6">
+      <header className="relative z-[6] mx-auto flex max-w-[1240px] items-center justify-between px-6 py-6 sm:px-11">
         <div className="flex items-center gap-3.5">
           <Crest
             size={46}
@@ -187,13 +187,20 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
             </span>
           )}
           <GoldFrameButton onClick={enter}>
-            {me ? "Enter the Tavern" : "Log In"}
+            {me ? (
+              <>
+                <span className="sm:hidden">Enter</span>
+                <span className="hidden sm:inline">Enter the Tavern</span>
+              </>
+            ) : (
+              "Log In"
+            )}
           </GoldFrameButton>
         </div>
       </header>
 
       {/* hero */}
-      <main className="relative z-[5] mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-16 px-11 pb-[70px] pt-12 lg:grid-cols-[minmax(0,1.04fr)_minmax(0,.92fr)]">
+      <main className="relative z-[5] mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-[70px] pt-12 sm:px-11 lg:grid-cols-[minmax(0,1.04fr)_minmax(0,.92fr)]">
         {/* left: copy */}
         <div className="anim-rise">
           <div className="font-accent mb-[26px] inline-flex items-center gap-[11px] text-base italic tracking-[.16em] text-[#c89a5a]">
@@ -306,7 +313,7 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
 
             {/* oxblood field with the sigil */}
             <div
-              className="relative flex aspect-[4/5] flex-col items-center justify-center overflow-hidden"
+              className="relative flex aspect-[4/5] flex-col items-center justify-center overflow-hidden pb-[64px]"
               style={{
                 background:
                   "radial-gradient(80% 70% at 50% 36%, #6a2018, #3a120d 60%, #240a07 100%)",
@@ -320,17 +327,17 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
                     "repeating-linear-gradient(0deg, rgba(0,0,0,.5) 0 1px, transparent 1px 46px)",
                 }}
               />
-              <div className="anim-sealglow relative text-[#e7bd6a]">
-                <Crest size={252} />
+              <div className="anim-sealglow relative aspect-square w-[clamp(140px,55%,252px)] text-[#e7bd6a]">
+                <Crest size="100%" />
               </div>
-              <div className="font-display relative mt-[18px] text-[34px] font-black tracking-[.04em] text-[#f1dca6]">
+              <div className="font-display relative mt-[18px] text-[clamp(23px,8vw,34px)] font-black tracking-[.04em] text-[#f1dca6]">
                 Quest Board
               </div>
               <div className="font-accent relative mt-1.5 text-base italic tracking-[.2em] text-[#d09a58]">
                 GATHER · QUEST · RETURN
               </div>
               {/* caption plate */}
-              <div className="chip-hall absolute inset-x-[18px] bottom-[18px] justify-between px-4 py-[11px]">
+              <div className="chip-hall absolute inset-x-[18px] bottom-[18px] flex-wrap justify-between gap-x-3 gap-y-0.5 px-4 py-[11px]">
                 <div className="flex items-center gap-[9px]">
                   <span
                     className="h-2 w-2 rounded-full bg-[#8fb15f]"
@@ -350,7 +357,7 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
       </main>
 
       {/* heraldic divider */}
-      <div className="relative z-[5] mx-auto flex max-w-[1240px] items-center gap-[22px] px-11">
+      <div className="relative z-[5] mx-auto flex max-w-[1240px] items-center gap-[22px] px-6 sm:px-11">
         <span
           className="h-px flex-1"
           style={{
@@ -369,7 +376,7 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
       </div>
 
       {/* what waits within */}
-      <section className="relative z-[5] mx-auto max-w-[1240px] px-11 pb-[70px] pt-12">
+      <section className="relative z-[5] mx-auto max-w-[1240px] px-6 pb-[70px] pt-12 sm:px-11">
         <div className="mb-10 text-center">
           <div className="font-accent mb-2 text-base italic tracking-[.18em] text-[#c89a5a]">
             By the hearth you'll find
@@ -409,7 +416,7 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
           background: "linear-gradient(180deg, transparent, rgba(20,12,6,.6))",
         }}
       >
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-5 px-11 py-6">
+        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-5 px-6 py-6 sm:px-11">
           <div className="flex items-center gap-[11px]">
             <Crest size={26} className="text-[#a87f3a]" />
             <span className="font-display text-[15px] font-bold text-[#bfa676]">

@@ -178,7 +178,7 @@ export default function ForgeWizard() {
   const input = "input-parchment input-compact";
 
   return (
-    <div className="panel-hall px-[30px] pb-10 pt-8">
+    <div className="panel-hall px-5 sm:px-[30px] pb-10 pt-8">
       {/* header + step rail */}
       <div
         className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-3.5"

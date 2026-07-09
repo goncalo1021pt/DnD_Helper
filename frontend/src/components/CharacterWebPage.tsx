@@ -39,7 +39,7 @@ export default function CharacterWebPage() {
 
   if (!state.assigned || !state.tree) {
     return (
-      <div className="panel-hall px-[30px] py-[60px] text-center">
+      <div className="panel-hall px-5 sm:px-[30px] py-[60px] text-center">
         <div className="font-display text-2xl text-[#cdb582]">No pact yet</div>
         <div className="font-accent mt-2 text-base italic text-[#9c855e]">
           — {isDM ? "bind this character to a tree from the party ledger." : "no power has marked this one… yet."} —
@@ -74,7 +74,7 @@ export default function CharacterWebPage() {
   }
 
   return (
-    <div className="panel-hall px-[30px] pb-10 pt-6">
+    <div className="panel-hall px-5 sm:px-[30px] pb-10 pt-6">
       <div
         className="mb-4 flex flex-wrap items-center justify-between gap-4 pb-3.5"
         style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}

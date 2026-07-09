@@ -13,7 +13,7 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
       <div className="overlay-vignette fixed" />
       <div className="overlay-grain fixed" />
 
-      <header className="relative z-[6] mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-5 px-11 py-6">
+      <header className="relative z-[6] mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-5 px-5 py-6 sm:px-11">
         <Link to="/" className="flex items-center gap-3.5 no-underline">
           <Crest
             size={46}
@@ -45,7 +45,7 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
         </div>
       </header>
 
-      <main className="relative z-[5] mx-auto max-w-[1240px] px-11 pb-20 pt-4">
+      <main className="relative z-[5] mx-auto max-w-[1240px] px-3 pb-20 sm:px-11 pt-4">
         <Outlet />
       </main>
     </div>
