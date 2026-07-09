@@ -81,8 +81,9 @@ export default function ForgeWizard() {
   const [backgroundId, setBackgroundId] = useState<string>("");
   const [speciesId, setSpeciesId] = useState<string>("");
   const [method, setMethod] = useState<Method>("array");
+  // 0 = unassigned (standard array only); point buy / manual start at 8.
   const [base, setBase] = useState<Record<AbilityKey, number>>({
-    str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8,
+    str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0,
   });
   const [bonusMode, setBonusMode] = useState<BonusMode>("2/1");
   const [bonus2, setBonus2] = useState<AbilityKey | "">("");
@@ -112,20 +113,26 @@ export default function ForgeWizard() {
   const bgSkills = bgData?.skills ?? [];
   const bgAbilities = (bgData?.abilityScores ?? []).map((a) => a.toLowerCase()) as AbilityKey[];
 
-  // Final scores = base + background bonuses.
+  // Final scores = base + background bonuses (unassigned scores stay blank).
   const finalScores: AbilityScores = useMemo(() => {
     const out = { ...base } as Record<AbilityKey, number>;
+    const add = (k: AbilityKey, n: number) => {
+      if (out[k] > 0) out[k] = Math.min(out[k] + n, 20);
+    };
     if (bonusMode === "1/1/1") {
-      for (const a of bgAbilities) out[a] = Math.min(out[a] + 1, 20);
+      for (const a of bgAbilities) add(a, 1);
     } else {
-      if (bonus2) out[bonus2] = Math.min(out[bonus2] + 2, 20);
-      if (bonus1) out[bonus1] = Math.min(out[bonus1] + 1, 20);
+      if (bonus2) add(bonus2, 2);
+      if (bonus1) add(bonus1, 1);
     }
     return out as AbilityScores;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, bonusMode, bonus2, bonus1, backgroundId]);
 
-  const pointsSpent = ABILITIES.reduce((sum, [k]) => sum + (POINT_COST[base[k]] ?? 99), 0);
+  const pointsSpent = ABILITIES.reduce(
+    (sum, [k]) => sum + (base[k] === 0 ? 0 : (POINT_COST[base[k]] ?? 99)),
+    0,
+  );
   const arrayValid =
     [...STANDARD_ARRAY].sort((a, b) => a - b).join() ===
     ABILITIES.map(([k]) => base[k]).sort((a, b) => a - b).join();
@@ -150,6 +157,20 @@ export default function ForgeWizard() {
 
   const hitDie = classData?.hitDie ?? 0;
   const hp = Math.max(hitDie + abilityMod(finalScores.con), 1);
+
+  // Assign a standard-array value; if another ability already holds it,
+  // that ability is cleared — each value is used exactly once.
+  function assignArrayScore(key: AbilityKey, value: number) {
+    setBase((prev) => {
+      const next = { ...prev, [key]: value };
+      if (value !== 0) {
+        for (const [k] of ABILITIES) {
+          if (k !== key && next[k] === value) next[k] = 0;
+        }
+      }
+      return next;
+    });
+  }
 
   function toggleSkill(sk: string) {
     setSkills((prev) =>
@@ -325,7 +346,8 @@ export default function ForgeWizard() {
                     key={m}
                     onClick={() => {
                       setMethod(m);
-                      setBase({ str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 });
+                      const start = m === "array" ? 0 : 8;
+                      setBase({ str: start, dex: start, con: start, int: start, wis: start, cha: start });
                     }}
                     className={`btn-base px-4 py-2 text-[10.5px] ${method === m ? "btn-wax" : "btn-ghost-ink"}`}
                   >
@@ -354,9 +376,9 @@ export default function ForgeWizard() {
                       <select
                         className={`${input} cursor-pointer`}
                         value={base[key]}
-                        onChange={(e) => setBase({ ...base, [key]: Number(e.target.value) })}
+                        onChange={(e) => assignArrayScore(key, Number(e.target.value))}
                       >
-                        <option value={8}>—</option>
+                        <option value={0}>—</option>
                         {STANDARD_ARRAY.map((v) => (
                           <option key={v} value={v}>
                             {v}
@@ -369,8 +391,13 @@ export default function ForgeWizard() {
                         min={method === "points" ? 8 : 3}
                         max={method === "points" ? 15 : 18}
                         className={input}
-                        value={base[key]}
-                        onChange={(e) => setBase({ ...base, [key]: Number(e.target.value) })}
+                        value={base[key] === 0 ? "" : base[key]}
+                        onChange={(e) =>
+                          setBase({
+                            ...base,
+                            [key]: e.target.value === "" ? 0 : Number(e.target.value),
+                          })
+                        }
                       />
                     )}
                   </label>
@@ -547,12 +574,14 @@ export default function ForgeWizard() {
             >
               <div className="text-center">
                 <div className="label-stamp text-[8.5px] tracking-[1px] text-gold-muted">HP</div>
-                <div className="font-heading text-lg font-bold text-ember-bright tabular-nums">{hp}</div>
+                <div className="font-heading text-lg font-bold text-ember-bright tabular-nums">
+                  {finalScores.con > 0 ? hp : "—"}
+                </div>
               </div>
               <div className="text-center">
                 <div className="label-stamp text-[8.5px] tracking-[1px] text-gold-muted">AC</div>
                 <div className="font-heading text-lg font-bold text-ember-bright tabular-nums">
-                  {10 + abilityMod(finalScores.dex)}
+                  {finalScores.dex > 0 ? 10 + abilityMod(finalScores.dex) : "—"}
                 </div>
               </div>
               <div className="text-center">
@@ -562,7 +591,7 @@ export default function ForgeWizard() {
               <div className="text-center">
                 <div className="label-stamp text-[8.5px] tracking-[1px] text-gold-muted">Init</div>
                 <div className="font-heading text-lg font-bold text-ember-bright tabular-nums">
-                  {modText(finalScores.dex)}
+                  {finalScores.dex > 0 ? modText(finalScores.dex) : "—"}
                 </div>
               </div>
             </div>
