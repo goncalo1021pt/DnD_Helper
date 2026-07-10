@@ -119,6 +119,22 @@ all agreed:
 - Creation wizard first (Class → Background → Species → Ability Scores),
   then the sheet view, then level-ups integrating the skill trees.
 
+**Content trust model (decided July 2026, PR #15)** — three rules, chosen
+with a public deployment (questboard.fontao.net) in mind:
+- **Homebrew is private to its author.** The Scribe's Desk is a personal
+  shelf; nothing you scribe is visible to anyone else by default. Names are
+  unique per author, not per instance — two users may each own a "Gunslinger".
+- **Each campaign has a codex** (`campaign_content`: proposed/enabled/banned)
+  ruled solely by the DM: homebrew enters a world only when its author offers
+  it and the DM admits it; SRD is legal by default but bannable per entry or
+  in bulk (worlds with only custom classes are supported).
+- **Strict seating**: a hero whose class/species/background/subclass is not
+  codex-legal is held at the door (409 + one-tap proposal to the DM). The
+  same legality gates level-up choices for seated heroes. Visibility rule
+  everywhere: SRD + your own + enabled-in-your-campaigns.
+- Still owed before public go-live: an instance front door (invite code /
+  approval), since OAuth authenticates but does not authorize.
+
 ### Later
 - **XP system**: track XP per character, with the DM giving or taking XP
   depending on the campaign's progression mode (e.g. XP vs milestone).

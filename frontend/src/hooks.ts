@@ -4,6 +4,8 @@ import type {
   CharacterInput,
   CreateQuestInput,
   ForgeRequest,
+  LevelUpRequest,
+  RulesContentInput,
   RulesKind,
   SkillEdge,
   SkillNodeInput,
@@ -311,6 +313,128 @@ export function useRules(kind: RulesKind) {
       });
       if (error) throw error;
       return data ?? [];
+    },
+  });
+}
+
+export function useCodex(campaignId: string | undefined) {
+  return useQuery({
+    queryKey: ["codex", campaignId],
+    enabled: !!campaignId,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/campaigns/{campaignId}/codex", {
+        params: { path: { campaignId: campaignId! } },
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useSetCodexStatus(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { contentId: string; status: "enabled" | "banned" }) => {
+      const { error } = await api.PUT("/campaigns/{campaignId}/codex/{contentId}", {
+        params: { path: { campaignId, contentId: vars.contentId } },
+        body: { status: vars.status },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["codex", campaignId] });
+      qc.invalidateQueries({ queryKey: ["rules"] });
+    },
+  });
+}
+
+export function useClearCodexStatus(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contentId: string) => {
+      const { error } = await api.DELETE("/campaigns/{campaignId}/codex/{contentId}", {
+        params: { path: { campaignId, contentId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["codex", campaignId] });
+      qc.invalidateQueries({ queryKey: ["rules"] });
+    },
+  });
+}
+
+export function useProposeCodex(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contentIds: string[]) => {
+      const { error } = await api.POST("/campaigns/{campaignId}/codex", {
+        params: { path: { campaignId } },
+        body: { contentIds },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["codex", campaignId] }),
+  });
+}
+
+export function useCreateRules(kind: RulesKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: RulesContentInput) => {
+      const { data, error } = await api.POST("/rules/{kind}", {
+        params: { path: { kind } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rules", kind] }),
+  });
+}
+
+export function useUpdateRules(kind: RulesKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { contentId: string; body: RulesContentInput }) => {
+      const { data, error } = await api.PUT("/rules/content/{contentId}", {
+        params: { path: { contentId: vars.contentId } },
+        body: vars.body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rules", kind] }),
+  });
+}
+
+export function useDeleteRules(kind: RulesKind) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contentId: string) => {
+      const { error } = await api.DELETE("/rules/content/{contentId}", {
+        params: { path: { contentId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rules", kind] }),
+  });
+}
+
+export function useLevelUp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { characterId: string; body: LevelUpRequest }) => {
+      const { data, error } = await api.POST("/characters/{characterId}/levelup", {
+        params: { path: { characterId: vars.characterId } },
+        body: vars.body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
     },
   });
 }

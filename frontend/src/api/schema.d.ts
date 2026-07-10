@@ -217,8 +217,89 @@ export interface paths {
         /** Rules content of one kind (SRD + this instance's homebrew) */
         get: operations["listRules"];
         put?: never;
-        post?: never;
+        /** Add a homebrew entry of this kind (any signed-in user) */
+        post: operations["createRulesContent"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules/content/{contentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contentId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Edit a homebrew entry (author only; SRD is immutable) */
+        put: operations["updateRulesContent"];
+        post?: never;
+        /** Remove a homebrew entry (author only) */
+        delete: operations["deleteRulesContent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/levelup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Advance a forged hero one level (owner only) */
+        post: operations["levelUpCharacter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/codex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The campaign's codex — every explicit ruling plus proposals (members) */
+        get: operations["getCodex"];
+        put?: never;
+        /** Offer your homebrew to the table (members; DM decides) */
+        post: operations["proposeCodexContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/codex/{contentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                contentId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** The DM's verdict on an entry (enable homebrew, ban/unban SRD) */
+        put: operations["setCodexStatus"];
+        post?: never;
+        /** Remove a ruling — back to defaults (DM only) */
+        delete: operations["clearCodexStatus"];
         options?: never;
         head?: never;
         patch?: never;
@@ -571,6 +652,9 @@ export interface components {
             speciesId?: string | null;
             /** Format: uuid */
             backgroundId?: string | null;
+            /** Format: uuid */
+            subclassId?: string | null;
+            feats?: string[];
         };
         AbilityScores: {
             str: number;
@@ -611,7 +695,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "class" | "species" | "background";
+            kind: "class" | "species" | "background" | "subclass" | "feat";
             /** @enum {string} */
             source: "srd" | "homebrew";
             name: string;
@@ -620,6 +704,63 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
+            /** @description True when the caller authored this homebrew entry. */
+            mine: boolean;
+            /** @description Author of a homebrew entry; null for SRD content. */
+            creatorName?: string | null;
+        };
+        RulesContentInput: {
+            name: string;
+            summary: string;
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        LevelUpRequest: {
+            /** @enum {string} */
+            hpMode: "average" | "roll";
+            /** @description The hit-die result when hpMode is roll. */
+            hpRoll?: number;
+            /**
+             * Format: uuid
+             * @description Required when the new level is the class's subclass level.
+             */
+            subclassId?: string;
+            /**
+             * Format: uuid
+             * @description Take a feat instead of ability increases at an ASI level.
+             */
+            featId?: string;
+            /** @description Ability increases at an ASI level; total of 2 points, each +1 or +2. */
+            asi?: {
+                str?: number;
+                dex?: number;
+                con?: number;
+                int?: number;
+                wis?: number;
+                cha?: number;
+            };
+        };
+        CodexEntry: {
+            content: components["schemas"]["RulesContent"];
+            /** @enum {string} */
+            status: "proposed" | "enabled" | "banned";
+            proposerName?: string | null;
+        };
+        SeatConflict: {
+            error: string;
+            /** @description Content the hero uses that the codex has not admitted. */
+            missing: {
+                /** Format: uuid */
+                id: string;
+                kind: string;
+                name: string;
+                /**
+                 * @description absent = never offered; proposed = awaiting the DM; banned = the DM said no.
+                 * @enum {string}
+                 */
+                state: "absent" | "proposed" | "banned";
+            }[];
         };
         /** @enum {string} */
         NodeRarity: "minor" | "keystone";
@@ -769,7 +910,7 @@ export interface components {
         QuestId: string;
         CharacterId: string;
         TreeId: string;
-        ContentKind: "class" | "species" | "background";
+        ContentKind: "class" | "species" | "background" | "subclass" | "feat";
         NodeId: string;
     };
     requestBodies: never;
@@ -1164,6 +1305,15 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            /** @description The hero uses content the campaign's codex has not admitted */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatConflict"];
+                };
+            };
         };
     };
     listRules: {
@@ -1187,6 +1337,225 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    createRulesContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: components["parameters"]["ContentKind"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RulesContentInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesContent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateRulesContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RulesContentInput"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesContent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteRulesContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    levelUpCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LevelUpRequest"];
+            };
+        };
+        responses: {
+            /** @description The hero, one level mightier */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCodex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Codex entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodexEntry"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    proposeCodexContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    contentIds: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Proposed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setCodexStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                contentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "enabled" | "banned";
+                };
+            };
+        };
+        responses: {
+            /** @description Ruled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearCodexStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                contentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     listCharacters: {

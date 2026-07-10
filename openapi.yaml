@@ -318,6 +318,12 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: The hero uses content the campaign's codex has not admitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatConflict"
 
   /rules/{kind}:
     parameters:
@@ -336,6 +342,190 @@ paths:
                   $ref: "#/components/schemas/RulesContent"
         "401":
           $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createRulesContent
+      summary: Add a homebrew entry of this kind (any signed-in user)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RulesContentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RulesContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /rules/content/{contentId}:
+    parameters:
+      - name: contentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: updateRulesContent
+      summary: Edit a homebrew entry (author only; SRD is immutable)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RulesContentInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RulesContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteRulesContent
+      summary: Remove a homebrew entry (author only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /characters/{characterId}/levelup:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    post:
+      operationId: levelUpCharacter
+      summary: Advance a forged hero one level (owner only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LevelUpRequest"
+      responses:
+        "200":
+          description: The hero, one level mightier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{campaignId}/codex:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: getCodex
+      summary: The campaign's codex — every explicit ruling plus proposals (members)
+      responses:
+        "200":
+          description: Codex entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CodexEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: proposeCodexContent
+      summary: Offer your homebrew to the table (members; DM decides)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentIds]
+              properties:
+                contentIds:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "204":
+          description: Proposed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/codex/{contentId}:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - name: contentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setCodexStatus
+      summary: The DM's verdict on an entry (enable homebrew, ban/unban SRD)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [enabled, banned]
+      responses:
+        "204":
+          description: Ruled
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: clearCodexStatus
+      summary: Remove a ruling — back to defaults (DM only)
+      responses:
+        "204":
+          description: Cleared
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /campaigns/{campaignId}/characters:
     parameters:
@@ -793,7 +983,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [class, species, background]
+        enum: [class, species, background, subclass, feat]
     NodeId:
       name: nodeId
       in: path
@@ -1078,6 +1268,14 @@ components:
           type: string
           format: uuid
           nullable: true
+        subclassId:
+          type: string
+          format: uuid
+          nullable: true
+        feats:
+          type: array
+          items:
+            type: string
 
     AbilityScores:
       type: object
@@ -1149,14 +1347,14 @@ components:
 
     RulesContent:
       type: object
-      required: [id, kind, source, name, summary, data]
+      required: [id, kind, source, name, summary, data, mine]
       properties:
         id:
           type: string
           format: uuid
         kind:
           type: string
-          enum: [class, species, background]
+          enum: [class, species, background, subclass, feat]
         source:
           type: string
           enum: [srd, homebrew]
@@ -1168,6 +1366,98 @@ components:
           type: object
           description: Kind-specific payload (hit die, traits, features…).
           additionalProperties: true
+        mine:
+          type: boolean
+          description: True when the caller authored this homebrew entry.
+        creatorName:
+          type: string
+          nullable: true
+          description: Author of a homebrew entry; null for SRD content.
+
+    RulesContentInput:
+      type: object
+      required: [name, summary, data]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        summary:
+          type: string
+          maxLength: 300
+        data:
+          type: object
+          additionalProperties: true
+
+    LevelUpRequest:
+      type: object
+      required: [hpMode]
+      properties:
+        hpMode:
+          type: string
+          enum: [average, roll]
+        hpRoll:
+          type: integer
+          minimum: 1
+          maximum: 12
+          description: The hit-die result when hpMode is roll.
+        subclassId:
+          type: string
+          format: uuid
+          description: Required when the new level is the class's subclass level.
+        featId:
+          type: string
+          format: uuid
+          description: Take a feat instead of ability increases at an ASI level.
+        asi:
+          type: object
+          description: Ability increases at an ASI level; total of 2 points, each +1 or +2.
+          additionalProperties: false
+          properties:
+            str: { type: integer, minimum: 1, maximum: 2 }
+            dex: { type: integer, minimum: 1, maximum: 2 }
+            con: { type: integer, minimum: 1, maximum: 2 }
+            int: { type: integer, minimum: 1, maximum: 2 }
+            wis: { type: integer, minimum: 1, maximum: 2 }
+            cha: { type: integer, minimum: 1, maximum: 2 }
+
+    CodexEntry:
+      type: object
+      required: [content, status]
+      properties:
+        content:
+          $ref: "#/components/schemas/RulesContent"
+        status:
+          type: string
+          enum: [proposed, enabled, banned]
+        proposerName:
+          type: string
+          nullable: true
+
+    SeatConflict:
+      type: object
+      required: [error, missing]
+      properties:
+        error:
+          type: string
+        missing:
+          type: array
+          description: Content the hero uses that the codex has not admitted.
+          items:
+            type: object
+            required: [id, kind, name, state]
+            properties:
+              id:
+                type: string
+                format: uuid
+              kind:
+                type: string
+              name:
+                type: string
+              state:
+                type: string
+                enum: [absent, proposed, banned]
+                description: absent = never offered; proposed = awaiting the DM; banned = the DM said no.
 
     NodeRarity:
       type: string

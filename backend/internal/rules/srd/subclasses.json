@@ -1,0 +1,215 @@
+[
+ {
+  "name": "Path of the Berserker",
+  "summary": "Rage as pure violence — push past exhaustion into slaughter.",
+  "data": {
+   "class": "Barbarian",
+   "features": [
+    {
+     "level": 3,
+     "name": "Frenzy",
+     "summary": "While raging with Reckless Attack, deal extra damage dice equal to your Rage bonus."
+    }
+   ]
+  }
+ },
+ {
+  "name": "College of Lore",
+  "summary": "Collectors of secrets and cutting words.",
+  "data": {
+   "class": "Bard",
+   "features": [
+    {
+     "level": 3,
+     "name": "Bonus Proficiencies",
+     "summary": "Three more skill proficiencies."
+    },
+    {
+     "level": 3,
+     "name": "Cutting Words",
+     "summary": "Spend Bardic Inspiration to subtract from an enemy's roll."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Life Domain",
+  "summary": "The god of the hearth-flame: preserve, mend, restore.",
+  "data": {
+   "class": "Cleric",
+   "features": [
+    {
+     "level": 3,
+     "name": "Disciple of Life",
+     "summary": "Your healing spells restore extra hit points."
+    },
+    {
+     "level": 3,
+     "name": "Preserve Life",
+     "summary": "Channel Divinity to distribute healing among the wounded."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Circle of the Land",
+  "summary": "Magic drawn from the terrain itself.",
+  "data": {
+   "class": "Druid",
+   "features": [
+    {
+     "level": 3,
+     "name": "Circle Spells",
+     "summary": "Extra prepared spells keyed to a chosen land type."
+    },
+    {
+     "level": 3,
+     "name": "Land's Aid",
+     "summary": "Channel nature to conjure healing, harming flora."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Champion",
+  "summary": "Simple, brutal excellence of body.",
+  "data": {
+   "class": "Fighter",
+   "features": [
+    {
+     "level": 3,
+     "name": "Improved Critical",
+     "summary": "Your weapon attacks crit on 19-20."
+    },
+    {
+     "level": 3,
+     "name": "Remarkable Athlete",
+     "summary": "Advantage on initiative and Athletics; longer jumps."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Warrior of the Open Hand",
+  "summary": "The perfected fist: technique over weaponry.",
+  "data": {
+   "class": "Monk",
+   "features": [
+    {
+     "level": 3,
+     "name": "Open Hand Technique",
+     "summary": "Flurry of Blows can topple, push or deny reactions."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Oath of Devotion",
+  "summary": "Honesty, courage, compassion — the knight's oath.",
+  "data": {
+   "class": "Paladin",
+   "features": [
+    {
+     "level": 3,
+     "name": "Sacred Weapon",
+     "summary": "Channel Divinity: your weapon glows and adds CHA to hit."
+    },
+    {
+     "level": 3,
+     "name": "Oath Spells",
+     "summary": "Protection from Evil and Good, Shield of Faith always prepared."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Hunter",
+  "summary": "Slayer of monsters, whatever shape they take.",
+  "data": {
+   "class": "Ranger",
+   "features": [
+    {
+     "level": 3,
+     "name": "Hunter's Lore",
+     "summary": "Know the resistances and vulnerabilities of marked prey."
+    },
+    {
+     "level": 3,
+     "name": "Hunter's Prey",
+     "summary": "Colossus Slayer or Horde Breaker: extra damage against your quarry."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Thief",
+  "summary": "Fast hands and faster exits.",
+  "data": {
+   "class": "Rogue",
+   "features": [
+    {
+     "level": 3,
+     "name": "Fast Hands",
+     "summary": "Sleight of Hand or object use as a bonus action."
+    },
+    {
+     "level": 3,
+     "name": "Second-Story Work",
+     "summary": "Climb at full speed; jump farther."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Draconic Sorcery",
+  "summary": "A dragon's blood hums in your veins.",
+  "data": {
+   "class": "Sorcerer",
+   "features": [
+    {
+     "level": 3,
+     "name": "Draconic Resilience",
+     "summary": "Extra hit points and scaled skin (AC 10 + DEX + CHA unarmored)."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Fiend Patron",
+  "summary": "Power on loan from the lower planes.",
+  "data": {
+   "class": "Warlock",
+   "features": [
+    {
+     "level": 3,
+     "name": "Dark One's Blessing",
+     "summary": "Temporary hit points when you drop an enemy."
+    },
+    {
+     "level": 3,
+     "name": "Fiend Spells",
+     "summary": "Burning Hands, Scorching Ray and worse, always prepared."
+    }
+   ]
+  }
+ },
+ {
+  "name": "Evoker",
+  "summary": "Fire, frost and thunder as academic disciplines.",
+  "data": {
+   "class": "Wizard",
+   "features": [
+    {
+     "level": 3,
+     "name": "Evocation Savant",
+     "summary": "Copy evocation spells into your book for half cost and time."
+    },
+    {
+     "level": 3,
+     "name": "Potent Cantrip",
+     "summary": "Your damaging cantrips deal half damage even on a miss or save."
+    }
+   ]
+  }
+ }
+]

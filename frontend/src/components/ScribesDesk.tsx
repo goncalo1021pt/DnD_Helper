@@ -1,0 +1,713 @@
+import { useMemo, useState } from "react";
+import type { RulesContent, RulesContentInput, RulesKind } from "../api/client";
+import { useCreateRules, useDeleteRules, useRules, useUpdateRules } from "../hooks";
+import ParchmentModal from "./ui/ParchmentModal";
+import { IconPencil, IconPlus, IconTrash } from "./ui/icons";
+
+/**
+ * The Scribe's Desk: this instance's content library. SRD entries are carved
+ * in stone; anything from owned books is transcribed here as homebrew and
+ * lives only in this instance's database — never in the public repo.
+ */
+
+const KINDS: Array<[RulesKind, string, string]> = [
+  ["class", "Classes", "Class"],
+  ["subclass", "Subclasses", "Subclass"],
+  ["species", "Species", "Species"],
+  ["background", "Backgrounds", "Background"],
+  ["feat", "Feats", "Feat"],
+];
+
+const ABILITIES = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
+const SKILLS = [
+  "Acrobatics", "Animal Handling", "Arcana", "Athletics", "Deception",
+  "History", "Insight", "Intimidation", "Investigation", "Medicine",
+  "Nature", "Perception", "Performance", "Persuasion", "Religion",
+  "Sleight of Hand", "Stealth", "Survival",
+];
+
+type DataObj = Record<string, unknown>;
+interface Feature {
+  level?: number;
+  name?: string;
+  summary?: string;
+}
+
+const input = "input-parchment input-compact";
+
+function featuresOf(data: DataObj, key: string): Feature[] {
+  const raw = data[key];
+  return Array.isArray(raw) ? (raw as Feature[]) : [];
+}
+
+/** Small editor for a list of {level?, name, summary} entries. */
+function FeatureListEditor({
+  label,
+  withLevel,
+  items,
+  onChange,
+}: {
+  label: string;
+  withLevel: boolean;
+  items: Feature[];
+  onChange: (items: Feature[]) => void;
+}) {
+  function set(i: number, patch: Feature) {
+    onChange(items.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  }
+  return (
+    <div>
+      <div className="field-label mb-1.5">{label}</div>
+      <div className="flex flex-col gap-2">
+        {items.map((f, i) => (
+          <div key={i} className="flex flex-wrap items-start gap-2">
+            {withLevel && (
+              <input
+                type="number"
+                min={1}
+                max={20}
+                title="Level"
+                className={`${input} w-16`}
+                value={f.level ?? ""}
+                onChange={(e) =>
+                  set(i, { level: e.target.value === "" ? undefined : Number(e.target.value) })
+                }
+              />
+            )}
+            <input
+              placeholder="Name"
+              className={`${input} w-40 flex-none`}
+              value={f.name ?? ""}
+              onChange={(e) => set(i, { name: e.target.value })}
+            />
+            <input
+              placeholder="What it does"
+              className={`${input} min-w-40 flex-1`}
+              value={f.summary ?? ""}
+              onChange={(e) => set(i, { summary: e.target.value })}
+            />
+            <button
+              type="button"
+              onClick={() => onChange(items.filter((_, j) => j !== i))}
+              title="Remove"
+              className="btn-base btn-ghost-red h-10 w-10 flex-none"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange([...items, withLevel ? { level: 1 } : {}])}
+        className="label-stamp mt-2 cursor-pointer border-none bg-transparent p-0 text-[10px] font-semibold text-ink-label hover:text-ink"
+      >
+        + add {label.toLowerCase().replace(/s$/, "")}
+      </button>
+    </div>
+  );
+}
+
+/** Kind-aware guided fields, all reading/writing the same data object. */
+function GuidedFields({
+  kind,
+  data,
+  setData,
+  classNames,
+}: {
+  kind: RulesKind;
+  data: DataObj;
+  setData: (d: DataObj) => void;
+  classNames: string[];
+}) {
+  const set = (key: string, value: unknown) => setData({ ...data, [key]: value });
+  const strArr = (key: string): string[] =>
+    Array.isArray(data[key]) ? (data[key] as string[]) : [];
+
+  if (kind === "class") {
+    const sc = (data.skillChoices ?? {}) as { choose?: number; from?: string[] };
+    const from = Array.isArray(sc.from) ? sc.from : [];
+    const wildcard = from.length === 1 && from[0] === "*";
+    const saves = strArr("saves");
+    return (
+      <>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="field-label">Hit die</span>
+            <select
+              className={`${input} w-24 cursor-pointer`}
+              value={(data.hitDie as number) ?? 8}
+              onChange={(e) => set("hitDie", Number(e.target.value))}
+            >
+              {[6, 8, 10, 12].map((d) => (
+                <option key={d} value={d}>d{d}</option>
+              ))}
+            </select>
+          </label>
+          {[0, 1].map((i) => (
+            <label key={i} className="flex flex-col gap-1.5">
+              <span className="field-label">Save {i + 1}</span>
+              <select
+                className={`${input} w-24 cursor-pointer`}
+                value={saves[i] ?? ""}
+                onChange={(e) => {
+                  const next = [...saves];
+                  next[i] = e.target.value;
+                  set("saves", next);
+                }}
+              >
+                <option value="">—</option>
+                {ABILITIES.map((a) => (
+                  <option key={a} value={a} disabled={saves[1 - i] === a}>{a}</option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <label className="flex flex-col gap-1.5">
+            <span className="field-label">Skills to choose</span>
+            <input
+              type="number"
+              min={1}
+              max={6}
+              className={`${input} w-20`}
+              value={sc.choose ?? 2}
+              onChange={(e) =>
+                set("skillChoices", { ...sc, choose: Number(e.target.value || 0), from })
+              }
+            />
+          </label>
+        </div>
+        <div>
+          <div className="field-label mb-1.5">
+            Skill list{" "}
+            <button
+              type="button"
+              onClick={() =>
+                set("skillChoices", { ...sc, from: wildcard ? [] : ["*"] })
+              }
+              className={`ml-2 cursor-pointer border-none bg-transparent p-0 text-[10px] font-semibold ${wildcard ? "text-[#8b2520]" : "text-ink-label"}`}
+            >
+              {wildcard ? "any skill ✓ (click for a fixed list)" : "or allow any skill"}
+            </button>
+          </div>
+          {!wildcard && (
+            <div className="flex flex-wrap gap-1.5">
+              {SKILLS.map((sk) => {
+                const active = from.includes(sk);
+                return (
+                  <button
+                    type="button"
+                    key={sk}
+                    onClick={() =>
+                      set("skillChoices", {
+                        ...sc,
+                        from: active ? from.filter((s) => s !== sk) : [...from, sk],
+                      })
+                    }
+                    className="label-stamp cursor-pointer rounded-[2px] border-none px-2 py-1 text-[9.5px] tracking-[1px]"
+                    style={{
+                      background: active ? "linear-gradient(180deg,#8b2520,#5e1611)" : "rgba(16,9,5,.08)",
+                      color: active ? "#f3d9c0" : "#6b5637",
+                      boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(120,80,30,.35)"}`,
+                    }}
+                  >
+                    {sk}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <FeatureListEditor
+          label="Features"
+          withLevel
+          items={featuresOf(data, "features")}
+          onChange={(items) => set("features", items)}
+        />
+      </>
+    );
+  }
+
+  if (kind === "species") {
+    return (
+      <>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="field-label">Size</span>
+            <select
+              className={`${input} w-32 cursor-pointer`}
+              value={(data.size as string) ?? "Medium"}
+              onChange={(e) => set("size", e.target.value)}
+            >
+              {["Tiny", "Small", "Medium", "Large"].map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="field-label">Speed (ft)</span>
+            <input
+              type="number"
+              min={5}
+              max={120}
+              step={5}
+              className={`${input} w-24`}
+              value={(data.speed as number) ?? 30}
+              onChange={(e) => set("speed", Number(e.target.value || 0))}
+            />
+          </label>
+        </div>
+        <FeatureListEditor
+          label="Traits"
+          withLevel={false}
+          items={featuresOf(data, "traits")}
+          onChange={(items) => set("traits", items)}
+        />
+      </>
+    );
+  }
+
+  if (kind === "background") {
+    const abilities = strArr("abilityScores");
+    const skills = strArr("skills");
+    return (
+      <>
+        <div className="flex flex-wrap gap-4">
+          {[0, 1, 2].map((i) => (
+            <label key={i} className="flex flex-col gap-1.5">
+              <span className="field-label">Ability {i + 1}</span>
+              <select
+                className={`${input} w-24 cursor-pointer`}
+                value={abilities[i] ?? ""}
+                onChange={(e) => {
+                  const next = [...abilities];
+                  next[i] = e.target.value;
+                  set("abilityScores", next);
+                }}
+              >
+                <option value="">—</option>
+                {ABILITIES.map((a) => (
+                  <option key={a} value={a} disabled={abilities.includes(a) && abilities[i] !== a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-4">
+          {[0, 1].map((i) => (
+            <label key={i} className="flex flex-col gap-1.5">
+              <span className="field-label">Skill {i + 1}</span>
+              <select
+                className={`${input} w-44 cursor-pointer`}
+                value={skills[i] ?? ""}
+                onChange={(e) => {
+                  const next = [...skills];
+                  next[i] = e.target.value;
+                  set("skills", next);
+                }}
+              >
+                <option value="">—</option>
+                {SKILLS.map((sk) => (
+                  <option key={sk} value={sk} disabled={skills[1 - i] === sk}>{sk}</option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <label className="flex flex-col gap-1.5">
+            <span className="field-label">Origin feat</span>
+            <input
+              className={`${input} w-44`}
+              placeholder="e.g. Tough"
+              value={(data.feat as string) ?? ""}
+              onChange={(e) => set("feat", e.target.value)}
+            />
+          </label>
+        </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="field-label">Equipment (freeform)</span>
+          <input
+            className={input}
+            placeholder="e.g. Spear, shield, traveler's clothes, 10 gp"
+            value={(data.equipment as string) ?? ""}
+            onChange={(e) => set("equipment", e.target.value)}
+          />
+        </label>
+      </>
+    );
+  }
+
+  if (kind === "subclass") {
+    return (
+      <>
+        <label className="flex flex-col gap-1.5">
+          <span className="field-label">Parent class</span>
+          <select
+            className={`${input} w-44 cursor-pointer`}
+            value={(data.class as string) ?? ""}
+            onChange={(e) => set("class", e.target.value)}
+          >
+            <option value="">—</option>
+            {classNames.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </label>
+        <FeatureListEditor
+          label="Features"
+          withLevel
+          items={featuresOf(data, "features")}
+          onChange={(items) => set("features", items)}
+        />
+      </>
+    );
+  }
+
+  // feat
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="field-label">Category</span>
+      <select
+        className={`${input} w-44 cursor-pointer`}
+        value={(data.category as string) ?? "general"}
+        onChange={(e) => set("category", e.target.value)}
+      >
+        <option value="origin">Origin (background feat)</option>
+        <option value="general">General (ASI-level choice)</option>
+        <option value="fighting-style">Fighting style</option>
+      </select>
+    </label>
+  );
+}
+
+const KIND_DEFAULTS: Record<RulesKind, DataObj> = {
+  class: {
+    hitDie: 8,
+    saves: [],
+    skillChoices: { choose: 2, from: [] },
+    features: [],
+    subclassLevel: 3,
+  },
+  species: { size: "Medium", speed: 30, traits: [] },
+  background: { abilityScores: [], skills: [], feat: "", equipment: "" },
+  subclass: { class: "", features: [] },
+  feat: { category: "general" },
+};
+
+function ContentForm({
+  kind,
+  initial,
+  isPending,
+  errorText,
+  classNames,
+  onSubmit,
+  onCancel,
+}: {
+  kind: RulesKind;
+  initial: { name: string; summary: string; data: DataObj };
+  isPending: boolean;
+  errorText?: string;
+  classNames: string[];
+  onSubmit: (body: RulesContentInput) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initial.name);
+  const [summary, setSummary] = useState(initial.summary);
+  const [data, setData] = useState<DataObj>(initial.data);
+  const [tab, setTab] = useState<"form" | "json">("form");
+  const [jsonText, setJsonText] = useState("");
+  const [jsonError, setJsonError] = useState("");
+
+  function openJson() {
+    setJsonText(JSON.stringify(data, null, 2));
+    setJsonError("");
+    setTab("json");
+  }
+  function onJsonChange(text: string) {
+    setJsonText(text);
+    try {
+      const parsed = JSON.parse(text);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        setJsonError("the scroll must be a JSON object");
+        return;
+      }
+      setData(parsed as DataObj);
+      setJsonError("");
+    } catch {
+      setJsonError("the scroll does not parse — fix the JSON to save");
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (jsonError) return;
+        onSubmit({ name: name.trim(), summary: summary.trim(), data });
+      }}
+      className="flex flex-col gap-4 text-ink-strong"
+    >
+      <div className="flex flex-wrap gap-4">
+        <label className="flex min-w-44 flex-1 flex-col gap-1.5">
+          <span className="field-label">Name</span>
+          <input
+            className={`${input} font-heading font-semibold`}
+            value={name}
+            maxLength={80}
+            required
+            onChange={(e) => setName(e.target.value)}
+          />
+        </label>
+      </div>
+      <label className="flex flex-col gap-1.5">
+        <span className="field-label">Summary</span>
+        <input
+          className={input}
+          placeholder="One line of flavor for the pickers"
+          value={summary}
+          maxLength={300}
+          onChange={(e) => setSummary(e.target.value)}
+        />
+      </label>
+
+      {/* form / scroll tabs */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => setTab("form")}
+          className={`btn-base px-4 py-2 text-[10.5px] ${tab === "form" ? "btn-wax" : "btn-ghost-ink"}`}
+        >
+          Guided
+        </button>
+        <button
+          type="button"
+          onClick={openJson}
+          className={`btn-base px-4 py-2 text-[10.5px] ${tab === "json" ? "btn-wax" : "btn-ghost-ink"}`}
+        >
+          The Raw Scroll
+        </button>
+      </div>
+
+      {tab === "form" ? (
+        <div className="flex flex-col gap-4">
+          <GuidedFields kind={kind} data={data} setData={setData} classNames={classNames} />
+        </div>
+      ) : (
+        <div>
+          <textarea
+            className={`${input} min-h-64 w-full font-mono text-[12px] leading-relaxed`}
+            value={jsonText}
+            spellCheck={false}
+            onChange={(e) => onJsonChange(e.target.value)}
+          />
+          {jsonError && (
+            <p className="font-body m-0 mt-1.5 text-[12.5px] italic text-[#8b2520]">{jsonError}</p>
+          )}
+        </div>
+      )}
+
+      {errorText && (
+        <p className="font-body m-0 text-sm italic text-[#8b2520]">{errorText}</p>
+      )}
+
+      <div className="mt-1 flex items-center justify-end gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="btn-base btn-ghost-ink px-5 py-[11px] text-xs"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isPending || !!jsonError || !name.trim()}
+          className="btn-base btn-gold clip-octagon h-11 px-6 text-sm"
+        >
+          {isPending ? "Scribing…" : "Scribe It"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function EntryRow({
+  entry,
+  onEdit,
+  onDelete,
+}: {
+  entry: RulesContent;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="parchment flex flex-wrap items-center gap-3 px-4 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="font-display text-[15px] font-bold leading-tight text-ink">
+          {entry.name}
+          <span
+            className={`label-stamp ml-2 text-[8.5px] tracking-[1px] ${entry.source === "srd" ? "text-ink-label" : "text-[#8b2520]"}`}
+          >
+            {entry.source === "srd" ? "SRD 5.2" : `Homebrew · ${entry.creatorName ?? "unknown"}`}
+          </span>
+        </div>
+        {entry.summary && (
+          <p className="font-body m-0 mt-0.5 truncate text-[12.5px] italic text-ink-body">
+            {entry.summary}
+          </p>
+        )}
+      </div>
+      {entry.mine && (
+        <div className="flex flex-none items-center gap-2">
+          <button onClick={onEdit} title="Edit" className="btn-base btn-ghost-ink p-2">
+            <IconPencil size={14} strokeWidth={1.8} />
+          </button>
+          <button onClick={onDelete} title="Remove" className="btn-base btn-ghost-red p-2">
+            <IconTrash size={14} strokeWidth={1.8} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function ScribesDesk() {
+  const [kind, setKind] = useState<RulesKind>("class");
+  const { data: entries, isLoading } = useRules(kind);
+  const { data: classes } = useRules("class");
+  const create = useCreateRules(kind);
+  const update = useUpdateRules(kind);
+  const del = useDeleteRules(kind);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<RulesContent | null>(null);
+
+  const classNames = useMemo(
+    () => (classes ?? []).map((c) => c.name),
+    [classes],
+  );
+  const kindLabel = KINDS.find(([k]) => k === kind)?.[2] ?? kind;
+
+  const apiError = (e: unknown) =>
+    (e as { error?: string } | null)?.error ?? "The desk rejected it — check the fields.";
+
+  return (
+    <div className="panel-hall px-5 pb-11 pt-8 sm:px-[30px]">
+      <div
+        className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-3.5"
+        style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
+      >
+        <div>
+          <h2
+            className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
+            style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
+          >
+            The Scribe's Desk
+          </h2>
+          <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
+            SRD entries are carved in stone; your books go in as homebrew, kept
+            to this hall alone.
+          </div>
+        </div>
+        <button
+          onClick={() => setAdding(true)}
+          className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
+        >
+          <IconPlus size={15} strokeWidth={2} />
+          Scribe a {kindLabel}
+        </button>
+      </div>
+
+      {/* kind tabs */}
+      <div className="mb-5 flex flex-wrap gap-1.5">
+        {KINDS.map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setKind(k)}
+            className={`label-stamp cursor-pointer rounded-[2px] border-none px-3 py-2 text-[10px] font-semibold tracking-[1.5px] ${
+              k === kind ? "text-ember-bright" : "text-gold-muted hover:text-gold-hair"
+            }`}
+            style={{
+              background: k === kind ? "rgba(201,162,39,.12)" : "rgba(16,9,5,.35)",
+              boxShadow: `inset 0 0 0 1px rgba(201,162,39,${k === kind ? ".45" : ".2"})`,
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <div className="font-accent px-5 py-[60px] text-center text-base italic text-[#9c855e]">
+          Unrolling the scrolls…
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {(entries ?? []).map((e) => (
+            <EntryRow
+              key={e.id}
+              entry={e}
+              onEdit={() => setEditing(e)}
+              onDelete={() => {
+                if (confirm(`Strike "${e.name}" from the library?`)) del.mutate(e.id);
+              }}
+            />
+          ))}
+          {(entries ?? []).length === 0 && (
+            <div className="font-accent px-5 py-[50px] text-center text-base italic text-[#9c855e]">
+              Nothing of this kind yet — scribe the first.
+            </div>
+          )}
+        </div>
+      )}
+
+      {adding && (
+        <ParchmentModal onClose={() => setAdding(false)} maxWidth="max-w-[640px]">
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            The Scribe's Desk
+          </div>
+          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
+            Scribe a {kindLabel}
+          </h3>
+          <ContentForm
+            kind={kind}
+            initial={{ name: "", summary: "", data: KIND_DEFAULTS[kind] }}
+            isPending={create.isPending}
+            errorText={create.isError ? apiError(create.error) : undefined}
+            classNames={classNames}
+            onCancel={() => setAdding(false)}
+            onSubmit={(body) => create.mutate(body, { onSuccess: () => setAdding(false) })}
+          />
+        </ParchmentModal>
+      )}
+
+      {editing && (
+        <ParchmentModal onClose={() => setEditing(null)} maxWidth="max-w-[640px]">
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            The Scribe's Desk
+          </div>
+          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
+            Amend the Entry
+          </h3>
+          <ContentForm
+            kind={kind}
+            initial={{
+              name: editing.name,
+              summary: editing.summary,
+              data: (editing.data ?? {}) as DataObj,
+            }}
+            isPending={update.isPending}
+            errorText={update.isError ? apiError(update.error) : undefined}
+            classNames={classNames}
+            onCancel={() => setEditing(null)}
+            onSubmit={(body) =>
+              update.mutate(
+                { contentId: editing.id, body },
+                { onSuccess: () => setEditing(null) },
+              )
+            }
+          />
+        </ParchmentModal>
+      )}
+    </div>
+  );
+}

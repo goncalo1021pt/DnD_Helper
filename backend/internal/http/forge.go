@@ -45,6 +45,28 @@ func abilityMod(score int) int {
 	return d / 2
 }
 
+// fetchVisibleContent loads a rules entry, enforces its kind, and hides
+// other users' private homebrew (visible = SRD, yours, or campaign-enabled).
+func (s *Server) fetchVisibleContent(ctx context.Context, id uuid.UUID, kind db.ContentKind, uid uuid.UUID) (db.RulesContent, error) {
+	row, err := s.fetchContent(ctx, id, kind)
+	if err != nil {
+		return row, err
+	}
+	if row.Source == db.ContentSourceHomebrew {
+		visible, err := s.queries.ContentVisibleTo(ctx, db.ContentVisibleToParams{
+			ID:        id,
+			CreatedBy: pgUUID(uid),
+		})
+		if err != nil {
+			return db.RulesContent{}, err
+		}
+		if !visible {
+			return db.RulesContent{}, pgx.ErrNoRows
+		}
+	}
+	return row, nil
+}
+
 // fetchContent loads a rules entry and enforces its kind.
 func (s *Server) fetchContent(ctx context.Context, id uuid.UUID, kind db.ContentKind) (db.RulesContent, error) {
 	row, err := s.queries.GetContent(ctx, id)
@@ -78,21 +100,21 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 	}
 
 	// The three pillars must exist and be of the right kind.
-	class, err := s.fetchContent(ctx, uuid.UUID(body.ClassId), db.ContentKindClass)
+	class, err := s.fetchVisibleContent(ctx, uuid.UUID(body.ClassId), db.ContentKindClass, uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return badRequest("unknown class")
 		}
 		return badRequest("that choice is not a class")
 	}
-	species, err := s.fetchContent(ctx, uuid.UUID(body.SpeciesId), db.ContentKindSpecies)
+	species, err := s.fetchVisibleContent(ctx, uuid.UUID(body.SpeciesId), db.ContentKindSpecies, uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return badRequest("unknown species")
 		}
 		return badRequest("that choice is not a species")
 	}
-	background, err := s.fetchContent(ctx, uuid.UUID(body.BackgroundId), db.ContentKindBackground)
+	background, err := s.fetchVisibleContent(ctx, uuid.UUID(body.BackgroundId), db.ContentKindBackground, uid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return badRequest("unknown background")

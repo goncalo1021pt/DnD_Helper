@@ -47,7 +47,15 @@ export type CharacterTreeState =
 
 export type RulesContent =
   paths["/rules/{kind}"]["get"]["responses"]["200"]["content"]["application/json"][number];
-export type RulesKind = "class" | "species" | "background";
+export type RulesKind = "class" | "species" | "background" | "subclass" | "feat";
+export type RulesContentInput =
+  paths["/rules/{kind}"]["post"]["requestBody"]["content"]["application/json"];
+export type LevelUpRequest =
+  paths["/characters/{characterId}/levelup"]["post"]["requestBody"]["content"]["application/json"];
+export type CodexEntry =
+  paths["/campaigns/{campaignId}/codex"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type SeatConflict =
+  paths["/characters/{characterId}/seat"]["put"]["responses"]["409"]["content"]["application/json"];
 export type ForgeRequest =
   paths["/me/characters/forge"]["post"]["requestBody"]["content"]["application/json"];
 export type AbilityScores = ForgeRequest["abilities"];
