@@ -28,7 +28,7 @@ export default function ParchmentModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`parchment anim-rise-fast w-full px-8 pb-8 pt-[34px] ${maxWidth}`}
+        className={`parchment anim-rise-fast max-h-[calc(100svh-40px)] w-full overflow-y-auto overscroll-contain px-8 pb-8 pt-[34px] ${maxWidth}`}
         style={{
           boxShadow:
             "0 30px 70px rgba(0,0,0,.7), inset 0 0 40px rgba(150,110,60,.12)",
