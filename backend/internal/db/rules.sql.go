@@ -12,6 +12,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const contentVisibleTo = `-- name: ContentVisibleTo :one
+SELECT EXISTS (
+  SELECT 1 FROM rules_content rc
+  WHERE rc.id = $1
+    AND (
+      rc.source = 'srd'
+      OR rc.created_by = $2
+      OR EXISTS (
+        SELECT 1
+        FROM campaign_content cc
+        JOIN memberships m ON m.campaign_id = cc.campaign_id
+        WHERE cc.content_id = rc.id
+          AND cc.status = 'enabled'
+          AND m.user_id = $2
+      )
+    )
+)
+`
+
+type ContentVisibleToParams struct {
+	ID        uuid.UUID   `json:"id"`
+	CreatedBy pgtype.UUID `json:"created_by"`
+}
+
+// The same visibility rule, for a single entry.
+func (q *Queries) ContentVisibleTo(ctx context.Context, arg ContentVisibleToParams) (bool, error) {
+	row := q.db.QueryRow(ctx, contentVisibleTo, arg.ID, arg.CreatedBy)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const createHomebrew = `-- name: CreateHomebrew :one
 INSERT INTO rules_content (kind, source, name, summary, data, created_by)
 VALUES ($1, 'homebrew', $2, $3, $4, $5)
@@ -80,18 +112,54 @@ func (q *Queries) GetContent(ctx context.Context, id uuid.UUID) (RulesContent, e
 }
 
 const listContentByKind = `-- name: ListContentByKind :many
-SELECT id, kind, source, name, summary, data, created_by, created_at, updated_at FROM rules_content WHERE kind = $1 ORDER BY source, name
+SELECT rc.id, rc.kind, rc.source, rc.name, rc.summary, rc.data, rc.created_by, rc.created_at, rc.updated_at, u.name AS creator_name
+FROM rules_content rc
+LEFT JOIN users u ON u.id = rc.created_by
+WHERE rc.kind = $1
+  AND (
+    rc.source = 'srd'
+    OR rc.created_by = $2
+    OR EXISTS (
+      SELECT 1
+      FROM campaign_content cc
+      JOIN memberships m ON m.campaign_id = cc.campaign_id
+      WHERE cc.content_id = rc.id
+        AND cc.status = 'enabled'
+        AND m.user_id = $2
+    )
+  )
+ORDER BY rc.source, rc.name
 `
 
-func (q *Queries) ListContentByKind(ctx context.Context, kind ContentKind) ([]RulesContent, error) {
-	rows, err := q.db.Query(ctx, listContentByKind, kind)
+type ListContentByKindParams struct {
+	Kind      ContentKind `json:"kind"`
+	CreatedBy pgtype.UUID `json:"created_by"`
+}
+
+type ListContentByKindRow struct {
+	ID          uuid.UUID          `json:"id"`
+	Kind        ContentKind        `json:"kind"`
+	Source      ContentSource      `json:"source"`
+	Name        string             `json:"name"`
+	Summary     string             `json:"summary"`
+	Data        []byte             `json:"data"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	CreatorName *string            `json:"creator_name"`
+}
+
+// Everything the viewer may see: SRD, their own homebrew, and homebrew
+// enabled in a campaign they belong to.
+func (q *Queries) ListContentByKind(ctx context.Context, arg ListContentByKindParams) ([]ListContentByKindRow, error) {
+	rows, err := q.db.Query(ctx, listContentByKind, arg.Kind, arg.CreatedBy)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []RulesContent
+	var items []ListContentByKindRow
 	for rows.Next() {
-		var i RulesContent
+		var i ListContentByKindRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
@@ -102,6 +170,7 @@ func (q *Queries) ListContentByKind(ctx context.Context, kind ContentKind) ([]Ru
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.CreatorName,
 		); err != nil {
 			return nil, err
 		}
@@ -152,7 +221,7 @@ func (q *Queries) UpdateContent(ctx context.Context, arg UpdateContentParams) (R
 const upsertSRDContent = `-- name: UpsertSRDContent :one
 INSERT INTO rules_content (kind, source, name, summary, data)
 VALUES ($1, 'srd', $2, $3, $4)
-ON CONFLICT (kind, source, name) DO UPDATE
+ON CONFLICT (kind, name) WHERE source = 'srd' DO UPDATE
 SET summary = EXCLUDED.summary, data = EXCLUDED.data, updated_at = now()
 RETURNING id, kind, source, name, summary, data, created_by, created_at, updated_at
 `

@@ -15,7 +15,7 @@ import (
 const createAccountCharacter = `-- name: CreateAccountCharacter :one
 INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
 VALUES (NULL, $1, $2, $3, $4, $5, $6)
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats
 `
 
 type CreateAccountCharacterParams struct {
@@ -59,6 +59,8 @@ func (q *Queries) CreateAccountCharacter(ctx context.Context, arg CreateAccountC
 		&i.ClassID,
 		&i.SpeciesID,
 		&i.BackgroundID,
+		&i.SubclassID,
+		&i.Feats,
 	)
 	return i, err
 }
@@ -66,7 +68,7 @@ func (q *Queries) CreateAccountCharacter(ctx context.Context, arg CreateAccountC
 const createCharacter = `-- name: CreateCharacter :one
 INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats
 `
 
 type CreateCharacterParams struct {
@@ -111,6 +113,8 @@ func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams
 		&i.ClassID,
 		&i.SpeciesID,
 		&i.BackgroundID,
+		&i.SubclassID,
+		&i.Feats,
 	)
 	return i, err
 }
@@ -130,7 +134,7 @@ INSERT INTO characters (
     strength, dexterity, constitution, intelligence, wisdom, charisma,
     skills, class_id, species_id, background_id
 ) VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats
 `
 
 type ForgeCharacterParams struct {
@@ -194,12 +198,14 @@ func (q *Queries) ForgeCharacter(ctx context.Context, arg ForgeCharacterParams) 
 		&i.ClassID,
 		&i.SpeciesID,
 		&i.BackgroundID,
+		&i.SubclassID,
+		&i.Feats,
 	)
 	return i, err
 }
 
 const getCharacter = `-- name: GetCharacter :one
-SELECT id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id FROM characters WHERE id = $1
+SELECT id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats FROM characters WHERE id = $1
 `
 
 func (q *Queries) GetCharacter(ctx context.Context, id uuid.UUID) (Character, error) {
@@ -226,12 +232,88 @@ func (q *Queries) GetCharacter(ctx context.Context, id uuid.UUID) (Character, er
 		&i.ClassID,
 		&i.SpeciesID,
 		&i.BackgroundID,
+		&i.SubclassID,
+		&i.Feats,
+	)
+	return i, err
+}
+
+const levelUpCharacter = `-- name: LevelUpCharacter :one
+UPDATE characters
+SET level = $2,
+    hp_max = $3,
+    hp_current = $4,
+    strength = $5, dexterity = $6, constitution = $7,
+    intelligence = $8, wisdom = $9, charisma = $10,
+    subclass_id = $11,
+    feats = $12,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats
+`
+
+type LevelUpCharacterParams struct {
+	ID           uuid.UUID   `json:"id"`
+	Level        int32       `json:"level"`
+	HpMax        int32       `json:"hp_max"`
+	HpCurrent    int32       `json:"hp_current"`
+	Strength     *int16      `json:"strength"`
+	Dexterity    *int16      `json:"dexterity"`
+	Constitution *int16      `json:"constitution"`
+	Intelligence *int16      `json:"intelligence"`
+	Wisdom       *int16      `json:"wisdom"`
+	Charisma     *int16      `json:"charisma"`
+	SubclassID   pgtype.UUID `json:"subclass_id"`
+	Feats        []string    `json:"feats"`
+}
+
+// Apply one level: new level/HP, any ability increases (ASI), the chosen
+// subclass when the class reaches it, and any feat taken along the way.
+func (q *Queries) LevelUpCharacter(ctx context.Context, arg LevelUpCharacterParams) (Character, error) {
+	row := q.db.QueryRow(ctx, levelUpCharacter,
+		arg.ID,
+		arg.Level,
+		arg.HpMax,
+		arg.HpCurrent,
+		arg.Strength,
+		arg.Dexterity,
+		arg.Constitution,
+		arg.Intelligence,
+		arg.Wisdom,
+		arg.Charisma,
+		arg.SubclassID,
+		arg.Feats,
+	)
+	var i Character
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.OwnerUserID,
+		&i.Name,
+		&i.Class,
+		&i.Level,
+		&i.HpCurrent,
+		&i.HpMax,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Strength,
+		&i.Dexterity,
+		&i.Constitution,
+		&i.Intelligence,
+		&i.Wisdom,
+		&i.Charisma,
+		&i.Skills,
+		&i.ClassID,
+		&i.SpeciesID,
+		&i.BackgroundID,
+		&i.SubclassID,
+		&i.Feats,
 	)
 	return i, err
 }
 
 const listCharactersByCampaign = `-- name: ListCharactersByCampaign :many
-SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, u.name AS owner_name
+SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, c.subclass_id, c.feats, u.name AS owner_name
 FROM characters c
 JOIN users u ON u.id = c.owner_user_id
 WHERE c.campaign_id = $1
@@ -259,6 +341,8 @@ type ListCharactersByCampaignRow struct {
 	ClassID      pgtype.UUID        `json:"class_id"`
 	SpeciesID    pgtype.UUID        `json:"species_id"`
 	BackgroundID pgtype.UUID        `json:"background_id"`
+	SubclassID   pgtype.UUID        `json:"subclass_id"`
+	Feats        []string           `json:"feats"`
 	OwnerName    string             `json:"owner_name"`
 }
 
@@ -292,6 +376,8 @@ func (q *Queries) ListCharactersByCampaign(ctx context.Context, campaignID pgtyp
 			&i.ClassID,
 			&i.SpeciesID,
 			&i.BackgroundID,
+			&i.SubclassID,
+			&i.Feats,
 			&i.OwnerName,
 		); err != nil {
 			return nil, err
@@ -305,7 +391,7 @@ func (q *Queries) ListCharactersByCampaign(ctx context.Context, campaignID pgtyp
 }
 
 const listCharactersByOwner = `-- name: ListCharactersByOwner :many
-SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, camp.name AS campaign_name
+SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, c.subclass_id, c.feats, camp.name AS campaign_name
 FROM characters c
 LEFT JOIN campaigns camp ON camp.id = c.campaign_id
 WHERE c.owner_user_id = $1
@@ -333,6 +419,8 @@ type ListCharactersByOwnerRow struct {
 	ClassID      pgtype.UUID        `json:"class_id"`
 	SpeciesID    pgtype.UUID        `json:"species_id"`
 	BackgroundID pgtype.UUID        `json:"background_id"`
+	SubclassID   pgtype.UUID        `json:"subclass_id"`
+	Feats        []string           `json:"feats"`
 	CampaignName *string            `json:"campaign_name"`
 }
 
@@ -367,6 +455,8 @@ func (q *Queries) ListCharactersByOwner(ctx context.Context, ownerUserID uuid.UU
 			&i.ClassID,
 			&i.SpeciesID,
 			&i.BackgroundID,
+			&i.SubclassID,
+			&i.Feats,
 			&i.CampaignName,
 		); err != nil {
 			return nil, err
@@ -382,7 +472,7 @@ func (q *Queries) ListCharactersByOwner(ctx context.Context, ownerUserID uuid.UU
 const seatCharacter = `-- name: SeatCharacter :one
 UPDATE characters SET campaign_id = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats
 `
 
 type SeatCharacterParams struct {
@@ -415,6 +505,8 @@ func (q *Queries) SeatCharacter(ctx context.Context, arg SeatCharacterParams) (C
 		&i.ClassID,
 		&i.SpeciesID,
 		&i.BackgroundID,
+		&i.SubclassID,
+		&i.Feats,
 	)
 	return i, err
 }
@@ -428,7 +520,7 @@ SET name       = $2,
     hp_max     = $6,
     updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats
 `
 
 type UpdateCharacterParams struct {
@@ -471,6 +563,8 @@ func (q *Queries) UpdateCharacter(ctx context.Context, arg UpdateCharacterParams
 		&i.ClassID,
 		&i.SpeciesID,
 		&i.BackgroundID,
+		&i.SubclassID,
+		&i.Feats,
 	)
 	return i, err
 }

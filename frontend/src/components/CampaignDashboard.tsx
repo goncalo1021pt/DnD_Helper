@@ -1,6 +1,6 @@
 import { Link, useOutletContext } from "react-router-dom";
 import type { Character } from "../api/client";
-import { useCharacters, useQuests, useUpdateCharacter } from "../hooks";
+import { useCharacters, useCodex, useQuests, useUpdateCharacter } from "../hooks";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import type { CampaignContext } from "./CampaignView";
 import { DiceTowerPanel } from "./ui/DiceTray";
@@ -154,6 +154,9 @@ function PartyRow({
  */
 export default function CampaignDashboard() {
   const { campaign, role } = useOutletContext<CampaignContext>();
+  const { data: codex } = useCodex(campaign.id);
+  const codexAdmitted = (codex ?? []).filter((e) => e.status === "enabled").length;
+  const codexWaiting = (codex ?? []).filter((e) => e.status === "proposed").length;
   const isDM = role === "dm";
   const { data: quests } = useQuests(campaign.id);
   const { data: characters } = useCharacters(campaign.id);
@@ -236,6 +239,25 @@ export default function CampaignDashboard() {
               No adventurers yet — take a seat in the party ledger.
             </div>
           )}
+        </section>
+
+        {/* codex block */}
+        <section className="panel-hall px-6 pb-6 pt-5">
+          <BlockHeader
+            title="The Codex"
+            meta={
+              codexWaiting > 0
+                ? `${codexAdmitted} admitted · ${codexWaiting} waiting at the door`
+                : `${codexAdmitted} homebrew admitted`
+            }
+            to="codex"
+            linkLabel="Open the codex"
+          />
+          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+            {isDM
+              ? "Rule on what exists in this world — ban SRD entries, admit homebrew."
+              : "What the DM has ruled legal at this table."}
+          </div>
         </section>
       </div>
 

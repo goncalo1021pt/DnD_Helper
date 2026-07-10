@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"github.com/google/uuid"
@@ -39,6 +38,8 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			Intelligence: row.Intelligence, Wisdom: row.Wisdom, Charisma: row.Charisma,
 			Skills: row.Skills, ClassID: row.ClassID, SpeciesID: row.SpeciesID,
 			BackgroundID: row.BackgroundID,
+			SubclassID:   row.SubclassID,
+			Feats:        row.Feats,
 		}, me.Name, uid)
 		c.CampaignName = row.CampaignName
 		out = append(out, c)
@@ -109,6 +110,18 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 			}
 			return nil, err
 		}
+		// Strict seating: every rules reference must be legal in this world.
+		blockers, err := s.codexBlockers(ctx, campaignID, sheetContentIDs(character))
+		if err != nil {
+			return nil, err
+		}
+		if len(blockers) > 0 {
+			conflict := api.SeatConflict{Error: "the codex has not admitted this hero's lineage"}
+			for _, b := range blockers {
+				conflict.Missing = append(conflict.Missing, seatConflictItem(b))
+			}
+			return api.SeatCharacter409JSONResponse(conflict), nil
+		}
 		target = pgUUID(campaignID)
 		campaignName = &campaign.Name
 	}
@@ -132,27 +145,24 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 // ListRules returns all content of one kind: the SRD seed plus this
 // instance's homebrew. Any authenticated user may read the rules.
 func (s *Server) ListRules(ctx context.Context, request api.ListRulesRequestObject) (api.ListRulesResponseObject, error) {
-	if _, ok := auth.UserID(ctx); !ok {
+	uid, ok := auth.UserID(ctx)
+	if !ok {
 		return api.ListRules401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
-	rows, err := s.queries.ListContentByKind(ctx, db.ContentKind(string(request.Kind)))
+	rows, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
+		Kind:      db.ContentKind(string(request.Kind)),
+		CreatedBy: pgUUID(uid),
+	})
 	if err != nil {
 		return nil, err
 	}
 	out := make([]api.RulesContent, 0, len(rows))
 	for _, row := range rows {
-		var data map[string]interface{}
-		if err := json.Unmarshal(row.Data, &data); err != nil {
-			data = map[string]interface{}{}
-		}
-		out = append(out, api.RulesContent{
-			Id:      row.ID,
-			Kind:    api.RulesContentKind(string(row.Kind)),
-			Source:  api.RulesContentSource(string(row.Source)),
-			Name:    row.Name,
-			Summary: row.Summary,
-			Data:    data,
-		})
+		out = append(out, toAPIRulesContent(db.RulesContent{
+			ID: row.ID, Kind: row.Kind, Source: row.Source,
+			Name: row.Name, Summary: row.Summary, Data: row.Data,
+			CreatedBy: row.CreatedBy,
+		}, row.CreatorName, uid))
 	}
 	return api.ListRules200JSONResponse(out), nil
 }

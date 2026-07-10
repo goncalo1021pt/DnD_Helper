@@ -54,7 +54,7 @@ function OptionCard({
         {entry.name}
         {entry.source === "homebrew" && (
           <span className="label-stamp ml-2 text-[8.5px] tracking-[1px] text-ink-label">
-            Homebrew
+            Homebrew{entry.creatorName ? ` · ${entry.creatorName}` : ""}
           </span>
         )}
       </div>

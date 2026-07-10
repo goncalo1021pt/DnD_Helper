@@ -1,0 +1,114 @@
+[
+ {
+  "name": "Alert",
+  "summary": "Add your proficiency bonus to initiative; swap initiative with a willing ally.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Crafter",
+  "summary": "Tool proficiencies, faster crafting, discount buying.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Healer",
+  "summary": "Stabilize and patch allies with a healer's kit; reroll 1s on healing dice.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Lucky",
+  "summary": "Luck points to gain advantage or force disadvantage, refreshed each long rest.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Magic Initiate",
+  "summary": "Two cantrips and a level-1 spell from the cleric, druid or wizard list.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Musician",
+  "summary": "Instrument proficiencies; inspire allies with a song after rests.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Savage Attacker",
+  "summary": "Once per turn, roll weapon damage twice and keep the higher.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Skilled",
+  "summary": "Proficiency in any three skills or tools.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Tavern Brawler",
+  "summary": "Punches hit harder, reroll 1s on their damage, shove once per turn.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Tough",
+  "summary": "+2 hit points per level, now and every level after.",
+  "data": {
+   "category": "origin"
+  }
+ },
+ {
+  "name": "Grappler",
+  "summary": "Advantage on attacks against creatures you're grappling; grapple with unarmed strikes. Requires STR or DEX 13+.",
+  "data": {
+   "category": "general"
+  }
+ },
+ {
+  "name": "Archery",
+  "summary": "+2 to attack rolls with ranged weapons.",
+  "data": {
+   "category": "fighting-style"
+  }
+ },
+ {
+  "name": "Defense",
+  "summary": "+1 AC while wearing armor.",
+  "data": {
+   "category": "fighting-style"
+  }
+ },
+ {
+  "name": "Dueling",
+  "summary": "+2 damage with a one-handed weapon and no other weapon.",
+  "data": {
+   "category": "fighting-style"
+  }
+ },
+ {
+  "name": "Great Weapon Fighting",
+  "summary": "Treat 1s and 2s on damage dice as 3s with two-handed weapons.",
+  "data": {
+   "category": "fighting-style"
+  }
+ },
+ {
+  "name": "Two-Weapon Fighting",
+  "summary": "Add your ability modifier to off-hand weapon damage.",
+  "data": {
+   "category": "fighting-style"
+  }
+ }
+]

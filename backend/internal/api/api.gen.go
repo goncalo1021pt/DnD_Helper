@@ -26,6 +26,27 @@ const (
 	SessionCookieScopes sessionCookieContextKey = "sessionCookie.Scopes"
 )
 
+// Defines values for CodexEntryStatus.
+const (
+	CodexEntryStatusBanned   CodexEntryStatus = "banned"
+	CodexEntryStatusEnabled  CodexEntryStatus = "enabled"
+	CodexEntryStatusProposed CodexEntryStatus = "proposed"
+)
+
+// Valid indicates whether the value is a known member of the CodexEntryStatus enum.
+func (e CodexEntryStatus) Valid() bool {
+	switch e {
+	case CodexEntryStatusBanned:
+		return true
+	case CodexEntryStatusEnabled:
+		return true
+	case CodexEntryStatusProposed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatus.
 const (
 	Degraded HealthStatus = "degraded"
@@ -38,6 +59,24 @@ func (e HealthStatus) Valid() bool {
 	case Degraded:
 		return true
 	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LevelUpRequestHpMode.
+const (
+	Average LevelUpRequestHpMode = "average"
+	Roll    LevelUpRequestHpMode = "roll"
+)
+
+// Valid indicates whether the value is a known member of the LevelUpRequestHpMode enum.
+func (e LevelUpRequestHpMode) Valid() bool {
+	switch e {
+	case Average:
+		return true
+	case Roll:
 		return true
 	default:
 		return false
@@ -162,7 +201,9 @@ func (e Role) Valid() bool {
 const (
 	RulesContentKindBackground RulesContentKind = "background"
 	RulesContentKindClass      RulesContentKind = "class"
+	RulesContentKindFeat       RulesContentKind = "feat"
 	RulesContentKindSpecies    RulesContentKind = "species"
+	RulesContentKindSubclass   RulesContentKind = "subclass"
 )
 
 // Valid indicates whether the value is a known member of the RulesContentKind enum.
@@ -172,7 +213,11 @@ func (e RulesContentKind) Valid() bool {
 		return true
 	case RulesContentKindClass:
 		return true
+	case RulesContentKindFeat:
+		return true
 	case RulesContentKindSpecies:
+		return true
+	case RulesContentKindSubclass:
 		return true
 	default:
 		return false
@@ -197,11 +242,34 @@ func (e RulesContentSource) Valid() bool {
 	}
 }
 
+// Defines values for SeatConflictMissingState.
+const (
+	SeatConflictMissingStateAbsent   SeatConflictMissingState = "absent"
+	SeatConflictMissingStateBanned   SeatConflictMissingState = "banned"
+	SeatConflictMissingStateProposed SeatConflictMissingState = "proposed"
+)
+
+// Valid indicates whether the value is a known member of the SeatConflictMissingState enum.
+func (e SeatConflictMissingState) Valid() bool {
+	switch e {
+	case SeatConflictMissingStateAbsent:
+		return true
+	case SeatConflictMissingStateBanned:
+		return true
+	case SeatConflictMissingStateProposed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContentKind.
 const (
 	ContentKindBackground ContentKind = "background"
 	ContentKindClass      ContentKind = "class"
+	ContentKindFeat       ContentKind = "feat"
 	ContentKindSpecies    ContentKind = "species"
+	ContentKindSubclass   ContentKind = "subclass"
 )
 
 // Valid indicates whether the value is a known member of the ContentKind enum.
@@ -211,7 +279,29 @@ func (e ContentKind) Valid() bool {
 		return true
 	case ContentKindClass:
 		return true
+	case ContentKindFeat:
+		return true
 	case ContentKindSpecies:
+		return true
+	case ContentKindSubclass:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetCodexStatusJSONBodyStatus.
+const (
+	Banned  SetCodexStatusJSONBodyStatus = "banned"
+	Enabled SetCodexStatusJSONBodyStatus = "enabled"
+)
+
+// Valid indicates whether the value is a known member of the SetCodexStatusJSONBodyStatus enum.
+func (e SetCodexStatusJSONBodyStatus) Valid() bool {
+	switch e {
+	case Banned:
+		return true
+	case Enabled:
 		return true
 	default:
 		return false
@@ -290,8 +380,10 @@ type CharacterSheet struct {
 	Abilities    AbilityScores       `json:"abilities"`
 	BackgroundId *openapi_types.UUID `json:"backgroundId,omitempty"`
 	ClassId      *openapi_types.UUID `json:"classId,omitempty"`
+	Feats        *[]string           `json:"feats,omitempty"`
 	Skills       []string            `json:"skills"`
 	SpeciesId    *openapi_types.UUID `json:"speciesId,omitempty"`
+	SubclassId   *openapi_types.UUID `json:"subclassId,omitempty"`
 }
 
 // CharacterTreeState defines model for CharacterTreeState.
@@ -305,6 +397,16 @@ type CharacterTreeState struct {
 	TakenNodeIds *[]openapi_types.UUID `json:"takenNodeIds,omitempty"`
 	Tree         *SkillTreeDetail      `json:"tree,omitempty"`
 }
+
+// CodexEntry defines model for CodexEntry.
+type CodexEntry struct {
+	Content      RulesContent     `json:"content"`
+	ProposerName *string          `json:"proposerName,omitempty"`
+	Status       CodexEntryStatus `json:"status"`
+}
+
+// CodexEntryStatus defines model for CodexEntry.Status.
+type CodexEntryStatus string
 
 // CreateCampaignRequest defines model for CreateCampaignRequest.
 type CreateCampaignRequest struct {
@@ -362,6 +464,32 @@ type JoinCampaignRequest struct {
 	Code string `json:"code"`
 }
 
+// LevelUpRequest defines model for LevelUpRequest.
+type LevelUpRequest struct {
+	// Asi Ability increases at an ASI level; total of 2 points, each +1 or +2.
+	Asi *struct {
+		Cha *int `json:"cha,omitempty"`
+		Con *int `json:"con,omitempty"`
+		Dex *int `json:"dex,omitempty"`
+		Int *int `json:"int,omitempty"`
+		Str *int `json:"str,omitempty"`
+		Wis *int `json:"wis,omitempty"`
+	} `json:"asi,omitempty"`
+
+	// FeatId Take a feat instead of ability increases at an ASI level.
+	FeatId *openapi_types.UUID  `json:"featId,omitempty"`
+	HpMode LevelUpRequestHpMode `json:"hpMode"`
+
+	// HpRoll The hit-die result when hpMode is roll.
+	HpRoll *int `json:"hpRoll,omitempty"`
+
+	// SubclassId Required when the new level is the class's subclass level.
+	SubclassId *openapi_types.UUID `json:"subclassId,omitempty"`
+}
+
+// LevelUpRequestHpMode defines model for LevelUpRequest.HpMode.
+type LevelUpRequestHpMode string
+
 // NodeRarity defines model for NodeRarity.
 type NodeRarity string
 
@@ -417,13 +545,19 @@ type Role string
 
 // RulesContent defines model for RulesContent.
 type RulesContent struct {
+	// CreatorName Author of a homebrew entry; null for SRD content.
+	CreatorName *string `json:"creatorName,omitempty"`
+
 	// Data Kind-specific payload (hit die, traits, features…).
-	Data    map[string]interface{} `json:"data"`
-	Id      openapi_types.UUID     `json:"id"`
-	Kind    RulesContentKind       `json:"kind"`
-	Name    string                 `json:"name"`
-	Source  RulesContentSource     `json:"source"`
-	Summary string                 `json:"summary"`
+	Data map[string]interface{} `json:"data"`
+	Id   openapi_types.UUID     `json:"id"`
+	Kind RulesContentKind       `json:"kind"`
+
+	// Mine True when the caller authored this homebrew entry.
+	Mine    bool               `json:"mine"`
+	Name    string             `json:"name"`
+	Source  RulesContentSource `json:"source"`
+	Summary string             `json:"summary"`
 }
 
 // RulesContentKind defines model for RulesContent.Kind.
@@ -431,6 +565,31 @@ type RulesContentKind string
 
 // RulesContentSource defines model for RulesContent.Source.
 type RulesContentSource string
+
+// RulesContentInput defines model for RulesContentInput.
+type RulesContentInput struct {
+	Data    map[string]interface{} `json:"data"`
+	Name    string                 `json:"name"`
+	Summary string                 `json:"summary"`
+}
+
+// SeatConflict defines model for SeatConflict.
+type SeatConflict struct {
+	Error string `json:"error"`
+
+	// Missing Content the hero uses that the codex has not admitted.
+	Missing []struct {
+		Id   openapi_types.UUID `json:"id"`
+		Kind string             `json:"kind"`
+		Name string             `json:"name"`
+
+		// State absent = never offered; proposed = awaiting the DM; banned = the DM said no.
+		State SeatConflictMissingState `json:"state"`
+	} `json:"missing"`
+}
+
+// SeatConflictMissingState absent = never offered; proposed = awaiting the DM; banned = the DM said no.
+type SeatConflictMissingState string
 
 // SeatRequest defines model for SeatRequest.
 type SeatRequest struct {
@@ -575,6 +734,19 @@ type Unauthorized = Error
 // sessionCookieContextKey is the context key for sessionCookie security scheme
 type sessionCookieContextKey string
 
+// ProposeCodexContentJSONBody defines parameters for ProposeCodexContent.
+type ProposeCodexContentJSONBody struct {
+	ContentIds []openapi_types.UUID `json:"contentIds"`
+}
+
+// SetCodexStatusJSONBody defines parameters for SetCodexStatus.
+type SetCodexStatusJSONBody struct {
+	Status SetCodexStatusJSONBodyStatus `json:"status"`
+}
+
+// SetCodexStatusJSONBodyStatus defines parameters for SetCodexStatus.
+type SetCodexStatusJSONBodyStatus string
+
 // CreateCampaignJSONRequestBody defines body for CreateCampaign for application/json ContentType.
 type CreateCampaignJSONRequestBody = CreateCampaignRequest
 
@@ -583,6 +755,12 @@ type JoinCampaignJSONRequestBody = JoinCampaignRequest
 
 // CreateCharacterJSONRequestBody defines body for CreateCharacter for application/json ContentType.
 type CreateCharacterJSONRequestBody = CharacterInput
+
+// ProposeCodexContentJSONRequestBody defines body for ProposeCodexContent for application/json ContentType.
+type ProposeCodexContentJSONRequestBody ProposeCodexContentJSONBody
+
+// SetCodexStatusJSONRequestBody defines body for SetCodexStatus for application/json ContentType.
+type SetCodexStatusJSONRequestBody SetCodexStatusJSONBody
 
 // SetNextSessionJSONRequestBody defines body for SetNextSession for application/json ContentType.
 type SetNextSessionJSONRequestBody = SetNextSessionRequest
@@ -595,6 +773,9 @@ type CreateTreeJSONRequestBody = SkillTreeInput
 
 // UpdateCharacterJSONRequestBody defines body for UpdateCharacter for application/json ContentType.
 type UpdateCharacterJSONRequestBody = CharacterInput
+
+// LevelUpCharacterJSONRequestBody defines body for LevelUpCharacter for application/json ContentType.
+type LevelUpCharacterJSONRequestBody = LevelUpRequest
 
 // SeatCharacterJSONRequestBody defines body for SeatCharacter for application/json ContentType.
 type SeatCharacterJSONRequestBody = SeatRequest
@@ -619,6 +800,12 @@ type UpdateNodeJSONRequestBody = SkillNodeInput
 
 // UpdateQuestJSONRequestBody defines body for UpdateQuest for application/json ContentType.
 type UpdateQuestJSONRequestBody = UpdateQuestRequest
+
+// UpdateRulesContentJSONRequestBody defines body for UpdateRulesContent for application/json ContentType.
+type UpdateRulesContentJSONRequestBody = RulesContentInput
+
+// CreateRulesContentJSONRequestBody defines body for CreateRulesContent for application/json ContentType.
+type CreateRulesContentJSONRequestBody = RulesContentInput
 
 // UpdateTreeJSONRequestBody defines body for UpdateTree for application/json ContentType.
 type UpdateTreeJSONRequestBody = SkillTreeInput
@@ -646,6 +833,18 @@ type ServerInterface interface {
 	// Add a character owned by the caller (any campaign member)
 	// (POST /campaigns/{campaignId}/characters)
 	CreateCharacter(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// The campaign's codex — every explicit ruling plus proposals (members)
+	// (GET /campaigns/{campaignId}/codex)
+	GetCodex(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Offer your homebrew to the table (members; DM decides)
+	// (POST /campaigns/{campaignId}/codex)
+	ProposeCodexContent(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Remove a ruling — back to defaults (DM only)
+	// (DELETE /campaigns/{campaignId}/codex/{contentId})
+	ClearCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID)
+	// The DM's verdict on an entry (enable homebrew, ban/unban SRD)
+	// (PUT /campaigns/{campaignId}/codex/{contentId})
+	SetCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID)
 	// Set or clear when the table gathers next (DM only)
 	// (PUT /campaigns/{campaignId}/next-session)
 	SetNextSession(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
@@ -670,6 +869,9 @@ type ServerInterface interface {
 	// Update a character (its owner or the DM)
 	// (PATCH /characters/{characterId})
 	UpdateCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId)
+	// Advance a forged hero one level (owner only)
+	// (POST /characters/{characterId}/levelup)
+	LevelUpCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId)
 	// Seat a hero at a campaign, or null to return them to My Heroes (owner only)
 	// (PUT /characters/{characterId}/seat)
 	SeatCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId)
@@ -718,9 +920,18 @@ type ServerInterface interface {
 	// Claim a quest (any campaign member)
 	// (POST /quests/{questId}/claim)
 	ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
+	// Remove a homebrew entry (author only)
+	// (DELETE /rules/content/{contentId})
+	DeleteRulesContent(w http.ResponseWriter, r *http.Request, contentId openapi_types.UUID)
+	// Edit a homebrew entry (author only; SRD is immutable)
+	// (PUT /rules/content/{contentId})
+	UpdateRulesContent(w http.ResponseWriter, r *http.Request, contentId openapi_types.UUID)
 	// Rules content of one kind (SRD + this instance's homebrew)
 	// (GET /rules/{kind})
 	ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind)
+	// Add a homebrew entry of this kind (any signed-in user)
+	// (POST /rules/{kind})
+	CreateRulesContent(w http.ResponseWriter, r *http.Request, kind ContentKind)
 	// Delete a skill tree and its web (DM only)
 	// (DELETE /trees/{treeId})
 	DeleteTree(w http.ResponseWriter, r *http.Request, treeId TreeId)
@@ -772,6 +983,30 @@ func (_ Unimplemented) CreateCharacter(w http.ResponseWriter, r *http.Request, c
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// The campaign's codex — every explicit ruling plus proposals (members)
+// (GET /campaigns/{campaignId}/codex)
+func (_ Unimplemented) GetCodex(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Offer your homebrew to the table (members; DM decides)
+// (POST /campaigns/{campaignId}/codex)
+func (_ Unimplemented) ProposeCodexContent(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a ruling — back to defaults (DM only)
+// (DELETE /campaigns/{campaignId}/codex/{contentId})
+func (_ Unimplemented) ClearCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The DM's verdict on an entry (enable homebrew, ban/unban SRD)
+// (PUT /campaigns/{campaignId}/codex/{contentId})
+func (_ Unimplemented) SetCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Set or clear when the table gathers next (DM only)
 // (PUT /campaigns/{campaignId}/next-session)
 func (_ Unimplemented) SetNextSession(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
@@ -817,6 +1052,12 @@ func (_ Unimplemented) DeleteCharacter(w http.ResponseWriter, r *http.Request, c
 // Update a character (its owner or the DM)
 // (PATCH /characters/{characterId})
 func (_ Unimplemented) UpdateCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Advance a forged hero one level (owner only)
+// (POST /characters/{characterId}/levelup)
+func (_ Unimplemented) LevelUpCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -916,9 +1157,27 @@ func (_ Unimplemented) ClaimQuest(w http.ResponseWriter, r *http.Request, questI
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Remove a homebrew entry (author only)
+// (DELETE /rules/content/{contentId})
+func (_ Unimplemented) DeleteRulesContent(w http.ResponseWriter, r *http.Request, contentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Edit a homebrew entry (author only; SRD is immutable)
+// (PUT /rules/content/{contentId})
+func (_ Unimplemented) UpdateRulesContent(w http.ResponseWriter, r *http.Request, contentId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Rules content of one kind (SRD + this instance's homebrew)
 // (GET /rules/{kind})
 func (_ Unimplemented) ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add a homebrew entry of this kind (any signed-in user)
+// (POST /rules/{kind})
+func (_ Unimplemented) CreateRulesContent(w http.ResponseWriter, r *http.Request, kind ContentKind) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1076,6 +1335,152 @@ func (siw *ServerInterfaceWrapper) CreateCharacter(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateCharacter(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCodex operation middleware
+func (siw *ServerInterfaceWrapper) GetCodex(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCodex(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ProposeCodexContent operation middleware
+func (siw *ServerInterfaceWrapper) ProposeCodexContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ProposeCodexContent(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClearCodexStatus operation middleware
+func (siw *ServerInterfaceWrapper) ClearCodexStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "contentId" -------------
+	var contentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contentId", chi.URLParam(r, "contentId"), &contentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "contentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearCodexStatus(w, r, campaignId, contentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetCodexStatus operation middleware
+func (siw *ServerInterfaceWrapper) SetCodexStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "contentId" -------------
+	var contentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contentId", chi.URLParam(r, "contentId"), &contentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "contentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetCodexStatus(w, r, campaignId, contentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1332,6 +1737,38 @@ func (siw *ServerInterfaceWrapper) UpdateCharacter(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateCharacter(w, r, characterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LevelUpCharacter operation middleware
+func (siw *ServerInterfaceWrapper) LevelUpCharacter(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "characterId" -------------
+	var characterId CharacterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "characterId", chi.URLParam(r, "characterId"), &characterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "characterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LevelUpCharacter(w, r, characterId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1787,6 +2224,70 @@ func (siw *ServerInterfaceWrapper) ClaimQuest(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteRulesContent operation middleware
+func (siw *ServerInterfaceWrapper) DeleteRulesContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "contentId" -------------
+	var contentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contentId", chi.URLParam(r, "contentId"), &contentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "contentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteRulesContent(w, r, contentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateRulesContent operation middleware
+func (siw *ServerInterfaceWrapper) UpdateRulesContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "contentId" -------------
+	var contentId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "contentId", chi.URLParam(r, "contentId"), &contentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "contentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateRulesContent(w, r, contentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRules operation middleware
 func (siw *ServerInterfaceWrapper) ListRules(w http.ResponseWriter, r *http.Request) {
 
@@ -1810,6 +2311,38 @@ func (siw *ServerInterfaceWrapper) ListRules(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListRules(w, r, kind)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRulesContent operation middleware
+func (siw *ServerInterfaceWrapper) CreateRulesContent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "kind" -------------
+	var kind ContentKind
+
+	err = runtime.BindStyledParameterWithOptions("simple", "kind", chi.URLParam(r, "kind"), &kind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRulesContent(w, r, kind)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2108,6 +2641,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/campaigns/{campaignId}/characters", wrapper.CreateCharacter)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/codex", wrapper.GetCodex)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/codex", wrapper.ProposeCodexContent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/campaigns/{campaignId}/codex/{contentId}", wrapper.ClearCodexStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/campaigns/{campaignId}/codex/{contentId}", wrapper.SetCodexStatus)
+	})
+	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/campaigns/{campaignId}/next-session", wrapper.SetNextSession)
 	})
 	r.Group(func(r chi.Router) {
@@ -2130,6 +2675,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/characters/{characterId}", wrapper.UpdateCharacter)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/characters/{characterId}/levelup", wrapper.LevelUpCharacter)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/characters/{characterId}/seat", wrapper.SeatCharacter)
@@ -2180,7 +2728,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/quests/{questId}/claim", wrapper.ClaimQuest)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/rules/content/{contentId}", wrapper.DeleteRulesContent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/rules/content/{contentId}", wrapper.UpdateRulesContent)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/rules/{kind}", wrapper.ListRules)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/rules/{kind}", wrapper.CreateRulesContent)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/trees/{treeId}", wrapper.DeleteTree)
@@ -2469,6 +3026,234 @@ func (response CreateCharacter403JSONResponse) VisitCreateCharacterResponse(w ht
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCodexRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type GetCodexResponseObject interface {
+	VisitGetCodexResponse(w http.ResponseWriter) error
+}
+
+type GetCodex200JSONResponse []CodexEntry
+
+func (response GetCodex200JSONResponse) VisitGetCodexResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCodex401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetCodex401JSONResponse) VisitGetCodexResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCodex403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetCodex403JSONResponse) VisitGetCodexResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeCodexContentRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *ProposeCodexContentJSONRequestBody
+}
+
+type ProposeCodexContentResponseObject interface {
+	VisitProposeCodexContentResponse(w http.ResponseWriter) error
+}
+
+type ProposeCodexContent204Response struct {
+}
+
+func (response ProposeCodexContent204Response) VisitProposeCodexContentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ProposeCodexContent400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ProposeCodexContent400JSONResponse) VisitProposeCodexContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeCodexContent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ProposeCodexContent401JSONResponse) VisitProposeCodexContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ProposeCodexContent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ProposeCodexContent403JSONResponse) VisitProposeCodexContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearCodexStatusRequestObject struct {
+	CampaignId CampaignId         `json:"campaignId"`
+	ContentId  openapi_types.UUID `json:"contentId"`
+}
+
+type ClearCodexStatusResponseObject interface {
+	VisitClearCodexStatusResponse(w http.ResponseWriter) error
+}
+
+type ClearCodexStatus204Response struct {
+}
+
+func (response ClearCodexStatus204Response) VisitClearCodexStatusResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ClearCodexStatus401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ClearCodexStatus401JSONResponse) VisitClearCodexStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearCodexStatus403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ClearCodexStatus403JSONResponse) VisitClearCodexStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCodexStatusRequestObject struct {
+	CampaignId CampaignId         `json:"campaignId"`
+	ContentId  openapi_types.UUID `json:"contentId"`
+	Body       *SetCodexStatusJSONRequestBody
+}
+
+type SetCodexStatusResponseObject interface {
+	VisitSetCodexStatusResponse(w http.ResponseWriter) error
+}
+
+type SetCodexStatus204Response struct {
+}
+
+func (response SetCodexStatus204Response) VisitSetCodexStatusResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SetCodexStatus400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SetCodexStatus400JSONResponse) VisitSetCodexStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCodexStatus401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetCodexStatus401JSONResponse) VisitSetCodexStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCodexStatus403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetCodexStatus403JSONResponse) VisitSetCodexStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCodexStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetCodexStatus404JSONResponse) VisitSetCodexStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2983,6 +3768,85 @@ func (response UpdateCharacter404JSONResponse) VisitUpdateCharacterResponse(w ht
 	return err
 }
 
+type LevelUpCharacterRequestObject struct {
+	CharacterId CharacterId `json:"characterId"`
+	Body        *LevelUpCharacterJSONRequestBody
+}
+
+type LevelUpCharacterResponseObject interface {
+	VisitLevelUpCharacterResponse(w http.ResponseWriter) error
+}
+
+type LevelUpCharacter200JSONResponse Character
+
+func (response LevelUpCharacter200JSONResponse) VisitLevelUpCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LevelUpCharacter400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response LevelUpCharacter400JSONResponse) VisitLevelUpCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LevelUpCharacter401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response LevelUpCharacter401JSONResponse) VisitLevelUpCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LevelUpCharacter403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response LevelUpCharacter403JSONResponse) VisitLevelUpCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LevelUpCharacter404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response LevelUpCharacter404JSONResponse) VisitLevelUpCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SeatCharacterRequestObject struct {
 	CharacterId CharacterId `json:"characterId"`
 	Body        *SeatCharacterJSONRequestBody
@@ -3058,6 +3922,20 @@ func (response SeatCharacter404JSONResponse) VisitSeatCharacterResponse(w http.R
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SeatCharacter409JSONResponse SeatConflict
+
+func (response SeatCharacter409JSONResponse) VisitSeatCharacterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3970,6 +4848,143 @@ func (response ClaimQuest404JSONResponse) VisitClaimQuestResponse(w http.Respons
 	return err
 }
 
+type DeleteRulesContentRequestObject struct {
+	ContentId openapi_types.UUID `json:"contentId"`
+}
+
+type DeleteRulesContentResponseObject interface {
+	VisitDeleteRulesContentResponse(w http.ResponseWriter) error
+}
+
+type DeleteRulesContent204Response struct {
+}
+
+func (response DeleteRulesContent204Response) VisitDeleteRulesContentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteRulesContent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteRulesContent401JSONResponse) VisitDeleteRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRulesContent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteRulesContent403JSONResponse) VisitDeleteRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteRulesContent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteRulesContent404JSONResponse) VisitDeleteRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRulesContentRequestObject struct {
+	ContentId openapi_types.UUID `json:"contentId"`
+	Body      *UpdateRulesContentJSONRequestBody
+}
+
+type UpdateRulesContentResponseObject interface {
+	VisitUpdateRulesContentResponse(w http.ResponseWriter) error
+}
+
+type UpdateRulesContent200JSONResponse RulesContent
+
+func (response UpdateRulesContent200JSONResponse) VisitUpdateRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRulesContent400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateRulesContent400JSONResponse) VisitUpdateRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRulesContent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateRulesContent401JSONResponse) VisitUpdateRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRulesContent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateRulesContent403JSONResponse) VisitUpdateRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateRulesContent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateRulesContent404JSONResponse) VisitUpdateRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListRulesRequestObject struct {
 	Kind ContentKind `json:"kind"`
 }
@@ -3995,6 +5010,57 @@ func (response ListRules200JSONResponse) VisitListRulesResponse(w http.ResponseW
 type ListRules401JSONResponse struct{ UnauthorizedJSONResponse }
 
 func (response ListRules401JSONResponse) VisitListRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRulesContentRequestObject struct {
+	Kind ContentKind `json:"kind"`
+	Body *CreateRulesContentJSONRequestBody
+}
+
+type CreateRulesContentResponseObject interface {
+	VisitCreateRulesContentResponse(w http.ResponseWriter) error
+}
+
+type CreateRulesContent201JSONResponse RulesContent
+
+func (response CreateRulesContent201JSONResponse) VisitCreateRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRulesContent400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateRulesContent400JSONResponse) VisitCreateRulesContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateRulesContent401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateRulesContent401JSONResponse) VisitCreateRulesContentResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -4382,6 +5448,18 @@ type StrictServerInterface interface {
 	// Add a character owned by the caller (any campaign member)
 	// (POST /campaigns/{campaignId}/characters)
 	CreateCharacter(ctx context.Context, request CreateCharacterRequestObject) (CreateCharacterResponseObject, error)
+	// The campaign's codex — every explicit ruling plus proposals (members)
+	// (GET /campaigns/{campaignId}/codex)
+	GetCodex(ctx context.Context, request GetCodexRequestObject) (GetCodexResponseObject, error)
+	// Offer your homebrew to the table (members; DM decides)
+	// (POST /campaigns/{campaignId}/codex)
+	ProposeCodexContent(ctx context.Context, request ProposeCodexContentRequestObject) (ProposeCodexContentResponseObject, error)
+	// Remove a ruling — back to defaults (DM only)
+	// (DELETE /campaigns/{campaignId}/codex/{contentId})
+	ClearCodexStatus(ctx context.Context, request ClearCodexStatusRequestObject) (ClearCodexStatusResponseObject, error)
+	// The DM's verdict on an entry (enable homebrew, ban/unban SRD)
+	// (PUT /campaigns/{campaignId}/codex/{contentId})
+	SetCodexStatus(ctx context.Context, request SetCodexStatusRequestObject) (SetCodexStatusResponseObject, error)
 	// Set or clear when the table gathers next (DM only)
 	// (PUT /campaigns/{campaignId}/next-session)
 	SetNextSession(ctx context.Context, request SetNextSessionRequestObject) (SetNextSessionResponseObject, error)
@@ -4406,6 +5484,9 @@ type StrictServerInterface interface {
 	// Update a character (its owner or the DM)
 	// (PATCH /characters/{characterId})
 	UpdateCharacter(ctx context.Context, request UpdateCharacterRequestObject) (UpdateCharacterResponseObject, error)
+	// Advance a forged hero one level (owner only)
+	// (POST /characters/{characterId}/levelup)
+	LevelUpCharacter(ctx context.Context, request LevelUpCharacterRequestObject) (LevelUpCharacterResponseObject, error)
 	// Seat a hero at a campaign, or null to return them to My Heroes (owner only)
 	// (PUT /characters/{characterId}/seat)
 	SeatCharacter(ctx context.Context, request SeatCharacterRequestObject) (SeatCharacterResponseObject, error)
@@ -4454,9 +5535,18 @@ type StrictServerInterface interface {
 	// Claim a quest (any campaign member)
 	// (POST /quests/{questId}/claim)
 	ClaimQuest(ctx context.Context, request ClaimQuestRequestObject) (ClaimQuestResponseObject, error)
+	// Remove a homebrew entry (author only)
+	// (DELETE /rules/content/{contentId})
+	DeleteRulesContent(ctx context.Context, request DeleteRulesContentRequestObject) (DeleteRulesContentResponseObject, error)
+	// Edit a homebrew entry (author only; SRD is immutable)
+	// (PUT /rules/content/{contentId})
+	UpdateRulesContent(ctx context.Context, request UpdateRulesContentRequestObject) (UpdateRulesContentResponseObject, error)
 	// Rules content of one kind (SRD + this instance's homebrew)
 	// (GET /rules/{kind})
 	ListRules(ctx context.Context, request ListRulesRequestObject) (ListRulesResponseObject, error)
+	// Add a homebrew entry of this kind (any signed-in user)
+	// (POST /rules/{kind})
+	CreateRulesContent(ctx context.Context, request CreateRulesContentRequestObject) (CreateRulesContentResponseObject, error)
 	// Delete a skill tree and its web (DM only)
 	// (DELETE /trees/{treeId})
 	DeleteTree(ctx context.Context, request DeleteTreeRequestObject) (DeleteTreeResponseObject, error)
@@ -4641,6 +5731,126 @@ func (sh *strictHandler) CreateCharacter(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateCharacterResponseObject); ok {
 		if err := validResponse.VisitCreateCharacterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCodex operation middleware
+func (sh *strictHandler) GetCodex(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request GetCodexRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCodex(ctx, request.(GetCodexRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCodex")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCodexResponseObject); ok {
+		if err := validResponse.VisitGetCodexResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ProposeCodexContent operation middleware
+func (sh *strictHandler) ProposeCodexContent(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request ProposeCodexContentRequestObject
+
+	request.CampaignId = campaignId
+
+	var body ProposeCodexContentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ProposeCodexContent(ctx, request.(ProposeCodexContentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ProposeCodexContent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ProposeCodexContentResponseObject); ok {
+		if err := validResponse.VisitProposeCodexContentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClearCodexStatus operation middleware
+func (sh *strictHandler) ClearCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID) {
+	var request ClearCodexStatusRequestObject
+
+	request.CampaignId = campaignId
+	request.ContentId = contentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearCodexStatus(ctx, request.(ClearCodexStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearCodexStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearCodexStatusResponseObject); ok {
+		if err := validResponse.VisitClearCodexStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetCodexStatus operation middleware
+func (sh *strictHandler) SetCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID) {
+	var request SetCodexStatusRequestObject
+
+	request.CampaignId = campaignId
+	request.ContentId = contentId
+
+	var body SetCodexStatusJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetCodexStatus(ctx, request.(SetCodexStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetCodexStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetCodexStatusResponseObject); ok {
+		if err := validResponse.VisitSetCodexStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -4877,6 +6087,39 @@ func (sh *strictHandler) UpdateCharacter(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateCharacterResponseObject); ok {
 		if err := validResponse.VisitUpdateCharacterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LevelUpCharacter operation middleware
+func (sh *strictHandler) LevelUpCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	var request LevelUpCharacterRequestObject
+
+	request.CharacterId = characterId
+
+	var body LevelUpCharacterJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LevelUpCharacter(ctx, request.(LevelUpCharacterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LevelUpCharacter")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LevelUpCharacterResponseObject); ok {
+		if err := validResponse.VisitLevelUpCharacterResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -5346,6 +6589,65 @@ func (sh *strictHandler) ClaimQuest(w http.ResponseWriter, r *http.Request, ques
 	}
 }
 
+// DeleteRulesContent operation middleware
+func (sh *strictHandler) DeleteRulesContent(w http.ResponseWriter, r *http.Request, contentId openapi_types.UUID) {
+	var request DeleteRulesContentRequestObject
+
+	request.ContentId = contentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteRulesContent(ctx, request.(DeleteRulesContentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteRulesContent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteRulesContentResponseObject); ok {
+		if err := validResponse.VisitDeleteRulesContentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateRulesContent operation middleware
+func (sh *strictHandler) UpdateRulesContent(w http.ResponseWriter, r *http.Request, contentId openapi_types.UUID) {
+	var request UpdateRulesContentRequestObject
+
+	request.ContentId = contentId
+
+	var body UpdateRulesContentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateRulesContent(ctx, request.(UpdateRulesContentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateRulesContent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateRulesContentResponseObject); ok {
+		if err := validResponse.VisitUpdateRulesContentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListRules operation middleware
 func (sh *strictHandler) ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind) {
 	var request ListRulesRequestObject
@@ -5365,6 +6667,39 @@ func (sh *strictHandler) ListRules(w http.ResponseWriter, r *http.Request, kind 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListRulesResponseObject); ok {
 		if err := validResponse.VisitListRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateRulesContent operation middleware
+func (sh *strictHandler) CreateRulesContent(w http.ResponseWriter, r *http.Request, kind ContentKind) {
+	var request CreateRulesContentRequestObject
+
+	request.Kind = kind
+
+	var body CreateRulesContentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateRulesContent(ctx, request.(CreateRulesContentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateRulesContent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateRulesContentResponseObject); ok {
+		if err := validResponse.VisitCreateRulesContentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -5528,79 +6863,94 @@ func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, tree
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"6Dga0ZIZj/J/AwAA//8=",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

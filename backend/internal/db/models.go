@@ -12,12 +12,57 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type CodexStatus string
+
+const (
+	CodexStatusProposed CodexStatus = "proposed"
+	CodexStatusEnabled  CodexStatus = "enabled"
+	CodexStatusBanned   CodexStatus = "banned"
+)
+
+func (e *CodexStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CodexStatus(s)
+	case string:
+		*e = CodexStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CodexStatus: %T", src)
+	}
+	return nil
+}
+
+type NullCodexStatus struct {
+	CodexStatus CodexStatus `json:"codex_status"`
+	Valid       bool        `json:"valid"` // Valid is true if CodexStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCodexStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.CodexStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CodexStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCodexStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CodexStatus), nil
+}
+
 type ContentKind string
 
 const (
 	ContentKindClass      ContentKind = "class"
 	ContentKindSpecies    ContentKind = "species"
 	ContentKindBackground ContentKind = "background"
+	ContentKindSubclass   ContentKind = "subclass"
+	ContentKindFeat       ContentKind = "feat"
 )
 
 func (e *ContentKind) Scan(src interface{}) error {
@@ -324,6 +369,14 @@ type Campaign struct {
 	NextSessionAt pgtype.Timestamptz `json:"next_session_at"`
 }
 
+type CampaignContent struct {
+	CampaignID uuid.UUID          `json:"campaign_id"`
+	ContentID  uuid.UUID          `json:"content_id"`
+	Status     CodexStatus        `json:"status"`
+	ProposedBy pgtype.UUID        `json:"proposed_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Character struct {
 	ID           uuid.UUID          `json:"id"`
 	CampaignID   pgtype.UUID        `json:"campaign_id"`
@@ -345,6 +398,8 @@ type Character struct {
 	ClassID      pgtype.UUID        `json:"class_id"`
 	SpeciesID    pgtype.UUID        `json:"species_id"`
 	BackgroundID pgtype.UUID        `json:"background_id"`
+	SubclassID   pgtype.UUID        `json:"subclass_id"`
+	Feats        []string           `json:"feats"`
 }
 
 type CharacterNode struct {

@@ -56,6 +56,8 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			Intelligence: row.Intelligence, Wisdom: row.Wisdom, Charisma: row.Charisma,
 			Skills: row.Skills, ClassID: row.ClassID, SpeciesID: row.SpeciesID,
 			BackgroundID: row.BackgroundID,
+			SubclassID:   row.SubclassID,
+			Feats:        row.Feats,
 		}, row.OwnerName, member.UserID))
 	}
 	return api.ListCharacters200JSONResponse(out), nil
@@ -266,15 +268,21 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 		if skills == nil {
 			skills = []string{}
 		}
+		feats := c.Feats
+		if feats == nil {
+			feats = []string{}
+		}
 		sheet = &api.CharacterSheet{
 			Abilities: api.AbilityScores{
 				Str: int(*c.Strength), Dex: int(*c.Dexterity), Con: int(*c.Constitution),
 				Int: int(*c.Intelligence), Wis: int(*c.Wisdom), Cha: int(*c.Charisma),
 			},
 			Skills:       skills,
+			Feats:        &feats,
 			ClassId:      uuidPtr(c.ClassID),
 			SpeciesId:    uuidPtr(c.SpeciesID),
 			BackgroundId: uuidPtr(c.BackgroundID),
+			SubclassId:   uuidPtr(c.SubclassID),
 		}
 	}
 	return api.Character{

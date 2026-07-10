@@ -1,19 +1,90 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { Character } from "../api/client";
+import type { Character, SeatConflict } from "../api/client";
 import {
   useCampaigns,
   useCreateMyCharacter,
   useDeleteCharacter,
   useMyCharacters,
+  useProposeCodex,
   useSeatCharacter,
   useUpdateCharacter,
 } from "../hooks";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import CharacterForm, { emptyHero } from "./CharacterForm";
+import LevelUpModal from "./LevelUpModal";
 import AbilityRow from "./ui/AbilityRow";
 import ParchmentModal from "./ui/ParchmentModal";
 import { IconPencil, IconPlus, IconTrash, IconUsers } from "./ui/icons";
+
+/** Strict seating hit a wall: show what the codex hasn't admitted and let
+ * the hero's owner send the missing homebrew to the DM in one tap. */
+function SeatConflictModal({
+  heroName,
+  conflict,
+  onClose,
+}: {
+  heroName: string;
+  conflict: { campaignId: string; campaignName: string; missing: SeatConflict["missing"] };
+  onClose: () => void;
+}) {
+  const propose = useProposeCodex(conflict.campaignId);
+  const proposable = conflict.missing.filter((m) => m.state === "absent");
+  const [sent, setSent] = useState(false);
+
+  const stateText = { absent: "not offered yet", proposed: "awaiting the DM", banned: "banned by the DM" };
+  return (
+    <ParchmentModal onClose={onClose} maxWidth="max-w-[460px]">
+      <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+        Held at the door
+      </div>
+      <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
+        The Codex Objects
+      </h3>
+      <p className="font-body m-0 mb-4 text-center text-[13.5px] italic text-ink-body">
+        {conflict.campaignName} has not admitted everything {heroName} is made of:
+      </p>
+      <div className="mb-5 flex flex-col gap-2">
+        {conflict.missing.map((m) => (
+          <div key={m.id} className="flex items-center justify-between gap-3 text-[13.5px]">
+            <span>
+              <span className="font-heading font-bold">{m.name}</span>
+              <span className="label-stamp ml-2 text-[8.5px] tracking-[1px] text-ink-label">{m.kind}</span>
+            </span>
+            <span className={`label-stamp text-[9px] tracking-[1px] ${m.state === "banned" ? "text-[#8b2520]" : "text-ink-label"}`}>
+              {stateText[m.state]}
+            </span>
+          </div>
+        ))}
+      </div>
+      {sent ? (
+        <p className="font-accent m-0 text-center text-[13.5px] italic text-ink-body">
+          Sent — once the DM admits it, seat {heroName} again.
+        </p>
+      ) : (
+        <div className="flex items-center justify-end gap-3">
+          <button onClick={onClose} className="btn-base btn-ghost-ink px-5 py-[11px] text-xs">
+            Close
+          </button>
+          {proposable.length > 0 && (
+            <button
+              onClick={() =>
+                propose.mutate(
+                  proposable.map((m) => m.id),
+                  { onSuccess: () => setSent(true) },
+                )
+              }
+              disabled={propose.isPending}
+              className="btn-base btn-gold clip-octagon h-11 px-5 text-[13px]"
+            >
+              {propose.isPending ? "Sending…" : "Send to the DM"}
+            </button>
+          )}
+        </div>
+      )}
+    </ParchmentModal>
+  );
+}
 
 function HeroCard({ character }: { character: Character }) {
   const { data: campaigns } = useCampaigns();
@@ -21,7 +92,13 @@ function HeroCard({ character }: { character: Character }) {
   const update = useUpdateCharacter(character.campaignId ?? "");
   const del = useDeleteCharacter(character.campaignId ?? "");
   const [editing, setEditing] = useState(false);
+  const [levelling, setLevelling] = useState(false);
   const [seatChoice, setSeatChoice] = useState("");
+  const [conflict, setConflict] = useState<{
+    campaignId: string;
+    campaignName: string;
+    missing: SeatConflict["missing"];
+  } | null>(null);
 
   const color = hpColor(character.hpCurrent, character.hpMax);
   const pct = character.hpMax > 0 ? (character.hpCurrent / character.hpMax) * 100 : 0;
@@ -122,7 +199,21 @@ function HeroCard({ character }: { character: Character }) {
                 seatChoice &&
                 seat.mutate(
                   { characterId: character.id, campaignId: seatChoice },
-                  { onSuccess: () => setSeatChoice("") },
+                  {
+                    onSuccess: () => setSeatChoice(""),
+                    onError: (err) => {
+                      const c = err as unknown as SeatConflict;
+                      if (c?.missing?.length) {
+                        setConflict({
+                          campaignId: seatChoice,
+                          campaignName:
+                            (campaigns ?? []).find((m) => m.campaign.id === seatChoice)
+                              ?.campaign.name ?? "the campaign",
+                          missing: c.missing,
+                        });
+                      }
+                    },
+                  },
                 )
               }
               disabled={!seatChoice || seat.isPending}
@@ -136,6 +227,14 @@ function HeroCard({ character }: { character: Character }) {
 
       {/* actions */}
       <div className="mt-3.5 flex items-center justify-end gap-2">
+        {character.sheet && character.level < 20 && (
+          <button
+            onClick={() => setLevelling(true)}
+            className="btn-base btn-wax mr-auto px-3.5 py-2 text-[10px]"
+          >
+            Level up ↑
+          </button>
+        )}
         <button
           onClick={() => setEditing(true)}
           title="Edit"
@@ -155,6 +254,18 @@ function HeroCard({ character }: { character: Character }) {
           <IconTrash strokeWidth={1.8} />
         </button>
       </div>
+
+      {conflict && (
+        <SeatConflictModal
+          heroName={character.name}
+          conflict={conflict}
+          onClose={() => setConflict(null)}
+        />
+      )}
+
+      {levelling && (
+        <LevelUpModal character={character} onClose={() => setLevelling(false)} />
+      )}
 
       {editing && (
         <ParchmentModal onClose={() => setEditing(false)} maxWidth="max-w-[480px]">

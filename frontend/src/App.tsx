@@ -5,6 +5,8 @@ import AppShell from "./components/AppShell";
 import CampaignsPage from "./components/CampaignsPage";
 import MyHeroesPage from "./components/MyHeroesPage";
 import ForgeWizard from "./components/ForgeWizard";
+import ScribesDesk from "./components/ScribesDesk";
+import CodexPage from "./components/CodexPage";
 import CampaignView from "./components/CampaignView";
 import CampaignDashboard from "./components/CampaignDashboard";
 import QuestBoard from "./components/QuestBoard";
@@ -37,10 +39,12 @@ export default function App() {
         <Route index element={<CampaignsPage />} />
         <Route path="heroes" element={<MyHeroesPage />} />
         <Route path="heroes/forge" element={<ForgeWizard />} />
+        <Route path="scribe" element={<ScribesDesk />} />
         <Route path="campaigns/:id" element={<CampaignView />}>
           <Route index element={<CampaignDashboard />} />
           <Route path="board" element={<QuestBoard />} />
           <Route path="party" element={<PartyRoster />} />
+          <Route path="codex" element={<CodexPage />} />
           <Route path="trees" element={<SkillTreesPage />} />
           <Route path="trees/:treeId" element={<TreeEditorPage />} />
           <Route path="characters/:charId/web" element={<CharacterWebPage />} />

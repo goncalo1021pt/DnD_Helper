@@ -55,3 +55,18 @@ INSERT INTO characters (
     skills, class_id, species_id, background_id
 ) VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING *;
+
+-- name: LevelUpCharacter :one
+-- Apply one level: new level/HP, any ability increases (ASI), the chosen
+-- subclass when the class reaches it, and any feat taken along the way.
+UPDATE characters
+SET level = $2,
+    hp_max = $3,
+    hp_current = $4,
+    strength = $5, dexterity = $6, constitution = $7,
+    intelligence = $8, wisdom = $9, charisma = $10,
+    subclass_id = $11,
+    feats = $12,
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
