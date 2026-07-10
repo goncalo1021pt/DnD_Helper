@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { SkillEdge, SkillNode } from "../../api/client";
 
 /**
@@ -119,8 +120,15 @@ export default function TreeWeb({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="mx-auto block">
+    // Phones: the web scales into a 55svh budget (see .tree-web-svg), so the
+    // whole card fits the screen — vertical swipes scroll the page, horizontal
+    // swipes pan the web. Desktop renders at native size.
+    <div className="overflow-x-auto overflow-y-hidden">
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className="tree-web-svg mx-auto block"
+        style={{ "--web-h": `${h}px` } as CSSProperties}
+      >
         {/* limb labels */}
         {limbs.map((l, i) => (
           <text

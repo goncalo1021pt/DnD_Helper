@@ -325,7 +325,7 @@ export default function PartyRoster() {
   const [adding, setAdding] = useState(false);
 
   return (
-    <div className="panel-hall px-[30px] pb-11 pt-8">
+    <div className="panel-hall px-5 pb-28 pt-8 sm:px-[30px] sm:pb-11">
       {/* roster header strip */}
       <div
         className="mb-[26px] flex flex-wrap items-center justify-between gap-4 pb-3.5"
@@ -368,7 +368,7 @@ export default function PartyRoster() {
           Calling the roll…
         </div>
       ) : characters && characters.length > 0 ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(290px,1fr))] gap-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-6">
           {characters.map((c) => (
             <CharacterCard
               key={c.id}

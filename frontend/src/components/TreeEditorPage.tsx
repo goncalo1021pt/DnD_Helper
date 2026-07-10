@@ -277,7 +277,7 @@ export default function TreeEditorPage() {
   return (
     <div className="flex flex-col gap-6">
       {/* the web */}
-      <div className="panel-hall px-[30px] pb-8 pt-6">
+      <div className="panel-hall px-5 sm:px-[30px] pb-8 pt-6">
         <div
           className="mb-4 flex flex-wrap items-center justify-between gap-4 pb-3.5"
           style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
@@ -328,7 +328,7 @@ export default function TreeEditorPage() {
 
       {/* the powers, limb by limb */}
       {isDM && nodes.length > 0 && (
-        <div className="panel-hall px-[30px] pb-8 pt-6">
+        <div className="panel-hall px-5 sm:px-[30px] pb-8 pt-6">
           <div
             className="mb-4 pb-3"
             style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}

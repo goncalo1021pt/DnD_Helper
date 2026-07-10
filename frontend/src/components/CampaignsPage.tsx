@@ -54,7 +54,7 @@ export default function CampaignsPage() {
             Fetching the ledgers…
           </p>
         ) : campaigns && campaigns.length > 0 ? (
-          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-x-[26px] gap-y-[30px] p-0">
+          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-x-[26px] gap-y-[30px] p-0">
             {campaigns.map((m, i) => (
               <li
                 key={m.campaign.id}

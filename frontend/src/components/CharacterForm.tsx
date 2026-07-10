@@ -32,22 +32,31 @@ export default function CharacterForm({
   onSubmit: (values: CharacterInput) => void;
   onCancel: () => void;
 }) {
-  const [v, setV] = useState<CharacterFormValues>(initial);
+  // Numeric fields live as raw strings while editing, so clearing a field
+  // with backspace works (a controlled number input snaps "" back to 0).
+  const [v, setV] = useState(() => ({
+    name: initial.name,
+    class: initial.class,
+    level: String(initial.level),
+    hpCurrent: String(initial.hpCurrent),
+    hpMax: String(initial.hpMax),
+  }));
 
-  function set<K extends keyof CharacterFormValues>(key: K, val: CharacterFormValues[K]) {
+  function set(key: keyof typeof v, val: string) {
     setV((prev) => ({ ...prev, [key]: val }));
   }
 
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!v.name.trim()) return;
+    const hpMax = Number(v.hpMax);
     onSubmit({
       name: v.name.trim(),
       class: v.class.trim(),
-      level: v.level,
+      level: Number(v.level),
       // A fresh hero arrives at full health.
-      hpCurrent: mode === "create" ? v.hpMax : v.hpCurrent,
-      hpMax: v.hpMax,
+      hpCurrent: mode === "create" ? hpMax : Number(v.hpCurrent),
+      hpMax,
     });
   }
 
@@ -82,22 +91,24 @@ export default function CharacterForm({
           <span className="field-label">Level</span>
           <input
             type="number"
+            required
             min={1}
             max={20}
             className={input}
             value={v.level}
-            onChange={(e) => set("level", Number(e.target.value))}
+            onChange={(e) => set("level", e.target.value)}
           />
         </label>
         <label className="flex flex-col gap-1.5">
           <span className="field-label">Max HP</span>
           <input
             type="number"
+            required
             min={1}
             max={9999}
             className={input}
             value={v.hpMax}
-            onChange={(e) => set("hpMax", Number(e.target.value))}
+            onChange={(e) => set("hpMax", e.target.value)}
           />
         </label>
         {mode === "edit" && (
@@ -105,11 +116,12 @@ export default function CharacterForm({
             <span className="field-label">Current HP</span>
             <input
               type="number"
+              required
               min={0}
               max={9999}
               className={input}
               value={v.hpCurrent}
-              onChange={(e) => set("hpCurrent", Number(e.target.value))}
+              onChange={(e) => set("hpCurrent", e.target.value)}
             />
           </label>
         )}

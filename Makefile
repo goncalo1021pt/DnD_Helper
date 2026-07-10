@@ -4,7 +4,7 @@
 GOBIN := $(shell go env GOPATH)/bin
 STATIC := backend/internal/static
 
-.PHONY: help generate gen-backend gen-frontend frontend embed backend build run test prod deploy down restart ps logs dev-server tools clean
+.PHONY: help generate gen-backend gen-frontend frontend embed backend build run test prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -67,3 +67,32 @@ logs: ## Follow logs (use: make logs S=app|postgres|cloudflared)
 
 clean: ## Remove build artifacts
 	rm -rf bin frontend/dist
+
+# --- Line counts (handwritten code only — generated files are excluded) ---
+# Generated: api.gen.go, schema.d.ts, and sqlc output (db.go, models.go, *.sql.go).
+
+FRONTEND_TS  = find frontend/src -type f \( -name '*.ts' -o -name '*.tsx' \) ! -name 'schema.d.ts' -print0 | xargs -0 -r cat | wc -l
+FRONTEND_CSS = find frontend/src -type f -name '*.css' -print0 | xargs -0 -r cat | wc -l
+BACKEND_GO   = find backend -type f -name '*.go' ! -name '*.gen.go' ! -name '*.sql.go' ! -path 'backend/internal/db/db.go' ! -path 'backend/internal/db/models.go' -print0 | xargs -0 -r cat | wc -l
+DB_SQL       = find backend/queries backend/internal/db/migrations -type f -name '*.sql' -print0 | xargs -0 -r cat | wc -l
+SPEC_YAML    = cat openapi.yaml | wc -l
+
+countFrontend: ## Count handwritten frontend lines (TypeScript + CSS)
+	@printf "  \033[36m%-12s\033[0m %6d lines\n" "TypeScript" $$($(FRONTEND_TS))
+	@printf "  \033[36m%-12s\033[0m %6d lines\n" "CSS"        $$($(FRONTEND_CSS))
+
+countBackend: ## Count handwritten backend lines (Go)
+	@printf "  \033[36m%-12s\033[0m %6d lines\n" "Go"         $$($(BACKEND_GO))
+
+countDB: ## Count SQL lines (queries + migrations)
+	@printf "  \033[36m%-12s\033[0m %6d lines\n" "SQL"        $$($(DB_SQL))
+
+count: ## Total handwritten lines per language across the whole repo
+	@ts=$$($(FRONTEND_TS)); css=$$($(FRONTEND_CSS)); go=$$($(BACKEND_GO)); sql=$$($(DB_SQL)); yaml=$$($(SPEC_YAML)); \
+	printf "  \033[36m%-12s\033[0m %6d lines\n" "TypeScript" $$ts; \
+	printf "  \033[36m%-12s\033[0m %6d lines\n" "CSS"        $$css; \
+	printf "  \033[36m%-12s\033[0m %6d lines\n" "Go"         $$go; \
+	printf "  \033[36m%-12s\033[0m %6d lines\n" "SQL"        $$sql; \
+	printf "  \033[36m%-12s\033[0m %6d lines\n" "OpenAPI"    $$yaml; \
+	printf "  %-12s %6s\n" "------------" "------"; \
+	printf "  \033[1m%-12s\033[0m %6d lines\n" "Total"       $$((ts + css + go + sql + yaml))

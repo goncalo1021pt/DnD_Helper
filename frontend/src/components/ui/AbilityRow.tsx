@@ -35,10 +35,10 @@ export default function AbilityRow({ abilities }: { abilities: AbilityScores }) 
             {label}
           </span>
           <span className="font-heading text-[15px] font-bold leading-tight text-ink tabular-nums">
-            {abilities[key]}
+            {abilities[key] > 0 ? abilities[key] : "—"}
           </span>
           <span className="text-[10px] font-semibold text-ink-body tabular-nums">
-            {modText(abilities[key])}
+            {abilities[key] > 0 ? modText(abilities[key]) : " "}
           </span>
         </div>
       ))}

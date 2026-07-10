@@ -8,7 +8,7 @@ export default function Crest({
   size = 46,
   className,
 }: {
-  size?: number;
+  size?: number | string;
   className?: string;
 }) {
   return (
