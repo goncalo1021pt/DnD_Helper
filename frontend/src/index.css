@@ -442,4 +442,17 @@ body {
   text-transform: uppercase;
   color: #7a5a32;
 }
+
+/* The skill web scaled into the phone screen: the SVG shrinks to fit a
+   small-viewport budget (leaving room for the card's header) and pans
+   sideways only; from sm up it renders at its native size. */
+.tree-web-svg {
+  height: min(55svh, var(--web-h));
+  width: auto;
+}
+@media (min-width: 640px) {
+  .tree-web-svg {
+    height: var(--web-h);
+  }
+}
 }
