@@ -124,9 +124,12 @@ function HeroCard({ character }: { character: Character }) {
           </span>
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-display truncate text-[17px] font-bold leading-tight text-ink">
+          <Link
+            to={`/questboard/heroes/${character.id}`}
+            className="font-display block truncate text-[17px] font-bold leading-tight text-ink no-underline hover:text-[#8b2520]"
+          >
             {character.name}
-          </div>
+          </Link>
           <div className="truncate text-[12.5px] text-ink-body">
             {character.class || "Adventurer"}
           </div>

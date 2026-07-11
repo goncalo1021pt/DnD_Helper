@@ -92,15 +92,20 @@ func seatConflictItem(b codexBlocker) struct {
 	}{Id: b.row.ID, Kind: string(b.row.Kind), Name: b.row.Name, State: b.state}
 }
 
-// sheetContentIDs collects a hero's rules references.
-func sheetContentIDs(c db.Character) []uuid.UUID {
+// sheetContentIDs collects every rules reference a hero carries: the four
+// sheet columns plus spell picks and content-backed inventory rows.
+func (s *Server) sheetContentIDs(ctx context.Context, c db.Character) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
 	for _, u := range []pgtype.UUID{c.ClassID, c.SpeciesID, c.BackgroundID, c.SubclassID} {
 		if u.Valid {
 			ids = append(ids, uuid.UUID(u.Bytes))
 		}
 	}
-	return ids
+	refs, err := s.queries.ListCharacterContentRefs(ctx, c.ID)
+	if err != nil {
+		return nil, err
+	}
+	return append(ids, refs...), nil
 }
 
 // GetCodex lists every explicit ruling and proposal for a campaign (members).

@@ -47,11 +47,20 @@ export type CharacterTreeState =
 
 export type RulesContent =
   paths["/rules/{kind}"]["get"]["responses"]["200"]["content"]["application/json"][number];
-export type RulesKind = "class" | "species" | "background" | "subclass" | "feat";
+export type RulesKind = "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item";
 export type RulesContentInput =
   paths["/rules/{kind}"]["post"]["requestBody"]["content"]["application/json"];
 export type LevelUpRequest =
   paths["/characters/{characterId}/levelup"]["post"]["requestBody"]["content"]["application/json"];
+export type CharacterDetail =
+  paths["/characters/{characterId}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type InventoryItem =
+  paths["/characters/{characterId}/items"]["post"]["responses"]["201"]["content"]["application/json"];
+export type InventoryItemInput =
+  paths["/characters/{characterId}/items"]["post"]["requestBody"]["content"]["application/json"];
+export type SpellSlot = NonNullable<
+  NonNullable<Character["sheet"]>["spellSlots"]
+>[number];
 export type CodexEntry =
   paths["/campaigns/{campaignId}/codex"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type SeatConflict =

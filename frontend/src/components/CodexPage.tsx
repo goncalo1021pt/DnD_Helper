@@ -21,6 +21,8 @@ const KINDS: Array<[RulesKind, string]> = [
   ["species", "Species"],
   ["background", "Backgrounds"],
   ["feat", "Feats"],
+  ["spell", "Spells"],
+  ["item", "Items"],
 ];
 
 function StatusChip({ text, tone }: { text: string; tone: "ok" | "no" | "wait" }) {

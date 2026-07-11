@@ -205,6 +205,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/characters/{characterId}/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Set spell slots spent (owner or DM; casters only) */
+        put: operations["setSpellSlots"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add an item to a hero's inventory (owner or DM) */
+        post: operations["addInventoryItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove an inventory row (owner or DM) */
+        delete: operations["deleteInventoryItem"];
+        options?: never;
+        head?: never;
+        /** Change quantity or equip state (owner or DM) */
+        patch: operations["updateInventoryItem"];
+        trace?: never;
+    };
     "/rules/{kind}": {
         parameters: {
             query?: never;
@@ -334,7 +393,8 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /** A hero's full sheet — owner, or members of the seated campaign */
+        get: operations["getCharacter"];
         put?: never;
         post?: never;
         /** Remove a character (its owner or the DM) */
@@ -655,6 +715,15 @@ export interface components {
             /** Format: uuid */
             subclassId?: string | null;
             feats?: string[];
+            /** @description Present on casters (STR…CHA). */
+            spellcastingAbility?: string;
+            /** @description Present on casters — max and used per spell level. */
+            spellSlots?: components["schemas"]["SpellSlot"][];
+        };
+        SpellSlot: {
+            level: number;
+            max: number;
+            used: number;
         };
         AbilityScores: {
             str: number;
@@ -676,6 +745,8 @@ export interface components {
             abilities: components["schemas"]["AbilityScores"];
             /** @description Chosen class skills (background skills are implied). */
             skills: string[];
+            /** @description Level-1 spell picks (casters only; cantrips included). */
+            spells?: string[];
         };
         CharacterInput: {
             name: string;
@@ -695,7 +766,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "class" | "species" | "background" | "subclass" | "feat";
+            kind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item";
             /** @enum {string} */
             source: "srd" | "homebrew";
             name: string;
@@ -731,6 +802,8 @@ export interface components {
              * @description Take a feat instead of ability increases at an ASI level.
              */
             featId?: string;
+            /** @description New spell picks gained with this level (casters only). */
+            spells?: string[];
             /** @description Ability increases at an ASI level; total of 2 points, each +1 or +2. */
             asi?: {
                 str?: number;
@@ -761,6 +834,38 @@ export interface components {
                  */
                 state: "absent" | "proposed" | "banned";
             }[];
+        };
+        SpellSlotsInput: {
+            /** @description Slots spent per spell level (index 0 = level 1). */
+            used: number[];
+        };
+        InventoryItem: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            qty: number;
+            equipped: boolean;
+            /** @description The rules entry behind this row; null for free-text gear. */
+            content?: components["schemas"]["RulesContent"];
+        };
+        InventoryItemInput: {
+            /**
+             * Format: uuid
+             * @description An item from the library — or omit and use name for free-text gear.
+             */
+            contentId?: string;
+            name?: string;
+            /** @default 1 */
+            qty: number;
+        };
+        InventoryItemPatch: {
+            qty?: number;
+            equipped?: boolean;
+        };
+        CharacterDetail: {
+            character: components["schemas"]["Character"];
+            spells: components["schemas"]["RulesContent"][];
+            items: components["schemas"]["InventoryItem"][];
         };
         /** @enum {string} */
         NodeRarity: "minor" | "keystone";
@@ -910,7 +1015,7 @@ export interface components {
         QuestId: string;
         CharacterId: string;
         TreeId: string;
-        ContentKind: "class" | "species" | "background" | "subclass" | "feat";
+        ContentKind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item";
         NodeId: string;
     };
     requestBodies: never;
@@ -1316,6 +1421,121 @@ export interface operations {
             };
         };
     };
+    setSpellSlots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpellSlotsInput"];
+            };
+        };
+        responses: {
+            /** @description Hero with updated slots */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryItemInput"];
+            };
+        };
+        responses: {
+            /** @description The new inventory row */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+                itemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryItemPatch"];
+            };
+        };
+        responses: {
+            /** @description The updated row */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listRules: {
         parameters: {
             query?: never;
@@ -1609,6 +1829,31 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The hero in full */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     deleteCharacter: {

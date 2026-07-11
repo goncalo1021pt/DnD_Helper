@@ -175,6 +175,23 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		return badRequest(fmt.Sprintf("%s chooses a subclass at level %d, not %d", class.Name, cr.SubclassLevel, newLevel))
 	}
 
+	// --- New spells (casters only, additions validated against the new level) ---
+	var newSpells []uuid.UUID
+	if body.Spells != nil {
+		for _, id := range *body.Spells {
+			newSpells = append(newSpells, uuid.UUID(id))
+		}
+	}
+	existingSpells, err := s.queries.ListCharacterSpells(ctx, character.ID)
+	if err != nil {
+		return nil, err
+	}
+	if msg, _, err := s.validateSpellPicks(ctx, uid, class, newLevel, existingSpells, newSpells); err != nil {
+		return nil, err
+	} else if msg != "" {
+		return badRequest(msg)
+	}
+
 	// A seated hero's new choices must also be legal in that campaign's world.
 	if campaignID, seated := seatedCampaign(character); seated {
 		var chosen []uuid.UUID
@@ -184,6 +201,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		if newLevel == cr.SubclassLevel && body.SubclassId != nil {
 			chosen = append(chosen, uuid.UUID(*body.SubclassId))
 		}
+		chosen = append(chosen, newSpells...)
 		blockers, err := s.codexBlockers(ctx, campaignID, chosen)
 		if err != nil {
 			return nil, err
@@ -236,9 +254,17 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	if err != nil {
 		return nil, err
 	}
+	if len(newSpells) > 0 {
+		if err := s.queries.AddCharacterSpells(ctx, db.AddCharacterSpellsParams{
+			CharacterID: updated.ID,
+			Column2:     newSpells,
+		}); err != nil {
+			return nil, err
+		}
+	}
 	ownerName, err := s.ownerName(ctx, character.OwnerUserID)
 	if err != nil {
 		return nil, err
 	}
-	return api.LevelUpCharacter200JSONResponse(toAPICharacter(updated, ownerName, uid)), nil
+	return api.LevelUpCharacter200JSONResponse(toAPICharacterWithClass(updated, ownerName, uid, class.Data)), nil
 }

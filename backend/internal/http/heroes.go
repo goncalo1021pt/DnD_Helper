@@ -30,7 +30,7 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 	}
 	out := make([]api.Character, 0, len(rows))
 	for _, row := range rows {
-		c := toAPICharacter(db.Character{
+		c := toAPICharacterWithClass(db.Character{
 			ID: row.ID, CampaignID: row.CampaignID, OwnerUserID: row.OwnerUserID,
 			Name: row.Name, Class: row.Class, Level: row.Level,
 			HpCurrent: row.HpCurrent, HpMax: row.HpMax, CreatedAt: row.CreatedAt,
@@ -40,7 +40,8 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			BackgroundID: row.BackgroundID,
 			SubclassID:   row.SubclassID,
 			Feats:        row.Feats,
-		}, me.Name, uid)
+			SpellSlotsUsed: row.SpellSlotsUsed,
+		}, me.Name, uid, row.ClassData)
 		c.CampaignName = row.CampaignName
 		out = append(out, c)
 	}
@@ -111,7 +112,11 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 			return nil, err
 		}
 		// Strict seating: every rules reference must be legal in this world.
-		blockers, err := s.codexBlockers(ctx, campaignID, sheetContentIDs(character))
+		refs, err := s.sheetContentIDs(ctx, character)
+		if err != nil {
+			return nil, err
+		}
+		blockers, err := s.codexBlockers(ctx, campaignID, refs)
 		if err != nil {
 			return nil, err
 		}
@@ -137,7 +142,7 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 	if err != nil {
 		return nil, err
 	}
-	out := toAPICharacter(updated, me.Name, uid)
+	out := toAPICharacterWithClass(updated, me.Name, uid, s.classDataFor(ctx, updated))
 	out.CampaignName = campaignName
 	return api.SeatCharacter200JSONResponse(out), nil
 }

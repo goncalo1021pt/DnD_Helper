@@ -1,0 +1,2443 @@
+[
+  {
+    "name": "Acid Splash",
+    "summary": "A bubble of acid bursts over creatures within 5 feet of a point.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Chill Touch",
+    "summary": "Your touch chills the life from a creature and stops its healing.",
+    "data": {
+      "level": 0,
+      "school": "Necromancy",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Dancing Lights",
+    "summary": "Up to four floating lights drift where you will them.",
+    "data": {
+      "level": 0,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "120 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Druidcraft",
+    "summary": "A whisper of nature: predict weather, bloom a flower, snuff a candle.",
+    "data": {
+      "level": 0,
+      "school": "Transmutation",
+      "classes": [
+        "Druid"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Eldritch Blast",
+    "summary": "A beam of crackling force — the warlock's bread and butter.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Warlock"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Elementalism",
+    "summary": "Bend a pinch of the elements: gust, spark, ripple, rumble.",
+    "data": {
+      "level": 0,
+      "school": "Transmutation",
+      "classes": [
+        "Druid",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Fire Bolt",
+    "summary": "A mote of fire streaks to a target and ignites the unattended.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Guidance",
+    "summary": "A touched ally adds a d4 to one ability check.",
+    "data": {
+      "level": 0,
+      "school": "Divination",
+      "classes": [
+        "Cleric",
+        "Druid"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Light",
+    "summary": "An object shines like a torch until you dismiss it.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Mage Hand",
+    "summary": "A spectral hand fetches, carries and fiddles at a distance.",
+    "data": {
+      "level": 0,
+      "school": "Conjuration",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Mending",
+    "summary": "A minute of work repairs a single break or tear.",
+    "data": {
+      "level": 0,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Message",
+    "summary": "Whisper to someone at range; only they hear the reply.",
+    "data": {
+      "level": 0,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Mind Sliver",
+    "summary": "A psychic needle that saps the target's next saving throw.",
+    "data": {
+      "level": 0,
+      "school": "Enchantment",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Minor Illusion",
+    "summary": "A sound or a small image, conjured from nothing.",
+    "data": {
+      "level": 0,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Poison Spray",
+    "summary": "A puff of toxic gas straight into a creature's face.",
+    "data": {
+      "level": 0,
+      "school": "Necromancy",
+      "classes": [
+        "Druid",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Prestidigitation",
+    "summary": "Minor magical trickery: sparks, flavors, cleaning, marks.",
+    "data": {
+      "level": 0,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "10 ft"
+    }
+  },
+  {
+    "name": "Produce Flame",
+    "summary": "A flame in your palm: light, warmth, or a thrown attack.",
+    "data": {
+      "level": 0,
+      "school": "Conjuration",
+      "classes": [
+        "Druid"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Ray of Frost",
+    "summary": "A frigid beam that bites and slows.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Resistance",
+    "summary": "A touched ally adds a d4 to one saving throw.",
+    "data": {
+      "level": 0,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric",
+        "Druid"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Sacred Flame",
+    "summary": "Radiance descends on a creature — cover offers no shelter.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Shillelagh",
+    "summary": "Your club or staff becomes a magical cudgel driven by your spirit.",
+    "data": {
+      "level": 0,
+      "school": "Transmutation",
+      "classes": [
+        "Druid"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Shocking Grasp",
+    "summary": "Lightning leaps from your hand and steals the target's reactions.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Sorcerous Burst",
+    "summary": "Raw sorcery in the element of your choosing; chaos may compound.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Spare the Dying",
+    "summary": "A dying creature steadies at zero — alive, but no better.",
+    "data": {
+      "level": 0,
+      "school": "Necromancy",
+      "classes": [
+        "Cleric",
+        "Druid"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Starry Wisp",
+    "summary": "A mote of starlight strikes and marks the target with faint light.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Bard",
+        "Druid"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Thaumaturgy",
+    "summary": "Portents of divinity: booming voice, trembling ground, flaring flame.",
+    "data": {
+      "level": 0,
+      "school": "Transmutation",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Thorn Whip",
+    "summary": "A vine lashes out and drags the target closer.",
+    "data": {
+      "level": 0,
+      "school": "Transmutation",
+      "classes": [
+        "Druid"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Thunderclap",
+    "summary": "A crack of thunder slams everything within 5 feet.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "True Strike",
+    "summary": "Guided by insight, your weapon strike flies radiant and sure.",
+    "data": {
+      "level": 0,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Vicious Mockery",
+    "summary": "An insult laced with enchantment; it wounds and unsettles.",
+    "data": {
+      "level": 0,
+      "school": "Enchantment",
+      "classes": [
+        "Bard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Word of Radiance",
+    "summary": "Burning radiance erupts around you, searing chosen foes.",
+    "data": {
+      "level": 0,
+      "school": "Evocation",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Alarm",
+    "summary": "Ward an area; intruders wake you or ring a mental bell.",
+    "data": {
+      "level": 1,
+      "school": "Abjuration",
+      "classes": [
+        "Ranger",
+        "Wizard"
+      ],
+      "range": "30 ft",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Animal Friendship",
+    "summary": "Convince a beast you mean it no harm.",
+    "data": {
+      "level": 1,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Ranger"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Bane",
+    "summary": "Up to three foes subtract a d4 from attacks and saves.",
+    "data": {
+      "level": 1,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Warlock"
+      ],
+      "range": "30 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Bless",
+    "summary": "Up to three allies add a d4 to attacks and saves.",
+    "data": {
+      "level": 1,
+      "school": "Enchantment",
+      "classes": [
+        "Cleric",
+        "Paladin"
+      ],
+      "range": "30 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Burning Hands",
+    "summary": "A fan of flame sweeps from your fingertips.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Charm Person",
+    "summary": "A humanoid regards you as a friendly acquaintance.",
+    "data": {
+      "level": 1,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Color Spray",
+    "summary": "A dazzling burst blinds creatures in a cone.",
+    "data": {
+      "level": 1,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Command",
+    "summary": "One word — approach, drop, flee, grovel or halt — obeyed.",
+    "data": {
+      "level": 1,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Paladin",
+        "Warlock"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Comprehend Languages",
+    "summary": "Understand any spoken or written language for an hour.",
+    "data": {
+      "level": 1,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Create or Destroy Water",
+    "summary": "Call forth or evaporate up to ten gallons of water.",
+    "data": {
+      "level": 1,
+      "school": "Transmutation",
+      "classes": [
+        "Cleric",
+        "Druid"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Cure Wounds",
+    "summary": "Healing warmth closes a touched creature's wounds.",
+    "data": {
+      "level": 1,
+      "school": "Abjuration",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Detect Evil and Good",
+    "summary": "Sense celestials, fiends, undead and desecration nearby.",
+    "data": {
+      "level": 1,
+      "school": "Divination",
+      "classes": [
+        "Cleric",
+        "Paladin"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Detect Magic",
+    "summary": "See the shimmer of magic and learn its school.",
+    "data": {
+      "level": 1,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true,
+      "ritual": true
+    }
+  },
+  {
+    "name": "Detect Poison and Disease",
+    "summary": "Sense poisons, poisonous creatures and disease nearby.",
+    "data": {
+      "level": 1,
+      "school": "Divination",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger"
+      ],
+      "range": "Self",
+      "concentration": true,
+      "ritual": true
+    }
+  },
+  {
+    "name": "Disguise Self",
+    "summary": "Wear another face and frame for an hour.",
+    "data": {
+      "level": 1,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Divine Favor",
+    "summary": "Your weapon strikes carry radiant wrath.",
+    "data": {
+      "level": 1,
+      "school": "Transmutation",
+      "classes": [
+        "Paladin"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Divine Smite",
+    "summary": "Your melee hit erupts with radiant damage; worse for undead.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Paladin"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Entangle",
+    "summary": "Grasping weeds restrain creatures in a square.",
+    "data": {
+      "level": 1,
+      "school": "Conjuration",
+      "classes": [
+        "Druid",
+        "Ranger"
+      ],
+      "range": "90 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Expeditious Retreat",
+    "summary": "Dash as a bonus action, again and again.",
+    "data": {
+      "level": 1,
+      "school": "Transmutation",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Faerie Fire",
+    "summary": "Outline foes in light; attacks against them gain advantage.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Bard",
+        "Druid"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "False Life",
+    "summary": "Necromantic vigor grants temporary hit points.",
+    "data": {
+      "level": 1,
+      "school": "Necromancy",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Feather Fall",
+    "summary": "Five falling creatures drift down like leaves.",
+    "data": {
+      "level": 1,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Find Familiar",
+    "summary": "Bind a spirit companion in a small animal's shape.",
+    "data": {
+      "level": 1,
+      "school": "Conjuration",
+      "classes": [
+        "Wizard"
+      ],
+      "range": "10 ft",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Fog Cloud",
+    "summary": "A sphere of fog blots out all sight.",
+    "data": {
+      "level": 1,
+      "school": "Conjuration",
+      "classes": [
+        "Druid",
+        "Ranger",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "120 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Goodberry",
+    "summary": "Ten berries, each a mouthful of healing and a day's food.",
+    "data": {
+      "level": 1,
+      "school": "Conjuration",
+      "classes": [
+        "Druid",
+        "Ranger"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Grease",
+    "summary": "The ground turns slick; the standing fall.",
+    "data": {
+      "level": 1,
+      "school": "Conjuration",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Guiding Bolt",
+    "summary": "A radiant lance that lights the target up for the next attack.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Healing Word",
+    "summary": "A word of power that knits wounds from afar.",
+    "data": {
+      "level": 1,
+      "school": "Abjuration",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Hellish Rebuke",
+    "summary": "Answer the one who hurt you with a burst of hellfire.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Warlock"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Heroism",
+    "summary": "An ally is immune to fear and buoyed with vigor.",
+    "data": {
+      "level": 1,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Paladin"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Hunter's Mark",
+    "summary": "Mark your quarry; your hits dig deeper and it cannot hide.",
+    "data": {
+      "level": 1,
+      "school": "Divination",
+      "classes": [
+        "Ranger"
+      ],
+      "range": "90 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Identify",
+    "summary": "Learn an item's properties and how to use them.",
+    "data": {
+      "level": 1,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Illusory Script",
+    "summary": "Writing only intended readers can truly see.",
+    "data": {
+      "level": 1,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Inflict Wounds",
+    "summary": "Necrotic power floods from your touch.",
+    "data": {
+      "level": 1,
+      "school": "Necromancy",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Jump",
+    "summary": "A touched creature leaps three times as far.",
+    "data": {
+      "level": 1,
+      "school": "Transmutation",
+      "classes": [
+        "Druid",
+        "Ranger",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Longstrider",
+    "summary": "A touched creature's speed rises by ten feet.",
+    "data": {
+      "level": 1,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Ranger",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Mage Armor",
+    "summary": "Arcane force wraps an unarmored ally: AC 13 + DEX.",
+    "data": {
+      "level": 1,
+      "school": "Abjuration",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Magic Missile",
+    "summary": "Three darts of force that never miss.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Protection from Evil and Good",
+    "summary": "Ward a creature against the otherworldly.",
+    "data": {
+      "level": 1,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric",
+        "Paladin",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Purify Food and Drink",
+    "summary": "Render food and drink free of poison and rot.",
+    "data": {
+      "level": 1,
+      "school": "Transmutation",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Paladin"
+      ],
+      "range": "10 ft",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Sanctuary",
+    "summary": "Attackers must master themselves to strike the warded.",
+    "data": {
+      "level": 1,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Searing Smite",
+    "summary": "Your strike ignites, and keeps burning.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Paladin"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Shield",
+    "summary": "An instant barrier: +5 AC until your next turn.",
+    "data": {
+      "level": 1,
+      "school": "Abjuration",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Shield of Faith",
+    "summary": "A shimmering field grants +2 AC.",
+    "data": {
+      "level": 1,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric",
+        "Paladin"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Silent Image",
+    "summary": "A purely visual illusion the size of a large cube.",
+    "data": {
+      "level": 1,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Sleep",
+    "summary": "Creatures in a sphere drift toward magical slumber.",
+    "data": {
+      "level": 1,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Speak with Animals",
+    "summary": "Converse with beasts for ten minutes.",
+    "data": {
+      "level": 1,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Ranger"
+      ],
+      "range": "Self",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Thunderous Smite",
+    "summary": "Your strike cracks like thunder and hurls the target back.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Paladin"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Thunderwave",
+    "summary": "A wave of force blasts out from you.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Unseen Servant",
+    "summary": "An invisible force fetches and serves for an hour.",
+    "data": {
+      "level": 1,
+      "school": "Conjuration",
+      "classes": [
+        "Bard",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Witch Bolt",
+    "summary": "An arc of lightning tethers you to the target.",
+    "data": {
+      "level": 1,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Wrathful Smite",
+    "summary": "Your strike carries psychic dread that can frighten.",
+    "data": {
+      "level": 1,
+      "school": "Necromancy",
+      "classes": [
+        "Paladin"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Aid",
+    "summary": "Three allies gain bolstered health for eight hours.",
+    "data": {
+      "level": 2,
+      "school": "Abjuration",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Alter Self",
+    "summary": "Reshape your body: gills, claws, another face.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Animal Messenger",
+    "summary": "A small beast carries your message to a place you name.",
+    "data": {
+      "level": 2,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Ranger"
+      ],
+      "range": "30 ft",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Arcane Lock",
+    "summary": "A door only you and your chosen may open.",
+    "data": {
+      "level": 2,
+      "school": "Abjuration",
+      "classes": [
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Augury",
+    "summary": "The omens speak: weal, woe, both, or nothing.",
+    "data": {
+      "level": 2,
+      "school": "Divination",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Wizard"
+      ],
+      "range": "Self",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Barkskin",
+    "summary": "A touched creature's skin toughens like bark.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Druid",
+        "Ranger"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Blindness/Deafness",
+    "summary": "Rob a creature of sight or hearing.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Blur",
+    "summary": "Your outline shimmers; attackers see you wrong.",
+    "data": {
+      "level": 2,
+      "school": "Illusion",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Calm Emotions",
+    "summary": "Suppress rage or fear in a crowd.",
+    "data": {
+      "level": 2,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Cleric"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Continual Flame",
+    "summary": "A flame that never burns out and never burns.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Darkness",
+    "summary": "Magical darkness even darkvision cannot pierce.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Darkvision",
+    "summary": "A touched creature sees in the dark for eight hours.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Druid",
+        "Ranger",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Detect Thoughts",
+    "summary": "Skim surface thoughts; dig deeper at a cost.",
+    "data": {
+      "level": 2,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Enhance Ability",
+    "summary": "Advantage on one ability's checks for an hour.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Ranger",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Enlarge/Reduce",
+    "summary": "Double or halve a creature's size.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "30 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Find Steed",
+    "summary": "Summon the otherworldly mount bound to your oath.",
+    "data": {
+      "level": 2,
+      "school": "Conjuration",
+      "classes": [
+        "Paladin"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Find Traps",
+    "summary": "Learn whether a trap lies within sight.",
+    "data": {
+      "level": 2,
+      "school": "Divination",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Ranger"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Flame Blade",
+    "summary": "A scimitar of fire in your hand.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Druid",
+        "Sorcerer"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Flaming Sphere",
+    "summary": "A rolling ball of fire you steer each turn.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Druid",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Gentle Repose",
+    "summary": "A corpse neither rots nor rises.",
+    "data": {
+      "level": 2,
+      "school": "Necromancy",
+      "classes": [
+        "Cleric",
+        "Paladin",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Gust of Wind",
+    "summary": "A corridor of wind shoves creatures back.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Druid",
+        "Ranger",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Heat Metal",
+    "summary": "Worn or held metal glows searing hot.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Druid"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Hold Person",
+    "summary": "A humanoid freezes, paralyzed.",
+    "data": {
+      "level": 2,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Invisibility",
+    "summary": "A touched creature vanishes until it attacks or casts.",
+    "data": {
+      "level": 2,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Knock",
+    "summary": "Locks spring open with a very loud knock.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Lesser Restoration",
+    "summary": "End a disease or a condition: blinded, deafened, paralyzed, poisoned.",
+    "data": {
+      "level": 2,
+      "school": "Abjuration",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Levitate",
+    "summary": "A creature or object floats twenty feet up.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Locate Animals or Plants",
+    "summary": "Sense the nearest of a kind of beast or plant.",
+    "data": {
+      "level": 2,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Ranger"
+      ],
+      "range": "Self",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Locate Object",
+    "summary": "Sense a familiar object within a thousand feet.",
+    "data": {
+      "level": 2,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Magic Mouth",
+    "summary": "An object speaks your message when its trigger occurs.",
+    "data": {
+      "level": 2,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Wizard"
+      ],
+      "range": "30 ft",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Magic Weapon",
+    "summary": "A mundane weapon becomes +1.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Paladin",
+        "Ranger",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Mirror Image",
+    "summary": "Three duplicates dance around you and eat attacks.",
+    "data": {
+      "level": 2,
+      "school": "Illusion",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Misty Step",
+    "summary": "Vanish in silver mist and appear thirty feet away.",
+    "data": {
+      "level": 2,
+      "school": "Conjuration",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Moonbeam",
+    "summary": "A shaft of pale light sears what stands in it.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Druid"
+      ],
+      "range": "120 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Pass without Trace",
+    "summary": "A veil of shadow: +10 to the party's Stealth.",
+    "data": {
+      "level": 2,
+      "school": "Abjuration",
+      "classes": [
+        "Druid",
+        "Ranger"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Prayer of Healing",
+    "summary": "Ten minutes of prayer heals up to five allies deeply.",
+    "data": {
+      "level": 2,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric",
+        "Paladin"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Protection from Poison",
+    "summary": "Neutralize one poison; ward against others.",
+    "data": {
+      "level": 2,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Ray of Enfeeblement",
+    "summary": "A black beam saps a creature's strength.",
+    "data": {
+      "level": 2,
+      "school": "Necromancy",
+      "classes": [
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Scorching Ray",
+    "summary": "Three rays of fire, aimed as you please.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "See Invisibility",
+    "summary": "The unseen world — invisible creatures, the Ethereal — revealed.",
+    "data": {
+      "level": 2,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Shatter",
+    "summary": "A painful ringing burst that cracks stone and bone.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Silence",
+    "summary": "A sphere where no sound can exist — nor verbal spells.",
+    "data": {
+      "level": 2,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Ranger"
+      ],
+      "range": "120 ft",
+      "concentration": true,
+      "ritual": true
+    }
+  },
+  {
+    "name": "Spider Climb",
+    "summary": "Walk walls and ceilings, hands free.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Spike Growth",
+    "summary": "The ground sprouts hidden spikes; movement bleeds.",
+    "data": {
+      "level": 2,
+      "school": "Transmutation",
+      "classes": [
+        "Druid",
+        "Ranger"
+      ],
+      "range": "150 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Spiritual Weapon",
+    "summary": "A floating spectral weapon strikes at your command.",
+    "data": {
+      "level": 2,
+      "school": "Evocation",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Suggestion",
+    "summary": "A reasonable-sounding course of action, magically persuasive.",
+    "data": {
+      "level": 2,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "30 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Web",
+    "summary": "Thick sticky webs fill a cube and hold what they catch.",
+    "data": {
+      "level": 2,
+      "school": "Conjuration",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Zone of Truth",
+    "summary": "Within the zone, no deliberate lie can be spoken.",
+    "data": {
+      "level": 2,
+      "school": "Enchantment",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Paladin"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Animate Dead",
+    "summary": "Raise a skeleton or zombie bound to your commands.",
+    "data": {
+      "level": 3,
+      "school": "Necromancy",
+      "classes": [
+        "Cleric",
+        "Wizard"
+      ],
+      "range": "10 ft"
+    }
+  },
+  {
+    "name": "Beacon of Hope",
+    "summary": "Allies save against death with hope and heal at the maximum.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "30 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Bestow Curse",
+    "summary": "Lay a curse: dread, weakness, wasted turns.",
+    "data": {
+      "level": 3,
+      "school": "Necromancy",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Blink",
+    "summary": "Each turn you may flicker to the Ethereal and back.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Call Lightning",
+    "summary": "A storm cloud hurls bolts where you point.",
+    "data": {
+      "level": 3,
+      "school": "Conjuration",
+      "classes": [
+        "Druid"
+      ],
+      "range": "120 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Clairvoyance",
+    "summary": "An invisible sensor lets you see or hear a distant place.",
+    "data": {
+      "level": 3,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "1 mile",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Conjure Animals",
+    "summary": "A pack of nature spirits savages your foes.",
+    "data": {
+      "level": 3,
+      "school": "Conjuration",
+      "classes": [
+        "Druid",
+        "Ranger"
+      ],
+      "range": "60 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Counterspell",
+    "summary": "Interrupt a spell as it is being cast.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Create Food and Water",
+    "summary": "Feed fifteen people from nothing.",
+    "data": {
+      "level": 3,
+      "school": "Conjuration",
+      "classes": [
+        "Cleric",
+        "Paladin"
+      ],
+      "range": "30 ft"
+    }
+  },
+  {
+    "name": "Daylight",
+    "summary": "A sphere of sunlight-bright radiance.",
+    "data": {
+      "level": 3,
+      "school": "Evocation",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger",
+        "Sorcerer"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Dispel Magic",
+    "summary": "End a spell on a creature, object or effect.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "120 ft"
+    }
+  },
+  {
+    "name": "Fear",
+    "summary": "A phantasm of each viewer's worst dread sends them fleeing.",
+    "data": {
+      "level": 3,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Fireball",
+    "summary": "The classic: a bead that blooms into an inferno.",
+    "data": {
+      "level": 3,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "150 ft"
+    }
+  },
+  {
+    "name": "Fly",
+    "summary": "A touched creature gains a flying speed of sixty feet.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Gaseous Form",
+    "summary": "Become a drifting cloud of mist.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Glyph of Warding",
+    "summary": "A hidden glyph that detonates or casts when triggered.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Haste",
+    "summary": "Double speed, +2 AC, an extra action — then the crash.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "30 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Hypnotic Pattern",
+    "summary": "Twisting colors charm all who look.",
+    "data": {
+      "level": 3,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "120 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Lightning Bolt",
+    "summary": "A hundred-foot line of lightning.",
+    "data": {
+      "level": 3,
+      "school": "Evocation",
+      "classes": [
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Magic Circle",
+    "summary": "A cylinder that bars the otherworldly.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric",
+        "Paladin",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "10 ft"
+    }
+  },
+  {
+    "name": "Major Image",
+    "summary": "An illusion with sight, sound, smell and warmth.",
+    "data": {
+      "level": 3,
+      "school": "Illusion",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "120 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Mass Healing Word",
+    "summary": "One word heals up to six allies.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Bard",
+        "Cleric"
+      ],
+      "range": "60 ft"
+    }
+  },
+  {
+    "name": "Meld into Stone",
+    "summary": "Step into stone and wait within it.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Ranger"
+      ],
+      "range": "Touch",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Nondetection",
+    "summary": "Hide a creature or object from divination.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Bard",
+        "Ranger",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Plant Growth",
+    "summary": "Overgrow the land, or enrich it for a year.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Ranger"
+      ],
+      "range": "150 ft"
+    }
+  },
+  {
+    "name": "Protection from Energy",
+    "summary": "Resistance to acid, cold, fire, lightning or thunder.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Ranger",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "Touch",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Remove Curse",
+    "summary": "All curses on a creature or object end.",
+    "data": {
+      "level": 3,
+      "school": "Abjuration",
+      "classes": [
+        "Cleric",
+        "Paladin",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Revivify",
+    "summary": "A creature dead less than a minute returns with one hit point.",
+    "data": {
+      "level": 3,
+      "school": "Necromancy",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Paladin",
+        "Ranger"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Sending",
+    "summary": "Twenty-five words to anyone you know, anywhere.",
+    "data": {
+      "level": 3,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Wizard"
+      ],
+      "range": "Unlimited"
+    }
+  },
+  {
+    "name": "Sleet Storm",
+    "summary": "Freezing rain and ice douse flames and topple the walking.",
+    "data": {
+      "level": 3,
+      "school": "Conjuration",
+      "classes": [
+        "Druid",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "150 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Slow",
+    "summary": "Time thickens around up to six creatures.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "120 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Speak with Dead",
+    "summary": "Five questions for a corpse.",
+    "data": {
+      "level": 3,
+      "school": "Necromancy",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Wizard"
+      ],
+      "range": "10 ft"
+    }
+  },
+  {
+    "name": "Speak with Plants",
+    "summary": "The green world speaks, and may part for you.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Bard",
+        "Druid",
+        "Ranger"
+      ],
+      "range": "Self"
+    }
+  },
+  {
+    "name": "Spirit Guardians",
+    "summary": "Protective spirits circle you and shred what approaches.",
+    "data": {
+      "level": 3,
+      "school": "Conjuration",
+      "classes": [
+        "Cleric"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Stinking Cloud",
+    "summary": "Nauseating gas that steals actions.",
+    "data": {
+      "level": 3,
+      "school": "Conjuration",
+      "classes": [
+        "Bard",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "90 ft",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Tongues",
+    "summary": "Understand all languages, and be understood.",
+    "data": {
+      "level": 3,
+      "school": "Divination",
+      "classes": [
+        "Bard",
+        "Cleric",
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Touch"
+    }
+  },
+  {
+    "name": "Vampiric Touch",
+    "summary": "Steal life through your touch to mend yourself.",
+    "data": {
+      "level": 3,
+      "school": "Necromancy",
+      "classes": [
+        "Sorcerer",
+        "Warlock",
+        "Wizard"
+      ],
+      "range": "Self",
+      "concentration": true
+    }
+  },
+  {
+    "name": "Water Breathing",
+    "summary": "Ten creatures breathe water for a day.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Druid",
+        "Ranger",
+        "Sorcerer",
+        "Wizard"
+      ],
+      "range": "30 ft",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Water Walk",
+    "summary": "Ten creatures stride across liquid surfaces.",
+    "data": {
+      "level": 3,
+      "school": "Transmutation",
+      "classes": [
+        "Cleric",
+        "Druid",
+        "Ranger",
+        "Sorcerer"
+      ],
+      "range": "30 ft",
+      "ritual": true
+    }
+  },
+  {
+    "name": "Wind Wall",
+    "summary": "A wall of wind that swats arrows and gases aside.",
+    "data": {
+      "level": 3,
+      "school": "Evocation",
+      "classes": [
+        "Druid",
+        "Ranger"
+      ],
+      "range": "120 ft",
+      "concentration": true
+    }
+  }
+]

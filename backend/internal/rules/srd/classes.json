@@ -1,834 +1,1210 @@
 [
- {
-  "name": "Barbarian",
-  "summary": "A warrior of fury — armor optional, restraint definitely optional.",
-  "data": {
-   "hitDie": 12,
-   "primaryAbility": [
-    "STR"
-   ],
-   "saves": [
-    "STR",
-    "CON"
-   ],
-   "armor": [
-    "Light",
-    "Medium",
-    "Shields"
-   ],
-   "weapons": [
-    "Simple",
-    "Martial"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "Animal Handling",
-     "Athletics",
-     "Intimidation",
-     "Nature",
-     "Perception",
-     "Survival"
-    ]
-   },
-   "subclassLevel": 3,
-   "features": [
-    {
-     "level": 1,
-     "name": "Rage",
-     "summary": "Enter a battle fury as a bonus action: bonus damage, resistance to bludgeoning/piercing/slashing, advantage on STR checks and saves. Limited uses per long rest."
-    },
-    {
-     "level": 1,
-     "name": "Unarmored Defense",
-     "summary": "Without armor, AC = 10 + DEX + CON (shields allowed)."
-    },
-    {
-     "level": 1,
-     "name": "Weapon Mastery",
-     "summary": "Use the mastery property of two weapon types of your choice."
-    },
-    {
-     "level": 2,
-     "name": "Danger Sense",
-     "summary": "Advantage on DEX saves against effects you can see while not incapacitated."
-    },
-    {
-     "level": 2,
-     "name": "Reckless Attack",
-     "summary": "Attack with advantage using STR; attacks against you gain advantage until your next turn."
-    },
-    {
-     "level": 3,
-     "name": "Primal Knowledge",
-     "summary": "Gain another Barbarian skill; while raging, some checks become STR-powered."
-    },
-    {
-     "level": 5,
-     "name": "Extra Attack",
-     "summary": "Attack twice when you take the Attack action."
-    },
-    {
-     "level": 5,
-     "name": "Fast Movement",
-     "summary": "Speed +10 ft while not wearing heavy armor."
+  {
+    "name": "Barbarian",
+    "summary": "A warrior of fury — armor optional, restraint definitely optional.",
+    "data": {
+      "hitDie": 12,
+      "primaryAbility": [
+        "STR"
+      ],
+      "saves": [
+        "STR",
+        "CON"
+      ],
+      "armor": [
+        "Light",
+        "Medium",
+        "Shields"
+      ],
+      "weapons": [
+        "Simple",
+        "Martial"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "Animal Handling",
+          "Athletics",
+          "Intimidation",
+          "Nature",
+          "Perception",
+          "Survival"
+        ]
+      },
+      "subclassLevel": 3,
+      "features": [
+        {
+          "level": 1,
+          "name": "Rage",
+          "summary": "Enter a battle fury as a bonus action: bonus damage, resistance to bludgeoning/piercing/slashing, advantage on STR checks and saves. Limited uses per long rest."
+        },
+        {
+          "level": 1,
+          "name": "Unarmored Defense",
+          "summary": "Without armor, AC = 10 + DEX + CON (shields allowed)."
+        },
+        {
+          "level": 1,
+          "name": "Weapon Mastery",
+          "summary": "Use the mastery property of two weapon types of your choice."
+        },
+        {
+          "level": 2,
+          "name": "Danger Sense",
+          "summary": "Advantage on DEX saves against effects you can see while not incapacitated."
+        },
+        {
+          "level": 2,
+          "name": "Reckless Attack",
+          "summary": "Attack with advantage using STR; attacks against you gain advantage until your next turn."
+        },
+        {
+          "level": 3,
+          "name": "Primal Knowledge",
+          "summary": "Gain another Barbarian skill; while raging, some checks become STR-powered."
+        },
+        {
+          "level": 5,
+          "name": "Extra Attack",
+          "summary": "Attack twice when you take the Attack action."
+        },
+        {
+          "level": 5,
+          "name": "Fast Movement",
+          "summary": "Speed +10 ft while not wearing heavy armor."
+        }
+      ]
     }
-   ]
-  }
- },
- {
-  "name": "Bard",
-  "summary": "Magic through art — inspiration for friends, humiliation for enemies.",
-  "data": {
-   "hitDie": 8,
-   "primaryAbility": [
-    "CHA"
-   ],
-   "saves": [
-    "DEX",
-    "CHA"
-   ],
-   "armor": [
-    "Light"
-   ],
-   "weapons": [
-    "Simple"
-   ],
-   "skillChoices": {
-    "choose": 3,
-    "from": [
-     "*"
-    ]
-   },
-   "subclassLevel": 3,
-   "spellcaster": "full",
-   "features": [
-    {
-     "level": 1,
-     "name": "Bardic Inspiration",
-     "summary": "Bonus action: give a creature a d6 to add to one d20 test within the next hour. Uses equal to CHA modifier per long rest."
-    },
-    {
-     "level": 1,
-     "name": "Spellcasting",
-     "summary": "Cast prepared spells from the bard list using Charisma; a musical instrument is your focus."
-    },
-    {
-     "level": 2,
-     "name": "Expertise",
-     "summary": "Double proficiency bonus in two of your skill proficiencies."
-    },
-    {
-     "level": 2,
-     "name": "Jack of All Trades",
-     "summary": "Add half proficiency to ability checks that don't already use it."
-    },
-    {
-     "level": 5,
-     "name": "Font of Inspiration",
-     "summary": "Regain Bardic Inspiration on short rests; spend spell slots for more."
+  },
+  {
+    "name": "Bard",
+    "summary": "Magic through art — inspiration for friends, humiliation for enemies.",
+    "data": {
+      "hitDie": 8,
+      "primaryAbility": [
+        "CHA"
+      ],
+      "saves": [
+        "DEX",
+        "CHA"
+      ],
+      "armor": [
+        "Light"
+      ],
+      "weapons": [
+        "Simple"
+      ],
+      "skillChoices": {
+        "choose": 3,
+        "from": [
+          "*"
+        ]
+      },
+      "subclassLevel": 3,
+      "spellcaster": "full",
+      "features": [
+        {
+          "level": 1,
+          "name": "Bardic Inspiration",
+          "summary": "Bonus action: give a creature a d6 to add to one d20 test within the next hour. Uses equal to CHA modifier per long rest."
+        },
+        {
+          "level": 1,
+          "name": "Spellcasting",
+          "summary": "Cast prepared spells from the bard list using Charisma; a musical instrument is your focus."
+        },
+        {
+          "level": 2,
+          "name": "Expertise",
+          "summary": "Double proficiency bonus in two of your skill proficiencies."
+        },
+        {
+          "level": 2,
+          "name": "Jack of All Trades",
+          "summary": "Add half proficiency to ability checks that don't already use it."
+        },
+        {
+          "level": 5,
+          "name": "Font of Inspiration",
+          "summary": "Regain Bardic Inspiration on short rests; spend spell slots for more."
+        }
+      ],
+      "spellcasting": {
+        "ability": "CHA",
+        "cantrips": [
+          2,
+          2,
+          2,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "prepared": [
+          4,
+          5,
+          6,
+          7,
+          9,
+          10,
+          11,
+          12,
+          14,
+          15,
+          16,
+          16,
+          17,
+          17,
+          18,
+          18,
+          19,
+          20,
+          22,
+          22
+        ]
+      }
     }
-   ]
-  }
- },
- {
-  "name": "Cleric",
-  "summary": "A conduit for a god's will — mace in one hand, miracles in the other.",
-  "data": {
-   "hitDie": 8,
-   "primaryAbility": [
-    "WIS"
-   ],
-   "saves": [
-    "WIS",
-    "CHA"
-   ],
-   "armor": [
-    "Light",
-    "Medium",
-    "Shields"
-   ],
-   "weapons": [
-    "Simple"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "History",
-     "Insight",
-     "Medicine",
-     "Persuasion",
-     "Religion"
-    ]
-   },
-   "subclassLevel": 3,
-   "spellcaster": "full",
-   "features": [
-    {
-     "level": 1,
-     "name": "Divine Order",
-     "summary": "Choose Protector (martial weapons + heavy armor) or Thaumaturge (extra cantrip, bonus to Arcana/Religion)."
-    },
-    {
-     "level": 1,
-     "name": "Spellcasting",
-     "summary": "Cast prepared spells from the cleric list using Wisdom; a holy symbol is your focus."
-    },
-    {
-     "level": 2,
-     "name": "Channel Divinity",
-     "summary": "Divine Spark (deal or heal 1d8) or Turn Undead. Limited uses per rest."
-    },
-    {
-     "level": 5,
-     "name": "Sear Undead",
-     "summary": "Turned undead take radiant damage."
+  },
+  {
+    "name": "Cleric",
+    "summary": "A conduit for a god's will — mace in one hand, miracles in the other.",
+    "data": {
+      "hitDie": 8,
+      "primaryAbility": [
+        "WIS"
+      ],
+      "saves": [
+        "WIS",
+        "CHA"
+      ],
+      "armor": [
+        "Light",
+        "Medium",
+        "Shields"
+      ],
+      "weapons": [
+        "Simple"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "History",
+          "Insight",
+          "Medicine",
+          "Persuasion",
+          "Religion"
+        ]
+      },
+      "subclassLevel": 3,
+      "spellcaster": "full",
+      "features": [
+        {
+          "level": 1,
+          "name": "Divine Order",
+          "summary": "Choose Protector (martial weapons + heavy armor) or Thaumaturge (extra cantrip, bonus to Arcana/Religion)."
+        },
+        {
+          "level": 1,
+          "name": "Spellcasting",
+          "summary": "Cast prepared spells from the cleric list using Wisdom; a holy symbol is your focus."
+        },
+        {
+          "level": 2,
+          "name": "Channel Divinity",
+          "summary": "Divine Spark (deal or heal 1d8) or Turn Undead. Limited uses per rest."
+        },
+        {
+          "level": 5,
+          "name": "Sear Undead",
+          "summary": "Turned undead take radiant damage."
+        }
+      ],
+      "spellcasting": {
+        "ability": "WIS",
+        "cantrips": [
+          3,
+          3,
+          3,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ],
+        "prepared": [
+          4,
+          5,
+          6,
+          7,
+          9,
+          10,
+          11,
+          12,
+          14,
+          15,
+          16,
+          16,
+          17,
+          17,
+          18,
+          18,
+          19,
+          20,
+          21,
+          22
+        ]
+      }
     }
-   ]
-  }
- },
- {
-  "name": "Druid",
-  "summary": "The wild given a voice — and, when needed, claws.",
-  "data": {
-   "hitDie": 8,
-   "primaryAbility": [
-    "WIS"
-   ],
-   "saves": [
-    "INT",
-    "WIS"
-   ],
-   "armor": [
-    "Light",
-    "Shields"
-   ],
-   "weapons": [
-    "Simple"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "Animal Handling",
-     "Arcana",
-     "Insight",
-     "Medicine",
-     "Nature",
-     "Perception",
-     "Religion",
-     "Survival"
-    ]
-   },
-   "subclassLevel": 3,
-   "spellcaster": "full",
-   "features": [
-    {
-     "level": 1,
-     "name": "Druidic",
-     "summary": "You know the secret language of druids and can leave hidden messages."
-    },
-    {
-     "level": 1,
-     "name": "Primal Order",
-     "summary": "Choose Magician (extra cantrip, bonus to Arcana/Nature) or Warden (martial weapons + medium armor)."
-    },
-    {
-     "level": 1,
-     "name": "Spellcasting",
-     "summary": "Cast prepared spells from the druid list using Wisdom; a druidic focus channels your magic."
-    },
-    {
-     "level": 2,
-     "name": "Wild Companion",
-     "summary": "Spend a Wild Shape use to summon a familiar-like nature spirit."
-    },
-    {
-     "level": 2,
-     "name": "Wild Shape",
-     "summary": "Transform into a beast form; uses per long rest scale with level."
-    },
-    {
-     "level": 5,
-     "name": "Wild Resurgence",
-     "summary": "Trade spell slots and Wild Shape uses back and forth."
+  },
+  {
+    "name": "Druid",
+    "summary": "The wild given a voice — and, when needed, claws.",
+    "data": {
+      "hitDie": 8,
+      "primaryAbility": [
+        "WIS"
+      ],
+      "saves": [
+        "INT",
+        "WIS"
+      ],
+      "armor": [
+        "Light",
+        "Shields"
+      ],
+      "weapons": [
+        "Simple"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "Animal Handling",
+          "Arcana",
+          "Insight",
+          "Medicine",
+          "Nature",
+          "Perception",
+          "Religion",
+          "Survival"
+        ]
+      },
+      "subclassLevel": 3,
+      "spellcaster": "full",
+      "features": [
+        {
+          "level": 1,
+          "name": "Druidic",
+          "summary": "You know the secret language of druids and can leave hidden messages."
+        },
+        {
+          "level": 1,
+          "name": "Primal Order",
+          "summary": "Choose Magician (extra cantrip, bonus to Arcana/Nature) or Warden (martial weapons + medium armor)."
+        },
+        {
+          "level": 1,
+          "name": "Spellcasting",
+          "summary": "Cast prepared spells from the druid list using Wisdom; a druidic focus channels your magic."
+        },
+        {
+          "level": 2,
+          "name": "Wild Companion",
+          "summary": "Spend a Wild Shape use to summon a familiar-like nature spirit."
+        },
+        {
+          "level": 2,
+          "name": "Wild Shape",
+          "summary": "Transform into a beast form; uses per long rest scale with level."
+        },
+        {
+          "level": 5,
+          "name": "Wild Resurgence",
+          "summary": "Trade spell slots and Wild Shape uses back and forth."
+        }
+      ],
+      "spellcasting": {
+        "ability": "WIS",
+        "cantrips": [
+          2,
+          2,
+          2,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "prepared": [
+          4,
+          5,
+          6,
+          7,
+          9,
+          10,
+          11,
+          12,
+          14,
+          15,
+          16,
+          16,
+          17,
+          17,
+          18,
+          18,
+          19,
+          20,
+          21,
+          22
+        ]
+      }
     }
-   ]
-  }
- },
- {
-  "name": "Fighter",
-  "summary": "Mastery of weapons, armor, and the simple art of still standing at the end.",
-  "data": {
-   "hitDie": 10,
-   "primaryAbility": [
-    "STR",
-    "DEX"
-   ],
-   "saves": [
-    "STR",
-    "CON"
-   ],
-   "armor": [
-    "Light",
-    "Medium",
-    "Heavy",
-    "Shields"
-   ],
-   "weapons": [
-    "Simple",
-    "Martial"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "Acrobatics",
-     "Animal Handling",
-     "Athletics",
-     "History",
-     "Insight",
-     "Intimidation",
-     "Perception",
-     "Persuasion",
-     "Survival"
-    ]
-   },
-   "subclassLevel": 3,
-   "features": [
-    {
-     "level": 1,
-     "name": "Fighting Style",
-     "summary": "Choose a Fighting Style feat, e.g. Archery, Defense, or Great Weapon Fighting."
-    },
-    {
-     "level": 1,
-     "name": "Second Wind",
-     "summary": "Bonus action: regain 1d10 + fighter level hit points. Limited uses, regained on rest."
-    },
-    {
-     "level": 1,
-     "name": "Weapon Mastery",
-     "summary": "Use the mastery property of three weapon types of your choice."
-    },
-    {
-     "level": 2,
-     "name": "Action Surge",
-     "summary": "Take one additional action on your turn, once per rest."
-    },
-    {
-     "level": 2,
-     "name": "Tactical Mind",
-     "summary": "Spend a Second Wind use to add 1d10 to a failed ability check."
-    },
-    {
-     "level": 5,
-     "name": "Extra Attack",
-     "summary": "Attack twice when you take the Attack action."
-    },
-    {
-     "level": 5,
-     "name": "Tactical Shift",
-     "summary": "Move half your speed without provoking when you use Second Wind."
+  },
+  {
+    "name": "Fighter",
+    "summary": "Mastery of weapons, armor, and the simple art of still standing at the end.",
+    "data": {
+      "hitDie": 10,
+      "primaryAbility": [
+        "STR",
+        "DEX"
+      ],
+      "saves": [
+        "STR",
+        "CON"
+      ],
+      "armor": [
+        "Light",
+        "Medium",
+        "Heavy",
+        "Shields"
+      ],
+      "weapons": [
+        "Simple",
+        "Martial"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "Acrobatics",
+          "Animal Handling",
+          "Athletics",
+          "History",
+          "Insight",
+          "Intimidation",
+          "Perception",
+          "Persuasion",
+          "Survival"
+        ]
+      },
+      "subclassLevel": 3,
+      "features": [
+        {
+          "level": 1,
+          "name": "Fighting Style",
+          "summary": "Choose a Fighting Style feat, e.g. Archery, Defense, or Great Weapon Fighting."
+        },
+        {
+          "level": 1,
+          "name": "Second Wind",
+          "summary": "Bonus action: regain 1d10 + fighter level hit points. Limited uses, regained on rest."
+        },
+        {
+          "level": 1,
+          "name": "Weapon Mastery",
+          "summary": "Use the mastery property of three weapon types of your choice."
+        },
+        {
+          "level": 2,
+          "name": "Action Surge",
+          "summary": "Take one additional action on your turn, once per rest."
+        },
+        {
+          "level": 2,
+          "name": "Tactical Mind",
+          "summary": "Spend a Second Wind use to add 1d10 to a failed ability check."
+        },
+        {
+          "level": 5,
+          "name": "Extra Attack",
+          "summary": "Attack twice when you take the Attack action."
+        },
+        {
+          "level": 5,
+          "name": "Tactical Shift",
+          "summary": "Move half your speed without provoking when you use Second Wind."
+        }
+      ],
+      "asiLevels": [
+        4,
+        6,
+        8,
+        12,
+        14,
+        16,
+        19
+      ]
     }
-   ],
-   "asiLevels": [
-    4,
-    6,
-    8,
-    12,
-    14,
-    16,
-    19
-   ]
-  }
- },
- {
-  "name": "Monk",
-  "summary": "The body as the weapon; discipline as the whetstone.",
-  "data": {
-   "hitDie": 8,
-   "primaryAbility": [
-    "DEX",
-    "WIS"
-   ],
-   "saves": [
-    "STR",
-    "DEX"
-   ],
-   "armor": [],
-   "weapons": [
-    "Simple",
-    "Martial (light)"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "Acrobatics",
-     "Athletics",
-     "History",
-     "Insight",
-     "Religion",
-     "Stealth"
-    ]
-   },
-   "subclassLevel": 3,
-   "features": [
-    {
-     "level": 1,
-     "name": "Martial Arts",
-     "summary": "Unarmed strikes and monk weapons use a d6 (scaling) and DEX; bonus-action unarmed strike; grapple/shove with unarmed strikes."
-    },
-    {
-     "level": 1,
-     "name": "Unarmored Defense",
-     "summary": "Without armor or shield, AC = 10 + DEX + WIS."
-    },
-    {
-     "level": 2,
-     "name": "Monk's Focus",
-     "summary": "Focus points fuel Flurry of Blows, Patient Defense and Step of the Wind."
-    },
-    {
-     "level": 2,
-     "name": "Unarmored Movement",
-     "summary": "Speed +10 ft while unarmored and shieldless; scales with level."
-    },
-    {
-     "level": 2,
-     "name": "Uncanny Metabolism",
-     "summary": "Once per long rest, regain all Focus when you roll initiative."
-    },
-    {
-     "level": 3,
-     "name": "Deflect Attacks",
-     "summary": "Reduce attack damage with your reaction; spend Focus to redirect it."
-    },
-    {
-     "level": 4,
-     "name": "Slow Fall",
-     "summary": "Reaction to reduce falling damage by five times your Monk level."
-    },
-    {
-     "level": 5,
-     "name": "Extra Attack",
-     "summary": "Attack twice when you take the Attack action."
-    },
-    {
-     "level": 5,
-     "name": "Stunning Strike",
-     "summary": "Spend Focus after hitting to force a CON save or stun."
+  },
+  {
+    "name": "Monk",
+    "summary": "The body as the weapon; discipline as the whetstone.",
+    "data": {
+      "hitDie": 8,
+      "primaryAbility": [
+        "DEX",
+        "WIS"
+      ],
+      "saves": [
+        "STR",
+        "DEX"
+      ],
+      "armor": [],
+      "weapons": [
+        "Simple",
+        "Martial (light)"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "Acrobatics",
+          "Athletics",
+          "History",
+          "Insight",
+          "Religion",
+          "Stealth"
+        ]
+      },
+      "subclassLevel": 3,
+      "features": [
+        {
+          "level": 1,
+          "name": "Martial Arts",
+          "summary": "Unarmed strikes and monk weapons use a d6 (scaling) and DEX; bonus-action unarmed strike; grapple/shove with unarmed strikes."
+        },
+        {
+          "level": 1,
+          "name": "Unarmored Defense",
+          "summary": "Without armor or shield, AC = 10 + DEX + WIS."
+        },
+        {
+          "level": 2,
+          "name": "Monk's Focus",
+          "summary": "Focus points fuel Flurry of Blows, Patient Defense and Step of the Wind."
+        },
+        {
+          "level": 2,
+          "name": "Unarmored Movement",
+          "summary": "Speed +10 ft while unarmored and shieldless; scales with level."
+        },
+        {
+          "level": 2,
+          "name": "Uncanny Metabolism",
+          "summary": "Once per long rest, regain all Focus when you roll initiative."
+        },
+        {
+          "level": 3,
+          "name": "Deflect Attacks",
+          "summary": "Reduce attack damage with your reaction; spend Focus to redirect it."
+        },
+        {
+          "level": 4,
+          "name": "Slow Fall",
+          "summary": "Reaction to reduce falling damage by five times your Monk level."
+        },
+        {
+          "level": 5,
+          "name": "Extra Attack",
+          "summary": "Attack twice when you take the Attack action."
+        },
+        {
+          "level": 5,
+          "name": "Stunning Strike",
+          "summary": "Spend Focus after hitting to force a CON save or stun."
+        }
+      ]
     }
-   ]
-  }
- },
- {
-  "name": "Paladin",
-  "summary": "An oath given steel: smite the wicked, shield the weak.",
-  "data": {
-   "hitDie": 10,
-   "primaryAbility": [
-    "STR",
-    "CHA"
-   ],
-   "saves": [
-    "WIS",
-    "CHA"
-   ],
-   "armor": [
-    "Light",
-    "Medium",
-    "Heavy",
-    "Shields"
-   ],
-   "weapons": [
-    "Simple",
-    "Martial"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "Athletics",
-     "Insight",
-     "Intimidation",
-     "Medicine",
-     "Persuasion",
-     "Religion"
-    ]
-   },
-   "subclassLevel": 3,
-   "spellcaster": "half",
-   "features": [
-    {
-     "level": 1,
-     "name": "Lay On Hands",
-     "summary": "A healing pool of 5 × paladin level hit points; touch to restore, or spend 5 to cure poison."
-    },
-    {
-     "level": 1,
-     "name": "Spellcasting",
-     "summary": "Cast prepared spells from the paladin list using Charisma; a holy symbol is your focus."
-    },
-    {
-     "level": 1,
-     "name": "Weapon Mastery",
-     "summary": "Use the mastery property of two weapon types of your choice."
-    },
-    {
-     "level": 2,
-     "name": "Fighting Style",
-     "summary": "Choose a fighting style feat (e.g. Defense, Great Weapon Fighting)."
-    },
-    {
-     "level": 2,
-     "name": "Paladin's Smite",
-     "summary": "Divine Smite and searing radiant magic when you strike."
-    },
-    {
-     "level": 3,
-     "name": "Channel Divinity",
-     "summary": "Divine Sense and subclass-powered channel options."
-    },
-    {
-     "level": 5,
-     "name": "Extra Attack",
-     "summary": "Attack twice when you take the Attack action."
-    },
-    {
-     "level": 5,
-     "name": "Faithful Steed",
-     "summary": "Always have Find Steed prepared; cast it once per long rest for free."
+  },
+  {
+    "name": "Paladin",
+    "summary": "An oath given steel: smite the wicked, shield the weak.",
+    "data": {
+      "hitDie": 10,
+      "primaryAbility": [
+        "STR",
+        "CHA"
+      ],
+      "saves": [
+        "WIS",
+        "CHA"
+      ],
+      "armor": [
+        "Light",
+        "Medium",
+        "Heavy",
+        "Shields"
+      ],
+      "weapons": [
+        "Simple",
+        "Martial"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "Athletics",
+          "Insight",
+          "Intimidation",
+          "Medicine",
+          "Persuasion",
+          "Religion"
+        ]
+      },
+      "subclassLevel": 3,
+      "spellcaster": "half",
+      "features": [
+        {
+          "level": 1,
+          "name": "Lay On Hands",
+          "summary": "A healing pool of 5 × paladin level hit points; touch to restore, or spend 5 to cure poison."
+        },
+        {
+          "level": 1,
+          "name": "Spellcasting",
+          "summary": "Cast prepared spells from the paladin list using Charisma; a holy symbol is your focus."
+        },
+        {
+          "level": 1,
+          "name": "Weapon Mastery",
+          "summary": "Use the mastery property of two weapon types of your choice."
+        },
+        {
+          "level": 2,
+          "name": "Fighting Style",
+          "summary": "Choose a fighting style feat (e.g. Defense, Great Weapon Fighting)."
+        },
+        {
+          "level": 2,
+          "name": "Paladin's Smite",
+          "summary": "Divine Smite and searing radiant magic when you strike."
+        },
+        {
+          "level": 3,
+          "name": "Channel Divinity",
+          "summary": "Divine Sense and subclass-powered channel options."
+        },
+        {
+          "level": 5,
+          "name": "Extra Attack",
+          "summary": "Attack twice when you take the Attack action."
+        },
+        {
+          "level": 5,
+          "name": "Faithful Steed",
+          "summary": "Always have Find Steed prepared; cast it once per long rest for free."
+        }
+      ],
+      "spellcasting": {
+        "ability": "CHA",
+        "cantrips": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "prepared": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          6,
+          7,
+          7,
+          9,
+          9,
+          10,
+          10,
+          11,
+          11,
+          12,
+          12,
+          14,
+          14,
+          15,
+          15
+        ]
+      }
     }
-   ]
-  }
- },
- {
-  "name": "Ranger",
-  "summary": "Hunter at the wild's edge — tracker, archer, and very bad news for something.",
-  "data": {
-   "hitDie": 10,
-   "primaryAbility": [
-    "DEX",
-    "WIS"
-   ],
-   "saves": [
-    "STR",
-    "DEX"
-   ],
-   "armor": [
-    "Light",
-    "Medium",
-    "Shields"
-   ],
-   "weapons": [
-    "Simple",
-    "Martial"
-   ],
-   "skillChoices": {
-    "choose": 3,
-    "from": [
-     "Animal Handling",
-     "Athletics",
-     "Insight",
-     "Investigation",
-     "Nature",
-     "Perception",
-     "Stealth",
-     "Survival"
-    ]
-   },
-   "subclassLevel": 3,
-   "spellcaster": "half",
-   "features": [
-    {
-     "level": 1,
-     "name": "Favored Enemy",
-     "summary": "Hunter's Mark is always prepared, with free castings per long rest."
-    },
-    {
-     "level": 1,
-     "name": "Spellcasting",
-     "summary": "Cast prepared spells from the ranger list using Wisdom."
-    },
-    {
-     "level": 1,
-     "name": "Weapon Mastery",
-     "summary": "Use the mastery property of two weapon types of your choice."
-    },
-    {
-     "level": 2,
-     "name": "Deft Explorer",
-     "summary": "Expertise in one skill and two extra languages."
-    },
-    {
-     "level": 2,
-     "name": "Fighting Style",
-     "summary": "Choose a fighting style feat (e.g. Archery, Two-Weapon Fighting)."
-    },
-    {
-     "level": 5,
-     "name": "Extra Attack",
-     "summary": "Attack twice when you take the Attack action."
+  },
+  {
+    "name": "Ranger",
+    "summary": "Hunter at the wild's edge — tracker, archer, and very bad news for something.",
+    "data": {
+      "hitDie": 10,
+      "primaryAbility": [
+        "DEX",
+        "WIS"
+      ],
+      "saves": [
+        "STR",
+        "DEX"
+      ],
+      "armor": [
+        "Light",
+        "Medium",
+        "Shields"
+      ],
+      "weapons": [
+        "Simple",
+        "Martial"
+      ],
+      "skillChoices": {
+        "choose": 3,
+        "from": [
+          "Animal Handling",
+          "Athletics",
+          "Insight",
+          "Investigation",
+          "Nature",
+          "Perception",
+          "Stealth",
+          "Survival"
+        ]
+      },
+      "subclassLevel": 3,
+      "spellcaster": "half",
+      "features": [
+        {
+          "level": 1,
+          "name": "Favored Enemy",
+          "summary": "Hunter's Mark is always prepared, with free castings per long rest."
+        },
+        {
+          "level": 1,
+          "name": "Spellcasting",
+          "summary": "Cast prepared spells from the ranger list using Wisdom."
+        },
+        {
+          "level": 1,
+          "name": "Weapon Mastery",
+          "summary": "Use the mastery property of two weapon types of your choice."
+        },
+        {
+          "level": 2,
+          "name": "Deft Explorer",
+          "summary": "Expertise in one skill and two extra languages."
+        },
+        {
+          "level": 2,
+          "name": "Fighting Style",
+          "summary": "Choose a fighting style feat (e.g. Archery, Two-Weapon Fighting)."
+        },
+        {
+          "level": 5,
+          "name": "Extra Attack",
+          "summary": "Attack twice when you take the Attack action."
+        }
+      ],
+      "spellcasting": {
+        "ability": "WIS",
+        "cantrips": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "prepared": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          6,
+          7,
+          7,
+          9,
+          9,
+          10,
+          10,
+          11,
+          11,
+          12,
+          12,
+          14,
+          14,
+          15,
+          15
+        ]
+      }
     }
-   ]
-  }
- },
- {
-  "name": "Rogue",
-  "summary": "Precision over force: the right blade, in the right back, at the right time.",
-  "data": {
-   "hitDie": 8,
-   "primaryAbility": [
-    "DEX"
-   ],
-   "saves": [
-    "DEX",
-    "INT"
-   ],
-   "armor": [
-    "Light"
-   ],
-   "weapons": [
-    "Simple",
-    "Martial (finesse/light)"
-   ],
-   "skillChoices": {
-    "choose": 4,
-    "from": [
-     "Acrobatics",
-     "Athletics",
-     "Deception",
-     "Insight",
-     "Intimidation",
-     "Investigation",
-     "Perception",
-     "Persuasion",
-     "Sleight of Hand",
-     "Stealth"
-    ]
-   },
-   "subclassLevel": 3,
-   "features": [
-    {
-     "level": 1,
-     "name": "Expertise",
-     "summary": "Double proficiency bonus in two of your skills."
-    },
-    {
-     "level": 1,
-     "name": "Sneak Attack",
-     "summary": "Once per turn, +1d6 damage (scaling) with a finesse/ranged weapon when you have advantage or an ally is adjacent to the target."
-    },
-    {
-     "level": 1,
-     "name": "Thieves' Cant",
-     "summary": "You know the coded speech of the underworld, plus one other language."
-    },
-    {
-     "level": 1,
-     "name": "Weapon Mastery",
-     "summary": "Use the mastery property of two weapon types of your choice."
-    },
-    {
-     "level": 2,
-     "name": "Cunning Action",
-     "summary": "Dash, Disengage or Hide as a bonus action."
-    },
-    {
-     "level": 3,
-     "name": "Steady Aim",
-     "summary": "Bonus action for advantage on your next attack if you don't move."
-    },
-    {
-     "level": 5,
-     "name": "Cunning Strike",
-     "summary": "Trade Sneak Attack dice for effects: poison, trip, withdraw."
-    },
-    {
-     "level": 5,
-     "name": "Uncanny Dodge",
-     "summary": "Reaction to halve an attack's damage against you."
+  },
+  {
+    "name": "Rogue",
+    "summary": "Precision over force: the right blade, in the right back, at the right time.",
+    "data": {
+      "hitDie": 8,
+      "primaryAbility": [
+        "DEX"
+      ],
+      "saves": [
+        "DEX",
+        "INT"
+      ],
+      "armor": [
+        "Light"
+      ],
+      "weapons": [
+        "Simple",
+        "Martial (finesse/light)"
+      ],
+      "skillChoices": {
+        "choose": 4,
+        "from": [
+          "Acrobatics",
+          "Athletics",
+          "Deception",
+          "Insight",
+          "Intimidation",
+          "Investigation",
+          "Perception",
+          "Persuasion",
+          "Sleight of Hand",
+          "Stealth"
+        ]
+      },
+      "subclassLevel": 3,
+      "features": [
+        {
+          "level": 1,
+          "name": "Expertise",
+          "summary": "Double proficiency bonus in two of your skills."
+        },
+        {
+          "level": 1,
+          "name": "Sneak Attack",
+          "summary": "Once per turn, +1d6 damage (scaling) with a finesse/ranged weapon when you have advantage or an ally is adjacent to the target."
+        },
+        {
+          "level": 1,
+          "name": "Thieves' Cant",
+          "summary": "You know the coded speech of the underworld, plus one other language."
+        },
+        {
+          "level": 1,
+          "name": "Weapon Mastery",
+          "summary": "Use the mastery property of two weapon types of your choice."
+        },
+        {
+          "level": 2,
+          "name": "Cunning Action",
+          "summary": "Dash, Disengage or Hide as a bonus action."
+        },
+        {
+          "level": 3,
+          "name": "Steady Aim",
+          "summary": "Bonus action for advantage on your next attack if you don't move."
+        },
+        {
+          "level": 5,
+          "name": "Cunning Strike",
+          "summary": "Trade Sneak Attack dice for effects: poison, trip, withdraw."
+        },
+        {
+          "level": 5,
+          "name": "Uncanny Dodge",
+          "summary": "Reaction to halve an attack's damage against you."
+        }
+      ],
+      "asiLevels": [
+        4,
+        8,
+        10,
+        12,
+        16,
+        19
+      ]
     }
-   ],
-   "asiLevels": [
-    4,
-    8,
-    10,
-    12,
-    16,
-    19
-   ]
-  }
- },
- {
-  "name": "Sorcerer",
-  "summary": "Magic in the blood, whether the blood asked for it or not.",
-  "data": {
-   "hitDie": 6,
-   "primaryAbility": [
-    "CHA"
-   ],
-   "saves": [
-    "CON",
-    "CHA"
-   ],
-   "armor": [],
-   "weapons": [
-    "Simple"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "Arcana",
-     "Deception",
-     "Insight",
-     "Intimidation",
-     "Persuasion",
-     "Religion"
-    ]
-   },
-   "subclassLevel": 3,
-   "spellcaster": "full",
-   "features": [
-    {
-     "level": 1,
-     "name": "Innate Sorcery",
-     "summary": "Bonus action, 2/long rest: for 1 minute your spell save DC rises by 1 and you have advantage on sorcerer spell attacks."
-    },
-    {
-     "level": 1,
-     "name": "Spellcasting",
-     "summary": "Cast prepared spells from the sorcerer list using Charisma; an arcane focus channels your power."
-    },
-    {
-     "level": 2,
-     "name": "Font of Magic",
-     "summary": "Sorcery points: convert to and from spell slots."
-    },
-    {
-     "level": 2,
-     "name": "Metamagic",
-     "summary": "Bend spells: twin, quicken, subtle and more, fueled by sorcery points."
-    },
-    {
-     "level": 5,
-     "name": "Sorcerous Restoration",
-     "summary": "Regain sorcery points on a short rest."
+  },
+  {
+    "name": "Sorcerer",
+    "summary": "Magic in the blood, whether the blood asked for it or not.",
+    "data": {
+      "hitDie": 6,
+      "primaryAbility": [
+        "CHA"
+      ],
+      "saves": [
+        "CON",
+        "CHA"
+      ],
+      "armor": [],
+      "weapons": [
+        "Simple"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "Arcana",
+          "Deception",
+          "Insight",
+          "Intimidation",
+          "Persuasion",
+          "Religion"
+        ]
+      },
+      "subclassLevel": 3,
+      "spellcaster": "full",
+      "features": [
+        {
+          "level": 1,
+          "name": "Innate Sorcery",
+          "summary": "Bonus action, 2/long rest: for 1 minute your spell save DC rises by 1 and you have advantage on sorcerer spell attacks."
+        },
+        {
+          "level": 1,
+          "name": "Spellcasting",
+          "summary": "Cast prepared spells from the sorcerer list using Charisma; an arcane focus channels your power."
+        },
+        {
+          "level": 2,
+          "name": "Font of Magic",
+          "summary": "Sorcery points: convert to and from spell slots."
+        },
+        {
+          "level": 2,
+          "name": "Metamagic",
+          "summary": "Bend spells: twin, quicken, subtle and more, fueled by sorcery points."
+        },
+        {
+          "level": 5,
+          "name": "Sorcerous Restoration",
+          "summary": "Regain sorcery points on a short rest."
+        }
+      ],
+      "spellcasting": {
+        "ability": "CHA",
+        "cantrips": [
+          4,
+          4,
+          4,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ],
+        "prepared": [
+          2,
+          4,
+          6,
+          7,
+          9,
+          10,
+          11,
+          12,
+          14,
+          15,
+          16,
+          16,
+          17,
+          17,
+          18,
+          18,
+          19,
+          20,
+          21,
+          22
+        ]
+      }
     }
-   ]
-  }
- },
- {
-  "name": "Warlock",
-  "summary": "Power on loan from something vast — read the fine print.",
-  "data": {
-   "hitDie": 8,
-   "primaryAbility": [
-    "CHA"
-   ],
-   "saves": [
-    "WIS",
-    "CHA"
-   ],
-   "armor": [
-    "Light"
-   ],
-   "weapons": [
-    "Simple"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "Arcana",
-     "Deception",
-     "History",
-     "Intimidation",
-     "Investigation",
-     "Nature",
-     "Religion"
-    ]
-   },
-   "subclassLevel": 3,
-   "spellcaster": "pact",
-   "features": [
-    {
-     "level": 1,
-     "name": "Eldritch Invocations",
-     "summary": "Learn one invocation — a fragment of forbidden power (more at higher levels)."
-    },
-    {
-     "level": 1,
-     "name": "Pact Magic",
-     "summary": "Cast spells from the warlock list using Charisma; few slots, always at your highest level, regained on short rest."
-    },
-    {
-     "level": 2,
-     "name": "Magical Cunning",
-     "summary": "Once per day, regain half your Pact Magic slots without a rest."
-    },
-    {
-     "level": 3,
-     "name": "Pact Boon",
-     "summary": "Pact of the Blade, Chain or Tome — an extra invocation channel."
+  },
+  {
+    "name": "Warlock",
+    "summary": "Power on loan from something vast — read the fine print.",
+    "data": {
+      "hitDie": 8,
+      "primaryAbility": [
+        "CHA"
+      ],
+      "saves": [
+        "WIS",
+        "CHA"
+      ],
+      "armor": [
+        "Light"
+      ],
+      "weapons": [
+        "Simple"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "Arcana",
+          "Deception",
+          "History",
+          "Intimidation",
+          "Investigation",
+          "Nature",
+          "Religion"
+        ]
+      },
+      "subclassLevel": 3,
+      "spellcaster": "pact",
+      "features": [
+        {
+          "level": 1,
+          "name": "Eldritch Invocations",
+          "summary": "Learn one invocation — a fragment of forbidden power (more at higher levels)."
+        },
+        {
+          "level": 1,
+          "name": "Pact Magic",
+          "summary": "Cast spells from the warlock list using Charisma; few slots, always at your highest level, regained on short rest."
+        },
+        {
+          "level": 2,
+          "name": "Magical Cunning",
+          "summary": "Once per day, regain half your Pact Magic slots without a rest."
+        },
+        {
+          "level": 3,
+          "name": "Pact Boon",
+          "summary": "Pact of the Blade, Chain or Tome — an extra invocation channel."
+        }
+      ],
+      "spellcasting": {
+        "ability": "CHA",
+        "cantrips": [
+          2,
+          2,
+          2,
+          3,
+          3,
+          3,
+          3,
+          3,
+          3,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "prepared": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          10,
+          11,
+          11,
+          12,
+          12,
+          13,
+          13,
+          14,
+          14,
+          15,
+          15
+        ]
+      }
     }
-   ]
-  }
- },
- {
-  "name": "Wizard",
-  "summary": "Magic as a discipline: studied, notated, and unleashed on schedule.",
-  "data": {
-   "hitDie": 6,
-   "primaryAbility": [
-    "INT"
-   ],
-   "saves": [
-    "INT",
-    "WIS"
-   ],
-   "armor": [],
-   "weapons": [
-    "Simple"
-   ],
-   "skillChoices": {
-    "choose": 2,
-    "from": [
-     "Arcana",
-     "History",
-     "Insight",
-     "Investigation",
-     "Medicine",
-     "Nature",
-     "Religion"
-    ]
-   },
-   "subclassLevel": 3,
-   "spellcaster": "full",
-   "features": [
-    {
-     "level": 1,
-     "name": "Arcane Recovery",
-     "summary": "Once per day after a short rest, recover spell slots totaling half your wizard level (rounded up)."
-    },
-    {
-     "level": 1,
-     "name": "Ritual Adept",
-     "summary": "Cast rituals directly from your spellbook without preparing them."
-    },
-    {
-     "level": 1,
-     "name": "Spellcasting",
-     "summary": "Cast prepared spells from your spellbook using Intelligence; the book holds six 1st-level spells to start."
-    },
-    {
-     "level": 2,
-     "name": "Scholar",
-     "summary": "Expertise in one INT-based skill of scholarly bent."
-    },
-    {
-     "level": 5,
-     "name": "Memorize Spell",
-     "summary": "Swap a prepared spell on a short rest."
+  },
+  {
+    "name": "Wizard",
+    "summary": "Magic as a discipline: studied, notated, and unleashed on schedule.",
+    "data": {
+      "hitDie": 6,
+      "primaryAbility": [
+        "INT"
+      ],
+      "saves": [
+        "INT",
+        "WIS"
+      ],
+      "armor": [],
+      "weapons": [
+        "Simple"
+      ],
+      "skillChoices": {
+        "choose": 2,
+        "from": [
+          "Arcana",
+          "History",
+          "Insight",
+          "Investigation",
+          "Medicine",
+          "Nature",
+          "Religion"
+        ]
+      },
+      "subclassLevel": 3,
+      "spellcaster": "full",
+      "features": [
+        {
+          "level": 1,
+          "name": "Arcane Recovery",
+          "summary": "Once per day after a short rest, recover spell slots totaling half your wizard level (rounded up)."
+        },
+        {
+          "level": 1,
+          "name": "Ritual Adept",
+          "summary": "Cast rituals directly from your spellbook without preparing them."
+        },
+        {
+          "level": 1,
+          "name": "Spellcasting",
+          "summary": "Cast prepared spells from your spellbook using Intelligence; the book holds six 1st-level spells to start."
+        },
+        {
+          "level": 2,
+          "name": "Scholar",
+          "summary": "Expertise in one INT-based skill of scholarly bent."
+        },
+        {
+          "level": 5,
+          "name": "Memorize Spell",
+          "summary": "Swap a prepared spell on a short rest."
+        }
+      ],
+      "spellcasting": {
+        "ability": "INT",
+        "cantrips": [
+          3,
+          3,
+          3,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ],
+        "prepared": [
+          4,
+          5,
+          6,
+          7,
+          9,
+          10,
+          11,
+          12,
+          14,
+          15,
+          16,
+          16,
+          17,
+          18,
+          18,
+          19,
+          21,
+          22,
+          24,
+          25
+        ]
+      }
     }
-   ]
   }
- }
 ]
