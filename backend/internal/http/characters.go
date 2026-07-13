@@ -48,7 +48,7 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 	}
 	out := make([]api.Character, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toAPICharacter(db.Character{
+		out = append(out, toAPICharacterWithClass(db.Character{
 			ID: row.ID, CampaignID: row.CampaignID, OwnerUserID: row.OwnerUserID,
 			Name: row.Name, Class: row.Class, Level: row.Level,
 			HpCurrent: row.HpCurrent, HpMax: row.HpMax, CreatedAt: row.CreatedAt,
@@ -58,7 +58,8 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			BackgroundID: row.BackgroundID,
 			SubclassID:   row.SubclassID,
 			Feats:        row.Feats,
-		}, row.OwnerName, member.UserID))
+			SpellSlotsUsed: row.SpellSlotsUsed,
+		}, row.OwnerName, member.UserID, row.ClassData))
 	}
 	return api.ListCharacters200JSONResponse(out), nil
 }
@@ -145,7 +146,7 @@ func (s *Server) UpdateCharacter(ctx context.Context, request api.UpdateCharacte
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateCharacter200JSONResponse(toAPICharacter(updated, ownerName, member.UserID)), nil
+	return api.UpdateCharacter200JSONResponse(toAPICharacterWithClass(updated, ownerName, member.UserID, s.classDataFor(ctx, updated))), nil
 }
 
 // DeleteCharacter removes a character (its owner or the DM).
@@ -247,6 +248,18 @@ func (s *Server) ownerName(ctx context.Context, ownerID uuid.UUID) (string, erro
 		return "", err
 	}
 	return owner.Name, nil
+}
+
+// toAPICharacterWithClass enriches a caster's sheet with slot state derived
+// from the class data (nil classData = no enrichment).
+func toAPICharacterWithClass(c db.Character, ownerName string, viewer uuid.UUID, classData []byte) api.Character {
+	out := toAPICharacter(c, ownerName, viewer)
+	if out.Sheet != nil && classData != nil {
+		ability, slots := spellSlotsFor(classData, c.Level, c.SpellSlotsUsed)
+		out.Sheet.SpellcastingAbility = ability
+		out.Sheet.SpellSlots = slots
+	}
+	return out
 }
 
 func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Character {

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api/client";
 import type {
   CharacterInput,
+  InventoryItemInput,
   CreateQuestInput,
   ForgeRequest,
   LevelUpRequest,
@@ -294,9 +295,10 @@ export function useSeatCharacter() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["my-characters"] });
       qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["character-detail", vars.characterId] });
     },
   });
 }
@@ -314,6 +316,89 @@ export function useRules(kind: RulesKind) {
       if (error) throw error;
       return data ?? [];
     },
+  });
+}
+
+export function useCharacterDetail(characterId: string | undefined) {
+  return useQuery({
+    queryKey: ["character-detail", characterId],
+    enabled: !!characterId,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/characters/{characterId}", {
+        params: { path: { characterId: characterId! } },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useSetSpellSlots(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (used: number[]) => {
+      const { data, error } = await api.PUT("/characters/{characterId}/slots", {
+        params: { path: { characterId } },
+        body: { used },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["character-detail", characterId] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+    },
+  });
+}
+
+export function useAddItem(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: InventoryItemInput) => {
+      const { data, error } = await api.POST("/characters/{characterId}/items", {
+        params: { path: { characterId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["character-detail", characterId] }),
+  });
+}
+
+export function useUpdateItem(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { itemId: string; qty?: number; equipped?: boolean }) => {
+      const { data, error } = await api.PATCH(
+        "/characters/{characterId}/items/{itemId}",
+        {
+          params: { path: { characterId, itemId: vars.itemId } },
+          body: { qty: vars.qty, equipped: vars.equipped },
+        },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["character-detail", characterId] }),
+  });
+}
+
+export function useDeleteItem(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await api.DELETE(
+        "/characters/{characterId}/items/{itemId}",
+        { params: { path: { characterId, itemId } } },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["character-detail", characterId] }),
   });
 }
 
@@ -432,9 +517,10 @@ export function useLevelUp() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["my-characters"] });
       qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["character-detail", vars.characterId] });
     },
   });
 }

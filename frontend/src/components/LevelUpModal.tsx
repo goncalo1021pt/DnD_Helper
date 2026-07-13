@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { AbilityScores, Character, LevelUpRequest } from "../api/client";
-import { useCodex, useLevelUp, useRules } from "../hooks";
+import { useCharacterDetail, useCodex, useLevelUp, useRules } from "../hooks";
+import { castingFor, maxSpellLevel, type CasterData } from "../lib/spellcasting";
 import { abilityMod } from "./ui/AbilityRow";
 import ParchmentModal from "./ui/ParchmentModal";
 
@@ -36,6 +37,8 @@ export default function LevelUpModal({
   const { data: feats } = useRules("feat");
   // Seated heroes choose only what the campaign's codex has ruled legal.
   const { data: codex } = useCodex(character.campaignId ?? undefined);
+  const { data: allSpells } = useRules("spell");
+  const { data: detail } = useCharacterDetail(character.id);
   const levelUp = useLevelUp();
 
   const codexLegal = useMemo(() => {
@@ -69,6 +72,7 @@ export default function LevelUpModal({
   const [bonus1b, setBonus1b] = useState<AbilityKey | "">("");
   const [asiMode, setAsiMode] = useState<"2" | "1/1">("2");
   const [featId, setFeatId] = useState("");
+  const [newSpellIds, setNewSpellIds] = useState<string[]>([]);
 
   const classSubclasses = useMemo(
     () =>
@@ -86,6 +90,38 @@ export default function LevelUpModal({
       }),
     [feats, sheet.feats, codexLegal],
   );
+
+  // Spell picks: additions allowed up to the new level's caps.
+  const casting = castingFor(klass?.data as CasterData | undefined);
+  const casterKind = (klass?.data as CasterData | undefined)?.spellcaster ?? "";
+  const ownedSpellIds = useMemo(
+    () => new Set((detail?.spells ?? []).map((s) => s.id)),
+    [detail],
+  );
+  const ownedCantrips = (detail?.spells ?? []).filter(
+    (s) => (s.data as { level?: number }).level === 0,
+  ).length;
+  const ownedLeveled = (detail?.spells ?? []).length - ownedCantrips;
+  const spellChoices = useMemo(() => {
+    if (!casting) return [];
+    const maxLvl = maxSpellLevel(casterKind, newLevel);
+    return (allSpells ?? []).filter((s) => {
+      const d = s.data as { classes?: string[]; level?: number };
+      const lvl = d.level ?? 99;
+      return (
+        !ownedSpellIds.has(s.id) &&
+        (lvl === 0 || lvl <= maxLvl) &&
+        (d.classes ?? []).some((c) => c.toLowerCase() === klass?.name.toLowerCase()) &&
+        codexLegal(s)
+      );
+    });
+  }, [casting, casterKind, newLevel, allSpells, ownedSpellIds, klass, codexLegal]);
+  const pickedNewCantrips = newSpellIds.filter(
+    (id) => ((allSpells ?? []).find((s) => s.id === id)?.data as { level?: number })?.level === 0,
+  ).length;
+  const pickedNewLeveled = newSpellIds.length - pickedNewCantrips;
+  const cantripRoom = casting ? Math.max(casting.cantrips[newLevel - 1] - ownedCantrips, 0) : 0;
+  const preparedRoom = casting ? Math.max(casting.prepared[newLevel - 1] - ownedLeveled, 0) : 0;
 
   // What this level grants, from class + chosen subclass data.
   const gained: Feature[] = useMemo(() => {
@@ -121,6 +157,7 @@ export default function LevelUpModal({
     const body: LevelUpRequest = { hpMode };
     if (hpMode === "roll") body.hpRoll = hpRoll;
     if (needsSubclass) body.subclassId = subclassId;
+    if (newSpellIds.length > 0) body.spells = newSpellIds;
     if (isASILevel) {
       if (asiChoice === "feat") {
         body.featId = featId;
@@ -195,6 +232,58 @@ export default function LevelUpModal({
             </span>
           </div>
         </div>
+
+        {/* new spells */}
+        {casting && (cantripRoom > 0 || preparedRoom > 0) && spellChoices.length > 0 && (
+          <div>
+            <div className="field-label mb-1.5">
+              New spells at level {newLevel}
+              <span className="ml-2 font-normal normal-case tracking-normal text-ink-label">
+                {cantripRoom > 0 && `cantrips ${pickedNewCantrips}/${cantripRoom} · `}
+                spells {pickedNewLeveled}/{preparedRoom}
+              </span>
+            </div>
+            <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto pr-1">
+              {spellChoices.map((s) => {
+                const lvl = (s.data as { level?: number }).level ?? 0;
+                const active = newSpellIds.includes(s.id);
+                const atCap =
+                  lvl === 0
+                    ? pickedNewCantrips >= cantripRoom
+                    : pickedNewLeveled >= preparedRoom;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    title={s.summary}
+                    onClick={() =>
+                      setNewSpellIds((prev) =>
+                        active
+                          ? prev.filter((id) => id !== s.id)
+                          : atCap
+                            ? prev
+                            : [...prev, s.id],
+                      )
+                    }
+                    className={`label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px] ${
+                      !active && atCap ? "opacity-45" : ""
+                    }`}
+                    style={{
+                      background: active
+                        ? "linear-gradient(180deg,#8b2520,#5e1611)"
+                        : "rgba(16,9,5,.4)",
+                      color: active ? "#f3d9c0" : "#cdba93",
+                      boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(201,162,39,.3)"}`,
+                    }}
+                  >
+                    {lvl === 0 ? "◦ " : ""}
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* subclass */}
         {needsSubclass && (

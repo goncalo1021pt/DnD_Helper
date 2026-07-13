@@ -3,6 +3,7 @@ import { Link, useOutletContext } from "react-router-dom";
 import type { Character } from "../api/client";
 import {
   useCharacters,
+  useSetSpellSlots,
   useCharacterTree,
   useCreateCharacter,
   useDeleteCharacter,
@@ -85,6 +86,45 @@ function PactRow({
   );
 }
 
+/** In-session spell slots, ticked like HP. */
+function SlotPips({ character, canEdit }: { character: Character; canEdit: boolean }) {
+  const setSlots = useSetSpellSlots(character.id);
+  const slots = character.sheet?.spellSlots ?? [];
+  function tick(level: number, used: number, max: number, delta: number) {
+    const next = Math.min(Math.max(used + delta, 0), max);
+    if (next === used) return;
+    const arr = new Array(9).fill(0);
+    for (const s of slots) arr[s.level - 1] = s.used;
+    arr[level - 1] = next;
+    setSlots.mutate(arr.slice(0, Math.max(...slots.map((s) => s.level))));
+  }
+  return (
+    <div className="mt-2 flex flex-col gap-1">
+      {slots.map((s) => (
+        <div key={s.level} className="flex items-center gap-2">
+          <span className="label-stamp w-8 text-[8px] tracking-[1px] text-ink-label">Lv {s.level}</span>
+          <div className="flex gap-1">
+            {Array.from({ length: s.max }, (_, i) => (
+              <button
+                key={i}
+                disabled={!canEdit}
+                onClick={() => tick(s.level, s.used, s.max, i < s.used ? -1 : 1)}
+                title={i < s.used ? "spent — click to restore" : "click to spend"}
+                className="h-3.5 w-3.5 cursor-pointer rounded-full border-none p-0"
+                style={{
+                  background: i < s.used ? "#3d2317" : "linear-gradient(180deg,#e0a94e,#9a703a)",
+                  boxShadow: "inset 0 0 0 1.2px rgba(61,35,23,.7)",
+                  opacity: canEdit ? 1 : 0.7,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CharacterCard({
   character,
   canEdit,
@@ -143,9 +183,12 @@ function CharacterCard({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="font-display truncate text-[17px] font-bold leading-tight text-ink">
+          <Link
+            to={`/questboard/heroes/${character.id}`}
+            className="font-display block truncate text-[17px] font-bold leading-tight text-ink no-underline hover:text-[#8b2520]"
+          >
             {character.name}
-          </div>
+          </Link>
           <div className="truncate text-[12.5px] text-ink-body">
             {character.class || "Adventurer"}
             <span className="font-accent italic text-ink-label">
@@ -188,6 +231,9 @@ function CharacterCard({
             <div className="label-stamp mt-2 text-[8.5px] leading-relaxed tracking-[1px] text-ink-label">
               {character.sheet.skills.join(" · ")}
             </div>
+          )}
+          {(character.sheet.spellSlots ?? []).length > 0 && (
+            <SlotPips character={character} canEdit={canEdit} />
           )}
         </div>
       )}

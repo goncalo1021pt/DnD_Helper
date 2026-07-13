@@ -174,6 +174,19 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 	// Full proficiency list = background grants + class choices.
 	skills := append(append([]string{}, br.Skills...), body.Skills...)
 
+	// Spell picks (casters only) — validated against the class list and caps.
+	var spellIDs []uuid.UUID
+	if body.Spells != nil {
+		for _, id := range *body.Spells {
+			spellIDs = append(spellIDs, uuid.UUID(id))
+		}
+	}
+	if msg, _, err := s.validateSpellPicks(ctx, uid, class, 1, nil, spellIDs); err != nil {
+		return nil, err
+	} else if msg != "" {
+		return badRequest(msg)
+	}
+
 	// Level 1 derivations.
 	hpMax := cr.HitDie + abilityMod(body.Abilities.Con)
 	if hpMax < 1 {
@@ -202,9 +215,17 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 	if err != nil {
 		return nil, err
 	}
+	if len(spellIDs) > 0 {
+		if err := s.queries.AddCharacterSpells(ctx, db.AddCharacterSpellsParams{
+			CharacterID: hero.ID,
+			Column2:     spellIDs,
+		}); err != nil {
+			return nil, err
+		}
+	}
 	me, err := s.queries.GetUserByID(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
-	return api.ForgeCharacter201JSONResponse(toAPICharacter(hero, me.Name, uid)), nil
+	return api.ForgeCharacter201JSONResponse(toAPICharacterWithClass(hero, me.Name, uid, class.Data)), nil
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { AbilityScores, RulesContent } from "../api/client";
 import { useForgeCharacter, useRules } from "../hooks";
+import { castingFor, type CasterData } from "../lib/spellcasting";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 
 /**
@@ -27,7 +28,8 @@ const POINT_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13
 type Method = "array" | "points" | "manual";
 type BonusMode = "2/1" | "1/1/1";
 
-const STEPS = ["Class", "Background", "Species", "Abilities", "Name"] as const;
+const BASE_STEPS = ["Class", "Background", "Species", "Abilities", "Name"] as const;
+type StepName = (typeof BASE_STEPS)[number] | "Spells";
 
 function OptionCard({
   entry,
@@ -78,6 +80,7 @@ export default function ForgeWizard() {
   const [step, setStep] = useState(0);
   const [classId, setClassId] = useState<string>("");
   const [skills, setSkills] = useState<string[]>([]);
+  const [spellIds, setSpellIds] = useState<string[]>([]);
   const [backgroundId, setBackgroundId] = useState<string>("");
   const [speciesId, setSpeciesId] = useState<string>("");
   const [method, setMethod] = useState<Method>("array");
@@ -143,17 +146,48 @@ export default function ForgeWizard() {
     (method === "manual" ? ABILITIES.every(([k]) => base[k] >= 3 && base[k] <= 18) : true) &&
     (bonusMode === "1/1/1" || (bonus2 !== "" && bonus1 !== "" && bonus2 !== bonus1));
 
+  // Casters pick spells in an extra step before naming.
+  const casting = castingFor(chosenClass?.data as CasterData | undefined);
+  const { data: allSpells } = useRules("spell");
+  const classSpells = useMemo(
+    () =>
+      (allSpells ?? []).filter((s) => {
+        const d = s.data as { classes?: string[] };
+        return (d.classes ?? []).some(
+          (c) => c.toLowerCase() === chosenClass?.name.toLowerCase(),
+        );
+      }),
+    [allSpells, chosenClass],
+  );
+  const cantripsMax = casting?.cantrips[0] ?? 0;
+  const preparedMax = casting?.prepared[0] ?? 0;
+  const pickedCantrips = spellIds.filter(
+    (id) => (classSpells.find((s) => s.id === id)?.data as { level?: number })?.level === 0,
+  ).length;
+  const pickedLeveled = spellIds.length - pickedCantrips;
+  const spellsValid =
+    !casting || (pickedCantrips <= cantripsMax && pickedLeveled <= preparedMax);
+
+  const steps: StepName[] = casting
+    ? ["Class", "Background", "Species", "Abilities", "Spells", "Name"]
+    : [...BASE_STEPS];
+  const safeStep = Math.min(step, steps.length - 1);
+  const current = steps[safeStep];
+
   // Picking a background can retract an earlier class-skill pick (it now grants
   // that skill), so the last step re-checks everything, not just the name.
   const skillsValid = !!classId && skills.length === skillChoose;
-  const allValid = skillsValid && !!backgroundId && !!speciesId && abilitiesValid;
-  const stepValid = [
-    skillsValid,
-    !!backgroundId,
-    !!speciesId,
-    abilitiesValid,
-    name.trim().length > 0 && allValid,
-  ][step];
+  const allValid =
+    skillsValid && !!backgroundId && !!speciesId && abilitiesValid && spellsValid;
+  const validity: Record<StepName, boolean> = {
+    Class: skillsValid,
+    Background: !!backgroundId,
+    Species: !!speciesId,
+    Abilities: abilitiesValid,
+    Spells: spellsValid,
+    Name: name.trim().length > 0 && allValid,
+  };
+  const stepValid = validity[current];
 
   const hitDie = classData?.hitDie ?? 0;
   const hp = Math.max(hitDie + abilityMod(finalScores.con), 1);
@@ -191,6 +225,7 @@ export default function ForgeWizard() {
         backgroundId,
         abilities: finalScores,
         skills,
+        spells: casting ? spellIds : undefined,
       },
       { onSuccess: () => navigate("/questboard/heroes") },
     );
@@ -212,22 +247,22 @@ export default function ForgeWizard() {
           The Forge
         </h2>
         <div className="flex flex-wrap items-center gap-1.5">
-          {STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <span key={s} className="flex items-center gap-1.5">
               <button
-                onClick={() => i < step && setStep(i)}
-                disabled={i > step}
+                onClick={() => i < safeStep && setStep(i)}
+                disabled={i > safeStep}
                 className={`label-stamp border-none bg-transparent text-[10px] font-semibold tracking-[1.5px] ${
-                  i === step
+                  i === safeStep
                     ? "text-ember-bright"
-                    : i < step
+                    : i < safeStep
                       ? "cursor-pointer text-gold-hair"
                       : "text-gold-muted opacity-60"
                 }`}
               >
                 {s}
               </button>
-              {i < STEPS.length - 1 && <span className="text-gold-muted">·</span>}
+              {i < steps.length - 1 && <span className="text-gold-muted">·</span>}
             </span>
           ))}
         </div>
@@ -236,7 +271,7 @@ export default function ForgeWizard() {
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
         {/* step content */}
         <div>
-          {step === 0 && (
+          {current === "Class" && (
             <>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {(classes ?? []).map((c) => {
@@ -247,7 +282,10 @@ export default function ForgeWizard() {
                       entry={c}
                       selected={c.id === classId}
                       onPick={() => {
-                        if (c.id !== classId) setSkills([]);
+                        if (c.id !== classId) {
+                          setSkills([]);
+                          setSpellIds([]);
+                        }
                         setClassId(c.id);
                       }}
                       facts={`d${d.hitDie ?? "?"} · saves ${(d.saves ?? []).join("/")}`}
@@ -290,7 +328,7 @@ export default function ForgeWizard() {
             </>
           )}
 
-          {step === 1 && (
+          {current === "Background" && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {(backgrounds ?? []).map((b) => {
                 const d = b.data as { abilityScores?: string[]; feat?: string; skills?: string[] };
@@ -314,7 +352,7 @@ export default function ForgeWizard() {
             </div>
           )}
 
-          {step === 2 && (
+          {current === "Species" && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {(species ?? []).map((s) => {
                 const d = s.data as { size?: string; speed?: number };
@@ -331,7 +369,7 @@ export default function ForgeWizard() {
             </div>
           )}
 
-          {step === 3 && (
+          {current === "Abilities" && (
             <div className="parchment px-6 py-5">
               {/* method tabs */}
               <div className="mb-4 flex gap-2">
@@ -460,7 +498,73 @@ export default function ForgeWizard() {
             </div>
           )}
 
-          {step === 4 && (
+          {current === "Spells" && casting && (
+            <div className="parchment px-6 py-5">
+              <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+                <div className="label-stamp text-[10px] tracking-[2px] text-gold-muted">
+                  {chosenClass?.name} spells at level 1
+                </div>
+                <div className="label-stamp text-[9.5px] tracking-[1px] text-ink-label">
+                  {cantripsMax > 0 && `cantrips ${pickedCantrips}/${cantripsMax} · `}
+                  spells {pickedLeveled}/{preparedMax}
+                </div>
+              </div>
+              {[0, 1].map((lvl) =>
+                lvl === 0 && cantripsMax === 0 ? null : (
+                  <div key={lvl} className="mt-3">
+                    <div className="label-stamp mb-2 text-[9px] tracking-[2px] text-ink-label">
+                      {lvl === 0 ? "Cantrips" : "Level 1"}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {classSpells
+                        .filter((s) => (s.data as { level?: number }).level === lvl)
+                        .map((s) => {
+                          const active = spellIds.includes(s.id);
+                          const atCap =
+                            lvl === 0
+                              ? pickedCantrips >= cantripsMax
+                              : pickedLeveled >= preparedMax;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              title={s.summary}
+                              onClick={() =>
+                                setSpellIds((prev) =>
+                                  active
+                                    ? prev.filter((id) => id !== s.id)
+                                    : atCap
+                                      ? prev
+                                      : [...prev, s.id],
+                                )
+                              }
+                              className={`label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px] ${
+                                !active && atCap ? "opacity-45" : ""
+                              }`}
+                              style={{
+                                background: active
+                                  ? "linear-gradient(180deg,#8b2520,#5e1611)"
+                                  : "rgba(16,9,5,.4)",
+                                color: active ? "#f3d9c0" : "#cdba93",
+                                boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(201,162,39,.3)"}`,
+                              }}
+                            >
+                              {s.name}
+                              {s.source === "homebrew" && " ✶"}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ),
+              )}
+              <div className="font-accent mt-4 text-[12px] italic text-ink-body">
+                Pick fewer if unsure — you can catch up at any level-up.
+              </div>
+            </div>
+          )}
+
+          {current === "Name" && (
             <div className="parchment px-6 py-6">
               <label className="flex flex-col gap-1.5">
                 <span className="field-label">The hero's name</span>
@@ -492,18 +596,18 @@ export default function ForgeWizard() {
 
           {/* step nav */}
           <div className="mt-6 flex items-center gap-3">
-            {step > 0 && (
+            {safeStep > 0 && (
               <button
-                onClick={() => setStep(step - 1)}
+                onClick={() => setStep(safeStep - 1)}
                 className="btn-base btn-ghost-ink px-5 py-[11px] text-xs"
                 style={{ color: "#cdba93", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)", background: "rgba(16,9,5,.4)" }}
               >
                 ← Back
               </button>
             )}
-            {step < STEPS.length - 1 ? (
+            {safeStep < steps.length - 1 ? (
               <button
-                onClick={() => setStep(step + 1)}
+                onClick={() => setStep(safeStep + 1)}
                 disabled={!stepValid}
                 className="btn-base btn-gold clip-octagon h-11 px-6 text-sm"
               >
@@ -565,9 +669,17 @@ export default function ForgeWizard() {
                 {[...bgSkills, ...skills].join(", ")}
               </div>
             )}
+            {casting && spellIds.length > 0 && (
+              <div>
+                <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">Spells · </span>
+                {pickedCantrips > 0 && `${pickedCantrips} cantrip${pickedCantrips === 1 ? "" : "s"}, `}
+                {pickedLeveled} level-1 · save DC{" "}
+                {10 + abilityMod(finalScores[casting.ability.toLowerCase() as AbilityKey] ?? 0)}
+              </div>
+            )}
           </div>
 
-          {step >= 3 && chosenClass && (
+          {safeStep >= steps.indexOf("Abilities") && chosenClass && (
             <div
               className="mt-4 flex items-center justify-around rounded-[2px] px-3 py-2.5"
               style={{ background: "rgba(16,9,5,.5)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.3)" }}

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"regexp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,6 +20,8 @@ import (
 var abilityNames = map[string]bool{
 	"STR": true, "DEX": true, "CON": true, "INT": true, "WIS": true, "CHA": true,
 }
+
+var weaponDamageRe = regexp.MustCompile(`^(\d+|\d+d\d+([+-]\d+)?)$`)
 
 func getStr(data map[string]interface{}, key string) (string, bool) {
 	v, ok := data[key].(string)
@@ -107,6 +110,49 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 	case db.ContentKindSubclass:
 		if class, ok := getStr(data, "class"); !ok || strings.TrimSpace(class) == "" {
 			return "subclass data needs class: the parent class name (e.g. \"Fighter\")"
+		}
+	case db.ContentKindSpell:
+		lvl, ok := getNum(data, "level")
+		if !ok || lvl < 0 || lvl > 9 {
+			return "a spell needs a level between 0 (cantrip) and 9"
+		}
+		if school, _ := getStr(data, "school"); school == "" {
+			return "a spell needs a school of magic"
+		}
+		classes, _ := getStrSlice(data, "classes")
+		if len(classes) == 0 {
+			return "a spell needs at least one class that can learn it"
+		}
+	case db.ContentKindItem:
+		itemType, _ := getStr(data, "type")
+		switch itemType {
+		case "armor":
+			cat, _ := getStr(data, "category")
+			if cat != "Light" && cat != "Medium" && cat != "Heavy" {
+				return "armor category must be Light, Medium or Heavy"
+			}
+			if ac, ok := getNum(data, "ac"); !ok || ac < 10 || ac > 20 {
+				return "armor needs a base AC between 10 and 20"
+			}
+		case "shield":
+			if bonus, ok := getNum(data, "acBonus"); !ok || bonus < 1 || bonus > 3 {
+				return "a shield needs an AC bonus between 1 and 3"
+			}
+		case "weapon":
+			if cat, _ := getStr(data, "category"); cat != "Simple" && cat != "Martial" {
+				return "weapon category must be Simple or Martial"
+			}
+			dmg, _ := getStr(data, "damage")
+			if !weaponDamageRe.MatchString(dmg) {
+				return "weapon damage must look like 1d8 or 2d6+1 (or a flat number)"
+			}
+			if dt, _ := getStr(data, "damageType"); dt == "" {
+				return "a weapon needs a damage type"
+			}
+		case "gear":
+			// free-form; the summary carries the text
+		default:
+			return "item type must be armor, weapon, shield or gear"
 		}
 	case db.ContentKindFeat:
 		// Free-form: the summary carries the rules text.
