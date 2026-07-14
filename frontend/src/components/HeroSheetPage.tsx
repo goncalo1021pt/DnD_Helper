@@ -12,7 +12,9 @@ import {
 import { acFromEquipment, profBonus, weaponAttacks } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
+import SpellEntry, { SpellFlags } from "./ui/SpellEntry";
 import FloatingDiceTray from "./ui/DiceTray";
+import ParchmentModal from "./ui/ParchmentModal";
 import LevelUpModal from "./LevelUpModal";
 import { IconPlus, IconTrash } from "./ui/icons";
 
@@ -55,6 +57,7 @@ export default function HeroSheetPage() {
   const updateItem = useUpdateItem(heroId ?? "");
   const deleteItem = useDeleteItem(heroId ?? "");
   const [levelling, setLevelling] = useState(false);
+  const [reading, setReading] = useState<RulesContent | null>(null);
   const [addChoice, setAddChoice] = useState("");
   const [freeText, setFreeText] = useState("");
 
@@ -288,10 +291,14 @@ export default function HeroSheetPage() {
                         {lvl === 0 ? "Cantrips" : `Level ${lvl}`}
                       </div>
                       {list.map((s) => (
-                        <div key={s.id} className="text-[12.5px] leading-relaxed text-ink-body" title={s.summary}>
-                          <span className="font-semibold text-ink">{s.name}</span>
-                          {(s.data as { concentration?: boolean }).concentration && " ◈"}
-                          {(s.data as { ritual?: boolean }).ritual && " ℞"}
+                        <div key={s.id} className="text-[12.5px] leading-relaxed text-ink-body">
+                          <button
+                            onClick={() => setReading(s)}
+                            className="cursor-pointer border-none bg-transparent p-0 font-semibold text-ink underline decoration-[rgba(120,80,30,.4)] underline-offset-2 hover:text-[#8b2520]"
+                          >
+                            {s.name}
+                          </button>
+                          <SpellFlags spell={s} />
                           {" — "}
                           {s.summary}
                         </div>
@@ -399,6 +406,12 @@ export default function HeroSheetPage() {
             </section>
           </div>
         </div>
+      )}
+
+      {reading && (
+        <ParchmentModal onClose={() => setReading(null)} maxWidth="max-w-[560px]">
+          <SpellEntry spell={reading} />
+        </ParchmentModal>
       )}
 
       {levelling && (

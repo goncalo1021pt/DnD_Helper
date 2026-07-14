@@ -4,6 +4,7 @@ import { useCharacterDetail, useCodex, useLevelUp, useRules } from "../hooks";
 import { castingFor, maxSpellLevel, type CasterData } from "../lib/spellcasting";
 import { abilityMod } from "./ui/AbilityRow";
 import ParchmentModal from "./ui/ParchmentModal";
+import SpellHover from "./ui/SpellHover";
 
 /**
  * One level, gained: HP by average or roll, subclass at the class's subclass
@@ -252,10 +253,9 @@ export default function LevelUpModal({
                     ? pickedNewCantrips >= cantripRoom
                     : pickedNewLeveled >= preparedRoom;
                 return (
+                  <SpellHover key={s.id} spell={s}>
                   <button
-                    key={s.id}
                     type="button"
-                    title={s.summary}
                     onClick={() =>
                       setNewSpellIds((prev) =>
                         active
@@ -271,14 +271,15 @@ export default function LevelUpModal({
                     style={{
                       background: active
                         ? "linear-gradient(180deg,#8b2520,#5e1611)"
-                        : "rgba(16,9,5,.4)",
-                      color: active ? "#f3d9c0" : "#cdba93",
-                      boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(201,162,39,.3)"}`,
+                        : "rgba(120,86,42,.13)",
+                      color: active ? "#f3d9c0" : "#4a3620",
+                      boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(120,80,30,.45)"}`,
                     }}
                   >
                     {lvl === 0 ? "◦ " : ""}
                     {s.name}
                   </button>
+                  </SpellHover>
                 );
               })}
             </div>

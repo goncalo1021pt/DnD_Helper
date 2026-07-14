@@ -182,6 +182,23 @@ func (q *Queries) ListContentByKind(ctx context.Context, arg ListContentByKindPa
 	return items, nil
 }
 
+const pruneSRDContent = `-- name: PruneSRDContent :exec
+DELETE FROM rules_content
+WHERE kind = $1 AND source = 'srd' AND NOT (name = ANY($2::text[]))
+`
+
+type PruneSRDContentParams struct {
+	Kind    ContentKind `json:"kind"`
+	Column2 []string    `json:"column_2"`
+}
+
+// The seed is authoritative for SRD rows: entries dropped from the seed
+// (e.g. content that turned out not to be in the SRD) are removed.
+func (q *Queries) PruneSRDContent(ctx context.Context, arg PruneSRDContentParams) error {
+	_, err := q.db.Exec(ctx, pruneSRDContent, arg.Kind, arg.Column2)
+	return err
+}
+
 const updateContent = `-- name: UpdateContent :one
 UPDATE rules_content
 SET name = $2, summary = $3, data = $4, updated_at = now()

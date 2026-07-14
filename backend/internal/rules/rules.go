@@ -43,7 +43,9 @@ func Seed(ctx context.Context, queries *db.Queries) error {
 		if err := json.Unmarshal(raw, &entries); err != nil {
 			return fmt.Errorf("rules seed: parse %s: %w", file, err)
 		}
+		names := make([]string, 0, len(entries))
 		for _, e := range entries {
+			names = append(names, e.Name)
 			if _, err := queries.UpsertSRDContent(ctx, db.UpsertSRDContentParams{
 				Kind:    kind,
 				Name:    e.Name,
@@ -52,6 +54,13 @@ func Seed(ctx context.Context, queries *db.Queries) error {
 			}); err != nil {
 				return fmt.Errorf("rules seed: upsert %s %q: %w", kind, e.Name, err)
 			}
+		}
+		// The seed is authoritative for SRD rows of this kind.
+		if err := queries.PruneSRDContent(ctx, db.PruneSRDContentParams{
+			Kind:    kind,
+			Column2: names,
+		}); err != nil {
+			return fmt.Errorf("rules seed: prune %s: %w", kind, err)
 		}
 	}
 	return nil
