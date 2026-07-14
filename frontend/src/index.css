@@ -443,6 +443,34 @@ body {
   color: #7a5a32;
 }
 
+/* Inputs on the dark hall panels (the parchment inputs are for cards). */
+.input-hall {
+  height: 42px;
+  padding: 0 14px;
+  background: rgba(16, 9, 5, 0.55);
+  border: none;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.35);
+  color: #e6d5af;
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+}
+.input-hall::placeholder {
+  color: #9c855e;
+  font-style: italic;
+}
+.input-hall:focus {
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.7);
+}
+select.input-hall {
+  cursor: pointer;
+}
+select.input-hall option {
+  background: #1c1108;
+  color: #e6d5af;
+}
+
 /* The skill web scaled into the phone screen: the SVG gets the height left
    over after the card's header block (~420px covers the tallest card, the
    character web), floored so nodes stay tappable; pans sideways only. From

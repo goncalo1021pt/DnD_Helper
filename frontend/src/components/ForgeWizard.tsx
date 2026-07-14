@@ -4,6 +4,7 @@ import type { AbilityScores, RulesContent } from "../api/client";
 import { useForgeCharacter, useRules } from "../hooks";
 import { castingFor, type CasterData } from "../lib/spellcasting";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
+import SpellHover from "./ui/SpellHover";
 
 /**
  * The Forge: the 2024 creation flow at level 1.
@@ -525,10 +526,9 @@ export default function ForgeWizard() {
                               ? pickedCantrips >= cantripsMax
                               : pickedLeveled >= preparedMax;
                           return (
+                            <SpellHover key={s.id} spell={s}>
                             <button
-                              key={s.id}
                               type="button"
-                              title={s.summary}
                               onClick={() =>
                                 setSpellIds((prev) =>
                                   active
@@ -544,14 +544,15 @@ export default function ForgeWizard() {
                               style={{
                                 background: active
                                   ? "linear-gradient(180deg,#8b2520,#5e1611)"
-                                  : "rgba(16,9,5,.4)",
-                                color: active ? "#f3d9c0" : "#cdba93",
-                                boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(201,162,39,.3)"}`,
+                                  : "rgba(120,86,42,.13)",
+                                color: active ? "#f3d9c0" : "#4a3620",
+                                boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(120,80,30,.45)"}`,
                               }}
                             >
                               {s.name}
                               {s.source === "homebrew" && " ✶"}
                             </button>
+                            </SpellHover>
                           );
                         })}
                     </div>

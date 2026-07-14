@@ -16,3 +16,12 @@ Notes:
 - Content beyond the SRD (e.g. additional subclasses, feats, or spells from
   published books) is NOT included in this repository. The app provides an
   in-instance content editor for private use at your own table.
+
+## Full-text spell entries
+
+Spell descriptions in `srd/spells.json` reproduce the exact rules text of the
+System Reference Document 5.2.1 by Wizards of the Coast LLC, licensed under
+the Creative Commons Attribution 4.0 International License
+(https://creativecommons.org/licenses/by/4.0/legalcode). The Markdown
+conversion consulted was github.com/downfallx/dnd-5e-srd-markdown (same
+license).

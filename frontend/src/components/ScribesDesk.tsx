@@ -445,6 +445,16 @@ function GuidedFields({
               onChange={(e) => set("duration", e.target.value)} />
           </label>
         </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="field-label">The entry (full rules text)</span>
+          <textarea
+            rows={6}
+            className={`${input} min-h-[120px] leading-relaxed`}
+            placeholder="Exactly what the spell does — paragraphs, **bold** and _italics_ welcome."
+            value={(data.description as string) ?? ""}
+            onChange={(e) => set("description", e.target.value)}
+          />
+        </label>
         <div className="flex flex-wrap gap-5">
           {(["concentration", "ritual"] as const).map((flag) => (
             <label key={flag} className="flex cursor-pointer items-center gap-2 text-[13px]">

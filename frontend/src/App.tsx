@@ -8,6 +8,7 @@ import ForgeWizard from "./components/ForgeWizard";
 import HeroSheetPage from "./components/HeroSheetPage";
 import ScribesDesk from "./components/ScribesDesk";
 import CodexPage from "./components/CodexPage";
+import SpellbookPage from "./components/SpellbookPage";
 import CampaignView from "./components/CampaignView";
 import CampaignDashboard from "./components/CampaignDashboard";
 import QuestBoard from "./components/QuestBoard";
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="heroes" element={<MyHeroesPage />} />
         <Route path="heroes/forge" element={<ForgeWizard />} />
         <Route path="heroes/:heroId" element={<HeroSheetPage />} />
+        <Route path="spellbook" element={<SpellbookPage />} />
         <Route path="scribe" element={<ScribesDesk />} />
         <Route path="campaigns/:id" element={<CampaignView />}>
           <Route index element={<CampaignDashboard />} />

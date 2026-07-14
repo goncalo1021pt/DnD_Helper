@@ -220,3 +220,22 @@ export const IconScroll = (p: IconProps) => (
     <path d="M5 4a2 2 0 012-2h10v15H7a2 2 0 00-2 2zM5 19a2 2 0 002 2h12V4M9 7h6M9 11h6" />
   </Icon>
 );
+
+/** Concentration: focus rings around a steady point. */
+export const IconConcentration = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="8" />
+    <circle cx="12" cy="12" r="4" />
+    <circle cx="12" cy="12" r="0.6" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
+/** Ritual: a lit candle for the long casting. */
+export const IconRitual = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 11h6v9H9z" />
+    <line x1="12" y1="11" x2="12" y2="9" />
+    <path d="M12 3.5c1.6 1.7 2.2 2.9 2.2 4a2.2 2.2 0 1 1-4.4 0c0-1.1.6-2.3 2.2-4z" />
+    <line x1="7" y1="20" x2="17" y2="20" />
+  </Icon>
+);

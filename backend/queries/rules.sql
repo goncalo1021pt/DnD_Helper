@@ -61,3 +61,9 @@ RETURNING *;
 
 -- name: DeleteContent :exec
 DELETE FROM rules_content WHERE id = $1;
+
+-- name: PruneSRDContent :exec
+-- The seed is authoritative for SRD rows: entries dropped from the seed
+-- (e.g. content that turned out not to be in the SRD) are removed.
+DELETE FROM rules_content
+WHERE kind = $1 AND source = 'srd' AND NOT (name = ANY($2::text[]));
