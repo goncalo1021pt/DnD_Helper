@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import type { RulesContent } from "../api/client";
-import { useRules } from "../hooks";
+import { useCreateRules, useRules } from "../hooks";
 import SpellEntry, { SpellFlags } from "./ui/SpellEntry";
 import ParchmentModal from "./ui/ParchmentModal";
+import { ContentForm, KIND_DEFAULTS } from "./ScribesDesk";
+import { IconPlus } from "./ui/icons";
 
 /**
  * The Spellbook: every spell you can see (SRD + your homebrew + what your
@@ -17,6 +19,9 @@ export default function SpellbookPage() {
   const [level, setLevel] = useState<string>("");
   const [klass, setKlass] = useState<string>("");
   const [reading, setReading] = useState<RulesContent | null>(null);
+  const [scribing, setScribing] = useState(false);
+  const create = useCreateRules("spell");
+  const { data: classes } = useRules("class");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -56,6 +61,13 @@ export default function SpellbookPage() {
             {spells ? `${spells.length} spells on the shelves — SRD 5.2 and your table's own.` : ""}
           </div>
         </div>
+        <button
+          onClick={() => setScribing(true)}
+          className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
+        >
+          <IconPlus size={15} strokeWidth={2} />
+          Scribe a Spell
+        </button>
       </div>
 
       {/* filters */}
@@ -140,6 +152,33 @@ export default function SpellbookPage() {
       {reading && (
         <ParchmentModal onClose={() => setReading(null)} maxWidth="max-w-[560px]">
           <SpellEntry spell={reading} />
+        </ParchmentModal>
+      )}
+
+      {scribing && (
+        <ParchmentModal onClose={() => setScribing(false)} maxWidth="max-w-[620px]">
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            The Spellbook
+          </div>
+          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
+            Scribe a Spell
+          </h3>
+          <ContentForm
+            kind="spell"
+            initial={{ name: "", summary: "", data: { ...KIND_DEFAULTS.spell } }}
+            isPending={create.isPending}
+            errorText={
+              create.isError
+                ? ((create.error as { error?: string } | null)?.error ??
+                  "The quill snapped — check the fields.")
+                : undefined
+            }
+            classNames={(classes ?? []).map((c) => c.name)}
+            onSubmit={(body) =>
+              create.mutate(body, { onSuccess: () => setScribing(false) })
+            }
+            onCancel={() => setScribing(false)}
+          />
         </ParchmentModal>
       )}
     </div>
