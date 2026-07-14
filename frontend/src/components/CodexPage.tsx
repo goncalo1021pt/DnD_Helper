@@ -45,6 +45,7 @@ export default function CodexPage() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
   const [kind, setKind] = useState<RulesKind>("class");
+  const [search, setSearch] = useState("");
   const { data: rules } = useRules(kind);
   const { data: codex, isLoading } = useCodex(campaign.id);
   const setStatus = useSetCodexStatus(campaign.id);
@@ -59,9 +60,13 @@ export default function CodexPage() {
   const proposals = (codex ?? []).filter(
     (e) => e.status === "proposed" && e.content.kind === kind,
   );
-  const srdEntries = (rules ?? []).filter((r) => r.source === "srd");
+  const q = search.trim().toLowerCase();
+  const matches = (name: string) => !q || name.toLowerCase().includes(q);
+  const srdEntries = (rules ?? []).filter(
+    (r) => r.source === "srd" && matches(r.name),
+  );
   const enabledHomebrew = (codex ?? []).filter(
-    (e) => e.status === "enabled" && e.content.kind === kind,
+    (e) => e.status === "enabled" && e.content.kind === kind && matches(e.content.name),
   );
   // The DM's own shelf, not yet ruled on — one click from joining the world.
   const myShelf = (rules ?? []).filter(
@@ -122,11 +127,14 @@ export default function CodexPage() {
       </div>
 
       {/* kind tabs */}
-      <div className="mb-5 flex flex-wrap gap-1.5">
+      <div className="mb-5 flex flex-wrap items-center gap-1.5">
         {KINDS.map(([k, label]) => (
           <button
             key={k}
-            onClick={() => setKind(k)}
+            onClick={() => {
+              setKind(k);
+              setSearch("");
+            }}
             className={`label-stamp cursor-pointer rounded-[2px] border-none px-3 py-2 text-[10px] font-semibold tracking-[1.5px] ${
               k === kind ? "text-ember-bright" : "text-gold-muted hover:text-gold-hair"
             }`}
@@ -138,6 +146,12 @@ export default function CodexPage() {
             {label}
           </button>
         ))}
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search this shelf…"
+          className="input-hall ml-auto h-9 w-full text-[13px] sm:w-52"
+        />
       </div>
 
       {isLoading ? (
@@ -238,7 +252,7 @@ export default function CodexPage() {
                 SRD 5.2 — legal unless banned
                 {bannedCount > 0 && ` (${bannedCount} banned)`}
               </div>
-              {isDM && srdEntries.length > 0 && (
+              {isDM && srdEntries.length > 0 && !q && (
                 <button
                   onClick={() => banAllSrd(bannedCount < srdEntries.length)}
                   className="label-stamp cursor-pointer border-none bg-transparent text-[10px] font-semibold text-gold-muted hover:text-ember-bright"

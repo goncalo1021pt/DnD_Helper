@@ -571,7 +571,7 @@ function GuidedFields({
   );
 }
 
-const KIND_DEFAULTS: Record<RulesKind, DataObj> = {
+export const KIND_DEFAULTS: Record<RulesKind, DataObj> = {
   class: {
     hitDie: 8,
     saves: [],
@@ -587,7 +587,7 @@ const KIND_DEFAULTS: Record<RulesKind, DataObj> = {
   item: { type: "gear" },
 };
 
-function ContentForm({
+export function ContentForm({
   kind,
   initial,
   isPending,
