@@ -485,6 +485,38 @@ export function useSetProgression(campaignId: string) {
   });
 }
 
+export function useImportPack() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (entries: unknown[]) => {
+      const { data, error } = await api.POST("/rules/import", {
+        body: { entries: entries as never },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rules"] }),
+  });
+}
+
+export function useSetCodexStatusBulk(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { contentIds: string[]; status: "enabled" | "banned" }) => {
+      const { error } = await api.POST("/campaigns/{campaignId}/codex/bulk", {
+        params: { path: { campaignId } },
+        body: vars,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["codex", campaignId] });
+      qc.invalidateQueries({ queryKey: ["rules"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
 export function useCodex(campaignId: string | undefined) {
   return useQuery({
     queryKey: ["codex", campaignId],

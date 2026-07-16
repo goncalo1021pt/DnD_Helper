@@ -182,6 +182,42 @@ func (q *Queries) ListContentByKind(ctx context.Context, arg ListContentByKindPa
 	return items, nil
 }
 
+const listOwnHomebrew = `-- name: ListOwnHomebrew :many
+SELECT id, kind, source, name, summary, data, created_by, created_at, updated_at FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1
+ORDER BY kind, name
+`
+
+func (q *Queries) ListOwnHomebrew(ctx context.Context, createdBy pgtype.UUID) ([]RulesContent, error) {
+	rows, err := q.db.Query(ctx, listOwnHomebrew, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RulesContent
+	for rows.Next() {
+		var i RulesContent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Source,
+			&i.Name,
+			&i.Summary,
+			&i.Data,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pruneSRDContent = `-- name: PruneSRDContent :exec
 DELETE FROM rules_content
 WHERE kind = $1 AND source = 'srd' AND NOT (name = ANY($2::text[]))
@@ -231,6 +267,61 @@ func (q *Queries) UpdateContent(ctx context.Context, arg UpdateContentParams) (R
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const upsertOwnHomebrew = `-- name: UpsertOwnHomebrew :one
+INSERT INTO rules_content (kind, source, name, summary, data, created_by)
+VALUES ($1, 'homebrew', $2, $3, $4, $5)
+ON CONFLICT (kind, name, created_by) WHERE source = 'homebrew' DO UPDATE
+SET summary = EXCLUDED.summary, data = EXCLUDED.data, updated_at = now()
+RETURNING id, kind, source, name, summary, data, created_by, created_at, updated_at, (xmax = 0) AS created
+`
+
+type UpsertOwnHomebrewParams struct {
+	Kind      ContentKind `json:"kind"`
+	Name      string      `json:"name"`
+	Summary   string      `json:"summary"`
+	Data      []byte      `json:"data"`
+	CreatedBy pgtype.UUID `json:"created_by"`
+}
+
+type UpsertOwnHomebrewRow struct {
+	ID        uuid.UUID          `json:"id"`
+	Kind      ContentKind        `json:"kind"`
+	Source    ContentSource      `json:"source"`
+	Name      string             `json:"name"`
+	Summary   string             `json:"summary"`
+	Data      []byte             `json:"data"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Created   bool               `json:"created"`
+}
+
+// Import upsert: create the author's entry or update it in place, keyed on
+// the per-author uniqueness (kind, name, created_by).
+func (q *Queries) UpsertOwnHomebrew(ctx context.Context, arg UpsertOwnHomebrewParams) (UpsertOwnHomebrewRow, error) {
+	row := q.db.QueryRow(ctx, upsertOwnHomebrew,
+		arg.Kind,
+		arg.Name,
+		arg.Summary,
+		arg.Data,
+		arg.CreatedBy,
+	)
+	var i UpsertOwnHomebrewRow
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.Source,
+		&i.Name,
+		&i.Summary,
+		&i.Data,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Created,
 	)
 	return i, err
 }

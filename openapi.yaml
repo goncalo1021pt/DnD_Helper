@@ -427,6 +427,56 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /rules/import:
+    post:
+      operationId: importContentPack
+      summary: Batch-import a content pack as your private homebrew (upserts by name)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entries]
+              properties:
+                entries:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items:
+                    $ref: "#/components/schemas/PackEntry"
+      responses:
+        "200":
+          description: Per-entry results (failures do not abort the batch)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /rules/export:
+    get:
+      operationId: exportContentPack
+      summary: Your homebrew as a content pack (keep it out of public repos)
+      responses:
+        "200":
+          description: The pack
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PackEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /rules/{kind}:
     parameters:
       - $ref: "#/components/parameters/ContentKind"
@@ -733,6 +783,40 @@ paths:
       responses:
         "204":
           description: Proposed
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/codex/bulk:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: setCodexStatusBulk
+      summary: One verdict over many entries (DM only — pack admissions)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentIds, status]
+              properties:
+                contentIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 1000
+                  items:
+                    type: string
+                    format: uuid
+                status:
+                  type: string
+                  enum: [enabled, banned]
+      responses:
+        "204":
+          description: Ruled
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -1841,6 +1925,50 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InventoryItem"
+
+    PackEntry:
+      type: object
+      required: [kind, name, data]
+      properties:
+        kind:
+          type: string
+          enum: [class, species, background, subclass, feat, spell, item]
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        summary:
+          type: string
+          maxLength: 300
+        data:
+          type: object
+          additionalProperties: true
+
+    ImportReport:
+      type: object
+      required: [created, updated, failed, results]
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        failed:
+          type: integer
+        results:
+          type: array
+          items:
+            type: object
+            required: [kind, name, status]
+            properties:
+              kind:
+                type: string
+              name:
+                type: string
+              status:
+                type: string
+                enum: [created, updated, failed]
+              error:
+                type: string
 
     ChronicleEvent:
       type: object

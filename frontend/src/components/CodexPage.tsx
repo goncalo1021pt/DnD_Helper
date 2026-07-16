@@ -6,6 +6,7 @@ import {
   useCodex,
   useRules,
   useSetCodexStatus,
+  useSetCodexStatusBulk,
 } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 
@@ -49,6 +50,7 @@ export default function CodexPage() {
   const { data: rules } = useRules(kind);
   const { data: codex, isLoading } = useCodex(campaign.id);
   const setStatus = useSetCodexStatus(campaign.id);
+  const setStatusBulk = useSetCodexStatusBulk(campaign.id);
   const clearStatus = useClearCodexStatus(campaign.id);
 
   const byContent = useMemo(() => {
@@ -226,8 +228,22 @@ export default function CodexPage() {
             )}
             {isDM && myShelf.length > 0 && (
               <div className="mt-3">
-                <div className="label-stamp mb-2 text-[9px] tracking-[2px] text-ink-label">
-                  From your shelf
+                <div className="mb-2 flex flex-wrap items-center gap-3">
+                  <div className="label-stamp text-[9px] tracking-[2px] text-ink-label">
+                    From your shelf
+                  </div>
+                  <button
+                    onClick={() =>
+                      setStatusBulk.mutate({
+                        contentIds: myShelf.map((r) => r.id),
+                        status: "enabled",
+                      })
+                    }
+                    disabled={setStatusBulk.isPending}
+                    className="label-stamp cursor-pointer border-none bg-transparent text-[9.5px] font-semibold text-gold-muted hover:text-ember-bright"
+                  >
+                    {setStatusBulk.isPending ? "Admitting…" : `Admit all ${myShelf.length}`}
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {myShelf.map((r) => (

@@ -1,24 +1,10 @@
-import { useMemo, useState } from "react";
-import type { RulesContent, RulesContentInput, RulesKind } from "../api/client";
-import { useCreateRules, useDeleteRules, useRules, useUpdateRules } from "../hooks";
-import ParchmentModal from "./ui/ParchmentModal";
-import { IconPencil, IconPlus, IconTrash } from "./ui/icons";
+import { useState } from "react";
+import type { RulesContentInput, RulesKind } from "../api/client";
 
 /**
- * The Scribe's Desk: this instance's content library. SRD entries are carved
- * in stone; anything from owned books is transcribed here as homebrew and
- * lives only in this instance's database — never in the public repo.
+ * The shared content form: kind-aware guided fields plus the Raw Scroll JSON
+ * tab. The Archives uses it for scribing new entries and amending old ones.
  */
-
-const KINDS: Array<[RulesKind, string, string]> = [
-  ["class", "Classes", "Class"],
-  ["subclass", "Subclasses", "Subclass"],
-  ["species", "Species", "Species"],
-  ["background", "Backgrounds", "Background"],
-  ["feat", "Feats", "Feat"],
-  ["spell", "Spells", "Spell"],
-  ["item", "Items", "Item"],
-];
 
 const ABILITIES = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 const SKILLS = [
@@ -556,18 +542,42 @@ function GuidedFields({
 
   // feat
   return (
-    <label className="flex flex-col gap-1.5">
-      <span className="field-label">Category</span>
-      <select
-        className={`${input} w-44 cursor-pointer`}
-        value={(data.category as string) ?? "general"}
-        onChange={(e) => set("category", e.target.value)}
-      >
-        <option value="origin">Origin (background feat)</option>
-        <option value="general">General (ASI-level choice)</option>
-        <option value="fighting-style">Fighting style</option>
-      </select>
-    </label>
+    <>
+      <div className="flex flex-wrap gap-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="field-label">Category</span>
+          <select
+            className={`${input} w-52 cursor-pointer`}
+            value={(data.category as string) ?? "general"}
+            onChange={(e) => set("category", e.target.value)}
+          >
+            <option value="origin">Origin (background feat)</option>
+            <option value="general">General (ASI-level choice)</option>
+            <option value="fighting-style">Fighting style</option>
+            <option value="epic-boon">Epic boon (level 19+)</option>
+          </select>
+        </label>
+        <label className="flex min-w-44 flex-1 flex-col gap-1.5">
+          <span className="field-label">Prerequisite (optional)</span>
+          <input
+            className={input}
+            placeholder="e.g. Level 4+, Strength 13+"
+            value={(data.prerequisite as string) ?? ""}
+            onChange={(e) => set("prerequisite", e.target.value)}
+          />
+        </label>
+      </div>
+      <label className="flex flex-col gap-1.5">
+        <span className="field-label">The entry (full rules text)</span>
+        <textarea
+          rows={6}
+          className={`${input} min-h-[120px] leading-relaxed`}
+          placeholder="Exactly what the feat grants — paragraphs, **bold** and _italics_ welcome."
+          value={(data.description as string) ?? ""}
+          onChange={(e) => set("description", e.target.value)}
+        />
+      </label>
+    </>
   );
 }
 
@@ -683,6 +693,15 @@ export function ContentForm({
 
       {tab === "form" ? (
         <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5">
+            <span className="field-label">Source book (optional)</span>
+            <input
+              className="input-parchment input-compact"
+              placeholder="e.g. Player's Handbook (2024), page 274"
+              value={(data.book as string) ?? ""}
+              onChange={(e) => setData({ ...data, book: e.target.value })}
+            />
+          </label>
           <GuidedFields kind={kind} data={data} setData={setData} classNames={classNames} />
         </div>
       ) : (
@@ -720,186 +739,5 @@ export function ContentForm({
         </button>
       </div>
     </form>
-  );
-}
-
-function EntryRow({
-  entry,
-  onEdit,
-  onDelete,
-}: {
-  entry: RulesContent;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div className="parchment flex flex-wrap items-center gap-3 px-4 py-3">
-      <div className="min-w-0 flex-1">
-        <div className="font-display text-[15px] font-bold leading-tight text-ink">
-          {entry.name}
-          <span
-            className={`label-stamp ml-2 text-[8.5px] tracking-[1px] ${entry.source === "srd" ? "text-ink-label" : "text-[#8b2520]"}`}
-          >
-            {entry.source === "srd" ? "SRD 5.2" : `Homebrew · ${entry.creatorName ?? "unknown"}`}
-          </span>
-        </div>
-        {entry.summary && (
-          <p className="font-body m-0 mt-0.5 truncate text-[12.5px] italic text-ink-body">
-            {entry.summary}
-          </p>
-        )}
-      </div>
-      {entry.mine && (
-        <div className="flex flex-none items-center gap-2">
-          <button onClick={onEdit} title="Edit" className="btn-base btn-ghost-ink p-2">
-            <IconPencil size={14} strokeWidth={1.8} />
-          </button>
-          <button onClick={onDelete} title="Remove" className="btn-base btn-ghost-red p-2">
-            <IconTrash size={14} strokeWidth={1.8} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function ScribesDesk() {
-  const [kind, setKind] = useState<RulesKind>("class");
-  const { data: entries, isLoading } = useRules(kind);
-  const { data: classes } = useRules("class");
-  const create = useCreateRules(kind);
-  const update = useUpdateRules(kind);
-  const del = useDeleteRules(kind);
-  const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState<RulesContent | null>(null);
-
-  const classNames = useMemo(
-    () => (classes ?? []).map((c) => c.name),
-    [classes],
-  );
-  const kindLabel = KINDS.find(([k]) => k === kind)?.[2] ?? kind;
-
-  const apiError = (e: unknown) =>
-    (e as { error?: string } | null)?.error ?? "The desk rejected it — check the fields.";
-
-  return (
-    <div className="panel-hall px-5 pb-11 pt-8 sm:px-[30px]">
-      <div
-        className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-3.5"
-        style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
-      >
-        <div>
-          <h2
-            className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
-            style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
-          >
-            The Scribe's Desk
-          </h2>
-          <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
-            SRD entries are carved in stone; your books go in as homebrew, kept
-            to this hall alone.
-          </div>
-        </div>
-        <button
-          onClick={() => setAdding(true)}
-          className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
-        >
-          <IconPlus size={15} strokeWidth={2} />
-          Scribe a {kindLabel}
-        </button>
-      </div>
-
-      {/* kind tabs */}
-      <div className="mb-5 flex flex-wrap gap-1.5">
-        {KINDS.map(([k, label]) => (
-          <button
-            key={k}
-            onClick={() => setKind(k)}
-            className={`label-stamp cursor-pointer rounded-[2px] border-none px-3 py-2 text-[10px] font-semibold tracking-[1.5px] ${
-              k === kind ? "text-ember-bright" : "text-gold-muted hover:text-gold-hair"
-            }`}
-            style={{
-              background: k === kind ? "rgba(201,162,39,.12)" : "rgba(16,9,5,.35)",
-              boxShadow: `inset 0 0 0 1px rgba(201,162,39,${k === kind ? ".45" : ".2"})`,
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {isLoading ? (
-        <div className="font-accent px-5 py-[60px] text-center text-base italic text-[#9c855e]">
-          Unrolling the scrolls…
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {(entries ?? []).map((e) => (
-            <EntryRow
-              key={e.id}
-              entry={e}
-              onEdit={() => setEditing(e)}
-              onDelete={() => {
-                if (confirm(`Strike "${e.name}" from the library?`)) del.mutate(e.id);
-              }}
-            />
-          ))}
-          {(entries ?? []).length === 0 && (
-            <div className="font-accent px-5 py-[50px] text-center text-base italic text-[#9c855e]">
-              Nothing of this kind yet — scribe the first.
-            </div>
-          )}
-        </div>
-      )}
-
-      {adding && (
-        <ParchmentModal onClose={() => setAdding(false)} maxWidth="max-w-[640px]">
-          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Scribe's Desk
-          </div>
-          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Scribe a {kindLabel}
-          </h3>
-          <ContentForm
-            kind={kind}
-            initial={{ name: "", summary: "", data: KIND_DEFAULTS[kind] }}
-            isPending={create.isPending}
-            errorText={create.isError ? apiError(create.error) : undefined}
-            classNames={classNames}
-            onCancel={() => setAdding(false)}
-            onSubmit={(body) => create.mutate(body, { onSuccess: () => setAdding(false) })}
-          />
-        </ParchmentModal>
-      )}
-
-      {editing && (
-        <ParchmentModal onClose={() => setEditing(null)} maxWidth="max-w-[640px]">
-          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Scribe's Desk
-          </div>
-          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Amend the Entry
-          </h3>
-          <ContentForm
-            kind={kind}
-            initial={{
-              name: editing.name,
-              summary: editing.summary,
-              data: (editing.data ?? {}) as DataObj,
-            }}
-            isPending={update.isPending}
-            errorText={update.isError ? apiError(update.error) : undefined}
-            classNames={classNames}
-            onCancel={() => setEditing(null)}
-            onSubmit={(body) =>
-              update.mutate(
-                { contentId: editing.id, body },
-                { onSuccess: () => setEditing(null) },
-              )
-            }
-          />
-        </ParchmentModal>
-      )}
-    </div>
   );
 }

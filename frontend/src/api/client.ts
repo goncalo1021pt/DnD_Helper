@@ -61,6 +61,8 @@ export type InventoryItemInput =
 export type SpellSlot = NonNullable<
   NonNullable<Character["sheet"]>["spellSlots"]
 >[number];
+export type ImportReport =
+  paths["/rules/import"]["post"]["responses"]["200"]["content"]["application/json"];
 export type ChronicleEvent =
   paths["/campaigns/{campaignId}/events"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type CodexEntry =

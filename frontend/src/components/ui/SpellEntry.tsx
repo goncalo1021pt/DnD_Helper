@@ -20,6 +20,7 @@ interface SpellData {
   description?: string;
   concentration?: boolean;
   ritual?: boolean;
+  book?: string;
 }
 
 function inline(text: string): ReactNode[] {
@@ -33,7 +34,7 @@ function inline(text: string): ReactNode[] {
   });
 }
 
-function Blocks({ text }: { text: string }) {
+export function Blocks({ text }: { text: string }) {
   return (
     <>
       {text.split(/\n\n+/).map((block, i) => {
@@ -117,6 +118,7 @@ export default function SpellEntry({
             ["Range", d.range],
             ["Components", d.components],
             ["Duration", d.duration],
+            ["Source", d.book],
           ] as Array<[string, string | undefined]>
         ).map(([label, value]) =>
           value ? (

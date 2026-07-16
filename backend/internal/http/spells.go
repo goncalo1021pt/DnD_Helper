@@ -17,9 +17,12 @@ import (
 
 // The class-data slice spellcasting needs. A class is a caster iff
 // data.spellcaster is set; data.spellcasting may override the pick tables.
+// data.spellList lets a class (e.g. homebrew Artificer) claim spells by name
+// when the spells' own classes arrays don't know about it.
 type castingRules struct {
 	Spellcaster  string         `json:"spellcaster"`
 	Spellcasting *rules.Casting `json:"spellcasting"`
+	SpellList    []string       `json:"spellList"`
 }
 
 // parseCasting reads a class's casting kind and pick tables (with fallbacks).
@@ -59,6 +62,8 @@ func (s *Server) validateSpellPicks(
 		}
 		return "", nil, nil
 	}
+	var cr castingRules
+	_ = json.Unmarshal(class.Data, &cr)
 	if atLevel < 1 {
 		atLevel = 1
 	}
@@ -102,6 +107,12 @@ func (s *Server) validateSpellPicks(
 				onList = true
 				break
 			}
+		}
+		for _, n := range cr.SpellList {
+			if onList {
+				break
+			}
+			onList = strings.EqualFold(n, row.Name)
 		}
 		if !onList {
 			return fmt.Sprintf("%s is not on the %s spell list", row.Name, class.Name), nil, nil
