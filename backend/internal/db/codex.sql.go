@@ -161,3 +161,28 @@ func (q *Queries) SetCodexStatus(ctx context.Context, arg SetCodexStatusParams) 
 	)
 	return err
 }
+
+const setCodexStatusBulk = `-- name: SetCodexStatusBulk :exec
+INSERT INTO campaign_content (campaign_id, content_id, status, proposed_by)
+SELECT $1, unnest($2::uuid[]), $3, $4
+ON CONFLICT (campaign_id, content_id)
+DO UPDATE SET status = EXCLUDED.status
+`
+
+type SetCodexStatusBulkParams struct {
+	CampaignID uuid.UUID   `json:"campaign_id"`
+	Column2    []uuid.UUID `json:"column_2"`
+	Status     CodexStatus `json:"status"`
+	ProposedBy pgtype.UUID `json:"proposed_by"`
+}
+
+// One DM verdict over many entries at once (pack admissions).
+func (q *Queries) SetCodexStatusBulk(ctx context.Context, arg SetCodexStatusBulkParams) error {
+	_, err := q.db.Exec(ctx, setCodexStatusBulk,
+		arg.CampaignID,
+		arg.Column2,
+		arg.Status,
+		arg.ProposedBy,
+	)
+	return err
+}

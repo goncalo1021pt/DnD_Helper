@@ -85,6 +85,27 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for ImportReportResultsStatus.
+const (
+	ImportReportResultsStatusCreated ImportReportResultsStatus = "created"
+	ImportReportResultsStatusFailed  ImportReportResultsStatus = "failed"
+	ImportReportResultsStatusUpdated ImportReportResultsStatus = "updated"
+)
+
+// Valid indicates whether the value is a known member of the ImportReportResultsStatus enum.
+func (e ImportReportResultsStatus) Valid() bool {
+	switch e {
+	case ImportReportResultsStatusCreated:
+		return true
+	case ImportReportResultsStatusFailed:
+		return true
+	case ImportReportResultsStatusUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LevelUpRequestHpMode.
 const (
 	Average LevelUpRequestHpMode = "average"
@@ -121,6 +142,39 @@ func (e NodeRarity) Valid() bool {
 	}
 }
 
+// Defines values for PackEntryKind.
+const (
+	PackEntryKindBackground PackEntryKind = "background"
+	PackEntryKindClass      PackEntryKind = "class"
+	PackEntryKindFeat       PackEntryKind = "feat"
+	PackEntryKindItem       PackEntryKind = "item"
+	PackEntryKindSpecies    PackEntryKind = "species"
+	PackEntryKindSpell      PackEntryKind = "spell"
+	PackEntryKindSubclass   PackEntryKind = "subclass"
+)
+
+// Valid indicates whether the value is a known member of the PackEntryKind enum.
+func (e PackEntryKind) Valid() bool {
+	switch e {
+	case PackEntryKindBackground:
+		return true
+	case PackEntryKindClass:
+		return true
+	case PackEntryKindFeat:
+		return true
+	case PackEntryKindItem:
+		return true
+	case PackEntryKindSpecies:
+		return true
+	case PackEntryKindSpell:
+		return true
+	case PackEntryKindSubclass:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for QuestDifficulty.
 const (
 	Deadly  QuestDifficulty = "deadly"
@@ -150,22 +204,22 @@ func (e QuestDifficulty) Valid() bool {
 
 // Defines values for QuestStatus.
 const (
-	Active    QuestStatus = "active"
-	Available QuestStatus = "available"
-	Completed QuestStatus = "completed"
-	Failed    QuestStatus = "failed"
+	QuestStatusActive    QuestStatus = "active"
+	QuestStatusAvailable QuestStatus = "available"
+	QuestStatusCompleted QuestStatus = "completed"
+	QuestStatusFailed    QuestStatus = "failed"
 )
 
 // Valid indicates whether the value is a known member of the QuestStatus enum.
 func (e QuestStatus) Valid() bool {
 	switch e {
-	case Active:
+	case QuestStatusActive:
 		return true
-	case Available:
+	case QuestStatusAvailable:
 		return true
-	case Completed:
+	case QuestStatusCompleted:
 		return true
-	case Failed:
+	case QuestStatusFailed:
 		return true
 	default:
 		return false
@@ -291,31 +345,49 @@ func (e SeatConflictMissingState) Valid() bool {
 
 // Defines values for ContentKind.
 const (
-	ContentKindBackground ContentKind = "background"
-	ContentKindClass      ContentKind = "class"
-	ContentKindFeat       ContentKind = "feat"
-	ContentKindItem       ContentKind = "item"
-	ContentKindSpecies    ContentKind = "species"
-	ContentKindSpell      ContentKind = "spell"
-	ContentKindSubclass   ContentKind = "subclass"
+	Background ContentKind = "background"
+	Class      ContentKind = "class"
+	Feat       ContentKind = "feat"
+	Item       ContentKind = "item"
+	Species    ContentKind = "species"
+	Spell      ContentKind = "spell"
+	Subclass   ContentKind = "subclass"
 )
 
 // Valid indicates whether the value is a known member of the ContentKind enum.
 func (e ContentKind) Valid() bool {
 	switch e {
-	case ContentKindBackground:
+	case Background:
 		return true
-	case ContentKindClass:
+	case Class:
 		return true
-	case ContentKindFeat:
+	case Feat:
 		return true
-	case ContentKindItem:
+	case Item:
 		return true
-	case ContentKindSpecies:
+	case Species:
 		return true
-	case ContentKindSpell:
+	case Spell:
 		return true
-	case ContentKindSubclass:
+	case Subclass:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetCodexStatusBulkJSONBodyStatus.
+const (
+	SetCodexStatusBulkJSONBodyStatusBanned  SetCodexStatusBulkJSONBodyStatus = "banned"
+	SetCodexStatusBulkJSONBodyStatusEnabled SetCodexStatusBulkJSONBodyStatus = "enabled"
+)
+
+// Valid indicates whether the value is a known member of the SetCodexStatusBulkJSONBodyStatus enum.
+func (e SetCodexStatusBulkJSONBodyStatus) Valid() bool {
+	switch e {
+	case SetCodexStatusBulkJSONBodyStatusBanned:
+		return true
+	case SetCodexStatusBulkJSONBodyStatusEnabled:
 		return true
 	default:
 		return false
@@ -324,16 +396,16 @@ func (e ContentKind) Valid() bool {
 
 // Defines values for SetCodexStatusJSONBodyStatus.
 const (
-	Banned  SetCodexStatusJSONBodyStatus = "banned"
-	Enabled SetCodexStatusJSONBodyStatus = "enabled"
+	SetCodexStatusJSONBodyStatusBanned  SetCodexStatusJSONBodyStatus = "banned"
+	SetCodexStatusJSONBodyStatusEnabled SetCodexStatusJSONBodyStatus = "enabled"
 )
 
 // Valid indicates whether the value is a known member of the SetCodexStatusJSONBodyStatus enum.
 func (e SetCodexStatusJSONBodyStatus) Valid() bool {
 	switch e {
-	case Banned:
+	case SetCodexStatusJSONBodyStatusBanned:
 		return true
-	case Enabled:
+	case SetCodexStatusJSONBodyStatusEnabled:
 		return true
 	default:
 		return false
@@ -548,6 +620,22 @@ type Health struct {
 // HealthStatus defines model for Health.Status.
 type HealthStatus string
 
+// ImportReport defines model for ImportReport.
+type ImportReport struct {
+	Created int `json:"created"`
+	Failed  int `json:"failed"`
+	Results []struct {
+		Error  *string                   `json:"error,omitempty"`
+		Kind   string                    `json:"kind"`
+		Name   string                    `json:"name"`
+		Status ImportReportResultsStatus `json:"status"`
+	} `json:"results"`
+	Updated int `json:"updated"`
+}
+
+// ImportReportResultsStatus defines model for ImportReport.Results.Status.
+type ImportReportResultsStatus string
+
 // InventoryItem defines model for InventoryItem.
 type InventoryItem struct {
 	Content  *RulesContent      `json:"content,omitempty"`
@@ -607,6 +695,17 @@ type LevelUpRequestHpMode string
 
 // NodeRarity defines model for NodeRarity.
 type NodeRarity string
+
+// PackEntry defines model for PackEntry.
+type PackEntry struct {
+	Data    map[string]interface{} `json:"data"`
+	Kind    PackEntryKind          `json:"kind"`
+	Name    string                 `json:"name"`
+	Summary *string                `json:"summary,omitempty"`
+}
+
+// PackEntryKind defines model for PackEntry.Kind.
+type PackEntryKind string
 
 // Quest defines model for Quest.
 type Quest struct {
@@ -867,6 +966,15 @@ type ProposeCodexContentJSONBody struct {
 	ContentIds []openapi_types.UUID `json:"contentIds"`
 }
 
+// SetCodexStatusBulkJSONBody defines parameters for SetCodexStatusBulk.
+type SetCodexStatusBulkJSONBody struct {
+	ContentIds []openapi_types.UUID             `json:"contentIds"`
+	Status     SetCodexStatusBulkJSONBodyStatus `json:"status"`
+}
+
+// SetCodexStatusBulkJSONBodyStatus defines parameters for SetCodexStatusBulk.
+type SetCodexStatusBulkJSONBodyStatus string
+
 // SetCodexStatusJSONBody defines parameters for SetCodexStatus.
 type SetCodexStatusJSONBody struct {
 	Status SetCodexStatusJSONBodyStatus `json:"status"`
@@ -907,6 +1015,11 @@ type GrantXPJSONBody struct {
 	Reason       *string               `json:"reason,omitempty"`
 }
 
+// ImportContentPackJSONBody defines parameters for ImportContentPack.
+type ImportContentPackJSONBody struct {
+	Entries []PackEntry `json:"entries"`
+}
+
 // CreateCampaignJSONRequestBody defines body for CreateCampaign for application/json ContentType.
 type CreateCampaignJSONRequestBody = CreateCampaignRequest
 
@@ -918,6 +1031,9 @@ type CreateCharacterJSONRequestBody = CharacterInput
 
 // ProposeCodexContentJSONRequestBody defines body for ProposeCodexContent for application/json ContentType.
 type ProposeCodexContentJSONRequestBody ProposeCodexContentJSONBody
+
+// SetCodexStatusBulkJSONRequestBody defines body for SetCodexStatusBulk for application/json ContentType.
+type SetCodexStatusBulkJSONRequestBody SetCodexStatusBulkJSONBody
 
 // SetCodexStatusJSONRequestBody defines body for SetCodexStatus for application/json ContentType.
 type SetCodexStatusJSONRequestBody SetCodexStatusJSONBody
@@ -985,6 +1101,9 @@ type UpdateQuestJSONRequestBody = UpdateQuestRequest
 // UpdateRulesContentJSONRequestBody defines body for UpdateRulesContent for application/json ContentType.
 type UpdateRulesContentJSONRequestBody = RulesContentInput
 
+// ImportContentPackJSONRequestBody defines body for ImportContentPack for application/json ContentType.
+type ImportContentPackJSONRequestBody ImportContentPackJSONBody
+
 // CreateRulesContentJSONRequestBody defines body for CreateRulesContent for application/json ContentType.
 type CreateRulesContentJSONRequestBody = RulesContentInput
 
@@ -1020,6 +1139,9 @@ type ServerInterface interface {
 	// Offer your homebrew to the table (members; DM decides)
 	// (POST /campaigns/{campaignId}/codex)
 	ProposeCodexContent(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// One verdict over many entries (DM only — pack admissions)
+	// (POST /campaigns/{campaignId}/codex/bulk)
+	SetCodexStatusBulk(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// Remove a ruling — back to defaults (DM only)
 	// (DELETE /campaigns/{campaignId}/codex/{contentId})
 	ClearCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID)
@@ -1137,6 +1259,12 @@ type ServerInterface interface {
 	// Edit a homebrew entry (author only; SRD is immutable)
 	// (PUT /rules/content/{contentId})
 	UpdateRulesContent(w http.ResponseWriter, r *http.Request, contentId openapi_types.UUID)
+	// Your homebrew as a content pack (keep it out of public repos)
+	// (GET /rules/export)
+	ExportContentPack(w http.ResponseWriter, r *http.Request)
+	// Batch-import a content pack as your private homebrew (upserts by name)
+	// (POST /rules/import)
+	ImportContentPack(w http.ResponseWriter, r *http.Request)
 	// Rules content of one kind (SRD + this instance's homebrew)
 	// (GET /rules/{kind})
 	ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind)
@@ -1203,6 +1331,12 @@ func (_ Unimplemented) GetCodex(w http.ResponseWriter, r *http.Request, campaign
 // Offer your homebrew to the table (members; DM decides)
 // (POST /campaigns/{campaignId}/codex)
 func (_ Unimplemented) ProposeCodexContent(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// One verdict over many entries (DM only — pack admissions)
+// (POST /campaigns/{campaignId}/codex/bulk)
+func (_ Unimplemented) SetCodexStatusBulk(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1440,6 +1574,18 @@ func (_ Unimplemented) UpdateRulesContent(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Your homebrew as a content pack (keep it out of public repos)
+// (GET /rules/export)
+func (_ Unimplemented) ExportContentPack(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Batch-import a content pack as your private homebrew (upserts by name)
+// (POST /rules/import)
+func (_ Unimplemented) ImportContentPack(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Rules content of one kind (SRD + this instance's homebrew)
 // (GET /rules/{kind})
 func (_ Unimplemented) ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind) {
@@ -1670,6 +1816,38 @@ func (siw *ServerInterfaceWrapper) ProposeCodexContent(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ProposeCodexContent(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetCodexStatusBulk operation middleware
+func (siw *ServerInterfaceWrapper) SetCodexStatusBulk(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetCodexStatusBulk(w, r, campaignId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2913,6 +3091,46 @@ func (siw *ServerInterfaceWrapper) UpdateRulesContent(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// ExportContentPack operation middleware
+func (siw *ServerInterfaceWrapper) ExportContentPack(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportContentPack(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ImportContentPack operation middleware
+func (siw *ServerInterfaceWrapper) ImportContentPack(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportContentPack(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRules operation middleware
 func (siw *ServerInterfaceWrapper) ListRules(w http.ResponseWriter, r *http.Request) {
 
@@ -3272,6 +3490,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/campaigns/{campaignId}/codex", wrapper.ProposeCodexContent)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/codex/bulk", wrapper.SetCodexStatusBulk)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/campaigns/{campaignId}/codex/{contentId}", wrapper.ClearCodexStatus)
 	})
 	r.Group(func(r chi.Router) {
@@ -3387,6 +3608,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/rules/content/{contentId}", wrapper.UpdateRulesContent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/rules/export", wrapper.ExportContentPack)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/rules/import", wrapper.ImportContentPack)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/rules/{kind}", wrapper.ListRules)
@@ -3783,6 +4010,65 @@ func (response ProposeCodexContent401JSONResponse) VisitProposeCodexContentRespo
 type ProposeCodexContent403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response ProposeCodexContent403JSONResponse) VisitProposeCodexContentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCodexStatusBulkRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *SetCodexStatusBulkJSONRequestBody
+}
+
+type SetCodexStatusBulkResponseObject interface {
+	VisitSetCodexStatusBulkResponse(w http.ResponseWriter) error
+}
+
+type SetCodexStatusBulk204Response struct {
+}
+
+func (response SetCodexStatusBulk204Response) VisitSetCodexStatusBulkResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type SetCodexStatusBulk400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SetCodexStatusBulk400JSONResponse) VisitSetCodexStatusBulkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCodexStatusBulk401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetCodexStatusBulk401JSONResponse) VisitSetCodexStatusBulkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetCodexStatusBulk403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetCodexStatusBulk403JSONResponse) VisitSetCodexStatusBulkResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -6306,6 +6592,93 @@ func (response UpdateRulesContent404JSONResponse) VisitUpdateRulesContentRespons
 	return err
 }
 
+type ExportContentPackRequestObject struct {
+}
+
+type ExportContentPackResponseObject interface {
+	VisitExportContentPackResponse(w http.ResponseWriter) error
+}
+
+type ExportContentPack200JSONResponse struct {
+	Entries []PackEntry `json:"entries"`
+}
+
+func (response ExportContentPack200JSONResponse) VisitExportContentPackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportContentPack401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ExportContentPack401JSONResponse) VisitExportContentPackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportContentPackRequestObject struct {
+	Body *ImportContentPackJSONRequestBody
+}
+
+type ImportContentPackResponseObject interface {
+	VisitImportContentPackResponse(w http.ResponseWriter) error
+}
+
+type ImportContentPack200JSONResponse ImportReport
+
+func (response ImportContentPack200JSONResponse) VisitImportContentPackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportContentPack400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response ImportContentPack400JSONResponse) VisitImportContentPackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportContentPack401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ImportContentPack401JSONResponse) VisitImportContentPackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListRulesRequestObject struct {
 	Kind ContentKind `json:"kind"`
 }
@@ -6775,6 +7148,9 @@ type StrictServerInterface interface {
 	// Offer your homebrew to the table (members; DM decides)
 	// (POST /campaigns/{campaignId}/codex)
 	ProposeCodexContent(ctx context.Context, request ProposeCodexContentRequestObject) (ProposeCodexContentResponseObject, error)
+	// One verdict over many entries (DM only — pack admissions)
+	// (POST /campaigns/{campaignId}/codex/bulk)
+	SetCodexStatusBulk(ctx context.Context, request SetCodexStatusBulkRequestObject) (SetCodexStatusBulkResponseObject, error)
 	// Remove a ruling — back to defaults (DM only)
 	// (DELETE /campaigns/{campaignId}/codex/{contentId})
 	ClearCodexStatus(ctx context.Context, request ClearCodexStatusRequestObject) (ClearCodexStatusResponseObject, error)
@@ -6892,6 +7268,12 @@ type StrictServerInterface interface {
 	// Edit a homebrew entry (author only; SRD is immutable)
 	// (PUT /rules/content/{contentId})
 	UpdateRulesContent(ctx context.Context, request UpdateRulesContentRequestObject) (UpdateRulesContentResponseObject, error)
+	// Your homebrew as a content pack (keep it out of public repos)
+	// (GET /rules/export)
+	ExportContentPack(ctx context.Context, request ExportContentPackRequestObject) (ExportContentPackResponseObject, error)
+	// Batch-import a content pack as your private homebrew (upserts by name)
+	// (POST /rules/import)
+	ImportContentPack(ctx context.Context, request ImportContentPackRequestObject) (ImportContentPackResponseObject, error)
 	// Rules content of one kind (SRD + this instance's homebrew)
 	// (GET /rules/{kind})
 	ListRules(ctx context.Context, request ListRulesRequestObject) (ListRulesResponseObject, error)
@@ -7141,6 +7523,39 @@ func (sh *strictHandler) ProposeCodexContent(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ProposeCodexContentResponseObject); ok {
 		if err := validResponse.VisitProposeCodexContentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetCodexStatusBulk operation middleware
+func (sh *strictHandler) SetCodexStatusBulk(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request SetCodexStatusBulkRequestObject
+
+	request.CampaignId = campaignId
+
+	var body SetCodexStatusBulkJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetCodexStatusBulk(ctx, request.(SetCodexStatusBulkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetCodexStatusBulk")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetCodexStatusBulkResponseObject); ok {
+		if err := validResponse.VisitSetCodexStatusBulkResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8314,6 +8729,61 @@ func (sh *strictHandler) UpdateRulesContent(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// ExportContentPack operation middleware
+func (sh *strictHandler) ExportContentPack(w http.ResponseWriter, r *http.Request) {
+	var request ExportContentPackRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportContentPack(ctx, request.(ExportContentPackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportContentPack")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExportContentPackResponseObject); ok {
+		if err := validResponse.VisitExportContentPackResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ImportContentPack operation middleware
+func (sh *strictHandler) ImportContentPack(w http.ResponseWriter, r *http.Request) {
+	var request ImportContentPackRequestObject
+
+	var body ImportContentPackJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ImportContentPack(ctx, request.(ImportContentPackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ImportContentPack")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ImportContentPackResponseObject); ok {
+		if err := validResponse.VisitImportContentPackResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListRules operation middleware
 func (sh *strictHandler) ListRules(w http.ResponseWriter, r *http.Request, kind ContentKind) {
 	var request ListRulesRequestObject
@@ -8529,113 +8999,118 @@ func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, tree
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"1/OVNznLOS+TcXASDGnKgrtf7v43AAD//w==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

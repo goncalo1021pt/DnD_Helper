@@ -36,6 +36,24 @@ export function fallbackCasting(kind: string): Casting {
 export interface CasterData {
   spellcaster?: string;
   spellcasting?: Partial<Casting>;
+  spellList?: string[];
+}
+
+/**
+ * True when a spell belongs to a class: named in the spell's classes array,
+ * or claimed by the class's own data.spellList — how homebrew classes (e.g.
+ * the Artificer) adopt spells that don't know about them. Mirrors the
+ * backend's validateSpellPicks.
+ */
+export function spellOnClassList(
+  spell: { name: string; data: unknown },
+  klass: { name: string; data: unknown } | undefined,
+): boolean {
+  if (!klass) return false;
+  const classes = (spell.data as { classes?: string[] }).classes ?? [];
+  if (classes.some((c) => c.toLowerCase() === klass.name.toLowerCase())) return true;
+  const list = (klass.data as CasterData).spellList ?? [];
+  return list.some((n) => n.toLowerCase() === spell.name.toLowerCase());
 }
 
 export function castingFor(data: CasterData | undefined): Casting | null {

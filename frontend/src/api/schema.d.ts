@@ -264,6 +264,40 @@ export interface paths {
         patch: operations["updateInventoryItem"];
         trace?: never;
     };
+    "/rules/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Batch-import a content pack as your private homebrew (upserts by name) */
+        post: operations["importContentPack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your homebrew as a content pack (keep it out of public repos) */
+        get: operations["exportContentPack"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rules/{kind}": {
         parameters: {
             query?: never;
@@ -414,6 +448,25 @@ export interface paths {
         put?: never;
         /** Offer your homebrew to the table (members; DM decides) */
         post: operations["proposeCodexContent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/codex/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** One verdict over many entries (DM only — pack admissions) */
+        post: operations["setCodexStatusBulk"];
         delete?: never;
         options?: never;
         head?: never;
@@ -952,6 +1005,27 @@ export interface components {
             character: components["schemas"]["Character"];
             spells: components["schemas"]["RulesContent"][];
             items: components["schemas"]["InventoryItem"][];
+        };
+        PackEntry: {
+            /** @enum {string} */
+            kind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item";
+            name: string;
+            summary?: string;
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        ImportReport: {
+            created: number;
+            updated: number;
+            failed: number;
+            results: {
+                kind: string;
+                name: string;
+                /** @enum {string} */
+                status: "created" | "updated" | "failed";
+                error?: string;
+            }[];
         };
         ChronicleEvent: {
             /** Format: uuid */
@@ -1632,6 +1706,57 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    importContentPack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    entries: components["schemas"]["PackEntry"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Per-entry results (failures do not abort the batch) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    exportContentPack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries: components["schemas"]["PackEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     listRules: {
         parameters: {
             query?: never;
@@ -1960,6 +2085,37 @@ export interface operations {
         };
         responses: {
             /** @description Proposed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setCodexStatusBulk: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    contentIds: string[];
+                    /** @enum {string} */
+                    status: "enabled" | "banned";
+                };
+            };
+        };
+        responses: {
+            /** @description Ruled */
             204: {
                 headers: {
                     [name: string]: unknown;

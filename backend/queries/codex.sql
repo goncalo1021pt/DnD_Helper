@@ -30,3 +30,10 @@ ON CONFLICT (campaign_id, content_id) DO NOTHING;
 -- Statuses for a set of entries in one campaign (seat/level-up legality).
 SELECT content_id, status FROM campaign_content
 WHERE campaign_id = $1 AND content_id = ANY($2::uuid[]);
+
+-- name: SetCodexStatusBulk :exec
+-- One DM verdict over many entries at once (pack admissions).
+INSERT INTO campaign_content (campaign_id, content_id, status, proposed_by)
+SELECT $1, unnest($2::uuid[]), $3, $4
+ON CONFLICT (campaign_id, content_id)
+DO UPDATE SET status = EXCLUDED.status;

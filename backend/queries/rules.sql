@@ -67,3 +67,17 @@ DELETE FROM rules_content WHERE id = $1;
 -- (e.g. content that turned out not to be in the SRD) are removed.
 DELETE FROM rules_content
 WHERE kind = $1 AND source = 'srd' AND NOT (name = ANY($2::text[]));
+
+-- name: UpsertOwnHomebrew :one
+-- Import upsert: create the author's entry or update it in place, keyed on
+-- the per-author uniqueness (kind, name, created_by).
+INSERT INTO rules_content (kind, source, name, summary, data, created_by)
+VALUES ($1, 'homebrew', $2, $3, $4, $5)
+ON CONFLICT (kind, name, created_by) WHERE source = 'homebrew' DO UPDATE
+SET summary = EXCLUDED.summary, data = EXCLUDED.data, updated_at = now()
+RETURNING *, (xmax = 0) AS created;
+
+-- name: ListOwnHomebrew :many
+SELECT * FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1
+ORDER BY kind, name;

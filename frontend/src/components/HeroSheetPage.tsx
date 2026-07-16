@@ -12,7 +12,7 @@ import {
 import { acFromEquipment, profBonus, weaponAttacks } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
-import SpellEntry, { SpellFlags } from "./ui/SpellEntry";
+import SpellEntry, { Blocks, SpellFlags } from "./ui/SpellEntry";
 import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
 import LevelUpModal from "./LevelUpModal";
@@ -237,7 +237,11 @@ export default function HeroSheetPage() {
                       <span className="label-stamp ml-2 text-[8px] tracking-[1px] text-ink-label">
                         {f.from} {f.level ?? 1}
                       </span>
-                      {f.summary && <div className="text-ink-body">{f.summary}</div>}
+                      {f.summary && (
+                        <div className="leading-relaxed text-ink-body">
+                          <Blocks text={f.summary} />
+                        </div>
+                      )}
                     </div>
                   ))}
                   {(sheet.feats ?? []).length > 0 && (

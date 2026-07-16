@@ -42,16 +42,10 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
             My Heroes
           </Link>
           <Link
-            to="/questboard/spellbook"
+            to="/questboard/archives"
             className="label-stamp text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
           >
-            Spellbook
-          </Link>
-          <Link
-            to="/questboard/scribe"
-            className="label-stamp text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
-          >
-            Scribe's Desk
+            The Archives
           </Link>
           <span className="label-stamp text-[11px] font-semibold text-gold-hair">
             {user.name}

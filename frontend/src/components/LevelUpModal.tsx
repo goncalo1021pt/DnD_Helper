@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import type { AbilityScores, Character, LevelUpRequest } from "../api/client";
 import { useCharacterDetail, useCodex, useLevelUp, useRules } from "../hooks";
-import { castingFor, maxSpellLevel, type CasterData } from "../lib/spellcasting";
+import { castingFor, maxSpellLevel, spellOnClassList, type CasterData } from "../lib/spellcasting";
 import { abilityMod } from "./ui/AbilityRow";
 import ParchmentModal from "./ui/ParchmentModal";
 import SpellHover from "./ui/SpellHover";
+import { Blocks } from "./ui/SpellEntry";
 
 /**
  * One level, gained: HP by average or roll, subclass at the class's subclass
@@ -87,9 +88,13 @@ export default function LevelUpModal({
     () =>
       (feats ?? []).filter((f) => {
         const d = f.data as { category?: string };
-        return d.category !== "origin" && !sheet.feats?.includes(f.name) && codexLegal(f);
+        // Origin feats come from backgrounds; the ASI feat is the "Abilities"
+        // choice next door; epic boons wait for level 19.
+        if (d.category === "origin" || f.name === "Ability Score Improvement") return false;
+        if (d.category === "epic-boon" && newLevel < 19) return false;
+        return !sheet.feats?.includes(f.name) && codexLegal(f);
       }),
-    [feats, sheet.feats, codexLegal],
+    [feats, sheet.feats, codexLegal, newLevel],
   );
 
   // Spell picks: additions allowed up to the new level's caps.
@@ -112,7 +117,7 @@ export default function LevelUpModal({
       return (
         !ownedSpellIds.has(s.id) &&
         (lvl === 0 || lvl <= maxLvl) &&
-        (d.classes ?? []).some((c) => c.toLowerCase() === klass?.name.toLowerCase()) &&
+        spellOnClassList(s, klass) &&
         codexLegal(s)
       );
     });
@@ -188,11 +193,15 @@ export default function LevelUpModal({
         {gained.length > 0 && (
           <div>
             <div className="field-label mb-1.5">Gained at level {newLevel}</div>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex max-h-64 flex-col gap-2.5 overflow-y-auto pr-1">
               {gained.map((f, i) => (
                 <div key={i} className="text-[13px]">
                   <span className="font-heading font-bold">{f.name}</span>
-                  {f.summary && <span className="text-ink-body"> — {f.summary}</span>}
+                  {f.summary && (
+                    <div className="mt-0.5 text-[12.5px] leading-relaxed text-ink-body">
+                      <Blocks text={f.summary} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -391,18 +400,48 @@ export default function LevelUpModal({
                   onChange={(e) => setFeatId(e.target.value)}
                 >
                   <option value="">Choose a feat…</option>
-                  {generalFeats.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                      {f.source === "homebrew" ? ` (homebrew · ${f.creatorName ?? "?"})` : ""}
-                    </option>
-                  ))}
+                  {generalFeats.map((f) => {
+                    const cat = (f.data as { category?: string }).category;
+                    const tag =
+                      cat === "fighting-style"
+                        ? " — fighting style"
+                        : cat === "epic-boon"
+                          ? " — epic boon"
+                          : "";
+                    return (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                        {tag}
+                        {f.source === "homebrew" ? ` (homebrew · ${f.creatorName ?? "?"})` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
-                {featId && (
-                  <p className="font-body m-0 mt-1.5 text-[12.5px] italic text-ink-body">
-                    {generalFeats.find((f) => f.id === featId)?.summary}
-                  </p>
-                )}
+                {featId &&
+                  (() => {
+                    const feat = generalFeats.find((f) => f.id === featId);
+                    const d = (feat?.data ?? {}) as {
+                      prerequisite?: string;
+                      description?: string;
+                    };
+                    return (
+                      <div className="mt-1.5">
+                        {d.prerequisite && (
+                          <p className="font-body m-0 text-[12px] italic text-ink-label">
+                            Prerequisite: {d.prerequisite}
+                          </p>
+                        )}
+                        <p className="font-body m-0 mt-0.5 text-[12.5px] italic text-ink-body">
+                          {feat?.summary}
+                        </p>
+                        {d.description && (
+                          <div className="mt-1.5 max-h-44 overflow-y-auto pr-1 text-[12px] leading-relaxed text-ink-body">
+                            <Blocks text={d.description} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
               </div>
             )}
           </div>

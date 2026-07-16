@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { AbilityScores, RulesContent } from "../api/client";
 import { useForgeCharacter, useRules } from "../hooks";
-import { castingFor, type CasterData } from "../lib/spellcasting";
+import { castingFor, spellOnClassList, type CasterData } from "../lib/spellcasting";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import SpellHover from "./ui/SpellHover";
 
@@ -99,7 +99,7 @@ export default function ForgeWizard() {
   const chosenSpecies = species?.find((s) => s.id === speciesId);
 
   const classData = chosenClass?.data as
-    | { hitDie?: number; saves?: string[]; skillChoices?: { choose: number; from: string[] }; features?: Array<{ name: string; summary: string }> }
+    | { hitDie?: number; saves?: string[]; primaryAbility?: string[]; skillChoices?: { choose: number; from: string[] }; features?: Array<{ name: string; summary: string }> }
     | undefined;
   const bgData = chosenBackground?.data as
     | { abilityScores?: string[]; feat?: string; skills?: string[]; tool?: string }
@@ -151,13 +151,7 @@ export default function ForgeWizard() {
   const casting = castingFor(chosenClass?.data as CasterData | undefined);
   const { data: allSpells } = useRules("spell");
   const classSpells = useMemo(
-    () =>
-      (allSpells ?? []).filter((s) => {
-        const d = s.data as { classes?: string[] };
-        return (d.classes ?? []).some(
-          (c) => c.toLowerCase() === chosenClass?.name.toLowerCase(),
-        );
-      }),
+    () => (allSpells ?? []).filter((s) => spellOnClassList(s, chosenClass)),
     [allSpells, chosenClass],
   );
   const cantripsMax = casting?.cantrips[0] ?? 0;
@@ -276,7 +270,12 @@ export default function ForgeWizard() {
             <>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {(classes ?? []).map((c) => {
-                  const d = c.data as { hitDie?: number; saves?: string[] };
+                  const d = c.data as {
+                    hitDie?: number;
+                    saves?: string[];
+                    primaryAbility?: string[];
+                  };
+                  const primary = (d.primaryAbility ?? []).join("/");
                   return (
                     <OptionCard
                       key={c.id}
@@ -289,7 +288,7 @@ export default function ForgeWizard() {
                         }
                         setClassId(c.id);
                       }}
-                      facts={`d${d.hitDie ?? "?"} · saves ${(d.saves ?? []).join("/")}`}
+                      facts={`d${d.hitDie ?? "?"}${primary ? ` · ${primary}` : ""} · saves ${(d.saves ?? []).join("/")}`}
                     />
                   );
                 })}
@@ -649,7 +648,10 @@ export default function ForgeWizard() {
             {chosenClass && classData && (
               <div>
                 <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">Class · </span>
-                d{classData.hitDie} hit die, saves {(classData.saves ?? []).join("/")}
+                d{classData.hitDie} hit die
+                {(classData.primaryAbility ?? []).length > 0 &&
+                  `, ${(classData.primaryAbility ?? []).join("/")} primary`}
+                , saves {(classData.saves ?? []).join("/")}
               </div>
             )}
             {chosenBackground && bgData && (
