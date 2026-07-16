@@ -609,7 +609,7 @@ export default function ForgeWizard() {
               <button
                 onClick={() => setStep(safeStep + 1)}
                 disabled={!stepValid}
-                className="btn-base btn-gold clip-octagon h-11 px-6 text-sm"
+                className="btn-base btn-gold clip-octagon h-11 whitespace-nowrap px-6 text-sm"
               >
                 Next →
               </button>
