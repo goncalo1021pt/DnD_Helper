@@ -538,6 +538,162 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns/{campaignId}/events:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listEvents
+      summary: The campaign chronicle, newest first (members)
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChronicleEvent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: addChronicleNote
+      summary: Write a story entry into the chronicle (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        "201":
+          description: The entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChronicleEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/xp:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: grantXP
+      summary: Grant (or dock) XP to seated heroes (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount:
+                  type: integer
+                  minimum: -100000
+                  maximum: 100000
+                characterIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Omit to grant to every seated hero.
+                reason:
+                  type: string
+                  maxLength: 200
+      responses:
+        "200":
+          description: The heroes after the grant
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/milestone:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: declareMilestone
+      summary: A milestone — every seated hero gains one pending level-up (DM only)
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+                  maxLength: 200
+      responses:
+        "204":
+          description: Declared
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/progression:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setProgression
+      summary: Switch the campaign between milestone and XP progression (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode:
+                  type: string
+                  enum: [milestone, xp]
+      responses:
+        "200":
+          description: The campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /campaigns/{campaignId}/codex:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -1195,6 +1351,10 @@ components:
           format: date-time
           nullable: true
           description: When the table gathers next; null when unscheduled.
+        progression:
+          type: string
+          enum: [milestone, xp]
+          description: How heroes advance at this table.
 
     CampaignMembership:
       type: object
@@ -1360,6 +1520,12 @@ components:
         mine:
           type: boolean
           description: True when the caller owns this character.
+        xp:
+          type: integer
+          description: Experience points (XP-mode campaigns; advisory).
+        pendingLevels:
+          type: integer
+          description: Milestone level-ups waiting to be taken.
         sheet:
           $ref: "#/components/schemas/CharacterSheet"
 
@@ -1675,6 +1841,25 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InventoryItem"
+
+    ChronicleEvent:
+      type: object
+      required: [id, kind, message, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          description: quest_posted, hero_seated, level_up, codex_enabled, xp, milestone, note…
+        message:
+          type: string
+        actorName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
 
     NodeRarity:
       type: string

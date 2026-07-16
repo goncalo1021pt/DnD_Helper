@@ -323,6 +323,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The campaign chronicle, newest first (members) */
+        get: operations["listEvents"];
+        put?: never;
+        /** Write a story entry into the chronicle (DM only) */
+        post: operations["addChronicleNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/xp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Grant (or dock) XP to seated heroes (DM only) */
+        post: operations["grantXP"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/milestone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A milestone — every seated hero gains one pending level-up (DM only) */
+        post: operations["declareMilestone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/progression": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Switch the campaign between milestone and XP progression (DM only) */
+        put: operations["setProgression"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/codex": {
         parameters: {
             query?: never;
@@ -617,6 +694,11 @@ export interface components {
              * @description When the table gathers next; null when unscheduled.
              */
             nextSessionAt?: string | null;
+            /**
+             * @description How heroes advance at this table.
+             * @enum {string}
+             */
+            progression?: "milestone" | "xp";
         };
         CampaignMembership: {
             campaign: components["schemas"]["Campaign"];
@@ -700,6 +782,10 @@ export interface components {
             createdAt: string;
             /** @description True when the caller owns this character. */
             mine: boolean;
+            /** @description Experience points (XP-mode campaigns; advisory). */
+            xp?: number;
+            /** @description Milestone level-ups waiting to be taken. */
+            pendingLevels?: number;
             sheet?: components["schemas"]["CharacterSheet"];
         };
         /** @description Present only on wizard-forged heroes. */
@@ -866,6 +952,16 @@ export interface components {
             character: components["schemas"]["Character"];
             spells: components["schemas"]["RulesContent"][];
             items: components["schemas"]["InventoryItem"][];
+        };
+        ChronicleEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @description quest_posted, hero_seated, level_up, codex_enabled, xp, milestone, note… */
+            kind: string;
+            message: string;
+            actorName?: string | null;
+            /** Format: date-time */
+            createdAt: string;
         };
         /** @enum {string} */
         NodeRarity: "minor" | "keystone";
@@ -1668,6 +1764,158 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listEvents: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChronicleEvent"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    addChronicleNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    message: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The entry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChronicleEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    grantXP: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amount: number;
+                    /** @description Omit to grant to every seated hero. */
+                    characterIds?: string[];
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The heroes after the grant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    declareMilestone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Declared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setProgression: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mode: "milestone" | "xp";
+                };
+            };
+        };
+        responses: {
+            /** @description The campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getCodex: {

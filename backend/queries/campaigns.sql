@@ -38,3 +38,6 @@ ORDER BY c.created_at;
 
 -- name: SetNextSession :one
 UPDATE campaigns SET next_session_at = $2 WHERE id = $1 RETURNING *;
+
+-- name: SetProgression :one
+UPDATE campaigns SET progression = $2 WHERE id = $1 RETURNING *;

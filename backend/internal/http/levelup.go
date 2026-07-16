@@ -192,6 +192,17 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		return badRequest(msg)
 	}
 
+	// Milestone tables gate level-ups on a pending allowance (XP is advisory).
+	if campaignID, seated := seatedCampaign(character); seated {
+		campaign, err := s.queries.GetCampaign(ctx, campaignID)
+		if err != nil {
+			return nil, err
+		}
+		if campaign.Progression == db.ProgressionModeMilestone && character.PendingLevels < 1 {
+			return badRequest("no milestone reached yet — the DM decides when the party rises")
+		}
+	}
+
 	// A seated hero's new choices must also be legal in that campaign's world.
 	if campaignID, seated := seatedCampaign(character); seated {
 		var chosen []uuid.UUID
@@ -260,6 +271,16 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 			Column2:     newSpells,
 		}); err != nil {
 			return nil, err
+		}
+	}
+	if campaignID, seated := seatedCampaign(character); seated {
+		if err := s.queries.SpendPendingLevel(ctx, character.ID); err != nil {
+			return nil, err
+		}
+		s.logEvent(ctx, campaignID, uid, "level_up",
+			fmt.Sprintf("%s rises to level %d", character.Name, newLevel))
+		if fresh, err := s.queries.GetCharacter(ctx, updated.ID); err == nil {
+			updated = fresh
 		}
 	}
 	ownerName, err := s.ownerName(ctx, character.OwnerUserID)

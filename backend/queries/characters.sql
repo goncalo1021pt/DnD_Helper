@@ -78,3 +78,21 @@ UPDATE characters
 SET spell_slots_used = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
+
+-- name: GrantXP :many
+-- Add (or dock) XP for a set of seated heroes; totals never go below zero.
+UPDATE characters
+SET xp = GREATEST(xp + $2, 0), updated_at = now()
+WHERE campaign_id = $1 AND id = ANY($3::uuid[])
+RETURNING *;
+
+-- name: GrantMilestone :exec
+-- One pending level-up for every hero seated at the campaign.
+UPDATE characters
+SET pending_levels = pending_levels + 1, updated_at = now()
+WHERE campaign_id = $1;
+
+-- name: SpendPendingLevel :exec
+UPDATE characters
+SET pending_levels = pending_levels - 1, updated_at = now()
+WHERE id = $1 AND pending_levels > 0;

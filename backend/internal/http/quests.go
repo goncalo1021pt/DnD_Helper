@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -124,6 +125,8 @@ func (s *Server) CreateQuest(ctx context.Context, request api.CreateQuestRequest
 	if err != nil {
 		return nil, err
 	}
+	s.logEvent(ctx, campaignID, dm.UserID, "quest_posted",
+		fmt.Sprintf("A notice is nailed to the board: %q", quest.Title))
 	return api.CreateQuest201JSONResponse(out), nil
 }
 
@@ -136,7 +139,8 @@ func (s *Server) UpdateQuest(ctx context.Context, request api.UpdateQuestRequest
 		}
 		return nil, err
 	}
-	if _, err := s.requireDM(ctx, quest.CampaignID); err != nil {
+	dm, err := s.requireDM(ctx, quest.CampaignID)
+	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.UpdateQuest401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -185,6 +189,10 @@ func (s *Server) UpdateQuest(ctx context.Context, request api.UpdateQuestRequest
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
+	}
+	if quest.Status != db.QuestStatusCompleted && string(body.Status) == "completed" {
+		s.logEvent(ctx, quest.CampaignID, dm.UserID, "quest_completed",
+			fmt.Sprintf("The notice %q is marked complete", title))
 	}
 
 	out, err := s.buildOneQuest(ctx, questID)
@@ -242,6 +250,9 @@ func (s *Server) ClaimQuest(ctx context.Context, request api.ClaimQuestRequestOb
 	if err := s.queries.ClaimQuest(ctx, db.ClaimQuestParams{QuestID: questID, UserID: member.UserID}); err != nil {
 		return nil, err
 	}
+	claimerName, _ := s.ownerName(ctx, member.UserID)
+	s.logEvent(ctx, quest.CampaignID, member.UserID, "quest_claimed",
+		fmt.Sprintf("%s claims the notice %q", claimerName, quest.Title))
 	out, err := s.buildOneQuest(ctx, questID)
 	if err != nil {
 		return nil, err

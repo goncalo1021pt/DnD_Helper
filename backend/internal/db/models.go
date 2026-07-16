@@ -228,6 +228,48 @@ func (ns NullNodeRarity) Value() (driver.Value, error) {
 	return string(ns.NodeRarity), nil
 }
 
+type ProgressionMode string
+
+const (
+	ProgressionModeMilestone ProgressionMode = "milestone"
+	ProgressionModeXp        ProgressionMode = "xp"
+)
+
+func (e *ProgressionMode) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ProgressionMode(s)
+	case string:
+		*e = ProgressionMode(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ProgressionMode: %T", src)
+	}
+	return nil
+}
+
+type NullProgressionMode struct {
+	ProgressionMode ProgressionMode `json:"progression_mode"`
+	Valid           bool            `json:"valid"` // Valid is true if ProgressionMode is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullProgressionMode) Scan(value interface{}) error {
+	if value == nil {
+		ns.ProgressionMode, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ProgressionMode.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullProgressionMode) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ProgressionMode), nil
+}
+
 type QuestDifficulty string
 
 const (
@@ -369,6 +411,7 @@ type Campaign struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	InviteCode    string             `json:"invite_code"`
 	NextSessionAt pgtype.Timestamptz `json:"next_session_at"`
+	Progression   ProgressionMode    `json:"progression"`
 }
 
 type CampaignContent struct {
@@ -377,6 +420,15 @@ type CampaignContent struct {
 	Status     CodexStatus        `json:"status"`
 	ProposedBy pgtype.UUID        `json:"proposed_by"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type CampaignEvent struct {
+	ID          uuid.UUID          `json:"id"`
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	ActorUserID pgtype.UUID        `json:"actor_user_id"`
+	Kind        string             `json:"kind"`
+	Message     string             `json:"message"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Character struct {
@@ -403,6 +455,8 @@ type Character struct {
 	SubclassID     pgtype.UUID        `json:"subclass_id"`
 	Feats          []string           `json:"feats"`
 	SpellSlotsUsed []int16            `json:"spell_slots_used"`
+	Xp             int32              `json:"xp"`
+	PendingLevels  int16              `json:"pending_levels"`
 }
 
 type CharacterItem struct {
