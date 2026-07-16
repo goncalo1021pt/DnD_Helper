@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { CodexEntry, RulesContent, RulesKind } from "../api/client";
 import {
+  useAllRules,
   useClearCodexStatus,
   useCodex,
   useRules,
@@ -59,6 +60,16 @@ export default function CodexPage() {
     return m;
   }, [codex]);
 
+  // Every homebrew entry the DM can rule on, across all shelves: their own
+  // plus anything already offered to this table.
+  const allRules = useAllRules();
+  const allHomebrewIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of allRules) if (r.source === "homebrew" && r.mine) ids.add(r.id);
+    for (const e of codex ?? []) if (e.content.source === "homebrew") ids.add(e.content.id);
+    return [...ids];
+  }, [allRules, codex]);
+
   const proposals = (codex ?? []).filter(
     (e) => e.status === "proposed" && e.content.kind === kind,
   );
@@ -69,6 +80,13 @@ export default function CodexPage() {
   );
   const enabledHomebrew = (codex ?? []).filter(
     (e) => e.status === "enabled" && e.content.kind === kind && matches(e.content.name),
+  );
+  const bannedHomebrew = (codex ?? []).filter(
+    (e) =>
+      e.status === "banned" &&
+      e.content.source === "homebrew" &&
+      e.content.kind === kind &&
+      matches(e.content.name),
   );
   // The DM's own shelf, not yet ruled on — one click from joining the world.
   const myShelf = (rules ?? []).filter(
@@ -126,6 +144,35 @@ export default function CodexPage() {
               : "What the DM has ruled legal at this table."}
           </div>
         </div>
+        {isDM && allHomebrewIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() =>
+                setStatusBulk.mutate({ contentIds: allHomebrewIds, status: "enabled" })
+              }
+              disabled={setStatusBulk.isPending}
+              className="btn-base btn-gold clip-octagon h-10 whitespace-nowrap px-5 text-[12px]"
+            >
+              {setStatusBulk.isPending
+                ? "Ruling…"
+                : `Admit all homebrew (${allHomebrewIds.length})`}
+            </button>
+            <button
+              onClick={() => {
+                if (
+                  confirm(
+                    `Ban all ${allHomebrewIds.length} homebrew entries from this world? Heroes already seated keep what they have, but nothing homebrew can be picked until you restore it.`,
+                  )
+                )
+                  setStatusBulk.mutate({ contentIds: allHomebrewIds, status: "banned" });
+              }}
+              disabled={setStatusBulk.isPending}
+              className="btn-base btn-ghost-red whitespace-nowrap px-4 py-2.5 text-[12px]"
+            >
+              Ban all homebrew
+            </button>
+          </div>
+        )}
       </div>
 
       {/* kind tabs */}
@@ -224,6 +271,31 @@ export default function CodexPage() {
             ) : (
               <div className="font-accent px-1 py-2 text-[14px] italic text-cream-muted">
                 None yet — homebrew arrives when a member offers it and the DM admits it.
+              </div>
+            )}
+            {bannedHomebrew.length > 0 && (
+              <div className="mt-3">
+                <div className="label-stamp mb-2 text-[9px] tracking-[2px] text-ink-label">
+                  Banned from this world
+                </div>
+                <div className="flex flex-col gap-2.5">
+                  {bannedHomebrew.map((e) => (
+                    <div key={e.content.id} className={rowShell} style={{ opacity: 0.55 }}>
+                      {contentLine(e.content)}
+                      <StatusChip text="banned" tone="no" />
+                      {isDM && (
+                        <button
+                          onClick={() =>
+                            setStatus.mutate({ contentId: e.content.id, status: "enabled" })
+                          }
+                          className="btn-base btn-ghost-ink px-3 py-2 text-[11px]"
+                        >
+                          Admit
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             {isDM && myShelf.length > 0 && (
