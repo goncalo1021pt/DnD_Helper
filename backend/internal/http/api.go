@@ -214,6 +214,7 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 				CreatedAt:     row.CreatedAt.Time,
 				InviteCode:    row.InviteCode,
 				NextSessionAt: tsPtr(row.NextSessionAt),
+				Progression:   (*api.CampaignProgression)(ptrString(string(row.Progression))),
 			},
 			Role: toAPIRole(row.Role),
 		})
@@ -246,8 +247,11 @@ func toAPICampaign(c db.Campaign) api.Campaign {
 		CreatedAt:     c.CreatedAt.Time,
 		InviteCode:    c.InviteCode,
 		NextSessionAt: tsPtr(c.NextSessionAt),
+		Progression:   (*api.CampaignProgression)(ptrString(string(c.Progression))),
 	}
 }
+
+func ptrString(s string) *string { return &s }
 
 func toAPIRole(r db.MembershipRole) api.Role {
 	if r == db.MembershipRoleDm {

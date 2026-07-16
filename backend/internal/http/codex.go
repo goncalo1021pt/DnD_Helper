@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -183,6 +184,9 @@ func (s *Server) ProposeCodexContent(ctx context.Context, request api.ProposeCod
 		}); err != nil {
 			return nil, err
 		}
+		proposerName, _ := s.ownerName(ctx, member.UserID)
+		s.logEvent(ctx, campaignID, member.UserID, "codex_proposed",
+			fmt.Sprintf("%s offers %q (%s) to the codex", proposerName, row.Name, row.Kind))
 	}
 	return api.ProposeCodexContent204Response{}, nil
 }
@@ -241,6 +245,12 @@ func (s *Server) SetCodexStatus(ctx context.Context, request api.SetCodexStatusR
 	}); err != nil {
 		return nil, err
 	}
+	verdict := "admits %q (%s) into the world"
+	if request.Body.Status == api.SetCodexStatusJSONBodyStatus("banned") {
+		verdict = "bans %q (%s) from the world"
+	}
+	s.logEvent(ctx, campaignID, member.UserID, "codex_"+string(request.Body.Status),
+		fmt.Sprintf("The DM "+verdict, row.Name, row.Kind))
 	return api.SetCodexStatus204Response{}, nil
 }
 

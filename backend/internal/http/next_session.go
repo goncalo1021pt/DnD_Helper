@@ -21,7 +21,8 @@ func (s *Server) SetNextSession(ctx context.Context, request api.SetNextSessionR
 		}
 		return nil, err
 	}
-	if _, err := s.requireDM(ctx, campaignID); err != nil {
+	dm, err := s.requireDM(ctx, campaignID)
+	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.SetNextSession401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -44,6 +45,10 @@ func (s *Server) SetNextSession(ctx context.Context, request api.SetNextSessionR
 	})
 	if err != nil {
 		return nil, err
+	}
+	if campaign.NextSessionAt.Valid {
+		s.logEvent(ctx, campaign.ID, dm.UserID, "session_set",
+			"The next gathering is set for "+campaign.NextSessionAt.Time.Format("02/01/2006 15:04"))
 	}
 	return api.SetNextSession200JSONResponse(toAPICampaign(campaign)), nil
 }

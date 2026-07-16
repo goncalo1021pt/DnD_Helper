@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -41,6 +42,8 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			SubclassID:   row.SubclassID,
 			Feats:        row.Feats,
 			SpellSlotsUsed: row.SpellSlotsUsed,
+			Xp:             row.Xp,
+			PendingLevels:  row.PendingLevels,
 		}, me.Name, uid, row.ClassData)
 		c.CampaignName = row.CampaignName
 		out = append(out, c)
@@ -141,6 +144,13 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 	me, err := s.queries.GetUserByID(ctx, uid)
 	if err != nil {
 		return nil, err
+	}
+	if target.Valid {
+		s.logEvent(ctx, uuid.UUID(target.Bytes), uid, "hero_seated",
+			fmt.Sprintf("%s takes a seat at the table", updated.Name))
+	} else if prevCampaign, wasSeated := seatedCampaign(character); wasSeated {
+		s.logEvent(ctx, prevCampaign, uid, "hero_unseated",
+			fmt.Sprintf("%s leaves the table", updated.Name))
 	}
 	out := toAPICharacterWithClass(updated, me.Name, uid, s.classDataFor(ctx, updated))
 	out.CampaignName = campaignName

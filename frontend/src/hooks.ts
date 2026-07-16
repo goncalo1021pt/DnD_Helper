@@ -402,6 +402,89 @@ export function useDeleteItem(characterId: string) {
   });
 }
 
+export function useEvents(campaignId: string, limit = 50) {
+  return useQuery({
+    queryKey: ["events", campaignId, limit],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/campaigns/{campaignId}/events", {
+        params: { path: { campaignId }, query: { limit } },
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+export function useAddNote(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (message: string) => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/events", {
+        params: { path: { campaignId } },
+        body: { message },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["events", campaignId] }),
+  });
+}
+
+export function useGrantXP(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { amount: number; characterIds?: string[]; reason?: string }) => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/xp", {
+        params: { path: { campaignId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
+export function useDeclareMilestone(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (note?: string) => {
+      const { error } = await api.POST("/campaigns/{campaignId}/milestone", {
+        params: { path: { campaignId } },
+        body: { note },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
+export function useSetProgression(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (mode: "milestone" | "xp") => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/progression", {
+        params: { path: { campaignId } },
+        body: { mode },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
 export function useCodex(campaignId: string | undefined) {
   return useQuery({
     queryKey: ["codex", campaignId],

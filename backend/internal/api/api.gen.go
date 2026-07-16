@@ -9,7 +9,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"path"
@@ -25,6 +27,24 @@ import (
 const (
 	SessionCookieScopes sessionCookieContextKey = "sessionCookie.Scopes"
 )
+
+// Defines values for CampaignProgression.
+const (
+	CampaignProgressionMilestone CampaignProgression = "milestone"
+	CampaignProgressionXp        CampaignProgression = "xp"
+)
+
+// Valid indicates whether the value is a known member of the CampaignProgression enum.
+func (e CampaignProgression) Valid() bool {
+	switch e {
+	case CampaignProgressionMilestone:
+		return true
+	case CampaignProgressionXp:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for CodexEntryStatus.
 const (
@@ -271,31 +291,31 @@ func (e SeatConflictMissingState) Valid() bool {
 
 // Defines values for ContentKind.
 const (
-	Background ContentKind = "background"
-	Class      ContentKind = "class"
-	Feat       ContentKind = "feat"
-	Item       ContentKind = "item"
-	Species    ContentKind = "species"
-	Spell      ContentKind = "spell"
-	Subclass   ContentKind = "subclass"
+	ContentKindBackground ContentKind = "background"
+	ContentKindClass      ContentKind = "class"
+	ContentKindFeat       ContentKind = "feat"
+	ContentKindItem       ContentKind = "item"
+	ContentKindSpecies    ContentKind = "species"
+	ContentKindSpell      ContentKind = "spell"
+	ContentKindSubclass   ContentKind = "subclass"
 )
 
 // Valid indicates whether the value is a known member of the ContentKind enum.
 func (e ContentKind) Valid() bool {
 	switch e {
-	case Background:
+	case ContentKindBackground:
 		return true
-	case Class:
+	case ContentKindClass:
 		return true
-	case Feat:
+	case ContentKindFeat:
 		return true
-	case Item:
+	case ContentKindItem:
 		return true
-	case Species:
+	case ContentKindSpecies:
 		return true
-	case Spell:
+	case ContentKindSpell:
 		return true
-	case Subclass:
+	case ContentKindSubclass:
 		return true
 	default:
 		return false
@@ -314,6 +334,24 @@ func (e SetCodexStatusJSONBodyStatus) Valid() bool {
 	case Banned:
 		return true
 	case Enabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetProgressionJSONBodyMode.
+const (
+	Milestone SetProgressionJSONBodyMode = "milestone"
+	Xp        SetProgressionJSONBodyMode = "xp"
+)
+
+// Valid indicates whether the value is a known member of the SetProgressionJSONBodyMode enum.
+func (e SetProgressionJSONBodyMode) Valid() bool {
+	switch e {
+	case Milestone:
+		return true
+	case Xp:
 		return true
 	default:
 		return false
@@ -342,7 +380,13 @@ type Campaign struct {
 	// NextSessionAt When the table gathers next; null when unscheduled.
 	NextSessionAt *time.Time         `json:"nextSessionAt,omitempty"`
 	OwnerUserId   openapi_types.UUID `json:"ownerUserId"`
+
+	// Progression How heroes advance at this table.
+	Progression *CampaignProgression `json:"progression,omitempty"`
 }
+
+// CampaignProgression How heroes advance at this table.
+type CampaignProgression string
 
 // CampaignMembership defines model for CampaignMembership.
 type CampaignMembership struct {
@@ -374,8 +418,14 @@ type Character struct {
 	OwnerName   string             `json:"ownerName"`
 	OwnerUserId openapi_types.UUID `json:"ownerUserId"`
 
+	// PendingLevels Milestone level-ups waiting to be taken.
+	PendingLevels *int `json:"pendingLevels,omitempty"`
+
 	// Sheet Present only on wizard-forged heroes.
 	Sheet *CharacterSheet `json:"sheet,omitempty"`
+
+	// Xp Experience points (XP-mode campaigns; advisory).
+	Xp *int `json:"xp,omitempty"`
 }
 
 // CharacterDetail defines model for CharacterDetail.
@@ -421,6 +471,17 @@ type CharacterTreeState struct {
 	PicksSpent   *int                  `json:"picksSpent,omitempty"`
 	TakenNodeIds *[]openapi_types.UUID `json:"takenNodeIds,omitempty"`
 	Tree         *SkillTreeDetail      `json:"tree,omitempty"`
+}
+
+// ChronicleEvent defines model for ChronicleEvent.
+type ChronicleEvent struct {
+	ActorName *string            `json:"actorName,omitempty"`
+	CreatedAt time.Time          `json:"createdAt"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Kind quest_posted, hero_seated, level_up, codex_enabled, xp, milestone, note…
+	Kind    string `json:"kind"`
+	Message string `json:"message"`
 }
 
 // CodexEntry defines model for CodexEntry.
@@ -814,6 +875,38 @@ type SetCodexStatusJSONBody struct {
 // SetCodexStatusJSONBodyStatus defines parameters for SetCodexStatus.
 type SetCodexStatusJSONBodyStatus string
 
+// ListEventsParams defines parameters for ListEvents.
+type ListEventsParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// AddChronicleNoteJSONBody defines parameters for AddChronicleNote.
+type AddChronicleNoteJSONBody struct {
+	Message string `json:"message"`
+}
+
+// DeclareMilestoneJSONBody defines parameters for DeclareMilestone.
+type DeclareMilestoneJSONBody struct {
+	Note *string `json:"note,omitempty"`
+}
+
+// SetProgressionJSONBody defines parameters for SetProgression.
+type SetProgressionJSONBody struct {
+	Mode SetProgressionJSONBodyMode `json:"mode"`
+}
+
+// SetProgressionJSONBodyMode defines parameters for SetProgression.
+type SetProgressionJSONBodyMode string
+
+// GrantXPJSONBody defines parameters for GrantXP.
+type GrantXPJSONBody struct {
+	Amount int `json:"amount"`
+
+	// CharacterIds Omit to grant to every seated hero.
+	CharacterIds *[]openapi_types.UUID `json:"characterIds,omitempty"`
+	Reason       *string               `json:"reason,omitempty"`
+}
+
 // CreateCampaignJSONRequestBody defines body for CreateCampaign for application/json ContentType.
 type CreateCampaignJSONRequestBody = CreateCampaignRequest
 
@@ -829,14 +922,26 @@ type ProposeCodexContentJSONRequestBody ProposeCodexContentJSONBody
 // SetCodexStatusJSONRequestBody defines body for SetCodexStatus for application/json ContentType.
 type SetCodexStatusJSONRequestBody SetCodexStatusJSONBody
 
+// AddChronicleNoteJSONRequestBody defines body for AddChronicleNote for application/json ContentType.
+type AddChronicleNoteJSONRequestBody AddChronicleNoteJSONBody
+
+// DeclareMilestoneJSONRequestBody defines body for DeclareMilestone for application/json ContentType.
+type DeclareMilestoneJSONRequestBody DeclareMilestoneJSONBody
+
 // SetNextSessionJSONRequestBody defines body for SetNextSession for application/json ContentType.
 type SetNextSessionJSONRequestBody = SetNextSessionRequest
+
+// SetProgressionJSONRequestBody defines body for SetProgression for application/json ContentType.
+type SetProgressionJSONRequestBody SetProgressionJSONBody
 
 // CreateQuestJSONRequestBody defines body for CreateQuest for application/json ContentType.
 type CreateQuestJSONRequestBody = CreateQuestRequest
 
 // CreateTreeJSONRequestBody defines body for CreateTree for application/json ContentType.
 type CreateTreeJSONRequestBody = SkillTreeInput
+
+// GrantXPJSONRequestBody defines body for GrantXP for application/json ContentType.
+type GrantXPJSONRequestBody GrantXPJSONBody
 
 // UpdateCharacterJSONRequestBody defines body for UpdateCharacter for application/json ContentType.
 type UpdateCharacterJSONRequestBody = CharacterInput
@@ -921,9 +1026,21 @@ type ServerInterface interface {
 	// The DM's verdict on an entry (enable homebrew, ban/unban SRD)
 	// (PUT /campaigns/{campaignId}/codex/{contentId})
 	SetCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID)
+	// The campaign chronicle, newest first (members)
+	// (GET /campaigns/{campaignId}/events)
+	ListEvents(w http.ResponseWriter, r *http.Request, campaignId CampaignId, params ListEventsParams)
+	// Write a story entry into the chronicle (DM only)
+	// (POST /campaigns/{campaignId}/events)
+	AddChronicleNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// A milestone — every seated hero gains one pending level-up (DM only)
+	// (POST /campaigns/{campaignId}/milestone)
+	DeclareMilestone(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// Set or clear when the table gathers next (DM only)
 	// (PUT /campaigns/{campaignId}/next-session)
 	SetNextSession(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Switch the campaign between milestone and XP progression (DM only)
+	// (PUT /campaigns/{campaignId}/progression)
+	SetProgression(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// List quests on a campaign's board (members only)
 	// (GET /campaigns/{campaignId}/quests)
 	ListQuests(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
@@ -939,6 +1056,9 @@ type ServerInterface interface {
 	// Create a skill tree (DM only)
 	// (POST /campaigns/{campaignId}/trees)
 	CreateTree(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Grant (or dock) XP to seated heroes (DM only)
+	// (POST /campaigns/{campaignId}/xp)
+	GrantXP(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// Remove a character (its owner or the DM)
 	// (DELETE /characters/{characterId})
 	DeleteCharacter(w http.ResponseWriter, r *http.Request, characterId CharacterId)
@@ -1098,9 +1218,33 @@ func (_ Unimplemented) SetCodexStatus(w http.ResponseWriter, r *http.Request, ca
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// The campaign chronicle, newest first (members)
+// (GET /campaigns/{campaignId}/events)
+func (_ Unimplemented) ListEvents(w http.ResponseWriter, r *http.Request, campaignId CampaignId, params ListEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Write a story entry into the chronicle (DM only)
+// (POST /campaigns/{campaignId}/events)
+func (_ Unimplemented) AddChronicleNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// A milestone — every seated hero gains one pending level-up (DM only)
+// (POST /campaigns/{campaignId}/milestone)
+func (_ Unimplemented) DeclareMilestone(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Set or clear when the table gathers next (DM only)
 // (PUT /campaigns/{campaignId}/next-session)
 func (_ Unimplemented) SetNextSession(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Switch the campaign between milestone and XP progression (DM only)
+// (PUT /campaigns/{campaignId}/progression)
+func (_ Unimplemented) SetProgression(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1131,6 +1275,12 @@ func (_ Unimplemented) ListTrees(w http.ResponseWriter, r *http.Request, campaig
 // Create a skill tree (DM only)
 // (POST /campaigns/{campaignId}/trees)
 func (_ Unimplemented) CreateTree(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Grant (or dock) XP to seated heroes (DM only)
+// (POST /campaigns/{campaignId}/xp)
+func (_ Unimplemented) GrantXP(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1611,6 +1761,118 @@ func (siw *ServerInterfaceWrapper) SetCodexStatus(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ListEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListEventsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEvents(w, r, campaignId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddChronicleNote operation middleware
+func (siw *ServerInterfaceWrapper) AddChronicleNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddChronicleNote(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeclareMilestone operation middleware
+func (siw *ServerInterfaceWrapper) DeclareMilestone(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeclareMilestone(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SetNextSession operation middleware
 func (siw *ServerInterfaceWrapper) SetNextSession(w http.ResponseWriter, r *http.Request) {
 
@@ -1634,6 +1896,38 @@ func (siw *ServerInterfaceWrapper) SetNextSession(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetNextSession(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetProgression operation middleware
+func (siw *ServerInterfaceWrapper) SetProgression(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetProgression(w, r, campaignId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1794,6 +2088,38 @@ func (siw *ServerInterfaceWrapper) CreateTree(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateTree(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GrantXP operation middleware
+func (siw *ServerInterfaceWrapper) GrantXP(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GrantXP(w, r, campaignId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2952,7 +3278,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/campaigns/{campaignId}/codex/{contentId}", wrapper.SetCodexStatus)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/events", wrapper.ListEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/events", wrapper.AddChronicleNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/milestone", wrapper.DeclareMilestone)
+	})
+	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/campaigns/{campaignId}/next-session", wrapper.SetNextSession)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/campaigns/{campaignId}/progression", wrapper.SetProgression)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/campaigns/{campaignId}/quests", wrapper.ListQuests)
@@ -2968,6 +3306,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/campaigns/{campaignId}/trees", wrapper.CreateTree)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/xp", wrapper.GrantXP)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/characters/{characterId}", wrapper.DeleteCharacter)
@@ -3572,6 +3913,181 @@ func (response SetCodexStatus404JSONResponse) VisitSetCodexStatusResponse(w http
 	return err
 }
 
+type ListEventsRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Params     ListEventsParams
+}
+
+type ListEventsResponseObject interface {
+	VisitListEventsResponse(w http.ResponseWriter) error
+}
+
+type ListEvents200JSONResponse []ChronicleEvent
+
+func (response ListEvents200JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEvents401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListEvents401JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEvents403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListEvents403JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddChronicleNoteRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *AddChronicleNoteJSONRequestBody
+}
+
+type AddChronicleNoteResponseObject interface {
+	VisitAddChronicleNoteResponse(w http.ResponseWriter) error
+}
+
+type AddChronicleNote201JSONResponse ChronicleEvent
+
+func (response AddChronicleNote201JSONResponse) VisitAddChronicleNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddChronicleNote400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AddChronicleNote400JSONResponse) VisitAddChronicleNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddChronicleNote401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AddChronicleNote401JSONResponse) VisitAddChronicleNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddChronicleNote403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AddChronicleNote403JSONResponse) VisitAddChronicleNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclareMilestoneRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *DeclareMilestoneJSONRequestBody
+}
+
+type DeclareMilestoneResponseObject interface {
+	VisitDeclareMilestoneResponse(w http.ResponseWriter) error
+}
+
+type DeclareMilestone204Response struct {
+}
+
+func (response DeclareMilestone204Response) VisitDeclareMilestoneResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeclareMilestone400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response DeclareMilestone400JSONResponse) VisitDeclareMilestoneResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclareMilestone401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeclareMilestone401JSONResponse) VisitDeclareMilestoneResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeclareMilestone403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeclareMilestone403JSONResponse) VisitDeclareMilestoneResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SetNextSessionRequestObject struct {
 	CampaignId CampaignId `json:"campaignId"`
 	Body       *SetNextSessionJSONRequestBody
@@ -3647,6 +4163,71 @@ func (response SetNextSession404JSONResponse) VisitSetNextSessionResponse(w http
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetProgressionRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *SetProgressionJSONRequestBody
+}
+
+type SetProgressionResponseObject interface {
+	VisitSetProgressionResponse(w http.ResponseWriter) error
+}
+
+type SetProgression200JSONResponse Campaign
+
+func (response SetProgression200JSONResponse) VisitSetProgressionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetProgression400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SetProgression400JSONResponse) VisitSetProgressionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetProgression401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetProgression401JSONResponse) VisitSetProgressionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetProgression403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetProgression403JSONResponse) VisitSetProgressionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -3934,6 +4515,71 @@ func (response CreateTree401JSONResponse) VisitCreateTreeResponse(w http.Respons
 type CreateTree403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response CreateTree403JSONResponse) VisitCreateTreeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantXPRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *GrantXPJSONRequestBody
+}
+
+type GrantXPResponseObject interface {
+	VisitGrantXPResponse(w http.ResponseWriter) error
+}
+
+type GrantXP200JSONResponse []Character
+
+func (response GrantXP200JSONResponse) VisitGrantXPResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantXP400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response GrantXP400JSONResponse) VisitGrantXPResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantXP401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GrantXP401JSONResponse) VisitGrantXPResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantXP403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GrantXP403JSONResponse) VisitGrantXPResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -6135,9 +6781,21 @@ type StrictServerInterface interface {
 	// The DM's verdict on an entry (enable homebrew, ban/unban SRD)
 	// (PUT /campaigns/{campaignId}/codex/{contentId})
 	SetCodexStatus(ctx context.Context, request SetCodexStatusRequestObject) (SetCodexStatusResponseObject, error)
+	// The campaign chronicle, newest first (members)
+	// (GET /campaigns/{campaignId}/events)
+	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
+	// Write a story entry into the chronicle (DM only)
+	// (POST /campaigns/{campaignId}/events)
+	AddChronicleNote(ctx context.Context, request AddChronicleNoteRequestObject) (AddChronicleNoteResponseObject, error)
+	// A milestone — every seated hero gains one pending level-up (DM only)
+	// (POST /campaigns/{campaignId}/milestone)
+	DeclareMilestone(ctx context.Context, request DeclareMilestoneRequestObject) (DeclareMilestoneResponseObject, error)
 	// Set or clear when the table gathers next (DM only)
 	// (PUT /campaigns/{campaignId}/next-session)
 	SetNextSession(ctx context.Context, request SetNextSessionRequestObject) (SetNextSessionResponseObject, error)
+	// Switch the campaign between milestone and XP progression (DM only)
+	// (PUT /campaigns/{campaignId}/progression)
+	SetProgression(ctx context.Context, request SetProgressionRequestObject) (SetProgressionResponseObject, error)
 	// List quests on a campaign's board (members only)
 	// (GET /campaigns/{campaignId}/quests)
 	ListQuests(ctx context.Context, request ListQuestsRequestObject) (ListQuestsResponseObject, error)
@@ -6153,6 +6811,9 @@ type StrictServerInterface interface {
 	// Create a skill tree (DM only)
 	// (POST /campaigns/{campaignId}/trees)
 	CreateTree(ctx context.Context, request CreateTreeRequestObject) (CreateTreeResponseObject, error)
+	// Grant (or dock) XP to seated heroes (DM only)
+	// (POST /campaigns/{campaignId}/xp)
+	GrantXP(ctx context.Context, request GrantXPRequestObject) (GrantXPResponseObject, error)
 	// Remove a character (its owner or the DM)
 	// (DELETE /characters/{characterId})
 	DeleteCharacter(ctx context.Context, request DeleteCharacterRequestObject) (DeleteCharacterResponseObject, error)
@@ -6548,6 +7209,102 @@ func (sh *strictHandler) SetCodexStatus(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// ListEvents operation middleware
+func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, campaignId CampaignId, params ListEventsParams) {
+	var request ListEventsRequestObject
+
+	request.CampaignId = campaignId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListEvents(ctx, request.(ListEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListEventsResponseObject); ok {
+		if err := validResponse.VisitListEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddChronicleNote operation middleware
+func (sh *strictHandler) AddChronicleNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request AddChronicleNoteRequestObject
+
+	request.CampaignId = campaignId
+
+	var body AddChronicleNoteJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddChronicleNote(ctx, request.(AddChronicleNoteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddChronicleNote")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddChronicleNoteResponseObject); ok {
+		if err := validResponse.VisitAddChronicleNoteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeclareMilestone operation middleware
+func (sh *strictHandler) DeclareMilestone(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request DeclareMilestoneRequestObject
+
+	request.CampaignId = campaignId
+
+	var body DeclareMilestoneJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeclareMilestone(ctx, request.(DeclareMilestoneRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeclareMilestone")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeclareMilestoneResponseObject); ok {
+		if err := validResponse.VisitDeclareMilestoneResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // SetNextSession operation middleware
 func (sh *strictHandler) SetNextSession(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
 	var request SetNextSessionRequestObject
@@ -6574,6 +7331,39 @@ func (sh *strictHandler) SetNextSession(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetNextSessionResponseObject); ok {
 		if err := validResponse.VisitSetNextSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetProgression operation middleware
+func (sh *strictHandler) SetProgression(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request SetProgressionRequestObject
+
+	request.CampaignId = campaignId
+
+	var body SetProgressionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetProgression(ctx, request.(SetProgressionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetProgression")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetProgressionResponseObject); ok {
+		if err := validResponse.VisitSetProgressionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -6718,6 +7508,39 @@ func (sh *strictHandler) CreateTree(w http.ResponseWriter, r *http.Request, camp
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CreateTreeResponseObject); ok {
 		if err := validResponse.VisitCreateTreeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GrantXP operation middleware
+func (sh *strictHandler) GrantXP(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request GrantXPRequestObject
+
+	request.CampaignId = campaignId
+
+	var body GrantXPJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GrantXP(ctx, request.(GrantXPRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GrantXP")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GrantXPResponseObject); ok {
+		if err := validResponse.VisitGrantXPResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -7706,104 +8529,113 @@ func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, tree
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"wJcS5GXOeZmMg8NgTFMW3Pxy878BAAD//w==",
+	"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",
+	"1/OVNznLOS+TcXASDGnKgrtf7v43AAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

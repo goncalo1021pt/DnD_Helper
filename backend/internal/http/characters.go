@@ -59,6 +59,8 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			SubclassID:   row.SubclassID,
 			Feats:        row.Feats,
 			SpellSlotsUsed: row.SpellSlotsUsed,
+			Xp:             row.Xp,
+			PendingLevels:  row.PendingLevels,
 		}, row.OwnerName, member.UserID, row.ClassData))
 	}
 	return api.ListCharacters200JSONResponse(out), nil
@@ -298,8 +300,12 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 			SubclassId:   uuidPtr(c.SubclassID),
 		}
 	}
+	xp := int(c.Xp)
+	pending := int(c.PendingLevels)
 	return api.Character{
-		Sheet: sheet,
+		Sheet:         sheet,
+		Xp:            &xp,
+		PendingLevels: &pending,
 		Id:          c.ID,
 		CampaignId:  campaignID,
 		OwnerUserId: c.OwnerUserID,

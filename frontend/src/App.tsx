@@ -8,6 +8,7 @@ import ForgeWizard from "./components/ForgeWizard";
 import HeroSheetPage from "./components/HeroSheetPage";
 import ScribesDesk from "./components/ScribesDesk";
 import CodexPage from "./components/CodexPage";
+import ChroniclePage from "./components/ChroniclePage";
 import SpellbookPage from "./components/SpellbookPage";
 import CampaignView from "./components/CampaignView";
 import CampaignDashboard from "./components/CampaignDashboard";
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="board" element={<QuestBoard />} />
           <Route path="party" element={<PartyRoster />} />
           <Route path="codex" element={<CodexPage />} />
+          <Route path="chronicle" element={<ChroniclePage />} />
           <Route path="trees" element={<SkillTreesPage />} />
           <Route path="trees/:treeId" element={<TreeEditorPage />} />
           <Route path="characters/:charId/web" element={<CharacterWebPage />} />
