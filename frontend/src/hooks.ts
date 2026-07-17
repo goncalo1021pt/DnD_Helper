@@ -393,12 +393,17 @@ export function useAddItem(characterId: string) {
 export function useUpdateItem(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (vars: { itemId: string; qty?: number; equipped?: boolean }) => {
+    mutationFn: async (vars: {
+      itemId: string;
+      qty?: number;
+      equipped?: boolean;
+      slot?: "armor" | "mainhand" | "offhand";
+    }) => {
       const { data, error } = await api.PATCH(
         "/characters/{characterId}/items/{itemId}",
         {
           params: { path: { characterId, itemId: vars.itemId } },
-          body: { qty: vars.qty, equipped: vars.equipped },
+          body: { qty: vars.qty, equipped: vars.equipped, slot: vars.slot },
         },
       );
       if (error) throw error;

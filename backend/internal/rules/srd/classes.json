@@ -133,6 +133,28 @@
      "name": "Primal Champion",
      "summary": "You embody primal power. Your Strength and Constitution scores increase by 4, to a maximum of 25."
     }
+   ],
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Greataxe"
+      },
+      {
+       "name": "Handaxe",
+       "qty": 4
+      },
+      {
+       "name": "Explorer's Pack"
+      }
+     ],
+     "gold": 15
+    },
+    {
+     "label": "B",
+     "gold": 75
+    }
    ]
   }
  },
@@ -270,7 +292,32 @@
      22,
      22
     ]
-   }
+   },
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Leather Armor"
+      },
+      {
+       "name": "Dagger",
+       "qty": 2
+      },
+      {
+       "name": "Musical Instrument of your choice"
+      },
+      {
+       "name": "Entertainer's Pack"
+      }
+     ],
+     "gold": 19
+    },
+    {
+     "label": "B",
+     "gold": 90
+    }
+   ]
   }
  },
  {
@@ -408,7 +455,34 @@
      21,
      22
     ]
-   }
+   },
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Chain Shirt"
+      },
+      {
+       "name": "Shield"
+      },
+      {
+       "name": "Mace"
+      },
+      {
+       "name": "Holy Symbol"
+      },
+      {
+       "name": "Priest's Pack"
+      }
+     ],
+     "gold": 7
+    },
+    {
+     "label": "B",
+     "gold": 110
+    }
+   ]
   }
  },
  {
@@ -558,7 +632,37 @@
      21,
      22
     ]
-   }
+   },
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Leather Armor"
+      },
+      {
+       "name": "Shield"
+      },
+      {
+       "name": "Sickle"
+      },
+      {
+       "name": "Druidic Focus (Quarterstaff)"
+      },
+      {
+       "name": "Explorer's Pack"
+      },
+      {
+       "name": "Herbalism Kit"
+      }
+     ],
+     "gold": 9
+    },
+    {
+     "label": "B",
+     "gold": 50
+    }
+   ]
   }
  },
  {
@@ -684,6 +788,62 @@
     14,
     16,
     19
+   ],
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Chain Mail"
+      },
+      {
+       "name": "Greatsword"
+      },
+      {
+       "name": "Flail"
+      },
+      {
+       "name": "Javelin",
+       "qty": 8
+      },
+      {
+       "name": "Dungeoneer's Pack"
+      }
+     ],
+     "gold": 4
+    },
+    {
+     "label": "B",
+     "items": [
+      {
+       "name": "Studded Leather Armor"
+      },
+      {
+       "name": "Scimitar"
+      },
+      {
+       "name": "Shortsword"
+      },
+      {
+       "name": "Longbow"
+      },
+      {
+       "name": "Arrow",
+       "qty": 20
+      },
+      {
+       "name": "Quiver"
+      },
+      {
+       "name": "Dungeoneer's Pack"
+      }
+     ],
+     "gold": 11
+    },
+    {
+     "label": "C",
+     "gold": 155
+    }
    ]
   }
  },
@@ -827,6 +987,31 @@
      "level": 20,
      "name": "Body and Mind",
      "summary": "You have developed your body and mind to new heights. Your Dexterity and Wisdom scores increase by 4, to a maximum of 25."
+    }
+   ],
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Spear"
+      },
+      {
+       "name": "Dagger",
+       "qty": 5
+      },
+      {
+       "name": "Artisan's Tools or Musical Instrument (your tool proficiency)"
+      },
+      {
+       "name": "Explorer's Pack"
+      }
+     ],
+     "gold": 11
+    },
+    {
+     "label": "B",
+     "gold": 50
     }
    ]
   }
@@ -1000,7 +1185,38 @@
      15,
      15
     ]
-   }
+   },
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Chain Mail"
+      },
+      {
+       "name": "Shield"
+      },
+      {
+       "name": "Longsword"
+      },
+      {
+       "name": "Javelin",
+       "qty": 6
+      },
+      {
+       "name": "Holy Symbol"
+      },
+      {
+       "name": "Priest's Pack"
+      }
+     ],
+     "gold": 9
+    },
+    {
+     "label": "B",
+     "gold": 150
+    }
+   ]
   }
  },
  {
@@ -1173,7 +1389,44 @@
      15,
      15
     ]
-   }
+   },
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Studded Leather Armor"
+      },
+      {
+       "name": "Scimitar"
+      },
+      {
+       "name": "Shortsword"
+      },
+      {
+       "name": "Longbow"
+      },
+      {
+       "name": "Arrow",
+       "qty": 20
+      },
+      {
+       "name": "Quiver"
+      },
+      {
+       "name": "Druidic Focus (sprig of mistletoe)"
+      },
+      {
+       "name": "Explorer's Pack"
+      }
+     ],
+     "gold": 7
+    },
+    {
+     "label": "B",
+     "gold": 150
+    }
+   ]
   }
  },
  {
@@ -1310,6 +1563,44 @@
     12,
     16,
     19
+   ],
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Leather Armor"
+      },
+      {
+       "name": "Dagger",
+       "qty": 2
+      },
+      {
+       "name": "Shortsword"
+      },
+      {
+       "name": "Shortbow"
+      },
+      {
+       "name": "Arrow",
+       "qty": 20
+      },
+      {
+       "name": "Quiver"
+      },
+      {
+       "name": "Thieves' Tools"
+      },
+      {
+       "name": "Burglar's Pack"
+      }
+     ],
+     "gold": 8
+    },
+    {
+     "label": "B",
+     "gold": 100
+    }
    ]
   }
  },
@@ -1440,7 +1731,32 @@
      21,
      22
     ]
-   }
+   },
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Spear"
+      },
+      {
+       "name": "Dagger",
+       "qty": 2
+      },
+      {
+       "name": "Arcane Focus (crystal)"
+      },
+      {
+       "name": "Dungeoneer's Pack"
+      }
+     ],
+     "gold": 28
+    },
+    {
+     "label": "B",
+     "gold": 50
+    }
+   ]
   }
  },
  {
@@ -1568,7 +1884,38 @@
      15,
      15
     ]
-   }
+   },
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Leather Armor"
+      },
+      {
+       "name": "Sickle"
+      },
+      {
+       "name": "Dagger",
+       "qty": 2
+      },
+      {
+       "name": "Arcane Focus (orb)"
+      },
+      {
+       "name": "Book (occult lore)"
+      },
+      {
+       "name": "Scholar's Pack"
+      }
+     ],
+     "gold": 15
+    },
+    {
+     "label": "B",
+     "gold": 100
+    }
+   ]
   }
  },
  {
@@ -1699,7 +2046,35 @@
      24,
      25
     ]
-   }
+   },
+   "startingEquipment": [
+    {
+     "label": "A",
+     "items": [
+      {
+       "name": "Dagger",
+       "qty": 2
+      },
+      {
+       "name": "Arcane Focus (Quarterstaff)"
+      },
+      {
+       "name": "Robe"
+      },
+      {
+       "name": "Spellbook"
+      },
+      {
+       "name": "Scholar's Pack"
+      }
+     ],
+     "gold": 5
+    },
+    {
+     "label": "B",
+     "gold": 55
+    }
+   ]
   }
  }
 ]

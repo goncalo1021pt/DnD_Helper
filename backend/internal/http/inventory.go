@@ -20,11 +20,13 @@ type itemData struct {
 }
 
 func toAPIInventoryItem(row db.ListCharacterItemsRow, viewer uuid.UUID) api.InventoryItem {
+	slot := api.InventoryItemSlot(row.Slot)
 	out := api.InventoryItem{
 		Id:       row.ID,
 		Name:     row.Name,
 		Qty:      int(row.Qty),
 		Equipped: row.Equipped,
+		Slot:     &slot,
 	}
 	if row.ContentID.Valid && row.Kind != nil && row.Source != nil {
 		summary := ""
@@ -178,27 +180,60 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 		qty = int32(*request.Body.Qty)
 	}
 
-	equipped := row.Equipped
-	if request.Body.Equipped != nil && *request.Body.Equipped != row.Equipped {
+	equipped, slot := row.Equipped, row.Slot
+	if request.Body.Slot != nil {
+		// Equip into a named slot; the current occupant is displaced.
+		want := string(*request.Body.Slot)
+		itemType, ok := s.equipType(ctx, row)
+		if !ok {
+			return badRequest("only armor, shields and weapons can be equipped")
+		}
+		switch {
+		case itemType == "armor" && want != "armor":
+			return badRequest("armor is worn, not held — it only fits the armor slot")
+		case itemType == "shield" && want != "offhand":
+			return badRequest("a shield sits in the off-hand")
+		case itemType == "weapon" && want == "armor":
+			return badRequest("a weapon can't be worn as armor")
+		}
+		if err := s.clearSlot(ctx, character.ID, row.ID, want); err != nil {
+			return nil, err
+		}
+		equipped, slot = true, want
+	} else if request.Body.Equipped != nil && *request.Body.Equipped != row.Equipped {
 		equipped = *request.Body.Equipped
 		if equipped {
+			// Legacy equip without a slot: infer the natural one.
 			itemType, ok := s.equipType(ctx, row)
 			if !ok {
 				return badRequest("only armor, shields and weapons can be equipped")
 			}
-			// One suit of armor, one shield: unequip the displaced.
-			if itemType == "armor" || itemType == "shield" {
-				if err := s.unequipOthersOfType(ctx, character.ID, row.ID, itemType); err != nil {
-					return nil, err
+			switch itemType {
+			case "armor":
+				slot = "armor"
+			case "shield":
+				slot = "offhand"
+			default:
+				slot = "mainhand"
+				if s.slotTaken(ctx, character.ID, row.ID, "mainhand") &&
+					!s.slotTaken(ctx, character.ID, row.ID, "offhand") {
+					slot = "offhand"
 				}
 			}
+			if err := s.clearSlot(ctx, character.ID, row.ID, slot); err != nil {
+				return nil, err
+			}
 		}
+	}
+	if !equipped {
+		slot = ""
 	}
 
 	if _, err := s.queries.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
 		ID:       row.ID,
 		Qty:      qty,
 		Equipped: equipped,
+		Slot:     slot,
 	}); err != nil {
 		return nil, err
 	}
@@ -229,22 +264,15 @@ func (s *Server) equipType(ctx context.Context, row db.CharacterItem) (string, b
 	return "", false
 }
 
-// unequipOthersOfType clears the equipped flag on other rows of a type.
-func (s *Server) unequipOthersOfType(ctx context.Context, characterID, keepID uuid.UUID, itemType string) error {
+// clearSlot stows whatever else occupies a slot, making room for keepID.
+func (s *Server) clearSlot(ctx context.Context, characterID, keepID uuid.UUID, slot string) error {
 	items, err := s.queries.ListCharacterItems(ctx, characterID)
 	if err != nil {
 		return err
 	}
 	var displaced []uuid.UUID
 	for _, it := range items {
-		if !it.Equipped || it.ID == keepID || !it.ContentID.Valid {
-			continue
-		}
-		var d itemData
-		if err := json.Unmarshal(it.Data, &d); err != nil {
-			continue
-		}
-		if d.Type == itemType {
+		if it.Slot == slot && it.ID != keepID {
 			displaced = append(displaced, it.ID)
 		}
 	}
@@ -255,6 +283,20 @@ func (s *Server) unequipOthersOfType(ctx context.Context, characterID, keepID uu
 		CharacterID: characterID,
 		Column2:     displaced,
 	})
+}
+
+// slotTaken reports whether another row already sits in a slot.
+func (s *Server) slotTaken(ctx context.Context, characterID, keepID uuid.UUID, slot string) bool {
+	items, err := s.queries.ListCharacterItems(ctx, characterID)
+	if err != nil {
+		return false
+	}
+	for _, it := range items {
+		if it.Slot == slot && it.ID != keepID {
+			return true
+		}
+	}
+	return false
 }
 
 // DeleteInventoryItem removes a row from the pack.

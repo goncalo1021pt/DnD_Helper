@@ -31,7 +31,7 @@ SELECT * FROM character_items WHERE id = $1;
 
 -- name: UpdateCharacterItem :one
 UPDATE character_items
-SET qty = $2, equipped = $3
+SET qty = $2, equipped = $3, slot = $4
 WHERE id = $1
 RETURNING *;
 
@@ -40,7 +40,7 @@ DELETE FROM character_items WHERE id = $1;
 
 -- name: ListCharacterItems :many
 -- Inventory with live content; a snapshot name covers deleted content.
-SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped,
+SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped, ci.slot,
        COALESCE(rc.name, ci.name) AS name,
        rc.kind, rc.source, rc.summary, rc.data, rc.created_by,
        u.name AS creator_name
@@ -51,7 +51,7 @@ WHERE ci.character_id = $1
 ORDER BY ci.equipped DESC, ci.created_at ASC;
 
 -- name: UnequipItems :exec
--- Clears the equipped flag on a set of rows (armor/shield uniqueness).
+-- Stows a set of rows: equip flag off, slot vacated.
 UPDATE character_items
-SET equipped = false
+SET equipped = false, slot = ''
 WHERE character_id = $1 AND id = ANY($2::uuid[]);

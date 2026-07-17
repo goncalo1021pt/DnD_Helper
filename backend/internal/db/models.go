@@ -467,6 +467,7 @@ type CharacterItem struct {
 	Qty         int32              `json:"qty"`
 	Equipped    bool               `json:"equipped"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Slot        string             `json:"slot"`
 }
 
 type CharacterNode struct {
