@@ -262,6 +262,22 @@ export default function CampaignDashboard() {
           )}
         </section>
 
+        {/* monster den — the DM's private menagerie */}
+        {isDM && (
+          <section className="panel-hall px-6 pb-6 pt-5">
+            <BlockHeader
+              title="The Monster Den"
+              meta="DM eyes only"
+              to="den"
+              linkLabel="Enter the den"
+            />
+            <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+              Every creature in your collection — statted, searchable, and
+              invisible to the party.
+            </div>
+          </section>
+        )}
+
         {/* codex block */}
         <section className="panel-hall px-6 pb-6 pt-5">
           <BlockHeader

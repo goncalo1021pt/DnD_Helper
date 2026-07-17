@@ -156,6 +156,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 		}
 	case db.ContentKindFeat:
 		// Free-form: the summary carries the rules text.
+	case db.ContentKindMonster:
+		// Free-form: stat blocks vary too much to gate; the Den renders
+		// whatever facts are present.
 	}
 	return ""
 }

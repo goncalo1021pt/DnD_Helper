@@ -907,7 +907,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item";
+            kind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item" | "monster";
             /** @enum {string} */
             source: "srd" | "homebrew";
             name: string;
@@ -1020,7 +1020,7 @@ export interface components {
         };
         PackEntry: {
             /** @enum {string} */
-            kind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item";
+            kind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item" | "monster";
             name: string;
             summary?: string;
             data: {
@@ -1197,7 +1197,7 @@ export interface components {
         QuestId: string;
         CharacterId: string;
         TreeId: string;
-        ContentKind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item";
+        ContentKind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item" | "monster";
         NodeId: string;
     };
     requestBodies: never;

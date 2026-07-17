@@ -65,6 +65,7 @@ const (
 	ContentKindFeat       ContentKind = "feat"
 	ContentKindSpell      ContentKind = "spell"
 	ContentKindItem       ContentKind = "item"
+	ContentKindMonster    ContentKind = "monster"
 )
 
 func (e *ContentKind) Scan(src interface{}) error {

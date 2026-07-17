@@ -595,6 +595,12 @@ export const KIND_DEFAULTS: Record<RulesKind, DataObj> = {
   feat: { category: "general" },
   spell: { level: 1, school: "", classes: [] },
   item: { type: "gear" },
+  monster: {
+    size: "Medium", type: "Beast", alignment: "Unaligned",
+    ac: 12, hp: 11, speed: "30 ft.", cr: "1/4", crValue: 0.25,
+    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    description: "",
+  },
 };
 
 export function ContentForm({

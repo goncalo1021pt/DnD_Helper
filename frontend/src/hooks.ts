@@ -305,9 +305,10 @@ export function useSeatCharacter() {
 
 // --- Rules content + the forge ---
 
-export function useRules(kind: RulesKind) {
+export function useRules(kind: RulesKind, enabled = true) {
   return useQuery({
     queryKey: ["rules", kind],
+    enabled,
     staleTime: 5 * 60_000, // rules change on deploy, not per click
     queryFn: async () => {
       const { data, error } = await api.GET("/rules/{kind}", {

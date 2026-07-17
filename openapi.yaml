@@ -1341,7 +1341,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [class, species, background, subclass, feat, spell, item]
+        enum: [class, species, background, subclass, feat, spell, item, monster]
     NodeId:
       name: nodeId
       in: path
@@ -1752,7 +1752,7 @@ components:
           format: uuid
         kind:
           type: string
-          enum: [class, species, background, subclass, feat, spell, item]
+          enum: [class, species, background, subclass, feat, spell, item, monster]
         source:
           type: string
           enum: [srd, homebrew]
@@ -1952,7 +1952,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [class, species, background, subclass, feat, spell, item]
+          enum: [class, species, background, subclass, feat, spell, item, monster]
         name:
           type: string
           minLength: 1

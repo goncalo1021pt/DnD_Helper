@@ -47,7 +47,7 @@ export type CharacterTreeState =
 
 export type RulesContent =
   paths["/rules/{kind}"]["get"]["responses"]["200"]["content"]["application/json"][number];
-export type RulesKind = "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item";
+export type RulesKind = "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item" | "monster";
 export type RulesContentInput =
   paths["/rules/{kind}"]["post"]["requestBody"]["content"]["application/json"];
 export type LevelUpRequest =
