@@ -986,6 +986,11 @@ export interface components {
             name: string;
             qty: number;
             equipped: boolean;
+            /**
+             * @description Where an equipped item sits; empty when stowed.
+             * @enum {string}
+             */
+            slot?: "" | "armor" | "mainhand" | "offhand";
             /** @description The rules entry behind this row; null for free-text gear. */
             content?: components["schemas"]["RulesContent"];
         };
@@ -1002,6 +1007,11 @@ export interface components {
         InventoryItemPatch: {
             qty?: number;
             equipped?: boolean;
+            /**
+             * @description Equip into a specific slot (implies equipped). Armor only fits the armor slot, shields only the off-hand; weapons fit either hand. Displaced occupants are unequipped in the same stroke. Use equipped:false to stow.
+             * @enum {string}
+             */
+            slot?: "armor" | "mainhand" | "offhand";
         };
         CharacterDetail: {
             character: components["schemas"]["Character"];

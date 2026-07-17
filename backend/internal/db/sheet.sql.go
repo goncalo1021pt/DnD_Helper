@@ -15,7 +15,7 @@ import (
 const addCharacterItem = `-- name: AddCharacterItem :one
 INSERT INTO character_items (character_id, content_id, name, qty)
 VALUES ($1, $2, $3, $4)
-RETURNING id, character_id, content_id, name, qty, equipped, created_at
+RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot
 `
 
 type AddCharacterItemParams struct {
@@ -41,6 +41,7 @@ func (q *Queries) AddCharacterItem(ctx context.Context, arg AddCharacterItemPara
 		&i.Qty,
 		&i.Equipped,
 		&i.CreatedAt,
+		&i.Slot,
 	)
 	return i, err
 }
@@ -72,7 +73,7 @@ func (q *Queries) DeleteCharacterItem(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCharacterItem = `-- name: GetCharacterItem :one
-SELECT id, character_id, content_id, name, qty, equipped, created_at FROM character_items WHERE id = $1
+SELECT id, character_id, content_id, name, qty, equipped, created_at, slot FROM character_items WHERE id = $1
 `
 
 func (q *Queries) GetCharacterItem(ctx context.Context, id uuid.UUID) (CharacterItem, error) {
@@ -86,6 +87,7 @@ func (q *Queries) GetCharacterItem(ctx context.Context, id uuid.UUID) (Character
 		&i.Qty,
 		&i.Equipped,
 		&i.CreatedAt,
+		&i.Slot,
 	)
 	return i, err
 }
@@ -120,7 +122,7 @@ func (q *Queries) ListCharacterContentRefs(ctx context.Context, characterID uuid
 }
 
 const listCharacterItems = `-- name: ListCharacterItems :many
-SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped,
+SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped, ci.slot,
        COALESCE(rc.name, ci.name) AS name,
        rc.kind, rc.source, rc.summary, rc.data, rc.created_by,
        u.name AS creator_name
@@ -137,6 +139,7 @@ type ListCharacterItemsRow struct {
 	ContentID   pgtype.UUID    `json:"content_id"`
 	Qty         int32          `json:"qty"`
 	Equipped    bool           `json:"equipped"`
+	Slot        string         `json:"slot"`
 	Name        string         `json:"name"`
 	Kind        *ContentKind   `json:"kind"`
 	Source      *ContentSource `json:"source"`
@@ -162,6 +165,7 @@ func (q *Queries) ListCharacterItems(ctx context.Context, characterID uuid.UUID)
 			&i.ContentID,
 			&i.Qty,
 			&i.Equipped,
+			&i.Slot,
 			&i.Name,
 			&i.Kind,
 			&i.Source,
@@ -236,7 +240,7 @@ func (q *Queries) ListCharacterSpells(ctx context.Context, characterID uuid.UUID
 
 const unequipItems = `-- name: UnequipItems :exec
 UPDATE character_items
-SET equipped = false
+SET equipped = false, slot = ''
 WHERE character_id = $1 AND id = ANY($2::uuid[])
 `
 
@@ -245,7 +249,7 @@ type UnequipItemsParams struct {
 	Column2     []uuid.UUID `json:"column_2"`
 }
 
-// Clears the equipped flag on a set of rows (armor/shield uniqueness).
+// Stows a set of rows: equip flag off, slot vacated.
 func (q *Queries) UnequipItems(ctx context.Context, arg UnequipItemsParams) error {
 	_, err := q.db.Exec(ctx, unequipItems, arg.CharacterID, arg.Column2)
 	return err
@@ -253,19 +257,25 @@ func (q *Queries) UnequipItems(ctx context.Context, arg UnequipItemsParams) erro
 
 const updateCharacterItem = `-- name: UpdateCharacterItem :one
 UPDATE character_items
-SET qty = $2, equipped = $3
+SET qty = $2, equipped = $3, slot = $4
 WHERE id = $1
-RETURNING id, character_id, content_id, name, qty, equipped, created_at
+RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot
 `
 
 type UpdateCharacterItemParams struct {
 	ID       uuid.UUID `json:"id"`
 	Qty      int32     `json:"qty"`
 	Equipped bool      `json:"equipped"`
+	Slot     string    `json:"slot"`
 }
 
 func (q *Queries) UpdateCharacterItem(ctx context.Context, arg UpdateCharacterItemParams) (CharacterItem, error) {
-	row := q.db.QueryRow(ctx, updateCharacterItem, arg.ID, arg.Qty, arg.Equipped)
+	row := q.db.QueryRow(ctx, updateCharacterItem,
+		arg.ID,
+		arg.Qty,
+		arg.Equipped,
+		arg.Slot,
+	)
 	var i CharacterItem
 	err := row.Scan(
 		&i.ID,
@@ -275,6 +285,7 @@ func (q *Queries) UpdateCharacterItem(ctx context.Context, arg UpdateCharacterIt
 		&i.Qty,
 		&i.Equipped,
 		&i.CreatedAt,
+		&i.Slot,
 	)
 	return i, err
 }

@@ -239,3 +239,39 @@ export const IconRitual = (p: IconProps) => (
     <line x1="7" y1="20" x2="17" y2="20" />
   </Icon>
 );
+
+export const IconSword = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M14.5 4.5 19.5 9.5 9 20 4 15z" />
+    <line x1="13" y1="19" x2="19" y2="13" />
+    <line x1="16" y1="16" x2="20" y2="20" />
+  </Icon>
+);
+
+export const IconShieldItem = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6z" />
+  </Icon>
+);
+
+export const IconArmor = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M8 4h8l2 4v12H6V8z" />
+    <path d="M8 4c0 2.2 1.8 4 4 4s4-1.8 4-4" />
+    <line x1="12" y1="12" x2="12" y2="16" />
+  </Icon>
+);
+
+export const IconSack = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 7c-2.5 1.8-4 4.6-4 7.5C5 18 8 20 12 20s7-2 7-5.5C19 11.6 17.5 8.8 15 7" />
+    <path d="M9 7 8 4h8l-1 3z" />
+  </Icon>
+);
+
+export const IconCoin = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="8" />
+    <circle cx="12" cy="12" r="4.5" />
+  </Icon>
+);

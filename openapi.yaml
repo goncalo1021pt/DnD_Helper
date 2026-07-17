@@ -1888,6 +1888,10 @@ components:
           type: integer
         equipped:
           type: boolean
+        slot:
+          type: string
+          enum: ["", armor, mainhand, offhand]
+          description: Where an equipped item sits; empty when stowed.
         content:
           $ref: "#/components/schemas/RulesContent"
           nullable: true
@@ -1918,6 +1922,14 @@ components:
           maximum: 999
         equipped:
           type: boolean
+        slot:
+          type: string
+          enum: [armor, mainhand, offhand]
+          description: >-
+            Equip into a specific slot (implies equipped). Armor only fits
+            the armor slot, shields only the off-hand; weapons fit either
+            hand. Displaced occupants are unequipped in the same stroke.
+            Use equipped:false to stow.
 
     CharacterDetail:
       type: object

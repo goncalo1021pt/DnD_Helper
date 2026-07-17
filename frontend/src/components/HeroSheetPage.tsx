@@ -13,10 +13,74 @@ import { acFromEquipment, profBonus, weaponAttacks } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import SpellEntry, { Blocks, SpellFlags } from "./ui/SpellEntry";
+import ContentEntry from "./ui/ContentEntry";
+
+type EquipSlot = "armor" | "mainhand" | "offhand";
+const SLOT_LABEL: Record<EquipSlot, string> = {
+  armor: "Armor",
+  mainhand: "Main Hand",
+  offhand: "Off Hand",
+};
+
+function itemTypeOf(it: InventoryItem): string {
+  return ((it.content?.data ?? {}) as { type?: string }).type ?? "";
+}
+
+/** Which slots an inventory row can occupy. */
+function slotsFor(it: InventoryItem): EquipSlot[] {
+  switch (itemTypeOf(it)) {
+    case "armor":
+      return ["armor"];
+    case "shield":
+      return ["offhand"];
+    case "weapon":
+      return ["mainhand", "offhand"];
+    default:
+      return [];
+  }
+}
+
+/** The one number worth printing on a tile. */
+function keyStat(it: InventoryItem): string {
+  const d = (it.content?.data ?? {}) as {
+    ac?: number; acBonus?: number; damage?: string; damageType?: string;
+  };
+  switch (itemTypeOf(it)) {
+    case "armor":
+      return `AC ${d.ac ?? "?"}`;
+    case "shield":
+      return `+${d.acBonus ?? 2} AC`;
+    case "weapon":
+      return `${d.damage ?? ""} ${d.damageType ?? ""}`.trim();
+    default:
+      return "";
+  }
+}
+
+function ItemGlyph({ it }: { it: InventoryItem }) {
+  switch (itemTypeOf(it)) {
+    case "armor":
+      return <IconArmor size={15} strokeWidth={1.6} />;
+    case "shield":
+      return <IconShieldItem size={15} strokeWidth={1.6} />;
+    case "weapon":
+      return <IconSword size={15} strokeWidth={1.6} />;
+    default:
+      return <IconSack size={15} strokeWidth={1.6} />;
+  }
+}
 import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
 import LevelUpModal from "./LevelUpModal";
-import { IconPlus, IconTrash } from "./ui/icons";
+import {
+  IconArmor,
+  IconCoin,
+  IconPlus,
+  IconSack,
+  IconShieldItem,
+  IconSword,
+  IconTrash,
+} from "./ui/icons";
 
 /**
  * The hero sheet: one page per hero with everything the table needs —
@@ -60,6 +124,8 @@ export default function HeroSheetPage() {
   const [reading, setReading] = useState<RulesContent | null>(null);
   const [addChoice, setAddChoice] = useState("");
   const [freeText, setFreeText] = useState("");
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
+  const [slotPicker, setSlotPicker] = useState<EquipSlot | null>(null);
 
   const character = detail?.character;
   const sheet = character?.sheet;
@@ -67,6 +133,16 @@ export default function HeroSheetPage() {
 
   const klass = classes?.find((c) => c.id === sheet?.classId);
   const subclass = subclasses?.find((s) => s.id === sheet?.subclassId);
+
+  // The rig: what sits where. Coin gets a purse, not a tile.
+  const purse = detail?.items.find((i) => !i.content && i.name === "Gold Pieces");
+  const packItems = (detail?.items ?? []).filter((i) => i.id !== purse?.id);
+  const bySlot: Record<EquipSlot, InventoryItem | undefined> = {
+    armor: detail?.items.find((i) => i.slot === "armor"),
+    mainhand: detail?.items.find((i) => i.slot === "mainhand"),
+    offhand: detail?.items.find((i) => i.slot === "offhand"),
+  };
+  const openItem = detail?.items.find((i) => i.id === openItemId) ?? null;
 
   const features: Array<Feature & { from: string }> = useMemo(() => {
     if (!character) return [];
@@ -313,57 +389,102 @@ export default function HeroSheetPage() {
               </section>
             )}
 
-            {/* equipment */}
+            {/* the rig: what's worn and held */}
+            <section>
+              <div className="mb-1.5 flex items-center justify-between">
+                <SectionLabel>Equipped</SectionLabel>
+                {purse && (
+                  <button
+                    onClick={() => canEdit && setOpenItemId(purse.id)}
+                    className="label-stamp flex cursor-pointer items-center gap-1.5 rounded-[2px] border-none px-2.5 py-1.5 text-[10px] font-semibold tracking-[1px] text-gold-muted"
+                    style={{ background: "rgba(201,162,39,.10)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }}
+                  >
+                    <IconCoin size={13} strokeWidth={1.8} />
+                    {purse.qty} GP
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(Object.keys(SLOT_LABEL) as EquipSlot[]).map((slot) => {
+                  const it = bySlot[slot];
+                  return (
+                    <button
+                      key={slot}
+                      onClick={() => (it ? setOpenItemId(it.id) : canEdit && setSlotPicker(slot))}
+                      className="parchment cursor-pointer px-3 pb-2.5 pt-2 text-left transition hover:-translate-y-0.5"
+                      style={it ? undefined : { opacity: 0.75, boxShadow: "inset 0 0 0 1.5px rgba(120,80,30,.35)" }}
+                    >
+                      <div className="label-stamp text-[8px] tracking-[1.5px] text-ink-label">
+                        {SLOT_LABEL[slot]}
+                      </div>
+                      {it ? (
+                        <>
+                          <div className="font-heading mt-1 truncate text-[13px] font-bold text-ink">
+                            {it.name}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-ink-body">{keyStat(it)}</div>
+                        </>
+                      ) : (
+                        <div className="font-accent mt-1.5 text-[12px] italic text-ink-body">
+                          — empty —
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {attacks.length > 0 && (
+                <div className="parchment mt-2 px-4 py-2.5">
+                  {attacks.map((a) => (
+                    <div key={a.name} className="text-[12.5px] text-ink-body">
+                      <span className="font-semibold text-ink">{a.name}</span>{" "}
+                      +{a.bonus} to hit · {a.damage} {a.damageType}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* the pack: a game inventory grid */}
             <section>
               <SectionLabel>The Pack</SectionLabel>
               <div className="parchment px-4 py-4">
-                {detail.items.length === 0 && (
+                {packItems.length === 0 && (
                   <div className="font-accent pb-2 text-[13px] italic text-ink-body">
                     Traveling light — nothing carried yet.
                   </div>
                 )}
-                <div className="flex flex-col gap-1.5">
-                  {detail.items.map((it: InventoryItem) => {
-                    const d = (it.content?.data ?? {}) as { type?: string };
-                    const equippable = d.type === "armor" || d.type === "shield" || d.type === "weapon";
-                    return (
-                      <div key={it.id} className="flex items-center gap-2 text-[13px]">
-                        <span className={`min-w-0 flex-1 truncate ${it.equipped ? "font-semibold text-ink" : "text-ink-body"}`}>
-                          {it.name}
-                          {it.qty > 1 && ` ×${it.qty}`}
-                          {it.equipped && " · equipped"}
-                        </span>
-                        {canEdit && equippable && (
-                          <button
-                            onClick={() => updateItem.mutate({ itemId: it.id, equipped: !it.equipped })}
-                            className="btn-base btn-ghost-ink flex-none px-2 py-1 text-[9.5px]"
-                          >
-                            {it.equipped ? "Doff" : "Don"}
-                          </button>
-                        )}
-                        {canEdit && (
-                          <button
-                            onClick={() => deleteItem.mutate(it.id)}
-                            title="Remove"
-                            className="btn-base btn-ghost-red flex-none p-[5px]"
-                          >
-                            <IconTrash size={12} strokeWidth={1.8} />
-                          </button>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(min(132px,100%),1fr))] gap-2">
+                  {packItems.map((it: InventoryItem) => (
+                    <button
+                      key={it.id}
+                      onClick={() => setOpenItemId(it.id)}
+                      className="parchment cursor-pointer px-2.5 pb-2 pt-1.5 text-left transition hover:-translate-y-0.5"
+                      style={
+                        it.equipped
+                          ? { boxShadow: "0 0 0 2px #8b2520, 0 10px 18px rgba(0,0,0,.35)" }
+                          : undefined
+                      }
+                    >
+                      <div className="flex items-center gap-1.5 text-ink-label">
+                        <ItemGlyph it={it} />
+                        {it.qty > 1 && (
+                          <span className="label-stamp ml-auto text-[9px] tracking-[1px]">
+                            ×{it.qty}
+                          </span>
                         )}
                       </div>
-                    );
-                  })}
+                      <div className="font-heading mt-1 truncate text-[12.5px] font-bold leading-tight text-ink">
+                        {it.name}
+                      </div>
+                      <div className="mt-0.5 min-h-[14px] text-[10.5px] text-ink-body">
+                        {it.equipped
+                          ? `equipped · ${SLOT_LABEL[(it.slot || "armor") as EquipSlot]}`
+                          : keyStat(it)}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                {attacks.length > 0 && (
-                  <div className="mt-3 border-t border-[rgba(120,80,30,.25)] pt-2.5">
-                    {attacks.map((a) => (
-                      <div key={a.name} className="text-[12.5px] text-ink-body">
-                        <span className="font-semibold text-ink">{a.name}</span>{" "}
-                        +{a.bonus} to hit · {a.damage} {a.damageType}
-                      </div>
-                    ))}
-                  </div>
-                )}
                 {canEdit && (
                   <div className="mt-3.5 flex flex-wrap items-center gap-2">
                     <select
@@ -415,6 +536,112 @@ export default function HeroSheetPage() {
       {reading && (
         <ParchmentModal onClose={() => setReading(null)} maxWidth="max-w-[560px]">
           <SpellEntry spell={reading} />
+        </ParchmentModal>
+      )}
+
+      {openItem && (
+        <ParchmentModal onClose={() => setOpenItemId(null)} maxWidth="max-w-[520px]">
+          {openItem.content ? (
+            <ContentEntry entry={openItem.content} />
+          ) : (
+            <div className="text-[13px]">
+              <div className="font-display text-[15px] font-bold leading-tight text-ink">
+                {openItem.name}
+              </div>
+              <div className="font-accent mt-0.5 text-[11.5px] italic text-ink-body">
+                Carried gear
+              </div>
+            </div>
+          )}
+          {canEdit && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[rgba(120,80,30,.25)] pt-3.5">
+              {slotsFor(openItem).map((slot) =>
+                openItem.slot === slot ? null : (
+                  <button
+                    key={slot}
+                    onClick={() => updateItem.mutate({ itemId: openItem.id, slot })}
+                    className="btn-base btn-wax px-3 py-2 text-[10.5px]"
+                  >
+                    Equip · {SLOT_LABEL[slot]}
+                  </button>
+                ),
+              )}
+              {openItem.equipped && (
+                <button
+                  onClick={() => updateItem.mutate({ itemId: openItem.id, equipped: false })}
+                  className="btn-base btn-ghost-ink px-3 py-2 text-[10.5px]"
+                >
+                  Stow
+                </button>
+              )}
+              <div className="ml-auto flex items-center gap-1.5">
+                <button
+                  disabled={openItem.qty <= 1 || updateItem.isPending}
+                  onClick={() => updateItem.mutate({ itemId: openItem.id, qty: openItem.qty - 1 })}
+                  className="btn-base btn-ghost-ink h-8 w-8"
+                >
+                  −
+                </button>
+                <span className="font-heading w-8 text-center text-[13px] font-bold text-ink">
+                  {openItem.qty}
+                </span>
+                <button
+                  disabled={updateItem.isPending}
+                  onClick={() => updateItem.mutate({ itemId: openItem.id, qty: openItem.qty + 1 })}
+                  className="btn-base btn-ghost-ink h-8 w-8"
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => {
+                    deleteItem.mutate(openItem.id);
+                    setOpenItemId(null);
+                  }}
+                  title="Drop"
+                  className="btn-base btn-ghost-red h-8 w-8"
+                >
+                  <IconTrash size={13} strokeWidth={1.8} />
+                </button>
+              </div>
+            </div>
+          )}
+        </ParchmentModal>
+      )}
+
+      {slotPicker && (
+        <ParchmentModal onClose={() => setSlotPicker(null)} maxWidth="max-w-[440px]">
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            Equip
+          </div>
+          <h3 className="font-display m-0 mb-4 text-center text-xl font-bold text-ink">
+            {SLOT_LABEL[slotPicker]}
+          </h3>
+          {packItems.filter((i) => slotsFor(i).includes(slotPicker)).length === 0 ? (
+            <div className="font-accent py-4 text-center text-[13px] italic text-ink-body">
+              Nothing in the pack fits this slot.
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {packItems
+                .filter((i) => slotsFor(i).includes(slotPicker))
+                .map((i) => (
+                  <button
+                    key={i.id}
+                    onClick={() => {
+                      updateItem.mutate({ itemId: i.id, slot: slotPicker });
+                      setSlotPicker(null);
+                    }}
+                    className="parchment flex cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-left transition hover:-translate-y-0.5"
+                  >
+                    <ItemGlyph it={i} />
+                    <span className="font-heading min-w-0 flex-1 truncate text-[13px] font-bold text-ink">
+                      {i.name}
+                    </span>
+                    <span className="flex-none text-[11px] text-ink-body">{keyStat(i)}</span>
+                  </button>
+                ))}
+            </div>
+          )}
         </ParchmentModal>
       )}
 
