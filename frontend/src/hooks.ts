@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api/client";
 import type {
   CharacterInput,
@@ -316,6 +316,28 @@ export function useRules(kind: RulesKind) {
       if (error) throw error;
       return data ?? [];
     },
+  });
+}
+
+const ALL_KINDS: RulesKind[] = [
+  "class", "subclass", "species", "background", "feat", "spell", "item",
+];
+
+/** Every visible rules entry across all kinds — for codex-wide rulings. */
+export function useAllRules() {
+  return useQueries({
+    queries: ALL_KINDS.map((kind) => ({
+      queryKey: ["rules", kind],
+      staleTime: 5 * 60_000,
+      queryFn: async () => {
+        const { data, error } = await api.GET("/rules/{kind}", {
+          params: { path: { kind } },
+        });
+        if (error) throw error;
+        return data ?? [];
+      },
+    })),
+    combine: (results) => results.flatMap((r) => r.data ?? []),
   });
 }
 

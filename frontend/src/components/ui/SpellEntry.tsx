@@ -39,12 +39,48 @@ export function Blocks({ text }: { text: string }) {
     <>
       {text.split(/\n\n+/).map((block, i) => {
         if (block.trimStart().startsWith("|")) {
+          const rows = block
+            .trim()
+            .split("\n")
+            .filter((r) => r.trim().startsWith("|"))
+            .map((r) =>
+              r.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim()),
+            )
+            .filter((cells) => !cells.every((c) => /^:?-{2,}:?$/.test(c)));
+          if (rows.length === 0) return null;
+          const [head, ...body] = rows;
           return (
-            <div
-              key={i}
-              className="my-2 overflow-x-auto whitespace-pre font-mono text-[10.5px] leading-relaxed"
-            >
-              {block}
+            <div key={i} className="my-2 overflow-x-auto" data-ok-overflow>
+              <table className="w-full border-collapse text-[12px] leading-snug">
+                <thead>
+                  <tr>
+                    {head.map((c, j) => (
+                      <th
+                        key={j}
+                        className="font-heading px-2 py-1 text-left align-bottom font-bold"
+                        style={{ borderBottom: "1px solid rgba(90,60,20,.4)" }}
+                      >
+                        {inline(c)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {body.map((r, k) => (
+                    <tr key={k}>
+                      {r.map((c, j) => (
+                        <td
+                          key={j}
+                          className="px-2 py-1 align-top"
+                          style={{ borderBottom: "1px solid rgba(90,60,20,.15)" }}
+                        >
+                          {inline(c)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           );
         }

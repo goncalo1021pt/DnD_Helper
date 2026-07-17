@@ -32,6 +32,9 @@ export default function SpellHover({
   }
 
   function place(e: React.MouseEvent) {
+    // Touch browsers synthesize mouseenter on tap — a hover card on a phone
+    // just gets in the way of picking. Genuine hover devices only.
+    if (window.matchMedia("(hover: none)").matches) return;
     cancelClose();
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const width = 340;
