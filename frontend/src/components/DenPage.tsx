@@ -24,6 +24,31 @@ const CR_BANDS: Array<[string, (v: number) => boolean]> = [
   ["CR 17+", (v) => v >= 17],
 ];
 
+/** The 14 creature types of the 2024 rules, for the type filter. */
+const BASE_TYPES = [
+  "Aberration", "Beast", "Celestial", "Construct", "Dragon", "Elemental",
+  "Fey", "Fiend", "Giant", "Humanoid", "Monstrosity", "Ooze", "Plant",
+  "Undead",
+];
+
+/** "Swarm of Tiny Beasts" → Beast, "Fiend (Demon)" → Fiend, "Swarm of Tiny
+ * Monstrosities" → Monstrosity (y→ies plural). */
+function baseTypeOf(type: string): string {
+  for (const t of BASE_TYPES) {
+    const plural = t.endsWith("y") ? t.slice(0, -1) + "ies" : t + "s";
+    if (type.includes(t) || type.includes(plural)) return t;
+  }
+  return type;
+}
+
+type SortKey = "cr-asc" | "cr-desc" | "name";
+
+const SORTS: Array<[SortKey, string]> = [
+  ["cr-asc", "CR: low → high"],
+  ["cr-desc", "CR: high → low"],
+  ["name", "Name: A → Z"],
+];
+
 export default function DenPage() {
   const { role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
@@ -31,26 +56,41 @@ export default function DenPage() {
   const create = useCreateRules("monster");
   const [search, setSearch] = useState("");
   const [band, setBand] = useState(0);
+  const [type, setType] = useState("");
+  const [sort, setSort] = useState<SortKey>("cr-asc");
   const [reading, setReading] = useState<RulesContent | null>(null);
   const [scribing, setScribing] = useState(false);
+
+  // Only offer types that actually stalk this den.
+  const typeOptions = useMemo(() => {
+    const present = new Set(
+      (monsters ?? []).map((m) =>
+        baseTypeOf((m.data as { type?: string }).type ?? ""),
+      ),
+    );
+    return BASE_TYPES.filter((t) => present.has(t));
+  }, [monsters]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const inBand = CR_BANDS[band][1];
+    const crOf = (m: RulesContent) =>
+      (m.data as { crValue?: number }).crValue ?? 0;
     return (monsters ?? [])
       .filter((m) => {
         const d = m.data as { type?: string; crValue?: number };
         if (!inBand(d.crValue ?? 0)) return false;
+        if (type && baseTypeOf(d.type ?? "") !== type) return false;
         if (q && !m.name.toLowerCase().includes(q) && !(d.type ?? "").toLowerCase().includes(q))
           return false;
         return true;
       })
       .sort((a, b) => {
-        const ca = ((a.data as { crValue?: number }).crValue ?? 0) -
-          ((b.data as { crValue?: number }).crValue ?? 0);
+        if (sort === "name") return a.name.localeCompare(b.name);
+        const ca = sort === "cr-desc" ? crOf(b) - crOf(a) : crOf(a) - crOf(b);
         return ca !== 0 ? ca : a.name.localeCompare(b.name);
       });
-  }, [monsters, search, band]);
+  }, [monsters, search, band, type, sort]);
 
   if (!isDM) {
     return (
@@ -91,23 +131,53 @@ export default function DenPage() {
         </button>
       </div>
 
-      {/* filters */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      {/* filters — all combinable: search + type + CR band + sort */}
+      <div className="mb-2 flex flex-wrap items-center gap-3">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or type…"
-          className="input-hall min-w-0 flex-1 sm:max-w-[300px]"
+          className="input-hall min-w-0 flex-1 basis-[220px] sm:max-w-[300px]"
         />
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          className="input-hall w-[150px]"
+        >
+          <option value="">All types</option>
+          {typeOptions.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
         <select
           value={band}
           onChange={(e) => setBand(Number(e.target.value))}
-          className="input-hall w-36"
+          className="input-hall w-[120px]"
         >
           {CR_BANDS.map(([label], i) => (
             <option key={label} value={i}>{label}</option>
           ))}
         </select>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortKey)}
+          className="input-hall w-[160px]"
+        >
+          {SORTS.map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="label-stamp mb-4 text-[10px] tracking-[1.5px] text-gold-muted">
+        {filtered.length} of {monsters?.length ?? 0} creatures
+        {(search || type || band !== 0) && (
+          <button
+            onClick={() => { setSearch(""); setType(""); setBand(0); }}
+            className="ml-2 cursor-pointer border-none bg-transparent p-0 text-[10px] tracking-[1.5px] text-ember-bright underline"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       {isLoading ? (
