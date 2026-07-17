@@ -712,6 +712,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/bestiary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The party's field journal (members). DM sees full records; players see only unveiled sections. */
+        get: operations["listBestiary"];
+        put?: never;
+        /** Log a new sighting (any member) */
+        post: operations["createBestiaryEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/bestiary/{entryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a sighting and its notes (creator/DM) */
+        delete: operations["deleteBestiaryEntry"];
+        options?: never;
+        head?: never;
+        /** Rename a sighting (creator/DM), or identify and unveil it (DM only) */
+        patch: operations["updateBestiaryEntry"];
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/bestiary/{entryId}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pen a field note on a sighting (any member) */
+        post: operations["addBestiaryNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/bestiary/{entryId}/notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                entryId: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Erase a field note (its author, or the DM) */
+        delete: operations["deleteBestiaryNote"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1017,6 +1099,50 @@ export interface components {
             character: components["schemas"]["Character"];
             spells: components["schemas"]["RulesContent"][];
             items: components["schemas"]["InventoryItem"][];
+        };
+        BestiaryNote: {
+            /** Format: uuid */
+            id: string;
+            body: string;
+            authorName?: string | null;
+            /** Format: date-time */
+            createdAt?: string;
+            /** @description Whether the viewer penned this note. */
+            mine: boolean;
+        };
+        BestiaryEntry: {
+            /** Format: uuid */
+            id: string;
+            /** @description The party's own name for the creature. */
+            title: string;
+            /** @description Whether the DM has linked this sighting to a known creature. */
+            identified: boolean;
+            /** @description The creature's true name, present once identified. */
+            monsterName?: string | null;
+            /** @description Which record sections the DM has unveiled to the party. */
+            revealed: ("defenses" | "offense" | "traits" | "lore")[];
+            /** @description Unveiled sections of the official stat block as rendered markdown, keyed by section. Members receive only revealed sections; the DM receives every section the creature has. */
+            record: {
+                [key: string]: string;
+            };
+            notes: components["schemas"]["BestiaryNote"][];
+            /** @description Whether the viewer may rename or delete this entry (creator or DM). */
+            canEdit: boolean;
+            /** @description Whether the viewer may identify and unveil (DM only). */
+            isDM: boolean;
+        };
+        BestiaryEntryInput: {
+            title: string;
+        };
+        BestiaryEntryPatch: {
+            title?: string;
+            /**
+             * Format: uuid
+             * @description Link to a Den monster to identify the sighting, or null to unlink (DM only).
+             */
+            contentId?: string | null;
+            /** @description The full set of unveiled sections (idempotent; DM only). */
+            revealed?: ("defenses" | "offense" | "traits" | "lore")[];
         };
         PackEntry: {
             /** @enum {string} */
@@ -2728,6 +2854,172 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Quest"];
                 };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listBestiary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bestiary entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BestiaryEntry"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createBestiaryEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BestiaryEntryInput"];
+            };
+        };
+        responses: {
+            /** @description The new entry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BestiaryEntry"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteBestiaryEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateBestiaryEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BestiaryEntryPatch"];
+            };
+        };
+        responses: {
+            /** @description The updated entry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BestiaryEntry"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addBestiaryNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                entryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The updated entry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BestiaryEntry"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteBestiaryNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                entryId: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];

@@ -158,11 +158,23 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 }
 
 // ListRules returns all content of one kind: the SRD seed plus this
-// instance's homebrew. Any authenticated user may read the rules.
+// instance's homebrew. Any authenticated user may read the rules — except
+// monsters, which belong to the Monster Den and stay behind the DM's screen.
+// Players meet creatures through the Bestiary's measured reveal, not the raw
+// library, so a non-DM sees an empty menagerie here.
 func (s *Server) ListRules(ctx context.Context, request api.ListRulesRequestObject) (api.ListRulesResponseObject, error) {
 	uid, ok := auth.UserID(ctx)
 	if !ok {
 		return api.ListRules401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	if request.Kind == api.Monster {
+		isDM, err := s.isDMAnywhere(ctx, uid)
+		if err != nil {
+			return nil, err
+		}
+		if !isDM {
+			return api.ListRules200JSONResponse([]api.RulesContent{}), nil
+		}
 	}
 	rows, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
 		Kind:      db.ContentKind(string(request.Kind)),

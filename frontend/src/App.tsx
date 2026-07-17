@@ -9,6 +9,7 @@ import HeroSheetPage from "./components/HeroSheetPage";
 import ArchivesPage from "./components/ArchivesPage";
 import CodexPage from "./components/CodexPage";
 import DenPage from "./components/DenPage";
+import BestiaryPage from "./components/BestiaryPage";
 import ChroniclePage from "./components/ChroniclePage";
 import CampaignView from "./components/CampaignView";
 import CampaignDashboard from "./components/CampaignDashboard";
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="party" element={<PartyRoster />} />
           <Route path="codex" element={<CodexPage />} />
           <Route path="den" element={<DenPage />} />
+          <Route path="bestiary" element={<BestiaryPage />} />
           <Route path="chronicle" element={<ChroniclePage />} />
           <Route path="trees" element={<SkillTreesPage />} />
           <Route path="trees/:treeId" element={<TreeEditorPage />} />

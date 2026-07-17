@@ -72,3 +72,7 @@ export type SeatConflict =
 export type ForgeRequest =
   paths["/me/characters/forge"]["post"]["requestBody"]["content"]["application/json"];
 export type AbilityScores = ForgeRequest["abilities"];
+export type BestiaryEntry =
+  paths["/campaigns/{campaignId}/bestiary"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type BestiaryNote = BestiaryEntry["notes"][number];
+export type BestiarySection = BestiaryEntry["revealed"][number];

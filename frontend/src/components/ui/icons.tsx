@@ -275,3 +275,28 @@ export const IconCoin = (p: IconProps) => (
     <circle cx="12" cy="12" r="4.5" />
   </Icon>
 );
+
+export const IconEye = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+    <circle cx="12" cy="12" r="3" />
+  </Icon>
+);
+
+export const IconEyeOff = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9.9 5.2A9.7 9.7 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4" />
+    <path d="M6.3 6.3A16.7 16.7 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.7-1.7" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    <line x1="3" y1="3" x2="21" y2="21" />
+  </Icon>
+);
+
+export const IconPaw = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="7" cy="9" r="1.7" />
+    <circle cx="12" cy="6.5" r="1.7" />
+    <circle cx="17" cy="9" r="1.7" />
+    <path d="M12 12c-2.6 0-4.5 1.9-4.5 4 0 1.6 1.3 2.5 3 2.5 .7 0 1-.3 1.5-.3s.8.3 1.5.3c1.7 0 3-.9 3-2.5 0-2.1-1.9-4-4.5-4z" />
+  </Icon>
+);

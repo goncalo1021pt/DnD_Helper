@@ -278,6 +278,21 @@ export default function CampaignDashboard() {
           </section>
         )}
 
+        {/* bestiary — the party's field journal, open to all at the table */}
+        <section className="panel-hall px-6 pb-6 pt-5">
+          <BlockHeader
+            title="The Bestiary"
+            meta="the party's field journal"
+            to="bestiary"
+            linkLabel="Open the bestiary"
+          />
+          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+            {isDM
+              ? "What your heroes have met — identify each creature and reveal its record, piece by piece."
+              : "Log the creatures you face, share notes, and collect the stat blocks the DM hands you."}
+          </div>
+        </section>
+
         {/* codex block */}
         <section className="panel-hall px-6 pb-6 pt-5">
           <BlockHeader
