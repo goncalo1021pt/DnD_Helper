@@ -886,6 +886,8 @@ export interface components {
             skills: string[];
             /** @description Level-1 spell picks (casters only; cantrips included). */
             spells?: string[];
+            /** @description Starting-equipment option label (A/B/C) from the class's startingEquipment data. The server stocks the inventory: listed items (linked to armory content where names match), gold as a Gold Pieces row, plus the background's equipment items. */
+            gear?: string;
         };
         CharacterInput: {
             name: string;

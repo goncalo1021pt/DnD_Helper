@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
@@ -31,10 +34,60 @@ type classRules struct {
 		Choose int      `json:"choose"`
 		From   []string `json:"from"`
 	} `json:"skillChoices"`
+	StartingEquipment []gearOption `json:"startingEquipment"`
 }
 
 type backgroundRules struct {
-	Skills []string `json:"skills"`
+	Skills    []string `json:"skills"`
+	Equipment string   `json:"equipment"`
+}
+
+type gearItem struct {
+	Name string `json:"name"`
+	Qty  int    `json:"qty"`
+}
+
+type gearOption struct {
+	Label string     `json:"label"`
+	Items []gearItem `json:"items"`
+	Gold  int        `json:"gold"`
+}
+
+var wordQty = map[string]int{
+	"two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+	"seven": 7, "eight": 8, "nine": 9, "ten": 10,
+}
+
+var (
+	goldToken = regexp.MustCompile(`^(\d+)\s*gp$`)
+	qtyToken  = regexp.MustCompile(`^(\d+)\s+(.+)$`)
+)
+
+// parseEquipmentLine turns a background's prose equipment list ("Two daggers,
+// thieves' tools, 16 gp") into inventory rows plus gold.
+func parseEquipmentLine(line string) (items []gearItem, gold int) {
+	for _, tok := range strings.Split(line, ",") {
+		tok = strings.TrimSpace(tok)
+		if tok == "" {
+			continue
+		}
+		if m := goldToken.FindStringSubmatch(strings.ToLower(tok)); m != nil {
+			g, _ := strconv.Atoi(m[1])
+			gold += g
+			continue
+		}
+		qty := 1
+		if m := qtyToken.FindStringSubmatch(tok); m != nil {
+			qty, _ = strconv.Atoi(m[1])
+			tok = m[2]
+		} else if fields := strings.SplitN(tok, " ", 2); len(fields) == 2 {
+			if n, ok := wordQty[strings.ToLower(fields[0])]; ok {
+				qty, tok = n, fields[1]
+			}
+		}
+		items = append(items, gearItem{Name: tok, Qty: qty})
+	}
+	return items, gold
 }
 
 func abilityMod(score int) int {
@@ -174,6 +227,21 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 	// Full proficiency list = background grants + class choices.
 	skills := append(append([]string{}, br.Skills...), body.Skills...)
 
+	// Starting equipment: an option label from the class's data. Optional so
+	// classes without gear data (older homebrew) still forge.
+	var chosenGear *gearOption
+	if body.Gear != nil && *body.Gear != "" {
+		for i := range cr.StartingEquipment {
+			if strings.EqualFold(cr.StartingEquipment[i].Label, *body.Gear) {
+				chosenGear = &cr.StartingEquipment[i]
+				break
+			}
+		}
+		if chosenGear == nil {
+			return badRequest(class.Name + " has no starting-equipment option " + *body.Gear)
+		}
+	}
+
 	// Spell picks (casters only) — validated against the class list and caps.
 	var spellIDs []uuid.UUID
 	if body.Spells != nil {
@@ -223,6 +291,53 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 			return nil, err
 		}
 	}
+
+	// Stock the inventory: the chosen class option plus the background's kit.
+	// Rows link to armory content where names match; the rest ride as
+	// free-text, and coin becomes a Gold Pieces row.
+	if chosenGear != nil {
+		stock := append([]gearItem{}, chosenGear.Items...)
+		gold := chosenGear.Gold
+		bgItems, bgGold := parseEquipmentLine(br.Equipment)
+		stock = append(stock, bgItems...)
+		gold += bgGold
+		if gold > 0 {
+			stock = append(stock, gearItem{Name: "Gold Pieces", Qty: gold})
+		}
+
+		armory, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
+			Kind:      db.ContentKindItem,
+			CreatedBy: pgUUID(uid),
+		})
+		if err != nil {
+			return nil, err
+		}
+		byName := map[string]uuid.UUID{}
+		for _, it := range armory {
+			byName[strings.ToLower(it.Name)] = it.ID
+		}
+		for _, row := range stock {
+			qty := row.Qty
+			if qty < 1 {
+				qty = 1
+			}
+			contentID := pgtype.UUID{}
+			if id, ok := byName[strings.ToLower(row.Name)]; ok {
+				contentID = pgUUID(id)
+			} else if id, ok := byName[strings.ToLower(strings.TrimSuffix(row.Name, "s"))]; ok {
+				contentID = pgUUID(id)
+			}
+			if _, err := s.queries.AddCharacterItem(ctx, db.AddCharacterItemParams{
+				CharacterID: hero.ID,
+				ContentID:   contentID,
+				Name:        row.Name,
+				Qty:         int32(qty),
+			}); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	me, err := s.queries.GetUserByID(ctx, uid)
 	if err != nil {
 		return nil, err

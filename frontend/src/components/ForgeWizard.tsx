@@ -30,7 +30,19 @@ type Method = "array" | "points" | "manual";
 type BonusMode = "2/1" | "1/1/1";
 
 const BASE_STEPS = ["Class", "Background", "Species", "Abilities", "Name"] as const;
-type StepName = (typeof BASE_STEPS)[number] | "Spells";
+type StepName = (typeof BASE_STEPS)[number] | "Spells" | "Gear";
+
+interface GearOption {
+  label: string;
+  items?: Array<{ name: string; qty?: number }>;
+  gold?: number;
+}
+
+function gearLine(o: GearOption) {
+  const parts = (o.items ?? []).map((i) => (i.qty && i.qty > 1 ? `${i.qty}× ${i.name}` : i.name));
+  if (o.gold) parts.push(`${o.gold} GP`);
+  return parts.join(", ");
+}
 
 function OptionCard({
   entry,
@@ -80,6 +92,7 @@ export default function ForgeWizard() {
 
   const [step, setStep] = useState(0);
   const [classId, setClassId] = useState<string>("");
+  const [gear, setGear] = useState<string>("");
   const [skills, setSkills] = useState<string[]>([]);
   const [spellIds, setSpellIds] = useState<string[]>([]);
   const [backgroundId, setBackgroundId] = useState<string>("");
@@ -99,10 +112,10 @@ export default function ForgeWizard() {
   const chosenSpecies = species?.find((s) => s.id === speciesId);
 
   const classData = chosenClass?.data as
-    | { hitDie?: number; saves?: string[]; primaryAbility?: string[]; skillChoices?: { choose: number; from: string[] }; features?: Array<{ name: string; summary: string }> }
+    | { hitDie?: number; saves?: string[]; primaryAbility?: string[]; skillChoices?: { choose: number; from: string[] }; features?: Array<{ name: string; summary: string }>; startingEquipment?: GearOption[] }
     | undefined;
   const bgData = chosenBackground?.data as
-    | { abilityScores?: string[]; feat?: string; skills?: string[]; tool?: string }
+    | { abilityScores?: string[]; feat?: string; skills?: string[]; tool?: string; equipment?: string }
     | undefined;
   const spData = chosenSpecies?.data as
     | { size?: string; speed?: number; traits?: Array<{ name: string; summary: string }> }
@@ -163,23 +176,28 @@ export default function ForgeWizard() {
   const spellsValid =
     !casting || (pickedCantrips <= cantripsMax && pickedLeveled <= preparedMax);
 
-  const steps: StepName[] = casting
-    ? ["Class", "Background", "Species", "Abilities", "Spells", "Name"]
-    : [...BASE_STEPS];
+  const gearOptions = classData?.startingEquipment ?? [];
+
+  const steps: StepName[] = ["Class", "Background", "Species", "Abilities"];
+  if (casting) steps.push("Spells");
+  if (gearOptions.length > 0) steps.push("Gear");
+  steps.push("Name");
   const safeStep = Math.min(step, steps.length - 1);
   const current = steps[safeStep];
 
   // Picking a background can retract an earlier class-skill pick (it now grants
   // that skill), so the last step re-checks everything, not just the name.
   const skillsValid = !!classId && skills.length === skillChoose;
+  const gearValid = gearOptions.length === 0 || gear !== "";
   const allValid =
-    skillsValid && !!backgroundId && !!speciesId && abilitiesValid && spellsValid;
+    skillsValid && !!backgroundId && !!speciesId && abilitiesValid && spellsValid && gearValid;
   const validity: Record<StepName, boolean> = {
     Class: skillsValid,
     Background: !!backgroundId,
     Species: !!speciesId,
     Abilities: abilitiesValid,
     Spells: spellsValid,
+    Gear: gearValid,
     Name: name.trim().length > 0 && allValid,
   };
   const stepValid = validity[current];
@@ -221,6 +239,7 @@ export default function ForgeWizard() {
         abilities: finalScores,
         skills,
         spells: casting ? spellIds : undefined,
+        gear: gearOptions.length > 0 ? gear : undefined,
       },
       { onSuccess: () => navigate("/questboard/heroes") },
     );
@@ -285,6 +304,7 @@ export default function ForgeWizard() {
                         if (c.id !== classId) {
                           setSkills([]);
                           setSpellIds([]);
+                          setGear("");
                         }
                         setClassId(c.id);
                       }}
@@ -561,6 +581,45 @@ export default function ForgeWizard() {
               <div className="font-accent mt-4 text-[12px] italic text-ink-body">
                 Pick fewer if unsure — you can catch up at any level-up.
               </div>
+            </div>
+          )}
+
+          {current === "Gear" && gearOptions.length > 0 && (
+            <div className="parchment px-6 py-5">
+              <div className="label-stamp mb-3 text-[10px] tracking-[2px] text-gold-muted">
+                Starting equipment — choose one kit
+              </div>
+              <div className="flex flex-col gap-2.5">
+                {gearOptions.map((o) => {
+                  const active = gear === o.label;
+                  return (
+                    <button
+                      key={o.label}
+                      onClick={() => setGear(o.label)}
+                      className="flex cursor-pointer items-start gap-3 rounded-[3px] border-none px-4 py-3 text-left transition"
+                      style={{
+                        background: active ? "rgba(139,37,32,.14)" : "rgba(120,86,42,.10)",
+                        boxShadow: `inset 0 0 0 ${active ? "2px #8b2520" : "1px rgba(120,80,30,.4)"}`,
+                      }}
+                    >
+                      <span
+                        className="font-display mt-0.5 text-[15px] font-black"
+                        style={{ color: active ? "#8b2520" : "#4a3620" }}
+                      >
+                        {o.label}
+                      </span>
+                      <span className="font-body text-[13px] leading-snug text-ink-strong">
+                        {gearLine(o)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {bgData?.equipment && (
+                <div className="font-accent mt-4 text-[12px] italic text-ink-body">
+                  Your {chosenBackground?.name} past adds: {bgData.equipment}
+                </div>
+              )}
             </div>
           )}
 

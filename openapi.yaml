@@ -1703,6 +1703,14 @@ components:
             type: string
             format: uuid
           description: Level-1 spell picks (casters only; cantrips included).
+        gear:
+          type: string
+          maxLength: 1
+          description: >-
+            Starting-equipment option label (A/B/C) from the class's
+            startingEquipment data. The server stocks the inventory: listed
+            items (linked to armory content where names match), gold as a
+            Gold Pieces row, plus the background's equipment items.
 
     CharacterInput:
       type: object
