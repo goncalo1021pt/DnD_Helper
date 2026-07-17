@@ -1,661 +1,661 @@
 [
-  {
-    "name": "Padded Armor",
-    "summary": "Quilted layers of cloth and batting — cheap, warm, and loud.",
-    "data": {
-      "type": "armor",
-      "category": "Light",
-      "ac": 11,
-      "stealthDisadvantage": true
-    }
-  },
-  {
-    "name": "Leather Armor",
-    "summary": "Stiffened leather, the adventurer's default second skin.",
-    "data": {
-      "type": "armor",
-      "category": "Light",
-      "ac": 11
-    }
-  },
-  {
-    "name": "Studded Leather",
-    "summary": "Leather reinforced with rivets; light armor at its best.",
-    "data": {
-      "type": "armor",
-      "category": "Light",
-      "ac": 12
-    }
-  },
-  {
-    "name": "Hide Armor",
-    "summary": "Thick furs and pelts, favored far from tanneries.",
-    "data": {
-      "type": "armor",
-      "category": "Medium",
-      "ac": 12
-    }
-  },
-  {
-    "name": "Chain Shirt",
-    "summary": "A shirt of interlocked rings worn between layers of cloth.",
-    "data": {
-      "type": "armor",
-      "category": "Medium",
-      "ac": 13
-    }
-  },
-  {
-    "name": "Scale Mail",
-    "summary": "Overlapping metal scales on a leather coat, hissing as you move.",
-    "data": {
-      "type": "armor",
-      "category": "Medium",
-      "ac": 14,
-      "stealthDisadvantage": true
-    }
-  },
-  {
-    "name": "Breastplate",
-    "summary": "A fitted metal chest piece that leaves the limbs free.",
-    "data": {
-      "type": "armor",
-      "category": "Medium",
-      "ac": 14
-    }
-  },
-  {
-    "name": "Half Plate",
-    "summary": "Shaped plates over the vital half of you.",
-    "data": {
-      "type": "armor",
-      "category": "Medium",
-      "ac": 15,
-      "stealthDisadvantage": true
-    }
-  },
-  {
-    "name": "Ring Mail",
-    "summary": "Leather with heavy rings sewn in — armor for the frugal.",
-    "data": {
-      "type": "armor",
-      "category": "Heavy",
-      "ac": 14
-    }
-  },
-  {
-    "name": "Chain Mail",
-    "summary": "Head-to-toe interlocked rings over padding.",
-    "data": {
-      "type": "armor",
-      "category": "Heavy",
-      "ac": 16,
-      "stealthDisadvantage": true
-    }
-  },
-  {
-    "name": "Splint Armor",
-    "summary": "Vertical metal strips riveted to a sturdy backing.",
-    "data": {
-      "type": "armor",
-      "category": "Heavy",
-      "ac": 17,
-      "stealthDisadvantage": true
-    }
-  },
-  {
-    "name": "Plate Armor",
-    "summary": "The full shell: shaped, interlocking plates. The knight's answer.",
-    "data": {
-      "type": "armor",
-      "category": "Heavy",
-      "ac": 18,
-      "stealthDisadvantage": true
-    }
-  },
-  {
-    "name": "Shield",
-    "summary": "A broad board of wood and steel; +2 AC in the hand.",
-    "data": {
-      "type": "shield",
-      "acBonus": 2
-    }
-  },
-  {
-    "name": "Club",
-    "summary": "A stout length of wood.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d4",
-      "damageType": "bludgeoning",
-      "properties": [
-        "Light"
-      ]
-    }
-  },
-  {
-    "name": "Dagger",
-    "summary": "Quick, concealable, and everywhere.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d4",
-      "damageType": "piercing",
-      "properties": [
-        "Finesse",
-        "Light",
-        "Thrown"
-      ]
-    }
-  },
-  {
-    "name": "Greatclub",
-    "summary": "A tree limb with opinions.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d8",
-      "damageType": "bludgeoning",
-      "properties": [
-        "Two-Handed"
-      ]
-    }
-  },
-  {
-    "name": "Handaxe",
-    "summary": "Chops wood; also throws well.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d6",
-      "damageType": "slashing",
-      "properties": [
-        "Light",
-        "Thrown"
-      ]
-    }
-  },
-  {
-    "name": "Javelin",
-    "summary": "A light spear made to fly.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d6",
-      "damageType": "piercing",
-      "properties": [
-        "Thrown"
-      ]
-    }
-  },
-  {
-    "name": "Light Hammer",
-    "summary": "A smith's tool with reach ambitions.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d4",
-      "damageType": "bludgeoning",
-      "properties": [
-        "Light",
-        "Thrown"
-      ]
-    }
-  },
-  {
-    "name": "Mace",
-    "summary": "A flanged head on a haft; armor's old enemy.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d6",
-      "damageType": "bludgeoning"
-    }
-  },
-  {
-    "name": "Quarterstaff",
-    "summary": "Six feet of hardwood, humble and reliable.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d6",
-      "damageType": "bludgeoning",
-      "properties": [
-        "Versatile"
-      ]
-    }
-  },
-  {
-    "name": "Sickle",
-    "summary": "A harvester's crescent blade.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d4",
-      "damageType": "slashing",
-      "properties": [
-        "Light"
-      ]
-    }
-  },
-  {
-    "name": "Spear",
-    "summary": "The oldest weapon that still works.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d6",
-      "damageType": "piercing",
-      "properties": [
-        "Thrown",
-        "Versatile"
-      ]
-    }
-  },
-  {
-    "name": "Dart",
-    "summary": "A weighted throwing spike.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d4",
-      "damageType": "piercing",
-      "properties": [
-        "Finesse",
-        "Thrown"
-      ],
-      "ranged": true
-    }
-  },
-  {
-    "name": "Light Crossbow",
-    "summary": "Point, squeeze, reload.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d8",
-      "damageType": "piercing",
-      "properties": [
-        "Ammunition",
-        "Loading",
-        "Two-Handed"
-      ],
-      "ranged": true
-    }
-  },
-  {
-    "name": "Shortbow",
-    "summary": "A hunter's bow, quick to draw.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d6",
-      "damageType": "piercing",
-      "properties": [
-        "Ammunition",
-        "Two-Handed"
-      ],
-      "ranged": true
-    }
-  },
-  {
-    "name": "Sling",
-    "summary": "A strap, a stone, and practice.",
-    "data": {
-      "type": "weapon",
-      "category": "Simple",
-      "damage": "1d4",
-      "damageType": "bludgeoning",
-      "properties": [
-        "Ammunition"
-      ],
-      "ranged": true
-    }
-  },
-  {
-    "name": "Battleaxe",
-    "summary": "A war axe balanced for one hand or two.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "slashing",
-      "properties": [
-        "Versatile"
-      ]
-    }
-  },
-  {
-    "name": "Flail",
-    "summary": "A spiked head on a chain — ignores manners and shields.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "bludgeoning"
-    }
-  },
-  {
-    "name": "Glaive",
-    "summary": "A blade on a long haft.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d10",
-      "damageType": "slashing",
-      "properties": [
-        "Heavy",
-        "Reach",
-        "Two-Handed"
-      ]
-    }
-  },
-  {
-    "name": "Greataxe",
-    "summary": "The barbarian's favorite argument.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d12",
-      "damageType": "slashing",
-      "properties": [
-        "Heavy",
-        "Two-Handed"
-      ]
-    }
-  },
-  {
-    "name": "Greatsword",
-    "summary": "Six feet of steel, swung wide.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "2d6",
-      "damageType": "slashing",
-      "properties": [
-        "Heavy",
-        "Two-Handed"
-      ]
-    }
-  },
-  {
-    "name": "Halberd",
-    "summary": "Axe, hook and spike on a pole.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d10",
-      "damageType": "slashing",
-      "properties": [
-        "Heavy",
-        "Reach",
-        "Two-Handed"
-      ]
-    }
-  },
-  {
-    "name": "Lance",
-    "summary": "A cavalry spear; devastating at a gallop.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d10",
-      "damageType": "piercing",
-      "properties": [
-        "Heavy",
-        "Reach"
-      ]
-    }
-  },
-  {
-    "name": "Longsword",
-    "summary": "The knightly standard.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "slashing",
-      "properties": [
-        "Versatile"
-      ]
-    }
-  },
-  {
-    "name": "Maul",
-    "summary": "A great hammer for un-making things.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "2d6",
-      "damageType": "bludgeoning",
-      "properties": [
-        "Heavy",
-        "Two-Handed"
-      ]
-    }
-  },
-  {
-    "name": "Morningstar",
-    "summary": "A spiked ball on a haft.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "piercing"
-    }
-  },
-  {
-    "name": "Pike",
-    "summary": "Eighteen feet of keep-away.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d10",
-      "damageType": "piercing",
-      "properties": [
-        "Heavy",
-        "Reach",
-        "Two-Handed"
-      ]
-    }
-  },
-  {
-    "name": "Rapier",
-    "summary": "A dueling blade for the quick of wrist.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "piercing",
-      "properties": [
-        "Finesse"
-      ]
-    }
-  },
-  {
-    "name": "Scimitar",
-    "summary": "A curved slashing blade, fast as a whisper.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d6",
-      "damageType": "slashing",
-      "properties": [
-        "Finesse",
-        "Light"
-      ]
-    }
-  },
-  {
-    "name": "Shortsword",
-    "summary": "A stabbing blade for close, fast work.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d6",
-      "damageType": "piercing",
-      "properties": [
-        "Finesse",
-        "Light"
-      ]
-    }
-  },
-  {
-    "name": "Trident",
-    "summary": "A three-pronged fishing spear gone to war.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "piercing",
-      "properties": [
-        "Thrown",
-        "Versatile"
-      ]
-    }
-  },
-  {
-    "name": "War Pick",
-    "summary": "A miner's pick, militarized.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "piercing"
-    }
-  },
-  {
-    "name": "Warhammer",
-    "summary": "A hammer forged for the battlefield.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "bludgeoning",
-      "properties": [
-        "Versatile"
-      ]
-    }
-  },
-  {
-    "name": "Whip",
-    "summary": "Reach and sting, at the price of heft.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d4",
-      "damageType": "slashing",
-      "properties": [
-        "Finesse",
-        "Reach"
-      ]
-    }
-  },
-  {
-    "name": "Blowgun",
-    "summary": "A whisper that carries a needle.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1",
-      "damageType": "piercing",
-      "properties": [
-        "Ammunition",
-        "Loading"
-      ],
-      "ranged": true
-    }
-  },
-  {
-    "name": "Hand Crossbow",
-    "summary": "A crossbow for one hand.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d6",
-      "damageType": "piercing",
-      "properties": [
-        "Ammunition",
-        "Light",
-        "Loading"
-      ],
-      "ranged": true
-    }
-  },
-  {
-    "name": "Heavy Crossbow",
-    "summary": "Slow to load, brutal to receive.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d10",
-      "damageType": "piercing",
-      "properties": [
-        "Ammunition",
-        "Heavy",
-        "Loading",
-        "Two-Handed"
-      ],
-      "ranged": true
-    }
-  },
-  {
-    "name": "Longbow",
-    "summary": "The archer's reach across a battlefield.",
-    "data": {
-      "type": "weapon",
-      "category": "Martial",
-      "damage": "1d8",
-      "damageType": "piercing",
-      "properties": [
-        "Ammunition",
-        "Heavy",
-        "Two-Handed"
-      ],
-      "ranged": true
-    }
-  },
-  {
-    "name": "Torch",
-    "summary": "An hour of light, held in the fist.",
-    "data": {
-      "type": "gear"
-    }
-  },
-  {
-    "name": "Rope (50 ft)",
-    "summary": "Hemp rope: the most underrated item in the game.",
-    "data": {
-      "type": "gear"
-    }
-  },
-  {
-    "name": "Healer's Kit",
-    "summary": "Bandages and salves; stabilizes the dying, ten uses.",
-    "data": {
-      "type": "gear"
-    }
-  },
-  {
-    "name": "Thieves' Tools",
-    "summary": "Picks, files and shims for locks and traps.",
-    "data": {
-      "type": "gear"
-    }
-  },
-  {
-    "name": "Arrows (20)",
-    "summary": "A quiver's worth of ammunition.",
-    "data": {
-      "type": "gear"
-    }
-  },
-  {
-    "name": "Crossbow Bolts (20)",
-    "summary": "A case of bolts.",
-    "data": {
-      "type": "gear"
-    }
+ {
+  "name": "Padded Armor",
+  "summary": "Quilted layers of cloth and batting — cheap, warm, and loud.",
+  "data": {
+   "type": "armor",
+   "category": "Light",
+   "ac": 11,
+   "stealthDisadvantage": true
   }
+ },
+ {
+  "name": "Leather Armor",
+  "summary": "Stiffened leather, the adventurer's default second skin.",
+  "data": {
+   "type": "armor",
+   "category": "Light",
+   "ac": 11
+  }
+ },
+ {
+  "name": "Studded Leather Armor",
+  "summary": "Leather reinforced with rivets; light armor at its best.",
+  "data": {
+   "type": "armor",
+   "category": "Light",
+   "ac": 12
+  }
+ },
+ {
+  "name": "Hide Armor",
+  "summary": "Thick furs and pelts, favored far from tanneries.",
+  "data": {
+   "type": "armor",
+   "category": "Medium",
+   "ac": 12
+  }
+ },
+ {
+  "name": "Chain Shirt",
+  "summary": "A shirt of interlocked rings worn between layers of cloth.",
+  "data": {
+   "type": "armor",
+   "category": "Medium",
+   "ac": 13
+  }
+ },
+ {
+  "name": "Scale Mail",
+  "summary": "Overlapping metal scales on a leather coat, hissing as you move.",
+  "data": {
+   "type": "armor",
+   "category": "Medium",
+   "ac": 14,
+   "stealthDisadvantage": true
+  }
+ },
+ {
+  "name": "Breastplate",
+  "summary": "A fitted metal chest piece that leaves the limbs free.",
+  "data": {
+   "type": "armor",
+   "category": "Medium",
+   "ac": 14
+  }
+ },
+ {
+  "name": "Half Plate Armor",
+  "summary": "Shaped plates over the vital half of you.",
+  "data": {
+   "type": "armor",
+   "category": "Medium",
+   "ac": 15,
+   "stealthDisadvantage": true
+  }
+ },
+ {
+  "name": "Ring Mail",
+  "summary": "Leather with heavy rings sewn in — armor for the frugal.",
+  "data": {
+   "type": "armor",
+   "category": "Heavy",
+   "ac": 14
+  }
+ },
+ {
+  "name": "Chain Mail",
+  "summary": "Head-to-toe interlocked rings over padding.",
+  "data": {
+   "type": "armor",
+   "category": "Heavy",
+   "ac": 16,
+   "stealthDisadvantage": true
+  }
+ },
+ {
+  "name": "Splint Armor",
+  "summary": "Vertical metal strips riveted to a sturdy backing.",
+  "data": {
+   "type": "armor",
+   "category": "Heavy",
+   "ac": 17,
+   "stealthDisadvantage": true
+  }
+ },
+ {
+  "name": "Plate Armor",
+  "summary": "The full shell: shaped, interlocking plates. The knight's answer.",
+  "data": {
+   "type": "armor",
+   "category": "Heavy",
+   "ac": 18,
+   "stealthDisadvantage": true
+  }
+ },
+ {
+  "name": "Shield",
+  "summary": "A broad board of wood and steel; +2 AC in the hand.",
+  "data": {
+   "type": "shield",
+   "acBonus": 2
+  }
+ },
+ {
+  "name": "Club",
+  "summary": "A stout length of wood.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d4",
+   "damageType": "bludgeoning",
+   "properties": [
+    "Light"
+   ]
+  }
+ },
+ {
+  "name": "Dagger",
+  "summary": "Quick, concealable, and everywhere.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d4",
+   "damageType": "piercing",
+   "properties": [
+    "Finesse",
+    "Light",
+    "Thrown"
+   ]
+  }
+ },
+ {
+  "name": "Greatclub",
+  "summary": "A tree limb with opinions.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d8",
+   "damageType": "bludgeoning",
+   "properties": [
+    "Two-Handed"
+   ]
+  }
+ },
+ {
+  "name": "Handaxe",
+  "summary": "Chops wood; also throws well.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d6",
+   "damageType": "slashing",
+   "properties": [
+    "Light",
+    "Thrown"
+   ]
+  }
+ },
+ {
+  "name": "Javelin",
+  "summary": "A light spear made to fly.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d6",
+   "damageType": "piercing",
+   "properties": [
+    "Thrown"
+   ]
+  }
+ },
+ {
+  "name": "Light Hammer",
+  "summary": "A smith's tool with reach ambitions.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d4",
+   "damageType": "bludgeoning",
+   "properties": [
+    "Light",
+    "Thrown"
+   ]
+  }
+ },
+ {
+  "name": "Mace",
+  "summary": "A flanged head on a haft; armor's old enemy.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d6",
+   "damageType": "bludgeoning"
+  }
+ },
+ {
+  "name": "Quarterstaff",
+  "summary": "Six feet of hardwood, humble and reliable.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d6",
+   "damageType": "bludgeoning",
+   "properties": [
+    "Versatile"
+   ]
+  }
+ },
+ {
+  "name": "Sickle",
+  "summary": "A harvester's crescent blade.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d4",
+   "damageType": "slashing",
+   "properties": [
+    "Light"
+   ]
+  }
+ },
+ {
+  "name": "Spear",
+  "summary": "The oldest weapon that still works.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d6",
+   "damageType": "piercing",
+   "properties": [
+    "Thrown",
+    "Versatile"
+   ]
+  }
+ },
+ {
+  "name": "Dart",
+  "summary": "A weighted throwing spike.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d4",
+   "damageType": "piercing",
+   "properties": [
+    "Finesse",
+    "Thrown"
+   ],
+   "ranged": true
+  }
+ },
+ {
+  "name": "Light Crossbow",
+  "summary": "Point, squeeze, reload.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d8",
+   "damageType": "piercing",
+   "properties": [
+    "Ammunition",
+    "Loading",
+    "Two-Handed"
+   ],
+   "ranged": true
+  }
+ },
+ {
+  "name": "Shortbow",
+  "summary": "A hunter's bow, quick to draw.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d6",
+   "damageType": "piercing",
+   "properties": [
+    "Ammunition",
+    "Two-Handed"
+   ],
+   "ranged": true
+  }
+ },
+ {
+  "name": "Sling",
+  "summary": "A strap, a stone, and practice.",
+  "data": {
+   "type": "weapon",
+   "category": "Simple",
+   "damage": "1d4",
+   "damageType": "bludgeoning",
+   "properties": [
+    "Ammunition"
+   ],
+   "ranged": true
+  }
+ },
+ {
+  "name": "Battleaxe",
+  "summary": "A war axe balanced for one hand or two.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "slashing",
+   "properties": [
+    "Versatile"
+   ]
+  }
+ },
+ {
+  "name": "Flail",
+  "summary": "A spiked head on a chain — ignores manners and shields.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "bludgeoning"
+  }
+ },
+ {
+  "name": "Glaive",
+  "summary": "A blade on a long haft.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d10",
+   "damageType": "slashing",
+   "properties": [
+    "Heavy",
+    "Reach",
+    "Two-Handed"
+   ]
+  }
+ },
+ {
+  "name": "Greataxe",
+  "summary": "The barbarian's favorite argument.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d12",
+   "damageType": "slashing",
+   "properties": [
+    "Heavy",
+    "Two-Handed"
+   ]
+  }
+ },
+ {
+  "name": "Greatsword",
+  "summary": "Six feet of steel, swung wide.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "2d6",
+   "damageType": "slashing",
+   "properties": [
+    "Heavy",
+    "Two-Handed"
+   ]
+  }
+ },
+ {
+  "name": "Halberd",
+  "summary": "Axe, hook and spike on a pole.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d10",
+   "damageType": "slashing",
+   "properties": [
+    "Heavy",
+    "Reach",
+    "Two-Handed"
+   ]
+  }
+ },
+ {
+  "name": "Lance",
+  "summary": "A cavalry spear; devastating at a gallop.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d10",
+   "damageType": "piercing",
+   "properties": [
+    "Heavy",
+    "Reach"
+   ]
+  }
+ },
+ {
+  "name": "Longsword",
+  "summary": "The knightly standard.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "slashing",
+   "properties": [
+    "Versatile"
+   ]
+  }
+ },
+ {
+  "name": "Maul",
+  "summary": "A great hammer for un-making things.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "2d6",
+   "damageType": "bludgeoning",
+   "properties": [
+    "Heavy",
+    "Two-Handed"
+   ]
+  }
+ },
+ {
+  "name": "Morningstar",
+  "summary": "A spiked ball on a haft.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "piercing"
+  }
+ },
+ {
+  "name": "Pike",
+  "summary": "Eighteen feet of keep-away.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d10",
+   "damageType": "piercing",
+   "properties": [
+    "Heavy",
+    "Reach",
+    "Two-Handed"
+   ]
+  }
+ },
+ {
+  "name": "Rapier",
+  "summary": "A dueling blade for the quick of wrist.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "piercing",
+   "properties": [
+    "Finesse"
+   ]
+  }
+ },
+ {
+  "name": "Scimitar",
+  "summary": "A curved slashing blade, fast as a whisper.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d6",
+   "damageType": "slashing",
+   "properties": [
+    "Finesse",
+    "Light"
+   ]
+  }
+ },
+ {
+  "name": "Shortsword",
+  "summary": "A stabbing blade for close, fast work.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d6",
+   "damageType": "piercing",
+   "properties": [
+    "Finesse",
+    "Light"
+   ]
+  }
+ },
+ {
+  "name": "Trident",
+  "summary": "A three-pronged fishing spear gone to war.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "piercing",
+   "properties": [
+    "Thrown",
+    "Versatile"
+   ]
+  }
+ },
+ {
+  "name": "War Pick",
+  "summary": "A miner's pick, militarized.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "piercing"
+  }
+ },
+ {
+  "name": "Warhammer",
+  "summary": "A hammer forged for the battlefield.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "bludgeoning",
+   "properties": [
+    "Versatile"
+   ]
+  }
+ },
+ {
+  "name": "Whip",
+  "summary": "Reach and sting, at the price of heft.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d4",
+   "damageType": "slashing",
+   "properties": [
+    "Finesse",
+    "Reach"
+   ]
+  }
+ },
+ {
+  "name": "Blowgun",
+  "summary": "A whisper that carries a needle.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1",
+   "damageType": "piercing",
+   "properties": [
+    "Ammunition",
+    "Loading"
+   ],
+   "ranged": true
+  }
+ },
+ {
+  "name": "Hand Crossbow",
+  "summary": "A crossbow for one hand.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d6",
+   "damageType": "piercing",
+   "properties": [
+    "Ammunition",
+    "Light",
+    "Loading"
+   ],
+   "ranged": true
+  }
+ },
+ {
+  "name": "Heavy Crossbow",
+  "summary": "Slow to load, brutal to receive.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d10",
+   "damageType": "piercing",
+   "properties": [
+    "Ammunition",
+    "Heavy",
+    "Loading",
+    "Two-Handed"
+   ],
+   "ranged": true
+  }
+ },
+ {
+  "name": "Longbow",
+  "summary": "The archer's reach across a battlefield.",
+  "data": {
+   "type": "weapon",
+   "category": "Martial",
+   "damage": "1d8",
+   "damageType": "piercing",
+   "properties": [
+    "Ammunition",
+    "Heavy",
+    "Two-Handed"
+   ],
+   "ranged": true
+  }
+ },
+ {
+  "name": "Torch",
+  "summary": "An hour of light, held in the fist.",
+  "data": {
+   "type": "gear"
+  }
+ },
+ {
+  "name": "Rope (50 ft)",
+  "summary": "Hemp rope: the most underrated item in the game.",
+  "data": {
+   "type": "gear"
+  }
+ },
+ {
+  "name": "Healer's Kit",
+  "summary": "Bandages and salves; stabilizes the dying, ten uses.",
+  "data": {
+   "type": "gear"
+  }
+ },
+ {
+  "name": "Thieves' Tools",
+  "summary": "Picks, files and shims for locks and traps.",
+  "data": {
+   "type": "gear"
+  }
+ },
+ {
+  "name": "Arrows (20)",
+  "summary": "A quiver's worth of ammunition.",
+  "data": {
+   "type": "gear"
+  }
+ },
+ {
+  "name": "Crossbow Bolts (20)",
+  "summary": "A case of bolts.",
+  "data": {
+   "type": "gear"
+  }
+ }
 ]

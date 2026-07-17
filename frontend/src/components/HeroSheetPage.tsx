@@ -126,6 +126,9 @@ export default function HeroSheetPage() {
   const [freeText, setFreeText] = useState("");
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [slotPicker, setSlotPicker] = useState<EquipSlot | null>(null);
+  const [tab, setTab] = useState<"sheet" | "inventory">("sheet");
+  const [itemSearch, setItemSearch] = useState("");
+  const [itemType, setItemType] = useState("");
 
   const character = detail?.character;
   const sheet = character?.sheet;
@@ -143,6 +146,15 @@ export default function HeroSheetPage() {
     offhand: detail?.items.find((i) => i.slot === "offhand"),
   };
   const openItem = detail?.items.find((i) => i.id === openItemId) ?? null;
+
+  // Loot grows; the pack filters. Type chips + name search.
+  const shownPack = packItems.filter((i) => {
+    const t = itemTypeOf(i);
+    if (itemType === "gear" ? t !== "" && t !== "gear" : itemType !== "" && t !== itemType)
+      return false;
+    const q = itemSearch.trim().toLowerCase();
+    return !q || i.name.toLowerCase().includes(q);
+  });
 
   const features: Array<Feature & { from: string }> = useMemo(() => {
     if (!character) return [];
@@ -244,13 +256,39 @@ export default function HeroSheetPage() {
         </div>
       </div>
 
+      {sheet && (
+        <div className="mb-5 flex gap-1.5">
+          {(["sheet", "inventory"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`label-stamp cursor-pointer rounded-[2px] border-none px-4 py-2 text-[10px] font-semibold tracking-[1.5px] ${
+                t === tab ? "text-ember-bright" : "text-gold-muted hover:text-gold-hair"
+              }`}
+              style={{
+                background: t === tab ? "rgba(201,162,39,.12)" : "rgba(16,9,5,.35)",
+                boxShadow: `inset 0 0 0 1px rgba(201,162,39,${t === tab ? ".45" : ".2"})`,
+              }}
+            >
+              {t === "sheet" ? "The Sheet" : "Inventory"}
+            </button>
+          ))}
+        </div>
+      )}
+
       {!sheet ? (
         <div className="font-accent px-2 py-8 text-center text-[15px] italic text-cream-muted">
           A freeform hero — no forged sheet to show. The Forge awaits the next one.
         </div>
       ) : (
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
-          {/* left column */}
+        <div
+          className={
+            tab === "inventory"
+              ? "mx-auto w-full max-w-[820px]"
+              : "grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]"
+          }
+        >
+          {tab === "sheet" && (
           <div className="flex flex-col gap-6">
             <section>
               <SectionLabel>Abilities</SectionLabel>
@@ -330,11 +368,12 @@ export default function HeroSheetPage() {
               </section>
             )}
           </div>
+          )}
 
-          {/* right column */}
+          {/* right column — the sole column on the Inventory tab */}
           <div className="flex flex-col gap-6">
             {/* spells */}
-            {(slots.length > 0 || spellsByLevel.length > 0) && (
+            {tab === "sheet" && (slots.length > 0 || spellsByLevel.length > 0) && (
               <section>
                 <SectionLabel>Spells</SectionLabel>
                 <div className="parchment px-4 py-4">
@@ -389,6 +428,8 @@ export default function HeroSheetPage() {
               </section>
             )}
 
+            {tab === "inventory" && (
+              <>
             {/* the rig: what's worn and held */}
             <section>
               <div className="mb-1.5 flex items-center justify-between">
@@ -449,13 +490,44 @@ export default function HeroSheetPage() {
             <section>
               <SectionLabel>The Pack</SectionLabel>
               <div className="parchment px-4 py-4">
+                {packItems.length > 0 && (
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <input
+                      value={itemSearch}
+                      onChange={(e) => setItemSearch(e.target.value)}
+                      placeholder="Search the pack…"
+                      className="input-parchment input-compact min-w-0 flex-1 text-[12px] sm:max-w-[220px]"
+                    />
+                    {[["", "All"], ["armor", "Armor"], ["weapon", "Weapons"], ["shield", "Shields"], ["gear", "Gear"]].map(
+                      ([val, label]) => (
+                        <button
+                          key={val}
+                          onClick={() => setItemType(val)}
+                          className="label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[9px] tracking-[1px]"
+                          style={{
+                            background: itemType === val ? "linear-gradient(180deg,#8b2520,#5e1611)" : "rgba(120,86,42,.13)",
+                            color: itemType === val ? "#f3d9c0" : "#4a3620",
+                            boxShadow: `inset 0 0 0 1px ${itemType === val ? "#3f0f0e" : "rgba(120,80,30,.45)"}`,
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                )}
                 {packItems.length === 0 && (
                   <div className="font-accent pb-2 text-[13px] italic text-ink-body">
                     Traveling light — nothing carried yet.
                   </div>
                 )}
+                {packItems.length > 0 && shownPack.length === 0 && (
+                  <div className="font-accent pb-2 text-[13px] italic text-ink-body">
+                    Nothing in the pack answers that call.
+                  </div>
+                )}
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(min(132px,100%),1fr))] gap-2">
-                  {packItems.map((it: InventoryItem) => (
+                  {shownPack.map((it: InventoryItem) => (
                     <button
                       key={it.id}
                       onClick={() => setOpenItemId(it.id)}
@@ -529,6 +601,8 @@ export default function HeroSheetPage() {
                 )}
               </div>
             </section>
+              </>
+            )}
           </div>
         </div>
       )}

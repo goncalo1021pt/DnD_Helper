@@ -322,10 +322,17 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 				qty = 1
 			}
 			contentID := pgtype.UUID{}
-			if id, ok := byName[strings.ToLower(row.Name)]; ok {
-				contentID = pgUUID(id)
-			} else if id, ok := byName[strings.ToLower(strings.TrimSuffix(row.Name, "s"))]; ok {
-				contentID = pgUUID(id)
+			lower := strings.ToLower(row.Name)
+			for _, candidate := range []string{
+				lower,
+				strings.TrimSuffix(lower, " armor"),
+				lower + " armor",
+				strings.TrimSuffix(lower, "s"),
+			} {
+				if id, ok := byName[candidate]; ok {
+					contentID = pgUUID(id)
+					break
+				}
 			}
 			if _, err := s.queries.AddCharacterItem(ctx, db.AddCharacterItemParams{
 				CharacterID: hero.ID,
