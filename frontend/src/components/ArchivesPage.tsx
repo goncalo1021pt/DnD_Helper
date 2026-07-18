@@ -29,7 +29,7 @@ const SHELVES: Array<[RulesKind, string, string]> = [
   ["item", "Items", "Item"],
 ];
 
-const FEAT_ORDER = ["origin", "general", "fighting-style", "epic-boon"];
+const FEAT_ORDER = ["origin", "general", "fighting-style", "invocation", "metamagic", "epic-boon"];
 const ITEM_ORDER = ["armor", "shield", "weapon", "gear"];
 const ITEM_LABEL: Record<string, string> = {
   armor: "Armor",

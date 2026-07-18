@@ -19,7 +19,12 @@ export const FEAT_CATEGORY_LABEL: Record<string, string> = {
   general: "General",
   "fighting-style": "Fighting Style",
   "epic-boon": "Epic Boon",
+  invocation: "Eldritch Invocation",
+  metamagic: "Metamagic",
 };
+
+// Categories that read as their own kind of option, not a "<Cat> Feat".
+const STANDALONE_FEAT_CATEGORY = new Set(["fighting-style", "invocation", "metamagic"]);
 
 function SourceStamp({ entry }: { entry: RulesContent }) {
   if (entry.source !== "homebrew") return null;
@@ -207,10 +212,12 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
   }
 
   if (kind === "feat") {
-    const category = FEAT_CATEGORY_LABEL[str("category") ?? ""] ?? "General";
+    const cat = str("category") ?? "";
+    const category = FEAT_CATEGORY_LABEL[cat] ?? "General";
+    const label = STANDALONE_FEAT_CATEGORY.has(cat) ? category : `${category} Feat`;
     return (
       <div className="text-[13px]">
-        <Header entry={entry} tagline={`${category} Feat — ${entry.summary}`} />
+        <Header entry={entry} tagline={`${label} — ${entry.summary}`} />
         <Facts
           rows={[
             ["Prerequisite", str("prerequisite")],
