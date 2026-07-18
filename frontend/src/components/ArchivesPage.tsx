@@ -20,12 +20,12 @@ import { IconPencil, IconPlus, IconTrash } from "./ui/icons";
  */
 
 const SHELVES: Array<[RulesKind, string, string]> = [
-  ["spell", "Spells", "Spell"],
   ["class", "Classes", "Class"],
   ["subclass", "Subclasses", "Subclass"],
   ["species", "Species", "Species"],
   ["background", "Backgrounds", "Background"],
   ["feat", "Feats", "Feat"],
+  ["spell", "Spells", "Spell"],
   ["item", "Items", "Item"],
 ];
 
@@ -83,7 +83,7 @@ function cardTagline(kind: RulesKind, e: RulesContent): string {
 }
 
 export default function ArchivesPage() {
-  const [kind, setKind] = useState<RulesKind>("spell");
+  const [kind, setKind] = useState<RulesKind>(SHELVES[0][0]);
   const { data: entries, isLoading } = useRules(kind);
   const { data: classes } = useRules("class");
   const create = useCreateRules(kind);
