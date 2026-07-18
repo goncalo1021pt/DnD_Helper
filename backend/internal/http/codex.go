@@ -219,6 +219,12 @@ func (s *Server) SetCodexStatus(ctx context.Context, request api.SetCodexStatusR
 		return nil, err
 	}
 
+	// Monsters never enter a codex: they are DM-side reference, not player
+	// options, and a codex row would leak them into player visibility.
+	if row.Kind == db.ContentKindMonster {
+		return badRequest("monsters live in the Den, not the codex")
+	}
+
 	// A DM may rule on SRD, their own homebrew, or anything already offered
 	// to this campaign — but cannot conjure a stranger's private homebrew.
 	if row.Source == db.ContentSourceHomebrew {

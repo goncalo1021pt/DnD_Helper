@@ -30,6 +30,7 @@ var kindFiles = map[db.ContentKind]string{
 	db.ContentKindFeat:       "srd/feats.json",
 	db.ContentKindSpell:      "srd/spells.json",
 	db.ContentKindItem:       "srd/items.json",
+	db.ContentKindMonster:    "srd/monsters.json",
 }
 
 // Seed upserts every embedded SRD entry. Safe to run on each startup.

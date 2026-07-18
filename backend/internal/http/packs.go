@@ -27,6 +27,7 @@ var packKinds = map[string]db.ContentKind{
 	"feat":       db.ContentKindFeat,
 	"spell":      db.ContentKindSpell,
 	"item":       db.ContentKindItem,
+	"monster":    db.ContentKindMonster,
 }
 
 // ImportContentPack upserts every entry as the caller's homebrew, keyed by
@@ -170,6 +171,9 @@ func (s *Server) SetCodexStatusBulk(ctx context.Context, request api.SetCodexSta
 		row, err := s.queries.GetContent(ctx, uuid.UUID(id))
 		if err != nil {
 			return badRequest("unknown content in the verdict")
+		}
+		if row.Kind == db.ContentKindMonster {
+			return badRequest("monsters live in the Den, not the codex")
 		}
 		if row.Source == db.ContentSourceHomebrew {
 			mine := row.CreatedBy.Valid && uuid.UUID(row.CreatedBy.Bytes) == member.UserID

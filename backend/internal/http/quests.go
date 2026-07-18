@@ -48,6 +48,21 @@ func (s *Server) requireDM(ctx context.Context, campaignID uuid.UUID) (db.Member
 	return m, nil
 }
 
+// isDMAnywhere reports whether the user runs at least one table. Used to gate
+// DM-only global content (the Monster Den) that isn't scoped to a campaign.
+func (s *Server) isDMAnywhere(ctx context.Context, uid uuid.UUID) (bool, error) {
+	rows, err := s.queries.ListCampaignsForUser(ctx, uid)
+	if err != nil {
+		return false, err
+	}
+	for _, r := range rows {
+		if r.Role == db.MembershipRoleDm {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // --- handlers ---
 
 func (s *Server) ListQuests(ctx context.Context, request api.ListQuestsRequestObject) (api.ListQuestsResponseObject, error) {

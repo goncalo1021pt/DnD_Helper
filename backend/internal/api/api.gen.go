@@ -28,6 +28,54 @@ const (
 	SessionCookieScopes sessionCookieContextKey = "sessionCookie.Scopes"
 )
 
+// Defines values for BestiaryEntryRevealed.
+const (
+	BestiaryEntryRevealedDefenses BestiaryEntryRevealed = "defenses"
+	BestiaryEntryRevealedLore     BestiaryEntryRevealed = "lore"
+	BestiaryEntryRevealedOffense  BestiaryEntryRevealed = "offense"
+	BestiaryEntryRevealedTraits   BestiaryEntryRevealed = "traits"
+)
+
+// Valid indicates whether the value is a known member of the BestiaryEntryRevealed enum.
+func (e BestiaryEntryRevealed) Valid() bool {
+	switch e {
+	case BestiaryEntryRevealedDefenses:
+		return true
+	case BestiaryEntryRevealedLore:
+		return true
+	case BestiaryEntryRevealedOffense:
+		return true
+	case BestiaryEntryRevealedTraits:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BestiaryEntryPatchRevealed.
+const (
+	BestiaryEntryPatchRevealedDefenses BestiaryEntryPatchRevealed = "defenses"
+	BestiaryEntryPatchRevealedLore     BestiaryEntryPatchRevealed = "lore"
+	BestiaryEntryPatchRevealedOffense  BestiaryEntryPatchRevealed = "offense"
+	BestiaryEntryPatchRevealedTraits   BestiaryEntryPatchRevealed = "traits"
+)
+
+// Valid indicates whether the value is a known member of the BestiaryEntryPatchRevealed enum.
+func (e BestiaryEntryPatchRevealed) Valid() bool {
+	switch e {
+	case BestiaryEntryPatchRevealedDefenses:
+		return true
+	case BestiaryEntryPatchRevealedLore:
+		return true
+	case BestiaryEntryPatchRevealedOffense:
+		return true
+	case BestiaryEntryPatchRevealedTraits:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CampaignProgression.
 const (
 	CampaignProgressionMilestone CampaignProgression = "milestone"
@@ -193,6 +241,7 @@ const (
 	PackEntryKindClass      PackEntryKind = "class"
 	PackEntryKindFeat       PackEntryKind = "feat"
 	PackEntryKindItem       PackEntryKind = "item"
+	PackEntryKindMonster    PackEntryKind = "monster"
 	PackEntryKindSpecies    PackEntryKind = "species"
 	PackEntryKindSpell      PackEntryKind = "spell"
 	PackEntryKindSubclass   PackEntryKind = "subclass"
@@ -208,6 +257,8 @@ func (e PackEntryKind) Valid() bool {
 	case PackEntryKindFeat:
 		return true
 	case PackEntryKindItem:
+		return true
+	case PackEntryKindMonster:
 		return true
 	case PackEntryKindSpecies:
 		return true
@@ -322,6 +373,7 @@ const (
 	RulesContentKindClass      RulesContentKind = "class"
 	RulesContentKindFeat       RulesContentKind = "feat"
 	RulesContentKindItem       RulesContentKind = "item"
+	RulesContentKindMonster    RulesContentKind = "monster"
 	RulesContentKindSpecies    RulesContentKind = "species"
 	RulesContentKindSpell      RulesContentKind = "spell"
 	RulesContentKindSubclass   RulesContentKind = "subclass"
@@ -337,6 +389,8 @@ func (e RulesContentKind) Valid() bool {
 	case RulesContentKindFeat:
 		return true
 	case RulesContentKindItem:
+		return true
+	case RulesContentKindMonster:
 		return true
 	case RulesContentKindSpecies:
 		return true
@@ -394,6 +448,7 @@ const (
 	Class      ContentKind = "class"
 	Feat       ContentKind = "feat"
 	Item       ContentKind = "item"
+	Monster    ContentKind = "monster"
 	Species    ContentKind = "species"
 	Spell      ContentKind = "spell"
 	Subclass   ContentKind = "subclass"
@@ -409,6 +464,8 @@ func (e ContentKind) Valid() bool {
 	case Feat:
 		return true
 	case Item:
+		return true
+	case Monster:
 		return true
 	case Species:
 		return true
@@ -483,6 +540,64 @@ type AbilityScores struct {
 	Int int `json:"int"`
 	Str int `json:"str"`
 	Wis int `json:"wis"`
+}
+
+// BestiaryEntry defines model for BestiaryEntry.
+type BestiaryEntry struct {
+	// CanEdit Whether the viewer may rename or delete this entry (creator or DM).
+	CanEdit bool               `json:"canEdit"`
+	Id      openapi_types.UUID `json:"id"`
+
+	// Identified Whether the DM has linked this sighting to a known creature.
+	Identified bool `json:"identified"`
+
+	// IsDM Whether the viewer may identify and unveil (DM only).
+	IsDM bool `json:"isDM"`
+
+	// MonsterName The creature's true name, present once identified.
+	MonsterName *string        `json:"monsterName,omitempty"`
+	Notes       []BestiaryNote `json:"notes"`
+
+	// Record Unveiled sections of the official stat block as rendered markdown, keyed by section. Members receive only revealed sections; the DM receives every section the creature has.
+	Record map[string]string `json:"record"`
+
+	// Revealed Which record sections the DM has unveiled to the party.
+	Revealed []BestiaryEntryRevealed `json:"revealed"`
+
+	// Title The party's own name for the creature.
+	Title string `json:"title"`
+}
+
+// BestiaryEntryRevealed defines model for BestiaryEntry.Revealed.
+type BestiaryEntryRevealed string
+
+// BestiaryEntryInput defines model for BestiaryEntryInput.
+type BestiaryEntryInput struct {
+	Title string `json:"title"`
+}
+
+// BestiaryEntryPatch defines model for BestiaryEntryPatch.
+type BestiaryEntryPatch struct {
+	// ContentId Link to a Den monster to identify the sighting (DM only). The all-zero UUID unlinks it, returning the entry to an unknown creature.
+	ContentId *openapi_types.UUID `json:"contentId,omitempty"`
+
+	// Revealed The full set of unveiled sections (idempotent; DM only).
+	Revealed *[]BestiaryEntryPatchRevealed `json:"revealed,omitempty"`
+	Title    *string                       `json:"title,omitempty"`
+}
+
+// BestiaryEntryPatchRevealed defines model for BestiaryEntryPatch.Revealed.
+type BestiaryEntryPatchRevealed string
+
+// BestiaryNote defines model for BestiaryNote.
+type BestiaryNote struct {
+	AuthorName *string            `json:"authorName,omitempty"`
+	Body       string             `json:"body"`
+	CreatedAt  *time.Time         `json:"createdAt,omitempty"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// Mine Whether the viewer penned this note.
+	Mine bool `json:"mine"`
 }
 
 // Campaign defines model for Campaign.
@@ -1021,6 +1136,11 @@ type Unauthorized = Error
 // sessionCookieContextKey is the context key for sessionCookie security scheme
 type sessionCookieContextKey string
 
+// AddBestiaryNoteJSONBody defines parameters for AddBestiaryNote.
+type AddBestiaryNoteJSONBody struct {
+	Body string `json:"body"`
+}
+
 // ProposeCodexContentJSONBody defines parameters for ProposeCodexContent.
 type ProposeCodexContentJSONBody struct {
 	ContentIds []openapi_types.UUID `json:"contentIds"`
@@ -1085,6 +1205,15 @@ type CreateCampaignJSONRequestBody = CreateCampaignRequest
 
 // JoinCampaignJSONRequestBody defines body for JoinCampaign for application/json ContentType.
 type JoinCampaignJSONRequestBody = JoinCampaignRequest
+
+// CreateBestiaryEntryJSONRequestBody defines body for CreateBestiaryEntry for application/json ContentType.
+type CreateBestiaryEntryJSONRequestBody = BestiaryEntryInput
+
+// UpdateBestiaryEntryJSONRequestBody defines body for UpdateBestiaryEntry for application/json ContentType.
+type UpdateBestiaryEntryJSONRequestBody = BestiaryEntryPatch
+
+// AddBestiaryNoteJSONRequestBody defines body for AddBestiaryNote for application/json ContentType.
+type AddBestiaryNoteJSONRequestBody AddBestiaryNoteJSONBody
 
 // CreateCharacterJSONRequestBody defines body for CreateCharacter for application/json ContentType.
 type CreateCharacterJSONRequestBody = CharacterInput
@@ -1187,6 +1316,24 @@ type ServerInterface interface {
 	// Join a campaign as a player using its invite code
 	// (POST /campaigns/join)
 	JoinCampaign(w http.ResponseWriter, r *http.Request)
+	// The party's field journal (members). DM sees full records; players see only unveiled sections.
+	// (GET /campaigns/{campaignId}/bestiary)
+	ListBestiary(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Log a new sighting (any member)
+	// (POST /campaigns/{campaignId}/bestiary)
+	CreateBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Remove a sighting and its notes (creator/DM)
+	// (DELETE /campaigns/{campaignId}/bestiary/{entryId})
+	DeleteBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID)
+	// Rename a sighting (creator/DM), or identify and unveil it (DM only)
+	// (PATCH /campaigns/{campaignId}/bestiary/{entryId})
+	UpdateBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID)
+	// Pen a field note on a sighting (any member)
+	// (POST /campaigns/{campaignId}/bestiary/{entryId}/notes)
+	AddBestiaryNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID)
+	// Erase a field note (its author, or the DM)
+	// (DELETE /campaigns/{campaignId}/bestiary/{entryId}/notes/{noteId})
+	DeleteBestiaryNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID, noteId openapi_types.UUID)
 	// The campaign's party roster (members only)
 	// (GET /campaigns/{campaignId}/characters)
 	ListCharacters(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
@@ -1367,6 +1514,42 @@ func (_ Unimplemented) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 // Join a campaign as a player using its invite code
 // (POST /campaigns/join)
 func (_ Unimplemented) JoinCampaign(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The party's field journal (members). DM sees full records; players see only unveiled sections.
+// (GET /campaigns/{campaignId}/bestiary)
+func (_ Unimplemented) ListBestiary(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Log a new sighting (any member)
+// (POST /campaigns/{campaignId}/bestiary)
+func (_ Unimplemented) CreateBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a sighting and its notes (creator/DM)
+// (DELETE /campaigns/{campaignId}/bestiary/{entryId})
+func (_ Unimplemented) DeleteBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Rename a sighting (creator/DM), or identify and unveil it (DM only)
+// (PATCH /campaigns/{campaignId}/bestiary/{entryId})
+func (_ Unimplemented) UpdateBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Pen a field note on a sighting (any member)
+// (POST /campaigns/{campaignId}/bestiary/{entryId}/notes)
+func (_ Unimplemented) AddBestiaryNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Erase a field note (its author, or the DM)
+// (DELETE /campaigns/{campaignId}/bestiary/{entryId}/notes/{noteId})
+func (_ Unimplemented) DeleteBestiaryNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID, noteId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1748,6 +1931,243 @@ func (siw *ServerInterfaceWrapper) JoinCampaign(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.JoinCampaign(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBestiary operation middleware
+func (siw *ServerInterfaceWrapper) ListBestiary(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBestiary(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBestiaryEntry operation middleware
+func (siw *ServerInterfaceWrapper) CreateBestiaryEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBestiaryEntry(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteBestiaryEntry operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBestiaryEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "entryId" -------------
+	var entryId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "entryId", chi.URLParam(r, "entryId"), &entryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entryId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteBestiaryEntry(w, r, campaignId, entryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateBestiaryEntry operation middleware
+func (siw *ServerInterfaceWrapper) UpdateBestiaryEntry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "entryId" -------------
+	var entryId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "entryId", chi.URLParam(r, "entryId"), &entryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entryId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateBestiaryEntry(w, r, campaignId, entryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddBestiaryNote operation middleware
+func (siw *ServerInterfaceWrapper) AddBestiaryNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "entryId" -------------
+	var entryId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "entryId", chi.URLParam(r, "entryId"), &entryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entryId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddBestiaryNote(w, r, campaignId, entryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteBestiaryNote operation middleware
+func (siw *ServerInterfaceWrapper) DeleteBestiaryNote(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "entryId" -------------
+	var entryId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "entryId", chi.URLParam(r, "entryId"), &entryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "entryId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "noteId" -------------
+	var noteId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "noteId", chi.URLParam(r, "noteId"), &noteId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "noteId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteBestiaryNote(w, r, campaignId, entryId, noteId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3538,6 +3958,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/campaigns/join", wrapper.JoinCampaign)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/bestiary", wrapper.ListBestiary)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/bestiary", wrapper.CreateBestiaryEntry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/campaigns/{campaignId}/bestiary/{entryId}", wrapper.DeleteBestiaryEntry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/campaigns/{campaignId}/bestiary/{entryId}", wrapper.UpdateBestiaryEntry)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/bestiary/{entryId}/notes", wrapper.AddBestiaryNote)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/campaigns/{campaignId}/bestiary/{entryId}/notes/{noteId}", wrapper.DeleteBestiaryNote)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/campaigns/{campaignId}/characters", wrapper.ListCharacters)
 	})
 	r.Group(func(r chi.Router) {
@@ -3846,6 +4284,400 @@ func (response JoinCampaign401JSONResponse) VisitJoinCampaignResponse(w http.Res
 type JoinCampaign404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response JoinCampaign404JSONResponse) VisitJoinCampaignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBestiaryRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type ListBestiaryResponseObject interface {
+	VisitListBestiaryResponse(w http.ResponseWriter) error
+}
+
+type ListBestiary200JSONResponse []BestiaryEntry
+
+func (response ListBestiary200JSONResponse) VisitListBestiaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBestiary401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListBestiary401JSONResponse) VisitListBestiaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListBestiary403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListBestiary403JSONResponse) VisitListBestiaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBestiaryEntryRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *CreateBestiaryEntryJSONRequestBody
+}
+
+type CreateBestiaryEntryResponseObject interface {
+	VisitCreateBestiaryEntryResponse(w http.ResponseWriter) error
+}
+
+type CreateBestiaryEntry201JSONResponse BestiaryEntry
+
+func (response CreateBestiaryEntry201JSONResponse) VisitCreateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBestiaryEntry400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateBestiaryEntry400JSONResponse) VisitCreateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBestiaryEntry401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateBestiaryEntry401JSONResponse) VisitCreateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateBestiaryEntry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateBestiaryEntry403JSONResponse) VisitCreateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBestiaryEntryRequestObject struct {
+	CampaignId CampaignId         `json:"campaignId"`
+	EntryId    openapi_types.UUID `json:"entryId"`
+}
+
+type DeleteBestiaryEntryResponseObject interface {
+	VisitDeleteBestiaryEntryResponse(w http.ResponseWriter) error
+}
+
+type DeleteBestiaryEntry204Response struct {
+}
+
+func (response DeleteBestiaryEntry204Response) VisitDeleteBestiaryEntryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteBestiaryEntry401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteBestiaryEntry401JSONResponse) VisitDeleteBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBestiaryEntry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteBestiaryEntry403JSONResponse) VisitDeleteBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBestiaryEntry404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteBestiaryEntry404JSONResponse) VisitDeleteBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBestiaryEntryRequestObject struct {
+	CampaignId CampaignId         `json:"campaignId"`
+	EntryId    openapi_types.UUID `json:"entryId"`
+	Body       *UpdateBestiaryEntryJSONRequestBody
+}
+
+type UpdateBestiaryEntryResponseObject interface {
+	VisitUpdateBestiaryEntryResponse(w http.ResponseWriter) error
+}
+
+type UpdateBestiaryEntry200JSONResponse BestiaryEntry
+
+func (response UpdateBestiaryEntry200JSONResponse) VisitUpdateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBestiaryEntry400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateBestiaryEntry400JSONResponse) VisitUpdateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBestiaryEntry401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateBestiaryEntry401JSONResponse) VisitUpdateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBestiaryEntry403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateBestiaryEntry403JSONResponse) VisitUpdateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateBestiaryEntry404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateBestiaryEntry404JSONResponse) VisitUpdateBestiaryEntryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddBestiaryNoteRequestObject struct {
+	CampaignId CampaignId         `json:"campaignId"`
+	EntryId    openapi_types.UUID `json:"entryId"`
+	Body       *AddBestiaryNoteJSONRequestBody
+}
+
+type AddBestiaryNoteResponseObject interface {
+	VisitAddBestiaryNoteResponse(w http.ResponseWriter) error
+}
+
+type AddBestiaryNote201JSONResponse BestiaryEntry
+
+func (response AddBestiaryNote201JSONResponse) VisitAddBestiaryNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddBestiaryNote400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AddBestiaryNote400JSONResponse) VisitAddBestiaryNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddBestiaryNote401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AddBestiaryNote401JSONResponse) VisitAddBestiaryNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddBestiaryNote403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AddBestiaryNote403JSONResponse) VisitAddBestiaryNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddBestiaryNote404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AddBestiaryNote404JSONResponse) VisitAddBestiaryNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBestiaryNoteRequestObject struct {
+	CampaignId CampaignId         `json:"campaignId"`
+	EntryId    openapi_types.UUID `json:"entryId"`
+	NoteId     openapi_types.UUID `json:"noteId"`
+}
+
+type DeleteBestiaryNoteResponseObject interface {
+	VisitDeleteBestiaryNoteResponse(w http.ResponseWriter) error
+}
+
+type DeleteBestiaryNote204Response struct {
+}
+
+func (response DeleteBestiaryNote204Response) VisitDeleteBestiaryNoteResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteBestiaryNote401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteBestiaryNote401JSONResponse) VisitDeleteBestiaryNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBestiaryNote403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteBestiaryNote403JSONResponse) VisitDeleteBestiaryNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteBestiaryNote404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteBestiaryNote404JSONResponse) VisitDeleteBestiaryNoteResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -7196,6 +8028,24 @@ type StrictServerInterface interface {
 	// Join a campaign as a player using its invite code
 	// (POST /campaigns/join)
 	JoinCampaign(ctx context.Context, request JoinCampaignRequestObject) (JoinCampaignResponseObject, error)
+	// The party's field journal (members). DM sees full records; players see only unveiled sections.
+	// (GET /campaigns/{campaignId}/bestiary)
+	ListBestiary(ctx context.Context, request ListBestiaryRequestObject) (ListBestiaryResponseObject, error)
+	// Log a new sighting (any member)
+	// (POST /campaigns/{campaignId}/bestiary)
+	CreateBestiaryEntry(ctx context.Context, request CreateBestiaryEntryRequestObject) (CreateBestiaryEntryResponseObject, error)
+	// Remove a sighting and its notes (creator/DM)
+	// (DELETE /campaigns/{campaignId}/bestiary/{entryId})
+	DeleteBestiaryEntry(ctx context.Context, request DeleteBestiaryEntryRequestObject) (DeleteBestiaryEntryResponseObject, error)
+	// Rename a sighting (creator/DM), or identify and unveil it (DM only)
+	// (PATCH /campaigns/{campaignId}/bestiary/{entryId})
+	UpdateBestiaryEntry(ctx context.Context, request UpdateBestiaryEntryRequestObject) (UpdateBestiaryEntryResponseObject, error)
+	// Pen a field note on a sighting (any member)
+	// (POST /campaigns/{campaignId}/bestiary/{entryId}/notes)
+	AddBestiaryNote(ctx context.Context, request AddBestiaryNoteRequestObject) (AddBestiaryNoteResponseObject, error)
+	// Erase a field note (its author, or the DM)
+	// (DELETE /campaigns/{campaignId}/bestiary/{entryId}/notes/{noteId})
+	DeleteBestiaryNote(ctx context.Context, request DeleteBestiaryNoteRequestObject) (DeleteBestiaryNoteResponseObject, error)
 	// The campaign's party roster (members only)
 	// (GET /campaigns/{campaignId}/characters)
 	ListCharacters(ctx context.Context, request ListCharactersRequestObject) (ListCharactersResponseObject, error)
@@ -7465,6 +8315,188 @@ func (sh *strictHandler) JoinCampaign(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(JoinCampaignResponseObject); ok {
 		if err := validResponse.VisitJoinCampaignResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListBestiary operation middleware
+func (sh *strictHandler) ListBestiary(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request ListBestiaryRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListBestiary(ctx, request.(ListBestiaryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListBestiary")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListBestiaryResponseObject); ok {
+		if err := validResponse.VisitListBestiaryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateBestiaryEntry operation middleware
+func (sh *strictHandler) CreateBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request CreateBestiaryEntryRequestObject
+
+	request.CampaignId = campaignId
+
+	var body CreateBestiaryEntryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateBestiaryEntry(ctx, request.(CreateBestiaryEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateBestiaryEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateBestiaryEntryResponseObject); ok {
+		if err := validResponse.VisitCreateBestiaryEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteBestiaryEntry operation middleware
+func (sh *strictHandler) DeleteBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID) {
+	var request DeleteBestiaryEntryRequestObject
+
+	request.CampaignId = campaignId
+	request.EntryId = entryId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteBestiaryEntry(ctx, request.(DeleteBestiaryEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteBestiaryEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteBestiaryEntryResponseObject); ok {
+		if err := validResponse.VisitDeleteBestiaryEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateBestiaryEntry operation middleware
+func (sh *strictHandler) UpdateBestiaryEntry(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID) {
+	var request UpdateBestiaryEntryRequestObject
+
+	request.CampaignId = campaignId
+	request.EntryId = entryId
+
+	var body UpdateBestiaryEntryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateBestiaryEntry(ctx, request.(UpdateBestiaryEntryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateBestiaryEntry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateBestiaryEntryResponseObject); ok {
+		if err := validResponse.VisitUpdateBestiaryEntryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddBestiaryNote operation middleware
+func (sh *strictHandler) AddBestiaryNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID) {
+	var request AddBestiaryNoteRequestObject
+
+	request.CampaignId = campaignId
+	request.EntryId = entryId
+
+	var body AddBestiaryNoteJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddBestiaryNote(ctx, request.(AddBestiaryNoteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddBestiaryNote")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddBestiaryNoteResponseObject); ok {
+		if err := validResponse.VisitAddBestiaryNoteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteBestiaryNote operation middleware
+func (sh *strictHandler) DeleteBestiaryNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId, entryId openapi_types.UUID, noteId openapi_types.UUID) {
+	var request DeleteBestiaryNoteRequestObject
+
+	request.CampaignId = campaignId
+	request.EntryId = entryId
+	request.NoteId = noteId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteBestiaryNote(ctx, request.(DeleteBestiaryNoteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteBestiaryNote")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteBestiaryNoteResponseObject); ok {
+		if err := validResponse.VisitDeleteBestiaryNoteResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -9059,123 +10091,136 @@ func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, tree
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7H3rbhw30uirEH0OYAk70khOcnAiIz9kyYl9svYqkozNIgmynO6aGUbdZIdkazRrCMhD7DPsg+VJDlhk",
-	"X4c93aO5WNJ+f2xJzUuxbixWFYufglAkqeDAtQpOPgUplTQBDRJ/O6NJStmEv4vMb4wHJ0FK9TQYBJwm",
-	"EJwEYdlgEEj4PWMSouBEywwGgQqnkFDTcyxkQnVwEmQZMy31PDW9lZaMT4L7+0FwNqWShhpk+1SVFmvO",
-	"JbgGrr9nvG2uG/Np2STAsyQ4+SkIY6pUMAhUCiED89OIhjcTKTIcQGWjvMUYqLYN4zgYBExDEvzig+6D",
-	"iKAVCdx+XG/9P2SgdOsUv7uv681xLaF9Fdp+XGeGe9NZpYIrQE59TaNLQNDNb6GlsPmRpmnMQqqZ4MPf",
-	"lODmb+U0/1vCODgJ/tewlIKh/aqGb6QU0k4VgQolS80gwUnwjt/SmEVEugnvB8G3Qo5YFAHf/uwfhCY0",
-	"jsUMIrLHzS8kgWQEckCEJIyrbDxmIQOuiRQx7AfIU/pbZMmtQ3cJSmQyBGIgG+Oc94PgI6eZngrJ/gXR",
-	"jjCU6SlwbUaGCDnSdTOjno5YzPT8KhTSck8qRQpSM/tbOMW5E3rHEiPmXxwNgoRx90vBi4xrmIA06wst",
-	"3Cv0iOBuxR7M4muFHkrLFXvMmFqpx31VhH/CCe3SLEos0HbYAaK11Hhi9BuEKDv5JuMhhARDvlNd0wgR",
-	"1XCgWQKLamEQsKiH9jBw3TINZyIC07zOPldTKoGOYiChiICkMZ2DVCRTQLQgvwnGiZ4Cybe+Q9/4VtF9",
-	"8nyAO30FSjHB7bLqc/99CnZ0jQBMqJ6auU2vV4RncUxmpkXGDTdHWQyRmd6LGtPaDJLr1gVQxIyD/Kjy",
-	"LbcTZ6kUE2lBXwT8rZiRKUgBitDolvIQCNVET5mySzFg5ptmwmJQWnAD5V3q3wWrbIXgIEbrQA8qDFIj",
-	"6TIue4+6Uk1Z6uG3Cicu0zwFxxpARQxd7S9Nm+aqisncGF6gc5unHVZLvDoxrivsaWlgSEOYIgrxRWjJ",
-	"TSwGwjh5PydvkXw1fnKs0MlK+WQfHNs39DFNgIgx8rUDIO8wsPx8w8UMBal7JjSnFqb4VgIYqAl+Hxr+",
-	"U1rOScw4DAgcTg7Jz8FbGo8P3sRj8prK6OfAK7gPUDnT9CyT0m1nizp1mr6nd/5PPZVVDLcQ+0dIGPcg",
-	"/FpmYBFrFVUcgyRixpVlhsKSrmBgJEQMlC/VXSh7fhKfM2X0JOEVUlurhMymAnXoksnX0EnAI8YnfzUY",
-	"8rDF+1zTEMThQZYqMqNMMz4xunxk9OwNVFV4dfucAuhOVZAv5wpb36NGW4DjzV0KkoHRiqlgXCuy9+PF",
-	"QWK2l1wS1CujOJkScr7vg8enE+vKsCRPoS3zw4floCqr5nxZ16HITksV0TloymKvzVRqql4IQwHQkGD3",
-	"4odlXd/xW+BayPk7c3i6L8CkUtI5UswcrvqPd5nFoNxhcHG4prou4C7myeFfirB3PM20B1+5Hkvo3V+B",
-	"T/Q0OPm/R13apbDFjgbLNE3R7NjXrFAnhZn3smrmefvkOqEBbcJ4/utx1y7uWLKdFZei8SoXxrpgXUhQ",
-	"5qQjeDwngpMZ+xeV0cFYyAlEziAx0lRHPkX73/2yjEPqB4X76uner6D67V8P7DsGquvcvdBkQSJuWFMi",
-	"uvtYX8YDgUTZuIqFVsuoRUKqtLFs//zj3yShd4TyyFjYEUlBEhzDquzDYNBPmK/yeVsVg5mS8YmjaS/o",
-	"9q6uL//84z9nb0/3vdtV7t95EK4a8lEyZUG2pRJxLQGuNNWwqFyoUmzC7VF7cX9PWXijvpOU61qLirRj",
-	"i0tIKOMG0vY2V6lTTA1Mmm8kFFxlCURkNLfbLOEiAkX2bmCOm7IiCZ2TUChNEiFh378NY1frFKszcqdx",
-	"0OQCLaHTVL8ymDeodRvdApVy1PppIwVnYQxvbh1eGnQJtSgMqG5VsbXT743zfNaphs6sX1OhNEQD1J2/",
-	"Wmt9YEXx1ywd4JH47lfgBvJoQO7SASmOcwPChYY///iPb84ElKITn2Hps2ycAzbvVEWGF/EGqjdcy7ln",
-	"py19TasYA2YQoaA/uZSmOlNV57AbIsKjLyIM/cO8zj4taMjBLgb2rhuxkh9HKw7QOgo8u/fxy4ds3+0w",
-	"oE+5FYAao3m2oIiNxyzMYquWl5EJ5zkvm98Pggm7tWZnJ4liYR2NvRpLmFEZrWBNYntr7vmUD9Nxkwgv",
-	"j1Ykgh3ESwVrTJnDQLuvoP9iPN4Sz5oy1W3vI0TNdWDHQQUu35Ksf3dhMZD/eTmqbDPfuN8a47CVVbdn",
-	"G65iCy60nQCVHlelptLYNAdm4WmC1gt+IzEdQUz2Toevh2f7ZCxFYn0BZsoXiijX8U3RL6KaHpJrdNHI",
-	"W2OEaWF2cdOL5QevExIzsz0QZCKyFzN+A5E5SlOZCGk2c9RaZDYFCegNMJu8Dqf7AzIRcUSoIpR8Z366",
-	"YBCCIlLMBiSNMztTicMXipSLwumMeVDVYEvcrqscU6pGch27Z1OhgFucEduI7JUQ5n+iEghL0phBtF8z",
-	"V9eztP2WtQdMdH4cHDurGe0yspdbsOZg9IqElGvJUkUYD+MsagK6oiXlP9jl3FxdVkMoBn2NXLROL6wV",
-	"2iKnuM7aKfa44xTbANsO4Jv9LdDY8EpzysUdXtxgvGMiadRnT1+yk79LUiH1JZh/WwMhfkt8TFnc9k2C",
-	"yuLGobGfOi2txP7BjUUE5YAPgiyN3E8O3k5sORvQsdcS3C1sS24qD0aaRlY7eCXuvOSquaI2ZXOiwkvb",
-	"zm09jftW6vxurSuPo9Ocmn2hKAmEcpJDhVqYKKbVKwJJqufWxay0mNkwVE50I+dmO0B9zfiUIh3FeIw/",
-	"rRTuMTBX8NJJijZvm8WxL1Zyyu26ii0yZiNJ5Rw9E0ISkTCdeyese3ssJBlLgAMNd5qYjdkXM+m7N7WR",
-	"KYIxzWKNmqxQcV9//XWnjluOoAuzGXu0wFLOcyD1B6ONp9DcIIwbg4HgNjFmITFtyZ7dQlXBbvuH5NRw",
-	"kfXtjZm2FgJyFnYZEDVlEEd2k8OPYjw+MEz2isyApoIr048A01OQxHw4JDZSEUJERBhmKeXa7uAZL/nc",
-	"xk2UIbbSUtzAIfmooIDsZExjGww2vF/l/FXZfoFW/08w3nmcC13YepWTQ9gWF0Xr4WPabg8rhv9FETNE",
-	"pPFF5TMiopl+4QxjY2tIoAoUoUaCyOnVO+tIeEW00DQmYkxeunjIgAANp+Qvx0bk/vJy0WXbzMl42cWA",
-	"zZSMzg7NjIzODs2EjM4OzXyMzg7NdIyXqwv/GKhX7V3TGyCUmM+EcaWBRoYetIt2vVTdNH3vWLQQjFuQ",
-	"1pEjRRx7hMF0ujSfvMHsKdMHEQNit2S779hJCDNHiDh2hwOHm25StNjSH2BWs6MnlHGIyIzpqQ1fIhLq",
-	"5vVatnTTh9zMprISXAZzOcwcDEzVT3RumN5kaigIRzOfivggIrik0jnNyywOjrou9+Z6iXpBw5sWv5w5",
-	"cLZrlppTpgQlt0m3lX/54CNkliRUzhsdvzg6Ws3IRZz4SPBDy05QSwLp43BgCUSv5+/Bv9Fjg/5eIoTq",
-	"zPTxMfYD/NePxE/YNy9jm+5E51A1nbxaozhqdQ5yZZtWfZA9DPBaZrftWKdPjRoFQPV8gnzRBWfVebCV",
-	"0y1P+YLmpu8qHJX1zyXJKt7+5QjK8pSLosugAlvrqs5r3JurMC3ZLaNGJwFVcwx6RCxLgkEwNbQ3SKdR",
-	"PPcqqyqTLGCrLxfTUS27qLlT9fF6X5uW94PglsZZn2iJj+GwSQ5OKw6vFlwM9JYyO9cgoKFmt0gNkaQx",
-	"dPgbBkHVZ7+AvwIxHbp/Z2jqxFBllgqCJiKO8h0P05PMqGmmqRNjYU5HfvS43MZ8pMgMYPNh/e2r/gy/",
-	"E0u0JJCdYn44mqBkKhIYSZgRMJaDy1Q0p+6ry/Pcw9wrWbCPiVEH43vGo4PiYJrSeSxoRPamTJOIwYBo",
-	"SZk5rRhrIpOg/vzjP9WwdUmKFSOx27NnVsgQtDn6ELmU0RoVVkwVtJcAqitTqMvyQb2gVoyo/iFiN1Pp",
-	"J3SDOOovyWmrcmuLCniQjbpjC9K/bt+Cr4DqM8HHMQv1Ko7ghCnl8kAaARIX7TE8hBnGmTkx6im1f8Jc",
-	"ATKlCi+D0ChhWltPYYsvekWhWc0x7ZECOsKEn28Ih1swymcMEqJXJA/ck28ILdJFp0DO378iNn5PvnF/",
-	"IIqyiHBR8wLhsMGgmgDQN+xfZe2K5xt6OL69AdCSem0c0e5mWpJh/reEaSKkVc1akIwroBVGMFrL/H2d",
-	"tPJ7L8D6Q3mDoj3hYfktixx6BTwqlhDGQKV1/OV3K4iyYzz0jkXLCi5o2I51XVycW+387vp5qXzD4vhN",
-	"NPFlivUSuNHq4BjNO1oOjWpRumC+9T4nlYvrFAgctxWkD85ltVrmSt/7RqrwgiymyuFVH3QxcUFSyYR0",
-	"3ifniDak9e+/MUtGi2N+J0WWGp1lkwDMyG6kGYzcbYg3H64v/3bxj9UuL6VC/bjEbOVZMnLJgUL9o1dD",
-	"WbiVltG44oDCND4agRiP/a7CVLIQyIjeoCMfAw25h6qXzfhQ+bNN8outuT+ndl52i3VkK5liKUu2WSZd",
-	"fFllOBdJct76djaqGB5fHm3MN/b4uGa1Y5ejpZu0lVjXLrt0PQ/d5n1mfY0qJyRGIZ0Jpf1X/BLK5045",
-	"lXJFgGpF9o7JN2SCt7swHjea5yqnJbGX9/K1LDqjvLK1AH5Xymgz0Xd729AAb+2vOBTuRuvmMHuNhCCH",
-	"Z9C1I+Id/oepHz83eSLaX+3q5ol3lcWdgUXnz8Ilmc6Qd9K4fOO9o5MpG2Rf1qoBfn5jJsHrWjjA0sW0",
-	"2VX51I0UQtODqNQchBp3L8ge4+YEd0S+cX84rse6li81oXfvbMuvOyyzZWvikeGhdku/qJax2nbt+vkm",
-	"/YipQP+T0NyR0LxeBGL9LOhKyKGCbS9BvUnRkDi1v6lwEEvc/YbOAVfY+Vp0l8E/hJk1g376FLiD6pkQ",
-	"NwyCk59+uf+lbHFlaOFSGOvtXHWW0P5a1GdxrcpF0pR9D3Nba4PxsfCoEYjHB1O8O0LOf86Ojl7+n/Py",
-	"DvoU4hTkIbmeMtQ1YR69VoxPYiCuZogYEy0zPSVjIX/m5vvpxTv0+Eoa6hPs8Z3IE5SNqpFjGgKmZ5lv",
-	"1/MUrhAoEsZYAYVKICOhpz/zCXCQaJ1gphfTZO+fCb0Bkn/45/7hz7yIdZ3YcAN5LaiMDBjBILgFaYsf",
-	"BEeHx4dHeF85BU5TFpwEXxweHX4RDLDSDaJ6WMu6n9jbi4YBUWKNzgr+ypQ+K1o1Ktq8PDpaqVTKxvL6",
-	"FwuqGDgNcYoV5QkRuev4BSZhYCEBoOHUjPnl0XEbMMUyh7W6MPdVL2hRr8FlOdjrDSRTIMkIYsEnimjh",
-	"Tg0e1NZvxrhSQ6D0axHNN1aBxn/95r4uyEYH3C/Q9nhzQBTFKBYJZwEsyy1Ywhx1E6ZSTmkTtEQwCC0V",
-	"wp4LOYwgFAkowrQi5+/3sV8pOMPfBLNlYbw0ribLbYnCvny8XvQ92jh9qyK7SOnrKWBpmgqxW4R0dzxg",
-	"On3Z3akoTlVnGoP6KsvgzREbfCSZ2TeQaWzVFww1NJnnU3lqvB8W1/c7tHHZbCfquFoMoUsLl7CRRgmi",
-	"NejzRXensrZZnUDVKjMvFEmp1HMijQkgyZ4t/uES5FBNVwoL/uSfsmwyrBQeNJbMUh1fKcywFSVfr+Sw",
-	"a+1ecsgS9V5lo93J9hq8cxpFRrZzuImYcXdRvAxH71E+L8XfMtT+ciEXLonXK9/fgcZ7wruR7PJGch/R",
-	"xkgpcC2ZvUv42aXZxm7//OPfBG5BzgncGZQwTWQWG92LN/ZsfJPGqpD3bYn6hY2kIp7OipvRDxX3lssh",
-	"K5YXSBh3/o3jrtox5Qyeo1wPffKlr1qFiy0/FZH/23gMksxFJsvUEi0qxe5yHnpFzt+TCEIWgeoh78NR",
-	"Ft80S9duiO2unMqwDozXZqLPznWFV+34yDlO2rjQdyHvwYUI3mEaZ+stvAdy8WUWPyUW5kBuQUYs1ETc",
-	"grThEKe2yd75exv5MFozpeENprygJ6UXH38qMH1vERWDTVppWD0xUFnhyqAPnrFTjoFdo+0SEnFrjn9u",
-	"7zD4yRNEXFCgxN6aO8jAXzu6uP+3Ts1hoyayTi2xMQ2xCeH9r5PX9c6c15jT9UKVUs7xBqyx48ieRX+x",
-	"ew3IiPJhxkeUk6vL8+UiDrd5hfXWs+cb22SB+5krzoPJfY6hY5YwTP8seKeIrn11NKhWduu6FP/Lbs65",
-	"tcJIPSxih4zPbgqTMAd9QDjMQGkyZlLprVu8p1FUYO2D0LAxtVIpxFQJwny1ahAmH+ZhqmWTB+Q6a/ld",
-	"Y5CfxJ6EnfF3ydBdqrSQc6d9MJcJT8f5gqtb5hLNU1Zb3o6NfA5hTCW8rxR13gyjcqG9ocLOJMvF1wG8",
-	"e5kD/OmYn6dlqbXKydxVVMa02wllXBHz3RXGLere9mQWDnf6QJVFvtfjlxZjqZLBuyWfnT9N+DM57r0O",
-	"nwUfvStAgqXe87zj52toXQEmYNuc61l70fuebNsoTb8Vrr2ozLGxvbhxTX7VyviJ/8r24+Hz64UoxRPQ",
-	"s1czpsNpLcJCRqBnALyigSmPyI8XpMJ6PZkVV7b8KPCDbbIL0/yHHM9dFrmFySosl0qEOHA3ez8LpTAx",
-	"weITj2pVD/YIMzd2GIiymNxmpkEtJ23HdvYP5aT+IFRFYJ+AjF8IpQnFchoIRU/ZlZCnCx3YyPOWjOrL",
-	"Yp53dppHY6cYjNWC7k/C3vjOYZNQMpagptUl9CS9lgDLtfY1ttiF0q5keHcrbmxMLPiPIbSoSnh2qZ6v",
-	"be77Vo4b9Wz5HWvmarp/q3bWjlmehHIu8sVKVukppPbxlS3wEFYk/fFiY5Y/TUTWqB92fHR0VHPXHuR/",
-	"8VQ3Kx/DVC33W7UgEwO0+WHBU7BeySoJVBXl1Tp8M7VLoXbRuziwbD796trdbQZF6FiDvSqMGH4ycoVM",
-	"TPaEJJEIb/bN8UWLKluAWpCzIuls+KnCdEsjlOf493peVrczzpZreRrmRBHRLDOY9pg5g8w4SCKkKw6w",
-	"byt3t+QitePnaPPpY8VzFq18TRgn4yyOnwgJThHoFwphJvhWly3ZakiAT6EWpoX35bkH2BqVB4hxo8hL",
-	"qdZJa68PPcasxKPdZCV+dJ7MJ5GVuB4T2qX20QPLdOmwLIeyHkO2BRLr1aq3w5CeMsw7toMbz8P5NZ07",
-	"vtqGRIrZ82VOzLF11a2xDoJTmOXy9wo+7cmjw0/mv17b/yLPdeaW4Kb61EwAXmenJk7X2mT8yUyWBGtn",
-	"Mi3bvXauMGxZ8h3vYr0URh6Xe9aq4mxK+QTI7xnlmum54V4sdk6w9tRKegIDzlm6rd3MlSvftnnVqIr+",
-	"mMyr3F4fkOJdW5KwyVSz52xpneaPipPK254VDOQs2n1yHZqDwAbY0x8mpnrbrFmt2faY+PKtIYj1jCTi",
-	"1nmOng0zmg5fb5SGRSXGZWdyLKgYVsosLlzRaZZXXEi0oNqZfljKv/LyeqV8nwSdSczBSGpV+1YSq/zN",
-	"163IlS7Lm2xLrhr1Ux6dbGEILjdHLLafdX6QrUSjKvVpqnbIK1J7g6GDOfOySZ3OuCJKtG0yl8/3euh9",
-	"QUOd2175i7Pf2FdnMFmKCxsUYYqMDPb2n4zTrqAK3hgO7dNKMxgVeTTrhwR7KpRFkm8lD7Fa7PNzqZSl",
-	"vPYBZpYSOb8ZGvGJixkSCQq0Ksiz/3x1zmvG65eS0WmCSPjzj3/j7ot46hkhQZ0zxADR1nx75TuJW2Lg",
-	"xYcYHyUPV/RlLVHl0Yfn1sxqwXhexl31NluWURcXB0bG9luJW4tHNbfBrEUxt+0ZcPVicY+dVe1jrHlx",
-	"ccOvqZg950M8UohQK5YQIcfavE0JNJxi9jfHjKxFh9O0eJS1zYZzz7ZukcJuBl+OFchbFppDm2mBSRJf",
-	"WdTuaOLiEdpGabhf6umyt8CNjTU0CI8Y/pxKMXK1c5LlNnLlifFtilFlGs+CTzM9Ba7N2ICPcspNVKi6",
-	"LmuMxXN8CKM+R15ijslmRRI1ZanK0de3zND7+WMuNOTO/riT2oe89RTmWEvPBtE3hvG8LlWeVxNKoRSh",
-	"cVyWmhtU1KR9ZQALDNtcxmX5fhUc//dWBjKI/UxF3/CZ/dz1xHjVqcSFztMx8HnJsszPvkeShujxbS8D",
-	"hxNtm9Y4yeeq8NcVDqi4xAfmwIYPllRR/rnr/iEP6KkU2cQa56OMxRFIPFiVCTwDEoFktxCRtxeWEbBS",
-	"9fCTrdbbI+qMZbOfcb4ZGojORnp4wYwPtvhxZxi4wOaWUqbL9w12bKpXSqy35y/x4nrDs05d8rOUET57",
-	"sWr4Cf/vJX7lFahnKn8Ld4VWFb0fLC67ZW+bt8k8Fc53LICtt8ly4Xv0t8k2JH0IdNXGZVoRW7UHzxz5",
-	"TcsO0RyG+YupbQL6kWOTFgndAWVtPW0bIM4sMEWQ+AkogBioQnUp4ZaJTMVz4p58LXl1DVXgP8g8Hoo9",
-	"MXoh5kp93V5JVGYxqKHDY98SbHbzqr12+oz3vPpDoGSPuqdaWzbAnZdfs7p0gRqb3zYXHwzd8a5ZW2P7",
-	"5vl8t803EdPLOfIVPhLMFGFJkmE9kZqgw10qpG71zb3Bzw7DF9SFKtagZuPJEVfgt6/XzkDQVkO48bah",
-	"G9l/tc7zSp5Z2wZO+P+olXPFEu15thJWwNy7AUgJ00Rk+IJEmo1iFhIJqVA1wrAkJ4x/K3yX+CiziZuY",
-	"axFlhWqsK1Fsh0nQiNhLQPT74lUgD6yYSVC2UueYsjiToEgkbOrZSEibnTYyJ5r9z+Rtem0mP7CM1ORD",
-	"qmzl4VSyW2N4Fyy7l6UKpFZkNCdmt6ox5acbxq0l0OrJR5W8Exd+Xfn3qSlu179eVfG6SWBAKBArxph/",
-	"a3BE9ozW/Yt9OJxxpSkP4UX5hvhD0njsLN8z3n21//Hu/cc72/udx/8zyZ6t59/Yl/HiJVOOQ4wNbjPZ",
-	"DhjHoJqTNawEMfxk307tYXf7U/SevL1toa0XPaA8QofADEZ1p1NbjHbb6YvNVzN95oUB3L1mHIH1YtiH",
-	"Jp9KjmKFALgOQwEMUiAZ1kxPvLZPBHf6/x5ZuZKj3ZQryd1/j71cyYa8f+31TepKcVg8RvtwZmtJg8WX",
-	"2LfJaJWn3j8Xp/VRVnkK1gxGz5fxLiGNaQjFq/Iv7NYixsao4xAarKgOViweM344Ky4x5R5ZyPF4NyHH",
-	"PF3jeYccrZFYiTeWCdZVluv5tqm8zTkvk3FwEgxpyoL7X+7/fwAAAP//",
+	"7H3rchs3svCroOb7qizVUqLsJKdO5MoPWXJincReRZJrs5W4suBMk0Q0A0wADCmuS1V5iH2GfbA8ySk0",
+	"MDcSwxmKF132/LElDWbQ6Bv6hsbnIBRJKjhwrYLjz0FKJU1Ag8TfTmmSUjbi55H5jfHgOEipHge9gNME",
+	"guMgLAf0Agm/Z0xCFBxrmUEvUOEYEmreHAqZUB0cB1nGzEg9S83bSkvGR8HdXS84HVNJQw2yearKiDXn",
+	"ElwD198z3jTXjXm0bBLgWRIc/xyEMVUq6AUqhZCB+WlAw5uRFBl+QGWDfMQQqLYD4zjoBUxDEvSCRHCl",
+	"QQaffHB+EBE0ooPbh+th4scMlG6c4nf3dL05riU0r0Lbh+vMcGdeVqngCpBn39DoEhB081toaW1+pGka",
+	"s5BqJnj/NyW4+Vs5zf+XMAyOg//XL+Whb5+q/lsphbRTRaBCyVLzkeA4OOcTGrOISDfhXS/4VsgBiyLg",
+	"25/9g9CExrGYQkT2uPmFJJAMQPaIkIRxlQ2HLGTANZEihv0AeUp/i8y5deguQYlMhkAMZEOc864XfOQ0",
+	"02Mh2T8h2hGGMj0Grs2XIUKOdK+Zr54MWMz07CoU0nJPKkUKUjP7WzjGuRN6yxIj8F8c9YKEcfdLwYuM",
+	"axiBNOsLLdwrvBHB7YpvMIuvFd5QWq74xpSpld64q4rwzzihXZpFiQXafraHaC01nhj8BiHKzhtQmlE5",
+	"e8u1nHmoQfnbiOHa62T+2xj0GCTRYyATBlOQJKEzIsFoGSMLEcSggegxUwTMx8leKIFqIc3Ts/f7h6Vi",
+	"GQgRA+WI6KiDAjLDDH8NmeXoZtDO3pMxVSRm/AYiC4xio7FmfES0IJTccDHlBCHLJDTApM7ed8aAg2xG",
+	"KI9IxifAYrJ39p4IHs8a1ux2pA+on+enuR5DAd4LRYyqJgbHPZJKUEbRCB4CKRFi5uBZHNNBDLlqX8Af",
+	"F9oS2GyKqk3Ycyb5IDSYt93nqJR0FiAbhkIiJWgUMQM4jS9qfLQAQH2RHxFPEBEFofmTImKIiBWoTmlM",
+	"lKaaDGIR3hCqDJtFICEiCZU3kZjyHrmBGURkMMs/cUjeo2I2g0NgE0AKEAkToNWZXud84oYpAhOQxWfw",
+	"aY5/w0sVEpZSlH/VxyUsHBOLoHJ1FdbM8qVrgX9OqdSzQ2euqKrhE8EQcMftBWKIPxpQJGXa/CkWEjw2",
+	"zSKxNNNxA5/h3C8UMSKBcjwUsoaAQ6+5UdVCVlxxipqUVnBU8EvOhr1CzThZa1VU5zzN9KK2KpaW0Nsf",
+	"gI/0ODh++cqq0eL3thXYj7SCcEF1OPYoTLu5nntY4QfGb6zSOQNOnNCbPxQqw6C6UE+l0iCGNjSOD/4J",
+	"UpCPH8/PSMaNSlOE6R6RoDPJUaONwelaMw0nGV9Ub62qtZmXDRjDLI6JAm0ENFuQ2j0WQZIKg4HXpKr0",
+	"ts7Mq1K8kbio4xbIai2oXEO3qteBiGZetYeUgOhE13a5iGo40CwB/1bXaUdMGIdOm1QKnOd7oZE/357k",
+	"E2pck5vHJx254+qRia0tmvEJ03AqIs/Sr8ZUgqESCUUEJI3pzOwGmQIjHb8J5nS7A/vQ933uCL74AG71",
+	"FSjFBD/xW0f26xoBGFFDBEXMW6+J4R4yNSMybnbYKIvtru1FTSuviSkH+VHlbnwrzlIpRtKCvgj4OzEl",
+	"Y5ACFKHRhBrLgmrLK7gUA2YuwgmLQWnBDZS3qd+fXuAixGgd6KpU1Ei6jMvc5j5mqc9oLTlxmVlTcKwB",
+	"VFg9smz8pRkzv6piMvcNL9B5HKUZ1vMGfZs/tzQwpCHGhkV8EVpyE4uBME7ez8g7JJ9P1beyUj6Z3xL9",
+	"gJa9tcscAPkLPcvPuNt0sj9tiGZhim8lgIGa4PO+4T9ltrOYcegROBwdkl+CdzQeHryNh+QNldEvgVdw",
+	"76FyxulpJqVzjBe9s3H6nt76H3VUVjFMIPZ/wa+8r42tP81VSUjjGKSxzZRlhiI65/cqGnUXyp6fxGdM",
+	"GT1pjT9HahvfINOxQB26ZPI1dBLwiPHRDwZDHrZ4n2sagjg8yFJFppTlXtzA6NkbqKrwqiM+BtCtqiBf",
+	"zhWOvkONtgDH29sUJAOjFVPBuFZk76eLg8RsL7kkqNdGcTIlZM3ba3LaER11ZViSp9CWeUDTclCVVXO+",
+	"rOvQ5j06X+YZaMpib/Sl1FSdEIYCkFt3nbzJcz4BroWcnWtIfEYdBmy7f+8yi0G5APPi5+bVdQF3MU8O",
+	"/1KENXgchR6r2J//fdSmXYqozlFvmaYphr30DSvUSREwelUNGHnfyXXCHLSruEeOJZtZcSkar3JhrAvW",
+	"RRHKiGdEcDJl/6QyOhgKOYLIGSRGmuaMcowkul+WcUg95HhXzRj4FVS3/eue7w6B6jp3t7o56obNS0T7",
+	"OzY/ck8gUTauYqHVMmqRkBonVpE///gXSeitDXopiEgKkuA3rMqu+YDLSHWVz9uoGMyUjI8cTTtBt3d1",
+	"ffnnH/8+fXey792u8pzRvXA1Jx8lUxZkWyoR1xLgSlOv06kUG3HriS/u7ykLb9R3knJdG1GRdhxxCQll",
+	"3EDaPOYqdYppDpPmGQkFV1liY2u4zRIuIlBk7wZmuCkrjHuGQmmSCAn7/m0YX7XptTojtxoHCz6/hFZT",
+	"/cpg3qDWbXQLVMpR66eNFJyFMbydOLzM0SXUK8QCtuf93rhsap1qmBb7NRVKQ9RD3fmrtdZ7VhR/zdIe",
+	"usS3vwI3kEc9cpv2SOHO9TAs8Ocf//aGGUApOvIZlj7LxiV185eqyPAi3kDVlIkos1arGAPmI0JBd3Ip",
+	"TXVWC1W5T0To+iLCMOfM6+zTgIYc7OLD3nUjVnJ3tJJKraPAs3uvHN3EbzTDgNnpRgBqjOYL6rPhkIVZ",
+	"bNXyMjLhPGfl8LteMGITa3a2kigWNmXZabCEKZXRCtYkjrfmXseA46ujjYWYnTFlnIHmWEH3xXiiJZ41",
+	"Zard3keI5teBL/YqcPmWZDPFC4uB/M/LUWWH+b77rTEOG1l1e7bhKrbgwtgRUOkJVWoqjU1zYBaeJmi9",
+	"4DMS0wHEZO+k/6Z/uk+GUiQ2FmCmfKGIci++Ld6LqKY2YaBATowRpoXZxc1bLHe8jknMzPZAkInIXp4e",
+	"FYTKREizmaPWItMxSJtuNJu8Dsf7PTIScUSoIpR8Z366YBCCIlJMeySNMztTicMXipSLwumMeVDVYEvC",
+	"rqu4KVUjuY7d07FQwC3OiB1E9koI8z9RCYQlacwgqqcs1rO0/Za1B0wMfhy8dFYz2mVkL7dgjWP0moSU",
+	"a8lSRRgP4yyaB3RFS8rv2OXcXF3WnFD0uhq5aJ1eWCu0QU5xnTUv9mWLFzsHtv2Ab/Z3QGPtSdEt7vDi",
+	"BisnRpJGXfb0JTv5eZIKqS/B/NuYCPFb4kPK4qZnElQWzzmN3dRpaSV2T24sIigHvBdkaeR+cvC2YsvZ",
+	"gI69luBuYVtyU3kwMm9kNYNX4s5LrlooalM2Jyq8tMlv62jcN1Lndz3zM4kyXrMvFSWBUE5yqFALE8W0",
+	"ek0gSfXMhpiVFlObhsqJbuTcbAeorxkfU6SjGA7xp5XSPQbmCl5aSdEUbWtOrp9wu65ii4zZQFI5w8iE",
+	"kEQkTOfRibK2YSgBDjTcamI25k7p8Ya9qYlMEQxpFmvUZIWK+/rrr1t13HIENVQfLOc8B1J3MJp4Cs0N",
+	"wjgWM+A2MWQhMWPJnt1CVcFu+4fkxHCRje0NmbYWAnIWvtIjaswgjuwml1f9HBgme02mQFPBlXmPAMNU",
+	"tnlwSGymIoSIiDDMUsq13cEzXvK5zZsoQ2ylpbiBQ/JRQQHZ8ZDGNhlseL/K+auy/QKt/kcw3urOhS5t",
+	"vYrnEDblRdF6+Jg228OKNddnISLma7KcYWxsDQlUgSLUSBA5uTq3gYTXRAtNYyKG5JXLh/QI0HBM/vLS",
+	"iNxfXi2GbOerO1+1MeB8cWfrC/O1na0vzJd2tr4wX9nZ+sJ8Yeer1YV/CNSr9q7pDRBKzGPCuNJAI0MP",
+	"2ka7TqpunL53LFoIxgSkDeRIEcfeCp1xemkeeZPZY6YPIgbEbsl237GTEGZciDh2zoHDTTspGmzpDzCt",
+	"2dEjyjhEZMr02KYvEQl183otW3o+hjxfl20luEzmcpg6GJiqe3TuM53JNKcgHM18KuKDiOCSShc0L6s4",
+	"OOq6PJrrJeoFDW8a4nLG4WzWLLWgTAlKbpNu/0zHvZ3JLEmonM29+MXR0WrmLmLHR4wfG/aEWjlIl9AD",
+	"SyB6M3sP/i0fB3SPFyFUp+YdH4vfI5L9SCKGXSs0thlYdKFV85JXfxROV+tHruzQajSygyleOzeWV+hW",
+	"6VOjRgFQvbIgX3TBWXUebOR0y1O+9Ll5dxWOyrpXlWSVuP9yBGV58UXxSq8CW+OqzmrcmyszLdmEUaOd",
+	"gCosmYSIZUZNjSlWPUdAo3jmVVZVJlnAVlcupoNandH8ntUl/n1tRt71ggmNsy55E28VuBmSg9OIw6uF",
+	"YAOdUGbn6gU01GyC1BBJGkNL5KEXVKP3C/grENOi+3eGplYMVWapIGgk4qjc+25TlMs009SJsTB+kh89",
+	"rsqxqMI2H7CVsf7x1ciGP5wlGkrJTrBiGo1RMhYJDCRMbXG6q1k0/vfV5Vkea+5UNtjF2KiD8T3j0UHh",
+	"oqZ0Fgsakb0x0yRi0CO25LyHFnQmQf35x7/3vUc8VszJ7sKyWaFq0Nav52XfdXqsWD5ojxhW16hQq+Uf",
+	"9YJaMae6p43dTGXs0H3E8cGSOrcq3zYog3vZrTu2Jf3r9i34Cqg+FXwYs1CvEhxOmFKuNmQuaeIyQIaH",
+	"sOo4M16kHlP7J6wfwPNLeAg2SpjWNnrYEJ9eUXxWC1Z7pIAOsAjoG8JhAkYNDUFC9JrkyXzyDaFFCSme",
+	"xnpNbE6ffJMfz1KURYSLWmQIPxv0qkUBXUsBqqxdiYZDh2C4NylaUq+JI5pDT0uqzv+aME2EtEpaC5Jx",
+	"BbTCCEZ/mb+vU2p+5wVYfyhPVTQXQSw/eZFDr4BHxRLCGKg9A1OctyDKfuO+5y4aVnBBw2as6+JY/mo+",
+	"vXvPS+UbFsdvo5GveqyTwA1WB8do3sFyaFSD0gXzrLPHVC6uVSDwu40gfXBhrNWqWbqeQVJFZGSxfA6P",
+	"/2DYiQuSSiaki0i54LQhrX//jVkyWPzmd1JkqdFZtjDAfNl9aQoDd0Li7Yfry79e/H21A02pUD8tMWB5",
+	"lgxcwaBQf+80UBahpmU0rgSlsLSPRiCGw4bjqZKFQAb0BoP79vi2i1p1sh7vK392SN42I4/s1Dxnt1hH",
+	"tpIplrJkk2XSxpdVhnPZJRfBb2ajiuHx5dHGomSPj2tWc8AcLd2kjcS6dhWn68XqNh8962pUOSExCulU",
+	"KO0/9pdQPnPKqZQrAlQrsveSfENGeOILc3SDWa5yGop9eaeoy2JYyitbC+C3lZHOF/9ubxvqYU+gFT+F",
+	"u9G6dc1eIyHI4em17YjYIeh+6sfPTZ4s91e7Oo3iXWVxjmAxDLRwcKY1DZ7MHcjxntvJlE28Lxs1B35+",
+	"iibBI1z4gaWLabKr8qnnygrNG0SlxhGaO49B9hg3HtwR+cb94WU9/7V8qQm9Pbcjv26xzJatiUeGh5ot",
+	"/aIX12rbtXvPN+lHLA/6vyLnliLn9XIR61dGV5IPFWx7CeotlIbEqf1NJYZY4s48tDfW6b7zNegug38I",
+	"M2sG/fw5cI7qqRA3DILjnz/dfSpHXBlauLLG+jjX+y20vxbd39yocpE0Zd/DzHbyYnwoPGoE4uHBGM+T",
+	"kLNfsqOjV/91Vp5LH0Ocgjwk19hbKYUwz2grxkcxENeRTAyJlpkek6GQv3Dz/OTiHGO/kob6GN/4TuRF",
+	"y0bVyCENAUu2zLPrWQpXCBQJY+yvRiWQgdDjX/gIOEi0TrD6i2my94+E3gDJH/xj//AXXmS9jm3igbwR",
+	"VEYGjKAXTEDahgjB0eHLwyM8w5wCpykLjoMvDo8Ovwh62EcPUd2vVeKP7IlGw4AosUZnBT8wpU+LUXP9",
+	"8l4dHa3UiG1jtf6L7doMnIY4xYryIok8dPwCCzOwuQDQcGy++eXRyyZgimX2a13n7qpR0KKHg6t8sEce",
+	"SKZAkgHEgo8U0cJ5DR7U1k/LuEaGoPQb13RlI/3t/Edy7uqCbHTA3QJtX24OiKJBxSLhLIBlCwZLmKN2",
+	"wlSaNW6ClggGoaVC2HMphwGEIgFFmFbk7P0+vlcKTv83wWyrGC+NqwV0W6Kwr0avE32PNk7fqsguUvp6",
+	"DNiupkLsBiHdHQ+Yl75sf6lofVlnGoP6KsvgaRKbhiSZ2TeQaWwnGEw1zDPP59JrvOsPXOempbo4b++0",
+	"E1Vcb6rYQQvnL2BCjtlzSPekyhftL5X9UutkqbaAGzKII/KbyCSnMdmzTUDU/iHmRQCUbQRmG7mp10V3",
+	"JQWuz95Cb7BDVOiVVsc/+8Esh/QrrZCNzbNsN6hjfDsKw9OBbsf7wRxf+VUFz/O6u9UGa/DdD2JEKMJd",
+	"Nr+jfOY6z+x3Ev7+Z1zzeXRnDdgYbFawzixn+PdFZqnR60tPXxywtSe7Qs966vUSEjExe3KBTmNFG5WK",
+	"/RaLRqx93JbXkcqet8O0o8RaLaY/obltzzjUaWh9+J0LvD1xsWMDoZPAuzNPj1/o1+VqPLZT4eoqH9v+",
+	"257eu8YbzDtRrqhJ+kWX3McqId4d8SSKas0s7y8c9ahK3tSyHt9ZMcCDH/EEPR7fPvofIlYXYExxa+4Z",
+	"fieC12Ts/huxFZ/+Z/PfSvtywbXPa1t+K6mCOq73zKZsYUIFZguPHu2m3Gu4FkOve6HEpyWMVXRsawm2",
+	"lcN2Em2r9r9rc+9K2Mhc19mHc/RyCF4o6/MRKbAfde7q5TvmFp2200ovvq3E8OrN+3YdvCs5ZEn0rspG",
+	"T8JZO4kiQku4iZhy1xusrDbGTaOI7nTZPbCetFG+vwONraF2I9llE6ouoo2FsA8etqlIsy3N/fOPf7mL",
+	"DODWoIRpIrPY7OjYpMWWr9JYlaGdLYn6hS2URTydFs2wNmORFv0AVuwolzDu0tcv29qFljPcz2j90teg",
+	"0JUOPxWR/+twCJLMRCbLkwPutgrb3zznIez5H0HIIlAd5L0/yOKb9dyrRra7cirD5qffmIkenOuKoomX",
+	"udvUxIW+Hiz37j13juf1Ghuv3JOLL7P4KbEwBzIBGbFQEzHBq3p4EW0vAgSoNVMa3uCJBkyUd+LjzwWm",
+	"l3o5pzFQWeHKTj4OvrRDH8cfSXR7h8FPXv/var5UNbyyebelbPmybqwka9USG9MQmxDe/zh5Xc+5vkbP",
+	"+YUqpZxj0yN785hFf7F79ciA8n7GB5STq8uz5SIOk/yizkbf860dssD9zPVjxQi1Y+iYJXjRUck7RfHk",
+	"V0e9ajPvtj5on3bj59Z64XawiB0yHtwUJmEOeo9wmILSZMik0lu3eE+iqMDaRgOwld67lRjsV6uGYPPP",
+	"PHQUdp61/GHYp5XK/JtkWA2jtHDZ/Jk9qoLecb7gjhmJ8oKd7djIZxDGVML7yj0+m2FU7u7Qmq8EbT1D",
+	"t3i1bEPcFwF/OubnSdldu+KZu0t08FTliDKuiHnu7kIprjrpyCwcbvWBKu91Wo9fGoylygHNLcXs/KdA",
+	"H6guyxvwWSjByhNFhgL5sdLna2hdAZ6vtUdqp833nHVk27nbyLbCtReVOTa2F891Rlv1MrTE36Xr8fD5",
+	"9UKW4gno2asp0+G4lmEhA9BTAF7RwJRH5KcLUmG9jsyKK1vuCvxoh+zCNP8xx3ObRW5hsgrLnRRBHLgW",
+	"Tg9T88WUJhafNuNciWAPsDB/h4koi8ltFpLXjhzt2M7+sZzUn4SqCOwTkPELobQrF0QoOsquhPw0yIEt",
+	"LN6SUX1ZzHNup3k0dorBWK2m+knYG985bBJKhhLUuLqEjqTXEmC51r7GEbtQ2pUDvO2KGwcTC/5jSC2q",
+	"Ep5dqudre7R5K+5G/TD0jjVz9TR3o3bWjlmehHIujgOVrNJRSO19m1vgIbyE4qeLjVn+NBHZXMvol0dH",
+	"R7Vw7UH+F09D66IoJVIN7Yu0ICMDtPlhIVKwXpdiCVQVHbVbYjO1nj920btwWDZffnXtWleBInSo3W3o",
+	"iOEnI1fIxGRPSBKJ8GbfuC9aVNkC1IKcFUVn/c8VputQh1mvy3qmZyPKCiYswsRbd+dKMBtrkZrxc7T5",
+	"8rHiBsNGviaM43GsJ0KCEwT6hTtChtcz21s6DAmwDLYwLbyXjd/D1ijZP2g9WfIYqxKPdlOV+NFFMp9E",
+	"VeJ6TGiX2kUPLNOl/bLb5XoM2ZRIrF9QtB2G9Ny8s2M7eO5G8OZzjcUNdkSK6fNlTqyxdRcaYZs7pzDL",
+	"5e8VfNqRR/ufzX+dtv9FnmutLcFN9amZALzOTvM4XWuT8RczWRJs9VzkzhXGg5yL7KQw8rzcs1YVp2PK",
+	"R0B+zyjXTM8M9+L9VgRbC6+kJzDhnKXb2s3cDVXbNq/mLsJ6TOZVbq/3MM9v264leNDuOVtaJ9GE8hDj",
+	"t0KO8nqHEgM5i7Z7rn3jCGyAPf1pYqq3zZrVltyPiS/fGYLYyEgiJi5y9GyY0bzw9UZpWDTaX+aTY7/8",
+	"sNJFf+GIznz3/IVCC6qd6Ye3txUf6FW7s0vQmcQajKTWlH0lsYqFVluTK112r9yWXM21x3x0soUpuNwc",
+	"sdh+1vVBttGoqrQfrdohr0nt2r0W5sy74rYG44os0bbJbCa6wosbPPS+oKHObS+qFBtxiL6xF41isRQX",
+	"NinCFBkY7O0/maBdQRU8MRza23SnMCjqaNZPCXZUKIsk30odYvUuh4dSKUt57QNMLSVyfjM04iOXMyQS",
+	"FGhVkGf/+eqcN4zXDyVj0ASR8Ocf/8LdF/HUMUOCOqePCaKtxfbKq/G3xMCLd+8/Sh6u6MtaocqjT8+t",
+	"WdWC+byMu+bctuu+Lg4ODIzttxK34ie2xaxFr+7tGXD1XuCPnVUZD+Msyu+OMvyaiulzduKRQoRasYQI",
+	"OdbWbUqg4RirvzlWZC0GnMZAYz1eZsO9syO2SGE3g6/GCuSEhcZpMyOwSOIri9odTRzBSNIod//Kzt+f",
+	"6uWyE+DGxuobhEcMf06lGLjWqMlyG9m2WMZm6dsUo8o0ngWfZHoMXJtvQ4TtnjfRgPi6bCEdz7CXUn2O",
+	"vIM4k/MdSdSYpSpHX9c2Q+9nj7nRkPP9cSedjkGCWfkMW6XbJPrGMJ63Hc7rakIplCI0jstO4r2KmrSX",
+	"yOH9MbaWcVm9XwXH/7mdgQxiH6in97dCjiAPPTFeDSpxofNyDGOuVNr87HskqY8R3+Yu3zjRtmmNkzxU",
+	"A/e2dEAlJN4zDhv23Kui/KHbuiMP6LEU2cga54OMxRFIdKzKAp4eiUCyCUTk3YVlBLyIqP/ZXsbSIeuM",
+	"tyI943ozNBCdjXT/hhkf7N02rWngAptbKpkur6/bsaleuUGruX6JF8cbnnXpkp+ljPDZg1X9z/h/J/Er",
+	"j0A9U/lbOCu0quj9aHHZLnvbPE3mucBqxwLYeJosF75Hf5psQ9KHQFdtXKYVsV170OfIT1q2iGYfT2Eu",
+	"E9CPHIc0SOgOKGuvS7IJ4swCUySJn4ACiMH23U0lTJjIVDyzJ1+rvLqGKvA7Mo+HYk+MXoi5Ul83dxKV",
+	"WQyq7/DYtQWb3bwuzavVZpTPdM8rujW6NlgWqMYNcOft16wuXaDG5rfN6hQPYrbW1ti8eT7fbfNtxPRy",
+	"jnxNri7PCFOEJUmG/URqgg63qZC6MTb3Fh87DF9Ql6pYg5pzN0q6Br9do3YGgqYewnNX17sv+4/WeS5B",
+	"N2vbgIf/91o7V7yBK69Wwg6YezcAKWGaiAwvCEyzQcxCIiEVqkYYluSE8W+F54mPMps4ibkWUVboxroS",
+	"xXZYBI2IvQREvy9fBfLAipkEZTt1DimLMwmKRMKWng2EtNVpA+PR7D9QtOmNmfzAMtI8H1JlOw+nkk2M",
+	"4V2w7F6WKpBakcGMmN2qxpSfbxi3lkBjJB9V8k5C+HXl36WnuF3/el3F6yaBAaFArBhi/a3BEdkzWvcv",
+	"RI+N5uVKUx7CC1Wg+T5lPHaW7xlvP9r/ePf+lzvb+13E/4Fkz/bzn9uX8eAlU45DjA1uK9kOGMekmpM1",
+	"7ATR/2z+62R3+0v0nry9baGtNz3Ib1ybwqAedGrK0W67fLHoNbHkPLEBHHOHGLzHNUA02mHzkXVrFCsE",
+	"wHUYCmCSAsmwZnkitgnpEP97ZO1KjnbTriQP/z32diUbiv419zepK8W+FaCVC7OqzNZQBvsWv7xFRsMJ",
+	"HpbTuiirvARrCoPnfPthGtMQbLNNCcZEMzpNDI1Rx90duy2siFp9PVZcYso9spTjy92kHPNyjeedcrRG",
+	"YiXfWBZYV1muXsD2OXDNcE+FuGEQHP/8yfCQAjnJOS+TcXAc9GnKgrtPd/8bAAD//w==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

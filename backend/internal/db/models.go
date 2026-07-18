@@ -65,6 +65,7 @@ const (
 	ContentKindFeat       ContentKind = "feat"
 	ContentKindSpell      ContentKind = "spell"
 	ContentKindItem       ContentKind = "item"
+	ContentKindMonster    ContentKind = "monster"
 )
 
 func (e *ContentKind) Scan(src interface{}) error {
@@ -402,6 +403,25 @@ func (ns NullRewardType) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.RewardType), nil
+}
+
+type BestiaryEntry struct {
+	ID         uuid.UUID          `json:"id"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
+	ContentID  pgtype.UUID        `json:"content_id"`
+	Title      string             `json:"title"`
+	Revealed   []string           `json:"revealed"`
+	CreatedBy  pgtype.UUID        `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BestiaryNote struct {
+	ID        uuid.UUID          `json:"id"`
+	EntryID   uuid.UUID          `json:"entry_id"`
+	AuthorID  pgtype.UUID        `json:"author_id"`
+	Body      string             `json:"body"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Campaign struct {

@@ -97,6 +97,30 @@ function FeatureList({ features, label }: { features: Feature[]; label: string }
   );
 }
 
+function AbilityBlock({ abilities }: { abilities: Record<string, number> }) {
+  const order = ["str", "dex", "con", "int", "wis", "cha"];
+  if (!order.some((k) => abilities[k] != null)) return null;
+  const mod = (v: number) => {
+    const m = Math.floor((v - 10) / 2);
+    return m >= 0 ? `+${m}` : `${m}`;
+  };
+  return (
+    <div className="mt-2.5 grid grid-cols-6 gap-1.5 text-center">
+      {order.map((k) => (
+        <div
+          key={k}
+          className="rounded-[3px] px-1 py-1.5"
+          style={{ background: "rgba(120,86,42,.12)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.35)" }}
+        >
+          <div className="label-stamp text-[8px] tracking-[1px] text-ink-label">{k.toUpperCase()}</div>
+          <div className="font-heading text-[14px] font-bold text-ink">{abilities[k] ?? "—"}</div>
+          <div className="text-[10.5px] text-ink-body">{abilities[k] != null ? mod(abilities[k]) : ""}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ContentEntry({ entry }: { entry: RulesContent }) {
   const kind = entry.kind as RulesKind;
   if (kind === "spell") return <SpellEntry spell={entry} compact />;
@@ -194,6 +218,28 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
             ["Source", book],
           ]}
         />
+        <Description text={str("description")} />
+      </div>
+    );
+  }
+
+  if (kind === "monster") {
+    const tagline = [str("size"), str("type")].filter(Boolean).join(" ") +
+      (str("alignment") ? `, ${str("alignment")}` : "");
+    return (
+      <div className="text-[13px]">
+        <Header entry={entry} tagline={tagline} />
+        <Facts
+          rows={[
+            ["AC", String(d.ac ?? "")],
+            ["HP", `${String(d.hp ?? "")}${str("hpFormula") ? ` (${str("hpFormula")})` : ""}`],
+            ["Speed", str("speed")],
+            ["CR", str("cr")],
+            ["Saves", str("saves")],
+            ["Source", book],
+          ]}
+        />
+        <AbilityBlock abilities={(d.abilities as Record<string, number>) ?? {}} />
         <Description text={str("description")} />
       </div>
     );
