@@ -554,6 +554,8 @@ function GuidedFields({
             <option value="origin">Origin (background feat)</option>
             <option value="general">General (ASI-level choice)</option>
             <option value="fighting-style">Fighting style</option>
+            <option value="invocation">Eldritch Invocation (Warlock)</option>
+            <option value="metamagic">Metamagic (Sorcerer)</option>
             <option value="epic-boon">Epic boon (level 19+)</option>
           </select>
         </label>
