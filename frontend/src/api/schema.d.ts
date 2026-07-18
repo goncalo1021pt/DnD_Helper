@@ -298,6 +298,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rules/homebrew/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a homebrew reset would touch — counts and in-use references */
+        get: operations["getHomebrewImpact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rules/homebrew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete your homebrew — all of it, or one kind (author's own only) */
+        delete: operations["resetHomebrew"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rules/{kind}": {
         parameters: {
             query?: never;
@@ -1138,9 +1172,9 @@ export interface components {
             title?: string;
             /**
              * Format: uuid
-             * @description Link to a Den monster to identify the sighting, or null to unlink (DM only).
+             * @description Link to a Den monster to identify the sighting (DM only). The all-zero UUID unlinks it, returning the entry to an unknown creature.
              */
-            contentId?: string | null;
+            contentId?: string;
             /** @description The full set of unveiled sections (idempotent; DM only). */
             revealed?: ("defenses" | "offense" | "traits" | "lore")[];
         };
@@ -1152,6 +1186,19 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
+        };
+        HomebrewImpact: {
+            /** @description One row per kind you have homebrew in, with usage counts. */
+            byKind: {
+                kind: string;
+                total: number;
+                /** @description Entries referenced by characters you own. */
+                onMyCharacters: number;
+                /** @description Entries referenced by other players' characters. */
+                onOthersCharacters: number;
+                /** @description Entries admitted in a campaign codex. */
+                inCampaigns: number;
+            }[];
         };
         ImportReport: {
             created: number;
@@ -1892,6 +1939,54 @@ export interface operations {
                     };
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getHomebrewImpact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Per-kind counts of your homebrew and what references it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomebrewImpact"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    resetHomebrew: {
+        parameters: {
+            query?: {
+                /** @description Limit the wipe to a single content kind (class, species, background, subclass, feat, spell, item, monster); omit to wipe every kind. */
+                kind?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many entries were removed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        deleted: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

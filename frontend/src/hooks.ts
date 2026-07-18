@@ -528,6 +528,39 @@ export function useImportPack() {
   });
 }
 
+// The blast radius of a homebrew reset, per kind. Kept fresh (no staleTime) so
+// the reset modal always shows current counts.
+export function useHomebrewImpact(enabled = true) {
+  return useQuery({
+    queryKey: ["homebrew-impact"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/rules/homebrew/impact");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+// Wipe the caller's homebrew — everything, or one kind. Invalidates every
+// rules shelf plus the impact preview.
+export function useResetHomebrew() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (kind?: RulesKind) => {
+      const { data, error } = await api.DELETE("/rules/homebrew", {
+        params: kind ? { query: { kind } } : {},
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rules"] });
+      qc.invalidateQueries({ queryKey: ["homebrew-impact"] });
+    },
+  });
+}
+
 export function useSetCodexStatusBulk(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
