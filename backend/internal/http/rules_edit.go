@@ -319,3 +319,71 @@ func (s *Server) DeleteRulesContent(ctx context.Context, request api.DeleteRules
 	}
 	return api.DeleteRulesContent204Response{}, nil
 }
+
+// GetHomebrewImpact previews a homebrew reset: per-kind counts and how much of
+// it is in use, so the caller sees the blast radius before wiping.
+func (s *Server) GetHomebrewImpact(ctx context.Context, _ api.GetHomebrewImpactRequestObject) (api.GetHomebrewImpactResponseObject, error) {
+	uid, ok := auth.UserID(ctx)
+	if !ok {
+		return api.GetHomebrewImpact401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	rows, err := s.queries.HomebrewImpact(ctx, pgUUID(uid))
+	if err != nil {
+		return nil, err
+	}
+	var out api.HomebrewImpact
+	for _, r := range rows {
+		out.ByKind = append(out.ByKind, struct {
+			InCampaigns        int    `json:"inCampaigns"`
+			Kind               string `json:"kind"`
+			OnMyCharacters     int    `json:"onMyCharacters"`
+			OnOthersCharacters int    `json:"onOthersCharacters"`
+			Total              int    `json:"total"`
+		}{
+			InCampaigns:        int(r.InCampaigns),
+			Kind:               string(r.Kind),
+			OnMyCharacters:     int(r.OnMyCharacters),
+			OnOthersCharacters: int(r.OnOthersCharacters),
+			Total:              int(r.Total),
+		})
+	}
+	return api.GetHomebrewImpact200JSONResponse(out), nil
+}
+
+// ResetHomebrew deletes the caller's homebrew — every kind, or just one. FK
+// cascades degrade the sheets that referenced it rather than break them.
+func (s *Server) ResetHomebrew(ctx context.Context, request api.ResetHomebrewRequestObject) (api.ResetHomebrewResponseObject, error) {
+	uid, ok := auth.UserID(ctx)
+	if !ok {
+		return api.ResetHomebrew401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	var deleted int64
+	var err error
+	if request.Params.Kind != nil {
+		kind := db.ContentKind(*request.Params.Kind)
+		if !validContentKind(kind) {
+			return api.ResetHomebrew400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "unknown content kind"}}, nil
+		}
+		deleted, err = s.queries.DeleteOwnHomebrewByKind(ctx, db.DeleteOwnHomebrewByKindParams{
+			CreatedBy: pgUUID(uid),
+			Kind:      kind,
+		})
+	} else {
+		deleted, err = s.queries.DeleteOwnHomebrew(ctx, pgUUID(uid))
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.ResetHomebrew200JSONResponse{Deleted: int(deleted)}, nil
+}
+
+// validContentKind guards the free-string kind on the reset endpoint.
+func validContentKind(k db.ContentKind) bool {
+	switch k {
+	case db.ContentKindClass, db.ContentKindSpecies, db.ContentKindBackground,
+		db.ContentKindSubclass, db.ContentKindFeat, db.ContentKindSpell,
+		db.ContentKindItem, db.ContentKindMonster:
+		return true
+	}
+	return false
+}

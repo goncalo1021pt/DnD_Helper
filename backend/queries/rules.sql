@@ -81,3 +81,62 @@ RETURNING *, (xmax = 0) AS created;
 SELECT * FROM rules_content
 WHERE source = 'homebrew' AND created_by = $1
 ORDER BY kind, name;
+
+-- name: HomebrewImpact :many
+-- Per-kind counts of the caller's homebrew and what references it: how many
+-- entries sit on the caller's own characters, on other players' characters
+-- (via spell/item picks and the class/species/subclass/background links), and
+-- how many are admitted in a campaign codex. DISTINCT keeps the cross-joins
+-- from inflating the tallies.
+WITH mine AS (
+    SELECT id, kind FROM rules_content
+    WHERE source = 'homebrew' AND created_by = $1
+),
+refs AS (
+    SELECT cs.content_id AS id, ch.owner_user_id AS owner
+    FROM character_spells cs JOIN characters ch ON ch.id = cs.character_id
+    UNION ALL
+    SELECT ci.content_id, ch.owner_user_id
+    FROM character_items ci JOIN characters ch ON ch.id = ci.character_id
+    WHERE ci.content_id IS NOT NULL
+    UNION ALL
+    SELECT ch.class_id, ch.owner_user_id FROM characters ch WHERE ch.class_id IS NOT NULL
+    UNION ALL
+    SELECT ch.species_id, ch.owner_user_id FROM characters ch WHERE ch.species_id IS NOT NULL
+    UNION ALL
+    SELECT ch.subclass_id, ch.owner_user_id FROM characters ch WHERE ch.subclass_id IS NOT NULL
+    UNION ALL
+    SELECT ch.background_id, ch.owner_user_id FROM characters ch WHERE ch.background_id IS NOT NULL
+),
+ref_by_id AS (
+    SELECT id,
+        bool_or(owner = $1) AS by_me,
+        bool_or(owner <> $1) AS by_others
+    FROM refs GROUP BY id
+),
+codex AS (
+    SELECT DISTINCT content_id AS id FROM campaign_content
+)
+SELECT
+    m.kind,
+    count(*)::int AS total,
+    count(*) FILTER (WHERE rb.by_me)::int AS on_my_characters,
+    count(*) FILTER (WHERE rb.by_others)::int AS on_others_characters,
+    count(*) FILTER (WHERE cx.id IS NOT NULL)::int AS in_campaigns
+FROM mine m
+LEFT JOIN ref_by_id rb ON rb.id = m.id
+LEFT JOIN codex cx ON cx.id = m.id
+GROUP BY m.kind
+ORDER BY m.kind;
+
+-- name: DeleteOwnHomebrew :execrows
+-- Wipe every homebrew entry the caller authored. FK cascades handle the
+-- fallout: spell picks vanish, item rows degrade to free text, character
+-- class/species/subclass/background links and bestiary links null out, and
+-- codex rulings drop.
+DELETE FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1;
+
+-- name: DeleteOwnHomebrewByKind :execrows
+DELETE FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1 AND kind = $2;

@@ -90,6 +90,41 @@ func (q *Queries) DeleteContent(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteOwnHomebrew = `-- name: DeleteOwnHomebrew :execrows
+DELETE FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1
+`
+
+// Wipe every homebrew entry the caller authored. FK cascades handle the
+// fallout: spell picks vanish, item rows degrade to free text, character
+// class/species/subclass/background links and bestiary links null out, and
+// codex rulings drop.
+func (q *Queries) DeleteOwnHomebrew(ctx context.Context, createdBy pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOwnHomebrew, createdBy)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteOwnHomebrewByKind = `-- name: DeleteOwnHomebrewByKind :execrows
+DELETE FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1 AND kind = $2
+`
+
+type DeleteOwnHomebrewByKindParams struct {
+	CreatedBy pgtype.UUID `json:"created_by"`
+	Kind      ContentKind `json:"kind"`
+}
+
+func (q *Queries) DeleteOwnHomebrewByKind(ctx context.Context, arg DeleteOwnHomebrewByKindParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOwnHomebrewByKind, arg.CreatedBy, arg.Kind)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getContent = `-- name: GetContent :one
 SELECT id, kind, source, name, summary, data, created_by, created_at, updated_at FROM rules_content WHERE id = $1
 `
@@ -109,6 +144,88 @@ func (q *Queries) GetContent(ctx context.Context, id uuid.UUID) (RulesContent, e
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const homebrewImpact = `-- name: HomebrewImpact :many
+WITH mine AS (
+    SELECT id, kind FROM rules_content
+    WHERE source = 'homebrew' AND created_by = $1
+),
+refs AS (
+    SELECT cs.content_id AS id, ch.owner_user_id AS owner
+    FROM character_spells cs JOIN characters ch ON ch.id = cs.character_id
+    UNION ALL
+    SELECT ci.content_id, ch.owner_user_id
+    FROM character_items ci JOIN characters ch ON ch.id = ci.character_id
+    WHERE ci.content_id IS NOT NULL
+    UNION ALL
+    SELECT ch.class_id, ch.owner_user_id FROM characters ch WHERE ch.class_id IS NOT NULL
+    UNION ALL
+    SELECT ch.species_id, ch.owner_user_id FROM characters ch WHERE ch.species_id IS NOT NULL
+    UNION ALL
+    SELECT ch.subclass_id, ch.owner_user_id FROM characters ch WHERE ch.subclass_id IS NOT NULL
+    UNION ALL
+    SELECT ch.background_id, ch.owner_user_id FROM characters ch WHERE ch.background_id IS NOT NULL
+),
+ref_by_id AS (
+    SELECT id,
+        bool_or(owner = $1) AS by_me,
+        bool_or(owner <> $1) AS by_others
+    FROM refs GROUP BY id
+),
+codex AS (
+    SELECT DISTINCT content_id AS id FROM campaign_content
+)
+SELECT
+    m.kind,
+    count(*)::int AS total,
+    count(*) FILTER (WHERE rb.by_me)::int AS on_my_characters,
+    count(*) FILTER (WHERE rb.by_others)::int AS on_others_characters,
+    count(*) FILTER (WHERE cx.id IS NOT NULL)::int AS in_campaigns
+FROM mine m
+LEFT JOIN ref_by_id rb ON rb.id = m.id
+LEFT JOIN codex cx ON cx.id = m.id
+GROUP BY m.kind
+ORDER BY m.kind
+`
+
+type HomebrewImpactRow struct {
+	Kind               ContentKind `json:"kind"`
+	Total              int32       `json:"total"`
+	OnMyCharacters     int32       `json:"on_my_characters"`
+	OnOthersCharacters int32       `json:"on_others_characters"`
+	InCampaigns        int32       `json:"in_campaigns"`
+}
+
+// Per-kind counts of the caller's homebrew and what references it: how many
+// entries sit on the caller's own characters, on other players' characters
+// (via spell/item picks and the class/species/subclass/background links), and
+// how many are admitted in a campaign codex. DISTINCT keeps the cross-joins
+// from inflating the tallies.
+func (q *Queries) HomebrewImpact(ctx context.Context, createdBy pgtype.UUID) ([]HomebrewImpactRow, error) {
+	rows, err := q.db.Query(ctx, homebrewImpact, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HomebrewImpactRow
+	for rows.Next() {
+		var i HomebrewImpactRow
+		if err := rows.Scan(
+			&i.Kind,
+			&i.Total,
+			&i.OnMyCharacters,
+			&i.OnOthersCharacters,
+			&i.InCampaigns,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listContentByKind = `-- name: ListContentByKind :many
