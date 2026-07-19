@@ -232,10 +232,12 @@ func tsPtr(t pgtype.Timestamptz) *time.Time {
 
 func toAPIUser(u db.User) api.User {
 	return api.User{
-		Id:    u.ID,
-		Name:  u.Name,
-		Email: u.Email,
-		Image: u.Image,
+		Id:        u.ID,
+		Name:      u.Name,
+		Email:     u.Email,
+		Image:     u.Image,
+		Provider:  u.Provider,
+		CreatedAt: u.CreatedAt.Time,
 	}
 }
 

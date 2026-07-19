@@ -315,6 +315,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rules/homebrew/books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your homebrew grouped by source book — the imported-packs shelf */
+        get: operations["getHomebrewBooks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rules/homebrew": {
         parameters: {
             query?: never;
@@ -325,7 +342,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete your homebrew — all of it, or one kind (author's own only) */
+        /** Delete your homebrew — all of it, one kind, or one book (author's own only) */
         delete: operations["resetHomebrew"];
         options?: never;
         head?: never;
@@ -847,6 +864,10 @@ export interface components {
             name: string;
             email?: string | null;
             image?: string | null;
+            /** @description Where the account came from — discord, google, or dev. */
+            provider: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         Campaign: {
             /** Format: uuid */
@@ -1198,6 +1219,15 @@ export interface components {
                 onOthersCharacters: number;
                 /** @description Entries admitted in a campaign codex. */
                 inCampaigns: number;
+            }[];
+        };
+        HomebrewBooks: {
+            /** @description One row per (book, kind) pair present in your homebrew. */
+            rows: {
+                /** @description data.book of the entries; null for hand-scribed homebrew. */
+                book?: string | null;
+                kind: string;
+                total: number;
             }[];
         };
         ImportReport: {
@@ -1963,11 +1993,34 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    getHomebrewBooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One row per (book, kind) pair; book is null for hand-scribed entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomebrewBooks"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     resetHomebrew: {
         parameters: {
             query?: {
                 /** @description Limit the wipe to a single content kind (class, species, background, subclass, feat, spell, item, monster); omit to wipe every kind. */
                 kind?: string;
+                /** @description Limit the wipe to entries whose data.book matches — removes one imported pack at a time. Mutually exclusive with kind. */
+                book?: string;
             };
             header?: never;
             path?: never;

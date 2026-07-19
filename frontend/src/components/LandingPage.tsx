@@ -1,7 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuthConfig, type AuthConfig } from "../hooks";
-import type { CurrentUser } from "../api/client";
 import Crest from "./ui/Crest";
 import Embers from "./ui/Embers";
 import GoldFrameButton from "./ui/GoldFrameButton";
@@ -150,13 +148,12 @@ const PARTY_CRESTS = [
   { initials: "S", bg: "linear-gradient(140deg,#2f4a55,#16282f)" },
 ];
 
-export default function LandingPage({ me }: { me: CurrentUser | null }) {
+export default function LandingPage() {
   const { data: config } = useAuthConfig();
   const [loginOpen, setLoginOpen] = useState(false);
-  const navigate = useNavigate();
 
-  // Logged in: the doors are open. Logged out: knock first.
-  const enter = me ? () => navigate("/questboard") : () => setLoginOpen(true);
+  // Only strangers see the landing — entering means knocking first.
+  const enter = () => setLoginOpen(true);
 
   return (
     <div className="bg-hearth font-body relative min-h-screen overflow-hidden text-cream">
@@ -180,23 +177,7 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          {me && (
-            <span className="label-stamp hidden text-[11px] text-gold-hair sm:inline">
-              {me.user.name}
-            </span>
-          )}
-          <GoldFrameButton onClick={enter}>
-            {me ? (
-              <>
-                <span className="sm:hidden">Enter</span>
-                <span className="hidden sm:inline">Enter the Tavern</span>
-              </>
-            ) : (
-              "Log In"
-            )}
-          </GoldFrameButton>
-        </div>
+        <GoldFrameButton onClick={enter}>Log In</GoldFrameButton>
       </header>
 
       {/* hero */}
@@ -237,11 +218,9 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
               Enter the Tavern
             </button>
           </div>
-          {!me && (
-            <div className="label-stamp mt-3.5 text-[11px] tracking-[1.5px] text-[#8f7a55]">
-              No password to forge — sign in with Discord or Google
-            </div>
-          )}
+          <div className="label-stamp mt-3.5 text-[11px] tracking-[1.5px] text-[#8f7a55]">
+            No password to forge — sign in with Discord or Google
+          </div>
 
           <div className="mt-[42px] flex items-center gap-[13px]">
             <div className="flex">
@@ -348,7 +327,7 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
                   </span>
                 </div>
                 <span className="font-accent text-sm italic text-[#bfa676]">
-                  {me ? `Welcome back, ${me.user.name}` : "Your table awaits"}
+                  Your table awaits
                 </span>
               </div>
             </div>
@@ -429,7 +408,7 @@ export default function LandingPage({ me }: { me: CurrentUser | null }) {
         </div>
       </footer>
 
-      {loginOpen && !me && (
+      {loginOpen && (
         <LoginModal config={config} onClose={() => setLoginOpen(false)} />
       )}
     </div>

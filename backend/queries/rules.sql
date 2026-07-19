@@ -140,3 +140,18 @@ WHERE source = 'homebrew' AND created_by = $1;
 -- name: DeleteOwnHomebrewByKind :execrows
 DELETE FROM rules_content
 WHERE source = 'homebrew' AND created_by = $1 AND kind = $2;
+
+-- name: DeleteOwnHomebrewByBook :execrows
+-- Undo one imported pack: wipe the caller's homebrew stamped with that book.
+DELETE FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1
+  AND data->>'book' = sqlc.arg(book)::text;
+
+-- name: HomebrewBooks :many
+-- The imported-packs shelf: the caller's homebrew grouped by source book,
+-- one row per (book, kind). book is NULL for hand-scribed entries.
+SELECT coalesce(data->>'book', '')::text AS book, kind, count(*) AS total
+FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1
+GROUP BY data->>'book', kind
+ORDER BY data->>'book' NULLS LAST, kind;

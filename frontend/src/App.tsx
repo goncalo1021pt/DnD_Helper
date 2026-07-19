@@ -3,7 +3,7 @@ import { useCurrentUser } from "./hooks";
 import LandingPage from "./components/LandingPage";
 import AppShell from "./components/AppShell";
 import CampaignsPage from "./components/CampaignsPage";
-import MyHeroesPage from "./components/MyHeroesPage";
+import ProfilePage from "./components/ProfilePage";
 import ForgeWizard from "./components/ForgeWizard";
 import HeroSheetPage from "./components/HeroSheetPage";
 import ArchivesPage from "./components/ArchivesPage";
@@ -32,8 +32,12 @@ export default function App() {
 
   return (
     <Routes>
-      {/* The landing is always the front door, signed in or not. */}
-      <Route index element={<LandingPage me={me ?? null} />} />
+      {/* The landing is the front door for strangers; a signed-in visitor
+          walks straight into the tavern. */}
+      <Route
+        index
+        element={me ? <Navigate to="/questboard" replace /> : <LandingPage />}
+      />
 
       {/* The tavern proper lives under /questboard and needs a seat at the table. */}
       <Route
@@ -41,7 +45,9 @@ export default function App() {
         element={me ? <AppShell user={me.user} /> : <Navigate to="/" replace />}
       >
         <Route index element={<CampaignsPage />} />
-        <Route path="heroes" element={<MyHeroesPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        {/* the heroes roster moved into the profile; deep hero routes stay */}
+        <Route path="heroes" element={<Navigate to="/questboard/profile" replace />} />
         <Route path="heroes/forge" element={<ForgeWizard />} />
         <Route path="heroes/:heroId" element={<HeroSheetPage />} />
         <Route path="archives" element={<ArchivesPage />} />

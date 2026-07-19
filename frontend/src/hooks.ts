@@ -524,7 +524,11 @@ export function useImportPack() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["rules"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["rules"] });
+      qc.invalidateQueries({ queryKey: ["homebrew-books"] });
+      qc.invalidateQueries({ queryKey: ["homebrew-impact"] });
+    },
   });
 }
 
@@ -542,14 +546,29 @@ export function useHomebrewImpact(enabled = true) {
   });
 }
 
-// Wipe the caller's homebrew — everything, or one kind. Invalidates every
-// rules shelf plus the impact preview.
+// The caller's homebrew grouped by source book — the imported-packs shelf.
+export function useHomebrewBooks() {
+  return useQuery({
+    queryKey: ["homebrew-books"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/rules/homebrew/books");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+// Wipe the caller's homebrew — everything, one kind, or one imported book.
+// Invalidates every rules shelf plus the impact preview and the book shelf.
 export function useResetHomebrew() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (kind?: RulesKind) => {
+    mutationFn: async (scope?: { kind?: RulesKind; book?: string }) => {
+      const query: { kind?: RulesKind; book?: string } = {};
+      if (scope?.kind) query.kind = scope.kind;
+      if (scope?.book) query.book = scope.book;
       const { data, error } = await api.DELETE("/rules/homebrew", {
-        params: kind ? { query: { kind } } : {},
+        params: Object.keys(query).length ? { query } : {},
       });
       if (error) throw error;
       return data;
@@ -557,6 +576,7 @@ export function useResetHomebrew() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rules"] });
       qc.invalidateQueries({ queryKey: ["homebrew-impact"] });
+      qc.invalidateQueries({ queryKey: ["homebrew-books"] });
     },
   });
 }

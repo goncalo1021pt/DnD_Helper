@@ -1,13 +1,9 @@
 import { Link, Outlet } from "react-router-dom";
 import type { CurrentUser } from "../api/client";
-import { useLogout } from "../hooks";
+import { initials, medallionFor } from "../lib/party";
 import Crest from "./ui/Crest";
-import GoldFrameButton from "./ui/GoldFrameButton";
-import { IconLogOut } from "./ui/icons";
 
 export default function AppShell({ user }: { user: CurrentUser["user"] }) {
-  const logout = useLogout();
-
   return (
     <div className="bg-hearth font-body relative min-h-screen overflow-x-hidden text-cream">
       <div className="overlay-vignette fixed" />
@@ -36,24 +32,35 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
             Campaigns
           </Link>
           <Link
-            to="/questboard/heroes"
-            className="label-stamp text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
-          >
-            My Heroes
-          </Link>
-          <Link
             to="/questboard/archives"
             className="label-stamp text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
           >
             The Archives
           </Link>
-          <span className="label-stamp text-[11px] font-semibold text-gold-hair">
-            {user.name}
-          </span>
-          <GoldFrameButton onClick={() => logout.mutate()}>
-            <IconLogOut size={14} strokeWidth={1.9} />
-            Sign out
-          </GoldFrameButton>
+          <Link
+            to="/questboard/profile"
+            title="Your profile"
+            className="no-underline transition hover:brightness-125"
+          >
+            {user.image ? (
+              <img
+                src={user.image}
+                alt="Your profile"
+                className="h-[34px] w-[34px] rounded-full object-cover"
+                style={{ boxShadow: "inset 0 0 0 1.5px rgba(201,162,39,.55), 0 2px 5px rgba(0,0,0,.4)" }}
+              />
+            ) : (
+              <span
+                className="font-heading flex h-[34px] w-[34px] items-center justify-center rounded-full text-[12px] font-bold text-[#f3e6c8]"
+                style={{
+                  background: medallionFor(user.id),
+                  boxShadow: "inset 0 0 0 1.5px rgba(201,162,39,.55), 0 2px 5px rgba(0,0,0,.4)",
+                }}
+              >
+                {initials(user.name) || "?"}
+              </span>
+            )}
+          </Link>
         </div>
       </header>
 
