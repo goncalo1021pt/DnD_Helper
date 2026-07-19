@@ -1644,6 +1644,73 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /maps/{mapId}/reveals:
+    parameters:
+      - $ref: "#/components/parameters/MapId"
+    get:
+      operationId: listReveals
+      summary: The reveal ledger — every submitted batch on this map (DM only)
+      responses:
+        "200":
+          description: Batches, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RevealBatch"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: submitReveals
+      summary: Lift the fog — commit a draft of stamped circles as one batch (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitRevealsRequest"
+      responses:
+        "201":
+          description: The committed batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevealBatch"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /reveals/{batchId}:
+    parameters:
+      - name: batchId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteReveals
+      summary: Tear a batch out of the ledger — its area fogs over again (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /pins/{pinId}:
     parameters:
       - $ref: "#/components/parameters/PinId"
@@ -2374,7 +2441,7 @@ components:
 
     CampaignMap:
       type: object
-      required: [id, campaignId, name, width, height, createdAt]
+      required: [id, campaignId, name, fogEnabled, width, height, createdAt]
       properties:
         id:
           type: string
@@ -2389,6 +2456,9 @@ components:
           description: The map this one details; null for an overworld.
         name:
           type: string
+        fogEnabled:
+          type: boolean
+          description: When true, players see only what their reveal circles uncover.
         width:
           type: integer
           description: Pixel width of the stored image.
@@ -2431,7 +2501,7 @@ components:
 
     MapDetail:
       type: object
-      required: [map, pins]
+      required: [map, pins, revealed]
       properties:
         map:
           $ref: "#/components/schemas/CampaignMap"
@@ -2439,6 +2509,58 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MapPin"
+        revealed:
+          type: array
+          description: >
+            The caller's uncovered area — every circle for the DM, the union
+            of the caller's pools for a player. Empty when fog is off.
+          items:
+            $ref: "#/components/schemas/RevealCircle"
+
+    RevealCircle:
+      type: object
+      required: [x, y, r]
+      properties:
+        x:
+          type: number
+          description: Fraction of the image width, 0..1.
+        y:
+          type: number
+          description: Fraction of the image height, 0..1.
+        r:
+          type: number
+          description: Radius as a fraction of the image width.
+
+    SubmitRevealsRequest:
+      type: object
+      required: [circles]
+      properties:
+        note:
+          type: string
+          description: Optional label for the ledger ("session 12 — the road east").
+        circles:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/RevealCircle"
+
+    RevealBatch:
+      type: object
+      required: [id, note, poolName, circles, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        note:
+          type: string
+        poolName:
+          type: string
+        circles:
+          type: integer
+          description: How many circles the batch stamped.
+        createdAt:
+          type: string
+          format: date-time
 
     CreateMapRequest:
       type: object
@@ -2466,6 +2588,9 @@ components:
           type: string
           format: uuid
           nullable: true
+        fogEnabled:
+          type: boolean
+          description: Omit to leave the fog as it is.
 
     MapPinInput:
       type: object

@@ -508,6 +508,19 @@ type CharacterTree struct {
 	PicksGranted int32     `json:"picks_granted"`
 }
 
+type KnowledgePool struct {
+	ID         uuid.UUID          `json:"id"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
+	Name       string             `json:"name"`
+	IsParty    bool               `json:"is_party"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type KnowledgePoolMember struct {
+	PoolID uuid.UUID `json:"pool_id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
 type Map struct {
 	ID          uuid.UUID          `json:"id"`
 	CampaignID  uuid.UUID          `json:"campaign_id"`
@@ -518,6 +531,7 @@ type Map struct {
 	Width       int32              `json:"width"`
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	FogEnabled  bool               `json:"fog_enabled"`
 }
 
 type MapPin struct {
@@ -565,6 +579,22 @@ type QuestReward struct {
 	Type    RewardType `json:"type"`
 	Label   string     `json:"label"`
 	Value   *string    `json:"value"`
+}
+
+type RevealBatch struct {
+	ID        uuid.UUID          `json:"id"`
+	MapID     uuid.UUID          `json:"map_id"`
+	PoolID    uuid.UUID          `json:"pool_id"`
+	Note      string             `json:"note"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type RevealCircle struct {
+	ID      uuid.UUID `json:"id"`
+	BatchID uuid.UUID `json:"batch_id"`
+	X       float64   `json:"x"`
+	Y       float64   `json:"y"`
+	R       float64   `json:"r"`
 }
 
 type RulesContent struct {

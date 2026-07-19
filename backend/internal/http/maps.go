@@ -35,6 +35,7 @@ type mapRow struct {
 	CampaignID  uuid.UUID
 	ParentMapID pgtype.UUID
 	Name        string
+	FogEnabled  bool
 	Width       int32
 	Height      int32
 	CreatedAt   pgtype.Timestamptz
@@ -45,6 +46,7 @@ func toAPIMap(m mapRow) api.CampaignMap {
 		Id:         m.ID,
 		CampaignId: m.CampaignID,
 		Name:       m.Name,
+		FogEnabled: m.FogEnabled,
 		Width:      int(m.Width),
 		Height:     int(m.Height),
 		CreatedAt:  m.CreatedAt.Time,
@@ -231,14 +233,61 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 		return nil, err
 	}
 	isDM := m.Role == db.MembershipRoleDm
+
+	// The caller's uncovered ground: everything for the DM, the union of
+	// their pools for a player. Stays empty while the fog is off.
+	revealed := []api.RevealCircle{}
+	if meta.FogEnabled {
+		if isDM {
+			rows, err := s.queries.ListAllRevealCircles(ctx, request.MapId)
+			if err != nil {
+				return nil, err
+			}
+			for _, c := range rows {
+				revealed = append(revealed, api.RevealCircle{X: float32(c.X), Y: float32(c.Y), R: float32(c.R)})
+			}
+		} else {
+			rows, err := s.queries.ListVisibleRevealCircles(ctx, db.ListVisibleRevealCirclesParams{
+				MapID:  request.MapId,
+				UserID: m.UserID,
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, c := range rows {
+				revealed = append(revealed, api.RevealCircle{X: float32(c.X), Y: float32(c.Y), R: float32(c.R)})
+			}
+		}
+	}
+
+	// Under fog, a player only receives pins standing on revealed ground —
+	// a hidden village must not leak through its marker.
+	aspect := float64(meta.Height) / float64(meta.Width)
+	inRevealed := func(p db.MapPin) bool {
+		for _, c := range revealed {
+			dx := p.X - float64(c.X)
+			dy := (p.Y - float64(c.Y)) * aspect
+			r := float64(c.R)
+			if dx*dx+dy*dy <= r*r {
+				return true
+			}
+		}
+		return false
+	}
+
 	outPins := make([]api.MapPin, 0, len(pins))
 	for _, p := range pins {
-		if p.DmOnly && !isDM {
-			continue
+		if !isDM {
+			if p.DmOnly {
+				continue
+			}
+			if meta.FogEnabled && !inRevealed(p) {
+				continue
+			}
 		}
 		outPins = append(outPins, toAPIPin(p))
 	}
-	return api.GetMap200JSONResponse(api.MapDetail{Map: toAPIMap(mapRow(meta)), Pins: outPins}), nil
+	return api.GetMap200JSONResponse(api.MapDetail{Map: toAPIMap(mapRow(meta)), Pins: outPins, Revealed: revealed}), nil
 }
 
 // UpdateMap renames a map or re-hangs it under a parent (DM only).
@@ -270,10 +319,15 @@ func (s *Server) UpdateMap(ctx context.Context, request api.UpdateMapRequestObje
 	if request.Body.ParentMapId != nil {
 		parent = pgUUID(*request.Body.ParentMapId)
 	}
+	fog := meta.FogEnabled
+	if request.Body.FogEnabled != nil {
+		fog = *request.Body.FogEnabled
+	}
 	row, err := s.queries.UpdateMapMeta(ctx, db.UpdateMapMetaParams{
 		ID:          request.MapId,
 		Name:        name,
 		ParentMapID: parent,
+		FogEnabled:  fog,
 	})
 	if err != nil {
 		return nil, err
