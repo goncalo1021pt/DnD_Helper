@@ -845,6 +845,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The campaign atlas — every map, no image bytes (members) */
+        get: operations["listMaps"];
+        put?: never;
+        /** Hang a new map in the atlas (DM only) */
+        post: operations["createMap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/maps/{mapId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        /** One map with its pins (members; players never receive DM-only pins) */
+        get: operations["getMap"];
+        put?: never;
+        post?: never;
+        /** Strike a map and all its pins (DM only) */
+        delete: operations["deleteMap"];
+        options?: never;
+        head?: never;
+        /** Rename a map or re-hang it under a parent (DM only) */
+        patch: operations["updateMap"];
+        trace?: never;
+    };
+    "/maps/{mapId}/pins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Drop a pin on the map (DM only) */
+        post: operations["createMapPin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pins/{pinId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pinId: components["parameters"]["PinId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Pull a pin off the map (DM only) */
+        delete: operations["deleteMapPin"];
+        options?: never;
+        head?: never;
+        /** Move or reword a pin (DM only) */
+        patch: operations["updateMapPin"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1165,6 +1245,68 @@ export interface components {
             /** @description Whether the viewer penned this note. */
             mine: boolean;
         };
+        CampaignMap: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaignId: string;
+            /**
+             * Format: uuid
+             * @description The map this one details; null for an overworld.
+             */
+            parentMapId?: string | null;
+            name: string;
+            /** @description Pixel width of the stored image. */
+            width: number;
+            height: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MapPin: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            mapId: string;
+            label: string;
+            note: string;
+            /** @description Fraction of the image width, 0..1. */
+            x: number;
+            /** @description Fraction of the image height, 0..1. */
+            y: number;
+            dmOnly: boolean;
+            /**
+             * Format: uuid
+             * @description When set, this pin is a region marker leading into that sub-map.
+             */
+            linkMapId?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MapDetail: {
+            map: components["schemas"]["CampaignMap"];
+            pins: components["schemas"]["MapPin"][];
+        };
+        CreateMapRequest: {
+            name: string;
+            /** @description The image file, base64-encoded. JPEG or PNG, up to 10 MB decoded. */
+            imageBase64: string;
+            /** Format: uuid */
+            parentMapId?: string | null;
+        };
+        UpdateMapRequest: {
+            name: string;
+            /** Format: uuid */
+            parentMapId?: string | null;
+        };
+        MapPinInput: {
+            label: string;
+            note?: string;
+            x: number;
+            y: number;
+            dmOnly?: boolean;
+            /** Format: uuid */
+            linkMapId?: string | null;
+        };
         BestiaryEntry: {
             /** Format: uuid */
             id: string;
@@ -1402,6 +1544,8 @@ export interface components {
         TreeId: string;
         ContentKind: "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item" | "monster";
         NodeId: string;
+        MapId: string;
+        PinId: string;
     };
     requestBodies: never;
     headers: never;
@@ -3169,6 +3313,220 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listMaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Maps of the campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignMap"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMapRequest"];
+            };
+        };
+        responses: {
+            /** @description The new map */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignMap"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The map and its pins */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMapRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated map */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignMap"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMapPin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapPinInput"];
+            };
+        };
+        responses: {
+            /** @description The new pin */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapPin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMapPin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pinId: components["parameters"]["PinId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMapPin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                pinId: components["parameters"]["PinId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapPinInput"];
+            };
+        };
+        responses: {
+            /** @description The updated pin */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapPin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

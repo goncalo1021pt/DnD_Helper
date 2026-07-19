@@ -8,6 +8,7 @@ import ForgeWizard from "./components/ForgeWizard";
 import HeroSheetPage from "./components/HeroSheetPage";
 import ArchivesPage from "./components/ArchivesPage";
 import CodexPage from "./components/CodexPage";
+import MapPage from "./components/MapPage";
 import DenPage from "./components/DenPage";
 import BestiaryPage from "./components/BestiaryPage";
 import ChroniclePage from "./components/ChroniclePage";
@@ -59,6 +60,8 @@ export default function App() {
           <Route path="board" element={<QuestBoard />} />
           <Route path="party" element={<PartyRoster />} />
           <Route path="codex" element={<CodexPage />} />
+          <Route path="map" element={<MapPage />} />
+          <Route path="map/:mapId" element={<MapPage />} />
           <Route path="den" element={<DenPage />} />
           <Route path="bestiary" element={<BestiaryPage />} />
           <Route path="chronicle" element={<ChroniclePage />} />

@@ -7,6 +7,7 @@ import type {
   CreateQuestInput,
   ForgeRequest,
   LevelUpRequest,
+  MapPinInput,
   RulesContentInput,
   RulesKind,
   SkillEdge,
@@ -928,6 +929,131 @@ export function useSpendPick(characterId: string) {
 }
 
 // --- The Bestiary ---------------------------------------------------------
+
+// ── the Map ────────────────────────────────────────────────────────────────
+
+export function useMaps(campaignId: string) {
+  return useQuery({
+    queryKey: ["maps", campaignId],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/campaigns/{campaignId}/maps", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useCreateMap(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      name: string;
+      imageBase64: string;
+      parentMapId?: string;
+    }) => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/maps", {
+        params: { path: { campaignId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maps", campaignId] }),
+  });
+}
+
+export function useMapDetail(mapId: string | undefined) {
+  return useQuery({
+    queryKey: ["map", mapId],
+    enabled: !!mapId,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/maps/{mapId}", {
+        params: { path: { mapId: mapId! } },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useUpdateMap(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      mapId: string;
+      body: { name: string; parentMapId?: string };
+    }) => {
+      const { data, error } = await api.PATCH("/maps/{mapId}", {
+        params: { path: { mapId: vars.mapId } },
+        body: vars.body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["maps", campaignId] });
+      qc.invalidateQueries({ queryKey: ["map", vars.mapId] });
+    },
+  });
+}
+
+export function useDeleteMap(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (mapId: string) => {
+      const { error } = await api.DELETE("/maps/{mapId}", {
+        params: { path: { mapId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maps", campaignId] }),
+  });
+}
+
+export function useCreateMapPin(mapId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: MapPinInput) => {
+      const { data, error } = await api.POST("/maps/{mapId}/pins", {
+        params: { path: { mapId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["map", mapId] }),
+  });
+}
+
+export function useUpdateMapPin(mapId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { pinId: string; body: MapPinInput }) => {
+      const { data, error } = await api.PATCH("/pins/{pinId}", {
+        params: { path: { pinId: vars.pinId } },
+        body: vars.body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["map", mapId] }),
+  });
+}
+
+export function useDeleteMapPin(mapId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (pinId: string) => {
+      const { error } = await api.DELETE("/pins/{pinId}", {
+        params: { path: { pinId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["map", mapId] }),
+  });
+}
 
 export function useBestiary(campaignId: string) {
   return useQuery({
