@@ -491,10 +491,24 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /rules/homebrew/books:
+    get:
+      operationId: getHomebrewBooks
+      summary: Your homebrew grouped by source book — the imported-packs shelf
+      responses:
+        "200":
+          description: One row per (book, kind) pair; book is null for hand-scribed entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomebrewBooks"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /rules/homebrew:
     delete:
       operationId: resetHomebrew
-      summary: Delete your homebrew — all of it, or one kind (author's own only)
+      summary: Delete your homebrew — all of it, one kind, or one book (author's own only)
       parameters:
         - name: kind
           in: query
@@ -502,6 +516,14 @@ paths:
           description: >-
             Limit the wipe to a single content kind (class, species, background,
             subclass, feat, spell, item, monster); omit to wipe every kind.
+          schema:
+            type: string
+        - name: book
+          in: query
+          required: false
+          description: >-
+            Limit the wipe to entries whose data.book matches — removes one
+            imported pack at a time. Mutually exclusive with kind.
           schema:
             type: string
       responses:
@@ -1597,7 +1619,7 @@ components:
 
     User:
       type: object
-      required: [id, name]
+      required: [id, name, provider, createdAt]
       properties:
         id:
           type: string
@@ -1610,6 +1632,12 @@ components:
         image:
           type: string
           nullable: true
+        provider:
+          type: string
+          description: Where the account came from — discord, google, or dev.
+        createdAt:
+          type: string
+          format: date-time
 
     Campaign:
       type: object
@@ -2277,6 +2305,26 @@ components:
               inCampaigns:
                 type: integer
                 description: Entries admitted in a campaign codex.
+
+    HomebrewBooks:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          description: One row per (book, kind) pair present in your homebrew.
+          items:
+            type: object
+            required: [kind, total]
+            properties:
+              book:
+                type: string
+                nullable: true
+                description: data.book of the entries; null for hand-scribed homebrew.
+              kind:
+                type: string
+              total:
+                type: integer
 
     ImportReport:
       type: object

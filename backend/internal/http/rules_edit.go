@@ -350,16 +350,59 @@ func (s *Server) GetHomebrewImpact(ctx context.Context, _ api.GetHomebrewImpactR
 	return api.GetHomebrewImpact200JSONResponse(out), nil
 }
 
-// ResetHomebrew deletes the caller's homebrew — every kind, or just one. FK
-// cascades degrade the sheets that referenced it rather than break them.
+// GetHomebrewBooks lists the caller's homebrew grouped by source book — the
+// imported-packs shelf on the profile. A nil book means hand-scribed.
+func (s *Server) GetHomebrewBooks(ctx context.Context, _ api.GetHomebrewBooksRequestObject) (api.GetHomebrewBooksResponseObject, error) {
+	uid, ok := auth.UserID(ctx)
+	if !ok {
+		return api.GetHomebrewBooks401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	rows, err := s.queries.HomebrewBooks(ctx, pgUUID(uid))
+	if err != nil {
+		return nil, err
+	}
+	out := api.HomebrewBooks{Rows: []struct {
+		Book  *string `json:"book,omitempty"`
+		Kind  string  `json:"kind"`
+		Total int     `json:"total"`
+	}{}}
+	for _, r := range rows {
+		var book *string
+		if r.Book != "" {
+			b := r.Book
+			book = &b
+		}
+		out.Rows = append(out.Rows, struct {
+			Book  *string `json:"book,omitempty"`
+			Kind  string  `json:"kind"`
+			Total int     `json:"total"`
+		}{Book: book, Kind: string(r.Kind), Total: int(r.Total)})
+	}
+	return api.GetHomebrewBooks200JSONResponse(out), nil
+}
+
+// ResetHomebrew deletes the caller's homebrew — every kind, one kind, or one
+// imported book. FK cascades degrade the sheets that referenced it rather
+// than break them.
 func (s *Server) ResetHomebrew(ctx context.Context, request api.ResetHomebrewRequestObject) (api.ResetHomebrewResponseObject, error) {
 	uid, ok := auth.UserID(ctx)
 	if !ok {
 		return api.ResetHomebrew401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
+	if request.Params.Kind != nil && request.Params.Book != nil {
+		return api.ResetHomebrew400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "kind and book are mutually exclusive"}}, nil
+	}
 	var deleted int64
 	var err error
-	if request.Params.Kind != nil {
+	if request.Params.Book != nil {
+		if *request.Params.Book == "" {
+			return api.ResetHomebrew400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "book must not be empty"}}, nil
+		}
+		deleted, err = s.queries.DeleteOwnHomebrewByBook(ctx, db.DeleteOwnHomebrewByBookParams{
+			CreatedBy: pgUUID(uid),
+			Book:      *request.Params.Book,
+		})
+	} else if request.Params.Kind != nil {
 		kind := db.ContentKind(*request.Params.Kind)
 		if !validContentKind(kind) {
 			return api.ResetHomebrew400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "unknown content kind"}}, nil

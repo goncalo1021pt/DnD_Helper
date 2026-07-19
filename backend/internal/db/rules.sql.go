@@ -107,6 +107,26 @@ func (q *Queries) DeleteOwnHomebrew(ctx context.Context, createdBy pgtype.UUID) 
 	return result.RowsAffected(), nil
 }
 
+const deleteOwnHomebrewByBook = `-- name: DeleteOwnHomebrewByBook :execrows
+DELETE FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1
+  AND data->>'book' = $2::text
+`
+
+type DeleteOwnHomebrewByBookParams struct {
+	CreatedBy pgtype.UUID `json:"created_by"`
+	Book      string      `json:"book"`
+}
+
+// Undo one imported pack: wipe the caller's homebrew stamped with that book.
+func (q *Queries) DeleteOwnHomebrewByBook(ctx context.Context, arg DeleteOwnHomebrewByBookParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOwnHomebrewByBook, arg.CreatedBy, arg.Book)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteOwnHomebrewByKind = `-- name: DeleteOwnHomebrewByKind :execrows
 DELETE FROM rules_content
 WHERE source = 'homebrew' AND created_by = $1 AND kind = $2
@@ -144,6 +164,42 @@ func (q *Queries) GetContent(ctx context.Context, id uuid.UUID) (RulesContent, e
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const homebrewBooks = `-- name: HomebrewBooks :many
+SELECT coalesce(data->>'book', '')::text AS book, kind, count(*) AS total
+FROM rules_content
+WHERE source = 'homebrew' AND created_by = $1
+GROUP BY data->>'book', kind
+ORDER BY data->>'book' NULLS LAST, kind
+`
+
+type HomebrewBooksRow struct {
+	Book  string      `json:"book"`
+	Kind  ContentKind `json:"kind"`
+	Total int64       `json:"total"`
+}
+
+// The imported-packs shelf: the caller's homebrew grouped by source book,
+// one row per (book, kind). book is NULL for hand-scribed entries.
+func (q *Queries) HomebrewBooks(ctx context.Context, createdBy pgtype.UUID) ([]HomebrewBooksRow, error) {
+	rows, err := q.db.Query(ctx, homebrewBooks, createdBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []HomebrewBooksRow
+	for rows.Next() {
+		var i HomebrewBooksRow
+		if err := rows.Scan(&i.Book, &i.Kind, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const homebrewImpact = `-- name: HomebrewImpact :many

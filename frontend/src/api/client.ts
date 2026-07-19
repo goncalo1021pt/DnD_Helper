@@ -66,6 +66,9 @@ export type ImportReport =
 export type HomebrewImpact =
   paths["/rules/homebrew/impact"]["get"]["responses"]["200"]["content"]["application/json"];
 export type HomebrewImpactRow = HomebrewImpact["byKind"][number];
+export type HomebrewBooks =
+  paths["/rules/homebrew/books"]["get"]["responses"]["200"]["content"]["application/json"];
+export type HomebrewBookRow = HomebrewBooks["rows"][number];
 export type ChronicleEvent =
   paths["/campaigns/{campaignId}/events"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type CodexEntry =

@@ -3,12 +3,11 @@ import type { ImportReport, RulesContent, RulesKind } from "../api/client";
 import {
   useCreateRules,
   useDeleteRules,
-  useHomebrewImpact,
   useImportPack,
-  useResetHomebrew,
   useRules,
   useUpdateRules,
 } from "../hooks";
+import { exportHomebrewPack, parsePackFile } from "../lib/pack";
 import ParchmentModal from "./ui/ParchmentModal";
 import ContentEntry, { FEAT_CATEGORY_LABEL } from "./ui/ContentEntry";
 import { SpellFlags } from "./ui/SpellEntry";
@@ -92,7 +91,6 @@ export default function ArchivesPage() {
   const update = useUpdateRules(kind);
   const del = useDeleteRules(kind);
   const importPack = useImportPack();
-  const reset = useResetHomebrew();
 
   const [search, setSearch] = useState("");
   const [chip, setChip] = useState(""); // subclass: class · feat: category · item: type
@@ -102,13 +100,6 @@ export default function ArchivesPage() {
   const [editing, setEditing] = useState<RulesContent | null>(null);
   const [packReport, setPackReport] = useState<ImportReport | null>(null);
   const [packError, setPackError] = useState("");
-  const [resetting, setResetting] = useState(false);
-  const [resetScope, setResetScope] = useState<RulesKind | "">(""); // "" = everything
-  const [resetConfirm, setResetConfirm] = useState("");
-  const [resetDone, setResetDone] = useState<number | null>(null);
-
-  // Impact loads only while the reset modal is open.
-  const { data: impact } = useHomebrewImpact(resetting);
 
   function switchShelf(k: RulesKind) {
     setKind(k);
@@ -119,38 +110,6 @@ export default function ArchivesPage() {
 
   const classNames = useMemo(() => (classes ?? []).map((c) => c.name), [classes]);
   const kindLabel = SHELVES.find(([k]) => k === kind)?.[2] ?? kind;
-
-  // Reset scope math: sum the impact rows in the chosen scope.
-  const resetKinds = (impact?.byKind ?? []).filter((r) => r.total > 0);
-  const resetRows = resetScope
-    ? resetKinds.filter((r) => r.kind === resetScope)
-    : resetKinds;
-  const resetTotals = resetRows.reduce(
-    (a, r) => ({
-      total: a.total + r.total,
-      mine: a.mine + r.onMyCharacters,
-      others: a.others + r.onOthersCharacters,
-      codex: a.codex + r.inCampaigns,
-    }),
-    { total: 0, mine: 0, others: 0, codex: 0 },
-  );
-  const resetReady =
-    resetConfirm.trim().toLowerCase() === "reset" && resetTotals.total > 0;
-
-  function openReset() {
-    setResetScope("");
-    setResetConfirm("");
-    setResetDone(null);
-    setResetting(true);
-  }
-  function doReset() {
-    reset.mutate(resetScope || undefined, {
-      onSuccess: (r) => {
-        setResetDone(r?.deleted ?? 0);
-        setResetConfirm("");
-      },
-    });
-  }
 
   // chips row per shelf: the "submenu" — parent class, feat category, item type
   const chips: Array<[string, string]> = useMemo(() => {
@@ -253,47 +212,20 @@ export default function ArchivesPage() {
     }
   }, [filtered, kind]);
 
-  function onPackFile(file: File) {
+  async function onPackFile(file: File) {
     setPackError("");
-    file.text().then((text) => {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        setPackError("That file is not valid JSON.");
-        return;
-      }
-      const packEntries = (parsed as { entries?: unknown[] })?.entries;
-      if (!Array.isArray(packEntries) || packEntries.length === 0) {
-        setPackError("No entries in that pack — expected { \"entries\": [...] }.");
-        return;
-      }
-      importPack.mutate(
-        packEntries,
-        {
-          onSuccess: (report) => setPackReport(report),
-          onError: (e) =>
-            setPackError(
-              (e as { error?: string } | null)?.error ?? "The crate would not open.",
-            ),
-        },
-      );
+    const parsed = await parsePackFile(file);
+    if ("error" in parsed) {
+      setPackError(parsed.error);
+      return;
+    }
+    importPack.mutate(parsed.entries, {
+      onSuccess: (report) => setPackReport(report),
+      onError: (e) =>
+        setPackError(
+          (e as { error?: string } | null)?.error ?? "The crate would not open.",
+        ),
     });
-  }
-
-  function exportPack() {
-    fetch("/api/content/pack", { credentials: "include" })
-      .then((r) => r.json())
-      .then((pack) => {
-        const url = URL.createObjectURL(
-          new Blob([JSON.stringify(pack, null, 1)], { type: "application/json" }),
-        );
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "questboard-homebrew-pack.json";
-        a.click();
-        URL.revokeObjectURL(url);
-      });
   }
 
   const apiError = (e: unknown) =>
@@ -318,7 +250,7 @@ export default function ArchivesPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={exportPack}
+            onClick={exportHomebrewPack}
             className="label-stamp cursor-pointer border-none bg-transparent text-[11px] font-semibold text-gold-muted transition hover:text-ember-bright"
           >
             Export my homebrew
@@ -336,12 +268,6 @@ export default function ArchivesPage() {
               }}
             />
           </label>
-          <button
-            onClick={openReset}
-            className="label-stamp cursor-pointer border-none bg-transparent text-[11px] font-semibold text-[#b5654e] transition hover:text-[#d98066]"
-          >
-            Reset my homebrew
-          </button>
           <button
             onClick={() => setAdding(true)}
             className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
@@ -592,158 +518,6 @@ export default function ArchivesPage() {
               )
             }
           />
-        </ParchmentModal>
-      )}
-
-      {resetting && (
-        <ParchmentModal onClose={() => setResetting(false)} maxWidth="max-w-[560px]">
-          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Archives
-          </div>
-          <h3 className="font-display m-0 mb-4 text-center text-2xl font-bold text-ink">
-            Reset My Homebrew
-          </h3>
-
-          {resetDone !== null ? (
-            <>
-              <p className="font-body m-0 mb-5 text-center text-[13.5px] italic text-ink-body">
-                {resetDone} {resetDone === 1 ? "entry" : "entries"} struck from
-                your collection. SRD content is untouched.
-              </p>
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setResetting(false)}
-                  className="btn-base btn-gold clip-octagon h-10 px-6 text-[12px]"
-                >
-                  Done
-                </button>
-              </div>
-            </>
-          ) : resetKinds.length === 0 ? (
-            <>
-              <p className="font-body m-0 mb-5 text-center text-[13.5px] italic text-ink-body">
-                You have no homebrew to reset — these shelves hold only SRD.
-              </p>
-              <div className="flex justify-end">
-                <button
-                  onClick={() => setResetting(false)}
-                  className="label-stamp cursor-pointer border-none bg-transparent px-2 text-[12px] text-ink-label transition hover:text-ink"
-                >
-                  Close
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <label className="mb-3 block">
-                <span className="field-label">What to wipe</span>
-                <select
-                  value={resetScope}
-                  onChange={(e) => {
-                    setResetScope(e.target.value as RulesKind | "");
-                    setResetConfirm("");
-                  }}
-                  className="input-parchment mt-1 w-full cursor-pointer"
-                >
-                  <option value="">
-                    Everything I authored (
-                    {resetKinds.reduce((n, r) => n + r.total, 0)})
-                  </option>
-                  {resetKinds.map((r) => (
-                    <option key={r.kind} value={r.kind}>
-                      {(SHELVES.find(([k]) => k === r.kind)?.[1] ?? r.kind)} ({r.total})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <div
-                className="mb-3 rounded-[4px] px-3.5 py-3"
-                style={{
-                  background: "rgba(139,37,32,.08)",
-                  border: "1px solid rgba(139,37,32,.25)",
-                }}
-              >
-                <p className="font-body m-0 text-[13px] text-ink-body">
-                  This permanently deletes <b>{resetTotals.total}</b> homebrew{" "}
-                  {resetTotals.total === 1 ? "entry" : "entries"}. It can't be undone.
-                </p>
-                {(resetTotals.mine > 0 || resetTotals.others > 0 || resetTotals.codex > 0) && (
-                  <ul className="m-0 mt-2 list-disc pl-5 text-[12.5px] text-ink-body">
-                    {resetTotals.mine > 0 && (
-                      <li>
-                        {resetTotals.mine} in use by your characters — spells
-                        vanish, items become plain text, and class/species links
-                        clear (your heroes keep their name and level).
-                      </li>
-                    )}
-                    {resetTotals.others > 0 && (
-                      <li>
-                        <b>{resetTotals.others} in use by other players'
-                        characters</b> in your campaigns — theirs degrade the same
-                        way.
-                      </li>
-                    )}
-                    {resetTotals.codex > 0 && (
-                      <li>
-                        {resetTotals.codex} admitted in a campaign codex — those
-                        rulings are removed.
-                      </li>
-                    )}
-                  </ul>
-                )}
-              </div>
-
-              <p className="font-body mb-3 text-[12.5px] italic text-ink-body">
-                Want a backup?{" "}
-                <button
-                  onClick={exportPack}
-                  className="cursor-pointer border-none bg-transparent p-0 text-[12.5px] italic underline"
-                  style={{ color: "#7a5c2e" }}
-                >
-                  Export my homebrew first
-                </button>
-                .
-              </p>
-
-              <label className="mb-4 block">
-                <span className="field-label">
-                  Type <b>reset</b> to confirm
-                </span>
-                <input
-                  value={resetConfirm}
-                  onChange={(e) => setResetConfirm(e.target.value)}
-                  placeholder="reset"
-                  className="input-parchment mt-1 w-full"
-                />
-              </label>
-
-              {reset.isError && (
-                <div className="font-body mb-3 text-sm italic text-[#8b2520]">
-                  The wipe failed — nothing was removed.
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-4">
-                <button
-                  onClick={() => setResetting(false)}
-                  className="label-stamp cursor-pointer border-none bg-transparent px-2 text-[12px] text-ink-label transition hover:text-ink"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={doReset}
-                  disabled={!resetReady || reset.isPending}
-                  className="btn-base clip-octagon h-10 px-6 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{ background: "#8b2520", color: "#f3e6c8" }}
-                >
-                  {reset.isPending
-                    ? "Wiping…"
-                    : `Wipe ${resetTotals.total} ${resetTotals.total === 1 ? "entry" : "entries"}`}
-                </button>
-              </div>
-            </>
-          )}
         </ParchmentModal>
       )}
     </div>
