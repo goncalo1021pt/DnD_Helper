@@ -30,7 +30,8 @@ func NewRouter(deps Deps) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	strict := api.NewStrictHandler(NewServer(deps.Pool), nil)
+	srv := NewServer(deps.Pool)
+	strict := api.NewStrictHandler(srv, nil)
 
 	r.Route("/api", func(ar chi.Router) {
 		// Session cookie load/save + populate the user id into the request context.
@@ -38,6 +39,9 @@ func NewRouter(deps Deps) http.Handler {
 		ar.Use(auth.Loader(deps.SessionManager))
 
 		ar.Route("/auth", deps.OAuth.Routes)
+
+		// Map images stream outside the JSON contract (binary, cacheable).
+		ar.Get("/maps/{mapID}/image", srv.ServeMapImage)
 
 		// Register the generated, type-checked operation handlers onto this
 		// subrouter (paths: /health, /me, /campaigns).

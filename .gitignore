@@ -30,3 +30,6 @@ npm-debug.log*
 .idea/
 .vscode/
 *.swp
+
+# Local test assets (maps upload into the app; never commit them)
+/assets/

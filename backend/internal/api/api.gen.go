@@ -620,6 +620,21 @@ type Campaign struct {
 // CampaignProgression How heroes advance at this table.
 type CampaignProgression string
 
+// CampaignMap defines model for CampaignMap.
+type CampaignMap struct {
+	CampaignId openapi_types.UUID `json:"campaignId"`
+	CreatedAt  time.Time          `json:"createdAt"`
+	Height     int                `json:"height"`
+	Id         openapi_types.UUID `json:"id"`
+	Name       string             `json:"name"`
+
+	// ParentMapId The map this one details; null for an overworld.
+	ParentMapId *openapi_types.UUID `json:"parentMapId,omitempty"`
+
+	// Width Pixel width of the stored image.
+	Width int `json:"width"`
+}
+
 // CampaignMembership defines model for CampaignMembership.
 type CampaignMembership struct {
 	Campaign Campaign `json:"campaign"`
@@ -729,6 +744,14 @@ type CodexEntryStatus string
 // CreateCampaignRequest defines model for CreateCampaignRequest.
 type CreateCampaignRequest struct {
 	Name string `json:"name"`
+}
+
+// CreateMapRequest defines model for CreateMapRequest.
+type CreateMapRequest struct {
+	// ImageBase64 The image file, base64-encoded. JPEG or PNG, up to 10 MB decoded.
+	ImageBase64 string              `json:"imageBase64"`
+	Name        string              `json:"name"`
+	ParentMapId *openapi_types.UUID `json:"parentMapId,omitempty"`
 }
 
 // CreateQuestRequest defines model for CreateQuestRequest.
@@ -895,6 +918,41 @@ type LevelUpRequest struct {
 
 // LevelUpRequestHpMode defines model for LevelUpRequest.HpMode.
 type LevelUpRequestHpMode string
+
+// MapDetail defines model for MapDetail.
+type MapDetail struct {
+	Map  CampaignMap `json:"map"`
+	Pins []MapPin    `json:"pins"`
+}
+
+// MapPin defines model for MapPin.
+type MapPin struct {
+	CreatedAt time.Time          `json:"createdAt"`
+	DmOnly    bool               `json:"dmOnly"`
+	Id        openapi_types.UUID `json:"id"`
+	Label     string             `json:"label"`
+
+	// LinkMapId When set, this pin is a region marker leading into that sub-map.
+	LinkMapId *openapi_types.UUID `json:"linkMapId,omitempty"`
+	MapId     openapi_types.UUID  `json:"mapId"`
+	Note      string              `json:"note"`
+
+	// X Fraction of the image width, 0..1.
+	X float32 `json:"x"`
+
+	// Y Fraction of the image height, 0..1.
+	Y float32 `json:"y"`
+}
+
+// MapPinInput defines model for MapPinInput.
+type MapPinInput struct {
+	DmOnly    *bool               `json:"dmOnly,omitempty"`
+	Label     string              `json:"label"`
+	LinkMapId *openapi_types.UUID `json:"linkMapId,omitempty"`
+	Note      *string             `json:"note,omitempty"`
+	X         float32             `json:"x"`
+	Y         float32             `json:"y"`
+}
 
 // NodeRarity defines model for NodeRarity.
 type NodeRarity string
@@ -1112,6 +1170,12 @@ type SpendPickRequest struct {
 	NodeId openapi_types.UUID `json:"nodeId"`
 }
 
+// UpdateMapRequest defines model for UpdateMapRequest.
+type UpdateMapRequest struct {
+	Name        string              `json:"name"`
+	ParentMapId *openapi_types.UUID `json:"parentMapId,omitempty"`
+}
+
 // UpdateQuestRequest defines model for UpdateQuestRequest.
 type UpdateQuestRequest struct {
 	Description *string         `json:"description,omitempty"`
@@ -1144,8 +1208,14 @@ type CharacterId = openapi_types.UUID
 // ContentKind defines model for ContentKind.
 type ContentKind string
 
+// MapId defines model for MapId.
+type MapId = openapi_types.UUID
+
 // NodeId defines model for NodeId.
 type NodeId = openapi_types.UUID
+
+// PinId defines model for PinId.
+type PinId = openapi_types.UUID
 
 // QuestId defines model for QuestId.
 type QuestId = openapi_types.UUID
@@ -1271,6 +1341,9 @@ type SetCodexStatusJSONRequestBody SetCodexStatusJSONBody
 // AddChronicleNoteJSONRequestBody defines body for AddChronicleNote for application/json ContentType.
 type AddChronicleNoteJSONRequestBody AddChronicleNoteJSONBody
 
+// CreateMapJSONRequestBody defines body for CreateMap for application/json ContentType.
+type CreateMapJSONRequestBody = CreateMapRequest
+
 // DeclareMilestoneJSONRequestBody defines body for DeclareMilestone for application/json ContentType.
 type DeclareMilestoneJSONRequestBody DeclareMilestoneJSONBody
 
@@ -1316,6 +1389,12 @@ type GrantPicksJSONRequestBody = GrantPicksRequest
 // SpendPickJSONRequestBody defines body for SpendPick for application/json ContentType.
 type SpendPickJSONRequestBody = SpendPickRequest
 
+// UpdateMapJSONRequestBody defines body for UpdateMap for application/json ContentType.
+type UpdateMapJSONRequestBody = UpdateMapRequest
+
+// CreateMapPinJSONRequestBody defines body for CreateMapPin for application/json ContentType.
+type CreateMapPinJSONRequestBody = MapPinInput
+
 // CreateMyCharacterJSONRequestBody defines body for CreateMyCharacter for application/json ContentType.
 type CreateMyCharacterJSONRequestBody = CharacterInput
 
@@ -1324,6 +1403,9 @@ type ForgeCharacterJSONRequestBody = ForgeRequest
 
 // UpdateNodeJSONRequestBody defines body for UpdateNode for application/json ContentType.
 type UpdateNodeJSONRequestBody = SkillNodeInput
+
+// UpdateMapPinJSONRequestBody defines body for UpdateMapPin for application/json ContentType.
+type UpdateMapPinJSONRequestBody = MapPinInput
 
 // UpdateQuestJSONRequestBody defines body for UpdateQuest for application/json ContentType.
 type UpdateQuestJSONRequestBody = UpdateQuestRequest
@@ -1402,6 +1484,12 @@ type ServerInterface interface {
 	// Write a story entry into the chronicle (DM only)
 	// (POST /campaigns/{campaignId}/events)
 	AddChronicleNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// The campaign atlas — every map, no image bytes (members)
+	// (GET /campaigns/{campaignId}/maps)
+	ListMaps(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Hang a new map in the atlas (DM only)
+	// (POST /campaigns/{campaignId}/maps)
+	CreateMap(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// A milestone — every seated hero gains one pending level-up (DM only)
 	// (POST /campaigns/{campaignId}/milestone)
 	DeclareMilestone(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
@@ -1471,6 +1559,18 @@ type ServerInterface interface {
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// Strike a map and all its pins (DM only)
+	// (DELETE /maps/{mapId})
+	DeleteMap(w http.ResponseWriter, r *http.Request, mapId MapId)
+	// One map with its pins (members; players never receive DM-only pins)
+	// (GET /maps/{mapId})
+	GetMap(w http.ResponseWriter, r *http.Request, mapId MapId)
+	// Rename a map or re-hang it under a parent (DM only)
+	// (PATCH /maps/{mapId})
+	UpdateMap(w http.ResponseWriter, r *http.Request, mapId MapId)
+	// Drop a pin on the map (DM only)
+	// (POST /maps/{mapId}/pins)
+	CreateMapPin(w http.ResponseWriter, r *http.Request, mapId MapId)
 	// The currently authenticated user and their campaign memberships
 	// (GET /me)
 	GetCurrentUser(w http.ResponseWriter, r *http.Request)
@@ -1489,6 +1589,12 @@ type ServerInterface interface {
 	// Update a power node (DM only)
 	// (PATCH /nodes/{nodeId})
 	UpdateNode(w http.ResponseWriter, r *http.Request, nodeId NodeId)
+	// Pull a pin off the map (DM only)
+	// (DELETE /pins/{pinId})
+	DeleteMapPin(w http.ResponseWriter, r *http.Request, pinId PinId)
+	// Move or reword a pin (DM only)
+	// (PATCH /pins/{pinId})
+	UpdateMapPin(w http.ResponseWriter, r *http.Request, pinId PinId)
 	// Remove a quest (DM only)
 	// (DELETE /quests/{questId})
 	DeleteQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
@@ -1657,6 +1763,18 @@ func (_ Unimplemented) AddChronicleNote(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// The campaign atlas — every map, no image bytes (members)
+// (GET /campaigns/{campaignId}/maps)
+func (_ Unimplemented) ListMaps(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Hang a new map in the atlas (DM only)
+// (POST /campaigns/{campaignId}/maps)
+func (_ Unimplemented) CreateMap(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // A milestone — every seated hero gains one pending level-up (DM only)
 // (POST /campaigns/{campaignId}/milestone)
 func (_ Unimplemented) DeclareMilestone(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
@@ -1795,6 +1913,30 @@ func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Strike a map and all its pins (DM only)
+// (DELETE /maps/{mapId})
+func (_ Unimplemented) DeleteMap(w http.ResponseWriter, r *http.Request, mapId MapId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// One map with its pins (members; players never receive DM-only pins)
+// (GET /maps/{mapId})
+func (_ Unimplemented) GetMap(w http.ResponseWriter, r *http.Request, mapId MapId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Rename a map or re-hang it under a parent (DM only)
+// (PATCH /maps/{mapId})
+func (_ Unimplemented) UpdateMap(w http.ResponseWriter, r *http.Request, mapId MapId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Drop a pin on the map (DM only)
+// (POST /maps/{mapId}/pins)
+func (_ Unimplemented) CreateMapPin(w http.ResponseWriter, r *http.Request, mapId MapId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // The currently authenticated user and their campaign memberships
 // (GET /me)
 func (_ Unimplemented) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
@@ -1828,6 +1970,18 @@ func (_ Unimplemented) DeleteNode(w http.ResponseWriter, r *http.Request, nodeId
 // Update a power node (DM only)
 // (PATCH /nodes/{nodeId})
 func (_ Unimplemented) UpdateNode(w http.ResponseWriter, r *http.Request, nodeId NodeId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Pull a pin off the map (DM only)
+// (DELETE /pins/{pinId})
+func (_ Unimplemented) DeleteMapPin(w http.ResponseWriter, r *http.Request, pinId PinId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Move or reword a pin (DM only)
+// (PATCH /pins/{pinId})
+func (_ Unimplemented) UpdateMapPin(w http.ResponseWriter, r *http.Request, pinId PinId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2558,6 +2712,70 @@ func (siw *ServerInterfaceWrapper) AddChronicleNote(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddChronicleNote(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMaps operation middleware
+func (siw *ServerInterfaceWrapper) ListMaps(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMaps(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMap operation middleware
+func (siw *ServerInterfaceWrapper) CreateMap(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMap(w, r, campaignId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3303,6 +3521,134 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteMap operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMap(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mapId" -------------
+	var mapId MapId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mapId", chi.URLParam(r, "mapId"), &mapId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mapId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMap(w, r, mapId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMap operation middleware
+func (siw *ServerInterfaceWrapper) GetMap(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mapId" -------------
+	var mapId MapId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mapId", chi.URLParam(r, "mapId"), &mapId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mapId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMap(w, r, mapId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMap operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMap(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mapId" -------------
+	var mapId MapId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mapId", chi.URLParam(r, "mapId"), &mapId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mapId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMap(w, r, mapId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateMapPin operation middleware
+func (siw *ServerInterfaceWrapper) CreateMapPin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "mapId" -------------
+	var mapId MapId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "mapId", chi.URLParam(r, "mapId"), &mapId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "mapId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateMapPin(w, r, mapId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetCurrentUser operation middleware
 func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 
@@ -3438,6 +3784,70 @@ func (siw *ServerInterfaceWrapper) UpdateNode(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateNode(w, r, nodeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteMapPin operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMapPin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pinId" -------------
+	var pinId PinId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pinId", chi.URLParam(r, "pinId"), &pinId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pinId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteMapPin(w, r, pinId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMapPin operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMapPin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pinId" -------------
+	var pinId PinId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pinId", chi.URLParam(r, "pinId"), &pinId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pinId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMapPin(w, r, pinId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4163,6 +4573,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/campaigns/{campaignId}/events", wrapper.AddChronicleNote)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/maps", wrapper.ListMaps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/maps", wrapper.CreateMap)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/campaigns/{campaignId}/milestone", wrapper.DeclareMilestone)
 	})
 	r.Group(func(r chi.Router) {
@@ -4232,6 +4648,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/health", wrapper.GetHealth)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/maps/{mapId}", wrapper.DeleteMap)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/maps/{mapId}", wrapper.GetMap)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/maps/{mapId}", wrapper.UpdateMap)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/maps/{mapId}/pins", wrapper.CreateMapPin)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/me", wrapper.GetCurrentUser)
 	})
 	r.Group(func(r chi.Router) {
@@ -4248,6 +4676,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/nodes/{nodeId}", wrapper.UpdateNode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/pins/{pinId}", wrapper.DeleteMapPin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/pins/{pinId}", wrapper.UpdateMapPin)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/quests/{questId}", wrapper.DeleteQuest)
@@ -5365,6 +5799,121 @@ func (response AddChronicleNote401JSONResponse) VisitAddChronicleNoteResponse(w 
 type AddChronicleNote403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response AddChronicleNote403JSONResponse) VisitAddChronicleNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMapsRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type ListMapsResponseObject interface {
+	VisitListMapsResponse(w http.ResponseWriter) error
+}
+
+type ListMaps200JSONResponse []CampaignMap
+
+func (response ListMaps200JSONResponse) VisitListMapsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMaps401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListMaps401JSONResponse) VisitListMapsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListMaps403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListMaps403JSONResponse) VisitListMapsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMapRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *CreateMapJSONRequestBody
+}
+
+type CreateMapResponseObject interface {
+	VisitCreateMapResponse(w http.ResponseWriter) error
+}
+
+type CreateMap201JSONResponse CampaignMap
+
+func (response CreateMap201JSONResponse) VisitCreateMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMap400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateMap400JSONResponse) VisitCreateMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMap401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateMap401JSONResponse) VisitCreateMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMap403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateMap403JSONResponse) VisitCreateMapResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -6944,6 +7493,286 @@ func (response GetHealth503JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	return err
 }
 
+type DeleteMapRequestObject struct {
+	MapId MapId `json:"mapId"`
+}
+
+type DeleteMapResponseObject interface {
+	VisitDeleteMapResponse(w http.ResponseWriter) error
+}
+
+type DeleteMap204Response struct {
+}
+
+func (response DeleteMap204Response) VisitDeleteMapResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteMap401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteMap401JSONResponse) VisitDeleteMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMap403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteMap403JSONResponse) VisitDeleteMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMap404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteMap404JSONResponse) VisitDeleteMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMapRequestObject struct {
+	MapId MapId `json:"mapId"`
+}
+
+type GetMapResponseObject interface {
+	VisitGetMapResponse(w http.ResponseWriter) error
+}
+
+type GetMap200JSONResponse MapDetail
+
+func (response GetMap200JSONResponse) VisitGetMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMap401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetMap401JSONResponse) VisitGetMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMap403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetMap403JSONResponse) VisitGetMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMap404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetMap404JSONResponse) VisitGetMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMapRequestObject struct {
+	MapId MapId `json:"mapId"`
+	Body  *UpdateMapJSONRequestBody
+}
+
+type UpdateMapResponseObject interface {
+	VisitUpdateMapResponse(w http.ResponseWriter) error
+}
+
+type UpdateMap200JSONResponse CampaignMap
+
+func (response UpdateMap200JSONResponse) VisitUpdateMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMap400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateMap400JSONResponse) VisitUpdateMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMap401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateMap401JSONResponse) VisitUpdateMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMap403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateMap403JSONResponse) VisitUpdateMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMap404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateMap404JSONResponse) VisitUpdateMapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMapPinRequestObject struct {
+	MapId MapId `json:"mapId"`
+	Body  *CreateMapPinJSONRequestBody
+}
+
+type CreateMapPinResponseObject interface {
+	VisitCreateMapPinResponse(w http.ResponseWriter) error
+}
+
+type CreateMapPin201JSONResponse MapPin
+
+func (response CreateMapPin201JSONResponse) VisitCreateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMapPin400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateMapPin400JSONResponse) VisitCreateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMapPin401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateMapPin401JSONResponse) VisitCreateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMapPin403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateMapPin403JSONResponse) VisitCreateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateMapPin404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateMapPin404JSONResponse) VisitCreateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetCurrentUserRequestObject struct {
 }
 
@@ -7240,6 +8069,143 @@ func (response UpdateNode403JSONResponse) VisitUpdateNodeResponse(w http.Respons
 type UpdateNode404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response UpdateNode404JSONResponse) VisitUpdateNodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMapPinRequestObject struct {
+	PinId PinId `json:"pinId"`
+}
+
+type DeleteMapPinResponseObject interface {
+	VisitDeleteMapPinResponse(w http.ResponseWriter) error
+}
+
+type DeleteMapPin204Response struct {
+}
+
+func (response DeleteMapPin204Response) VisitDeleteMapPinResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteMapPin401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteMapPin401JSONResponse) VisitDeleteMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMapPin403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteMapPin403JSONResponse) VisitDeleteMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteMapPin404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteMapPin404JSONResponse) VisitDeleteMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMapPinRequestObject struct {
+	PinId PinId `json:"pinId"`
+	Body  *UpdateMapPinJSONRequestBody
+}
+
+type UpdateMapPinResponseObject interface {
+	VisitUpdateMapPinResponse(w http.ResponseWriter) error
+}
+
+type UpdateMapPin200JSONResponse MapPin
+
+func (response UpdateMapPin200JSONResponse) VisitUpdateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMapPin400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateMapPin400JSONResponse) VisitUpdateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMapPin401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateMapPin401JSONResponse) VisitUpdateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMapPin403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateMapPin403JSONResponse) VisitUpdateMapPinResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateMapPin404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateMapPin404JSONResponse) VisitUpdateMapPinResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -8364,6 +9330,12 @@ type StrictServerInterface interface {
 	// Write a story entry into the chronicle (DM only)
 	// (POST /campaigns/{campaignId}/events)
 	AddChronicleNote(ctx context.Context, request AddChronicleNoteRequestObject) (AddChronicleNoteResponseObject, error)
+	// The campaign atlas — every map, no image bytes (members)
+	// (GET /campaigns/{campaignId}/maps)
+	ListMaps(ctx context.Context, request ListMapsRequestObject) (ListMapsResponseObject, error)
+	// Hang a new map in the atlas (DM only)
+	// (POST /campaigns/{campaignId}/maps)
+	CreateMap(ctx context.Context, request CreateMapRequestObject) (CreateMapResponseObject, error)
 	// A milestone — every seated hero gains one pending level-up (DM only)
 	// (POST /campaigns/{campaignId}/milestone)
 	DeclareMilestone(ctx context.Context, request DeclareMilestoneRequestObject) (DeclareMilestoneResponseObject, error)
@@ -8433,6 +9405,18 @@ type StrictServerInterface interface {
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// Strike a map and all its pins (DM only)
+	// (DELETE /maps/{mapId})
+	DeleteMap(ctx context.Context, request DeleteMapRequestObject) (DeleteMapResponseObject, error)
+	// One map with its pins (members; players never receive DM-only pins)
+	// (GET /maps/{mapId})
+	GetMap(ctx context.Context, request GetMapRequestObject) (GetMapResponseObject, error)
+	// Rename a map or re-hang it under a parent (DM only)
+	// (PATCH /maps/{mapId})
+	UpdateMap(ctx context.Context, request UpdateMapRequestObject) (UpdateMapResponseObject, error)
+	// Drop a pin on the map (DM only)
+	// (POST /maps/{mapId}/pins)
+	CreateMapPin(ctx context.Context, request CreateMapPinRequestObject) (CreateMapPinResponseObject, error)
 	// The currently authenticated user and their campaign memberships
 	// (GET /me)
 	GetCurrentUser(ctx context.Context, request GetCurrentUserRequestObject) (GetCurrentUserResponseObject, error)
@@ -8451,6 +9435,12 @@ type StrictServerInterface interface {
 	// Update a power node (DM only)
 	// (PATCH /nodes/{nodeId})
 	UpdateNode(ctx context.Context, request UpdateNodeRequestObject) (UpdateNodeResponseObject, error)
+	// Pull a pin off the map (DM only)
+	// (DELETE /pins/{pinId})
+	DeleteMapPin(ctx context.Context, request DeleteMapPinRequestObject) (DeleteMapPinResponseObject, error)
+	// Move or reword a pin (DM only)
+	// (PATCH /pins/{pinId})
+	UpdateMapPin(ctx context.Context, request UpdateMapPinRequestObject) (UpdateMapPinResponseObject, error)
 	// Remove a quest (DM only)
 	// (DELETE /quests/{questId})
 	DeleteQuest(ctx context.Context, request DeleteQuestRequestObject) (DeleteQuestResponseObject, error)
@@ -9069,6 +10059,65 @@ func (sh *strictHandler) AddChronicleNote(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AddChronicleNoteResponseObject); ok {
 		if err := validResponse.VisitAddChronicleNoteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMaps operation middleware
+func (sh *strictHandler) ListMaps(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request ListMapsRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMaps(ctx, request.(ListMapsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMaps")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMapsResponseObject); ok {
+		if err := validResponse.VisitListMapsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateMap operation middleware
+func (sh *strictHandler) CreateMap(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request CreateMapRequestObject
+
+	request.CampaignId = campaignId
+
+	var body CreateMapJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMap(ctx, request.(CreateMapRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMap")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateMapResponseObject); ok {
+		if err := validResponse.VisitCreateMapResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -9782,6 +10831,124 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteMap operation middleware
+func (sh *strictHandler) DeleteMap(w http.ResponseWriter, r *http.Request, mapId MapId) {
+	var request DeleteMapRequestObject
+
+	request.MapId = mapId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMap(ctx, request.(DeleteMapRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMap")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteMapResponseObject); ok {
+		if err := validResponse.VisitDeleteMapResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMap operation middleware
+func (sh *strictHandler) GetMap(w http.ResponseWriter, r *http.Request, mapId MapId) {
+	var request GetMapRequestObject
+
+	request.MapId = mapId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMap(ctx, request.(GetMapRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMap")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMapResponseObject); ok {
+		if err := validResponse.VisitGetMapResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateMap operation middleware
+func (sh *strictHandler) UpdateMap(w http.ResponseWriter, r *http.Request, mapId MapId) {
+	var request UpdateMapRequestObject
+
+	request.MapId = mapId
+
+	var body UpdateMapJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateMap(ctx, request.(UpdateMapRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateMap")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateMapResponseObject); ok {
+		if err := validResponse.VisitUpdateMapResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateMapPin operation middleware
+func (sh *strictHandler) CreateMapPin(w http.ResponseWriter, r *http.Request, mapId MapId) {
+	var request CreateMapPinRequestObject
+
+	request.MapId = mapId
+
+	var body CreateMapPinJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateMapPin(ctx, request.(CreateMapPinRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateMapPin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateMapPinResponseObject); ok {
+		if err := validResponse.VisitCreateMapPinResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetCurrentUser operation middleware
 func (sh *strictHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	var request GetCurrentUserRequestObject
@@ -9944,6 +11111,65 @@ func (sh *strictHandler) UpdateNode(w http.ResponseWriter, r *http.Request, node
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateNodeResponseObject); ok {
 		if err := validResponse.VisitUpdateNodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteMapPin operation middleware
+func (sh *strictHandler) DeleteMapPin(w http.ResponseWriter, r *http.Request, pinId PinId) {
+	var request DeleteMapPinRequestObject
+
+	request.PinId = pinId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteMapPin(ctx, request.(DeleteMapPinRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteMapPin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteMapPinResponseObject); ok {
+		if err := validResponse.VisitDeleteMapPinResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateMapPin operation middleware
+func (sh *strictHandler) UpdateMapPin(w http.ResponseWriter, r *http.Request, pinId PinId) {
+	var request UpdateMapPinRequestObject
+
+	request.PinId = pinId
+
+	var body UpdateMapPinJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateMapPin(ctx, request.(UpdateMapPinRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateMapPin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateMapPinResponseObject); ok {
+		if err := validResponse.VisitUpdateMapPinResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -10465,147 +11691,159 @@ func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, tree
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

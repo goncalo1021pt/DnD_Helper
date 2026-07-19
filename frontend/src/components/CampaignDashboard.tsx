@@ -293,6 +293,21 @@ export default function CampaignDashboard() {
           </div>
         </section>
 
+        {/* the map — the campaign atlas, open to all at the table */}
+        <section className="panel-hall px-6 pb-6 pt-5">
+          <BlockHeader
+            title="The Map"
+            meta="the world so far"
+            to="map"
+            linkLabel="Unroll the map"
+          />
+          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+            {isDM
+              ? "Hang your world, pin what matters, and lead the party from region to region."
+              : "The lands your party travels — follow the pins the DM has placed."}
+          </div>
+        </section>
+
         {/* codex block */}
         <section className="panel-hall px-6 pb-6 pt-5">
           <BlockHeader

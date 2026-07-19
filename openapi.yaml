@@ -1518,6 +1518,172 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns/{campaignId}/maps:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listMaps
+      summary: The campaign atlas — every map, no image bytes (members)
+      responses:
+        "200":
+          description: Maps of the campaign
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CampaignMap"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createMap
+      summary: Hang a new map in the atlas (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMapRequest"
+      responses:
+        "201":
+          description: The new map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignMap"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /maps/{mapId}:
+    parameters:
+      - $ref: "#/components/parameters/MapId"
+    get:
+      operationId: getMap
+      summary: One map with its pins (members; players never receive DM-only pins)
+      responses:
+        "200":
+          description: The map and its pins
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateMap
+      summary: Rename a map or re-hang it under a parent (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMapRequest"
+      responses:
+        "200":
+          description: The updated map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignMap"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteMap
+      summary: Strike a map and all its pins (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /maps/{mapId}/pins:
+    parameters:
+      - $ref: "#/components/parameters/MapId"
+    post:
+      operationId: createMapPin
+      summary: Drop a pin on the map (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MapPinInput"
+      responses:
+        "201":
+          description: The new pin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapPin"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /pins/{pinId}:
+    parameters:
+      - $ref: "#/components/parameters/PinId"
+    patch:
+      operationId: updateMapPin
+      summary: Move or reword a pin (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MapPinInput"
+      responses:
+        "200":
+          description: The updated pin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MapPin"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteMapPin
+      summary: Pull a pin off the map (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     sessionCookie:
@@ -1565,6 +1731,20 @@ components:
         enum: [class, species, background, subclass, feat, spell, item, monster]
     NodeId:
       name: nodeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MapId:
+      name: mapId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PinId:
+      name: pinId
       in: path
       required: true
       schema:
@@ -2191,6 +2371,125 @@ components:
         mine:
           type: boolean
           description: Whether the viewer penned this note.
+
+    CampaignMap:
+      type: object
+      required: [id, campaignId, name, width, height, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        parentMapId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The map this one details; null for an overworld.
+        name:
+          type: string
+        width:
+          type: integer
+          description: Pixel width of the stored image.
+        height:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    MapPin:
+      type: object
+      required: [id, mapId, label, note, x, y, dmOnly, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        mapId:
+          type: string
+          format: uuid
+        label:
+          type: string
+        note:
+          type: string
+        x:
+          type: number
+          description: Fraction of the image width, 0..1.
+        y:
+          type: number
+          description: Fraction of the image height, 0..1.
+        dmOnly:
+          type: boolean
+        linkMapId:
+          type: string
+          format: uuid
+          nullable: true
+          description: When set, this pin is a region marker leading into that sub-map.
+        createdAt:
+          type: string
+          format: date-time
+
+    MapDetail:
+      type: object
+      required: [map, pins]
+      properties:
+        map:
+          $ref: "#/components/schemas/CampaignMap"
+        pins:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapPin"
+
+    CreateMapRequest:
+      type: object
+      required: [name, imageBase64]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        imageBase64:
+          type: string
+          description: The image file, base64-encoded. JPEG or PNG, up to 10 MB decoded.
+        parentMapId:
+          type: string
+          format: uuid
+          nullable: true
+
+    UpdateMapRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        parentMapId:
+          type: string
+          format: uuid
+          nullable: true
+
+    MapPinInput:
+      type: object
+      required: [label, x, y]
+      properties:
+        label:
+          type: string
+          minLength: 1
+        note:
+          type: string
+        x:
+          type: number
+          minimum: 0
+          maximum: 1
+        y:
+          type: number
+          minimum: 0
+          maximum: 1
+        dmOnly:
+          type: boolean
+        linkMapId:
+          type: string
+          format: uuid
+          nullable: true
 
     BestiaryEntry:
       type: object

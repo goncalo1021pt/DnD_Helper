@@ -78,6 +78,13 @@ export type SeatConflict =
 export type ForgeRequest =
   paths["/me/characters/forge"]["post"]["requestBody"]["content"]["application/json"];
 export type AbilityScores = ForgeRequest["abilities"];
+export type CampaignMap =
+  paths["/campaigns/{campaignId}/maps"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type MapDetail =
+  paths["/maps/{mapId}"]["get"]["responses"]["200"]["content"]["application/json"];
+export type MapPin = MapDetail["pins"][number];
+export type MapPinInput =
+  paths["/maps/{mapId}/pins"]["post"]["requestBody"]["content"]["application/json"];
 export type BestiaryEntry =
   paths["/campaigns/{campaignId}/bestiary"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type BestiaryNote = BestiaryEntry["notes"][number];

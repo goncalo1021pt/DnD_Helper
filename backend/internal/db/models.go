@@ -508,6 +508,30 @@ type CharacterTree struct {
 	PicksGranted int32     `json:"picks_granted"`
 }
 
+type Map struct {
+	ID          uuid.UUID          `json:"id"`
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	ParentMapID pgtype.UUID        `json:"parent_map_id"`
+	Name        string             `json:"name"`
+	Image       []byte             `json:"image"`
+	ContentType string             `json:"content_type"`
+	Width       int32              `json:"width"`
+	Height      int32              `json:"height"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type MapPin struct {
+	ID        uuid.UUID          `json:"id"`
+	MapID     uuid.UUID          `json:"map_id"`
+	Label     string             `json:"label"`
+	Note      string             `json:"note"`
+	X         float64            `json:"x"`
+	Y         float64            `json:"y"`
+	DmOnly    bool               `json:"dm_only"`
+	LinkMapID pgtype.UUID        `json:"link_map_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Membership struct {
 	UserID     uuid.UUID          `json:"user_id"`
 	CampaignID uuid.UUID          `json:"campaign_id"`
