@@ -983,7 +983,7 @@ export function useUpdateMap(campaignId: string) {
   return useMutation({
     mutationFn: async (vars: {
       mapId: string;
-      body: { name: string; parentMapId?: string };
+      body: { name: string; parentMapId?: string; fogEnabled?: boolean };
     }) => {
       const { data, error } = await api.PATCH("/maps/{mapId}", {
         params: { path: { mapId: vars.mapId } },
@@ -1052,6 +1052,57 @@ export function useDeleteMapPin(mapId: string) {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["map", mapId] }),
+  });
+}
+
+export function useRevealBatches(mapId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["reveals", mapId],
+    enabled: !!mapId && enabled,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/maps/{mapId}/reveals", {
+        params: { path: { mapId: mapId! } },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useSubmitReveals(mapId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      note?: string;
+      circles: { x: number; y: number; r: number }[];
+    }) => {
+      const { data, error } = await api.POST("/maps/{mapId}/reveals", {
+        params: { path: { mapId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["map", mapId] });
+      qc.invalidateQueries({ queryKey: ["reveals", mapId] });
+    },
+  });
+}
+
+export function useDeleteReveals(mapId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (batchId: string) => {
+      const { error } = await api.DELETE("/reveals/{batchId}", {
+        params: { path: { batchId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["map", mapId] });
+      qc.invalidateQueries({ queryKey: ["reveals", mapId] });
+    },
   });
 }
 

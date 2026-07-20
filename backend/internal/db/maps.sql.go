@@ -15,7 +15,7 @@ import (
 const createMap = `-- name: CreateMap :one
 INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, campaign_id, parent_map_id, name, width, height, created_at
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
 `
 
 type CreateMapParams struct {
@@ -33,6 +33,7 @@ type CreateMapRow struct {
 	CampaignID  uuid.UUID          `json:"campaign_id"`
 	ParentMapID pgtype.UUID        `json:"parent_map_id"`
 	Name        string             `json:"name"`
+	FogEnabled  bool               `json:"fog_enabled"`
 	Width       int32              `json:"width"`
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
@@ -54,6 +55,7 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 		&i.CampaignID,
 		&i.ParentMapID,
 		&i.Name,
+		&i.FogEnabled,
 		&i.Width,
 		&i.Height,
 		&i.CreatedAt,
@@ -146,7 +148,7 @@ func (q *Queries) GetMapImage(ctx context.Context, id uuid.UUID) (GetMapImageRow
 }
 
 const getMapMeta = `-- name: GetMapMeta :one
-SELECT id, campaign_id, parent_map_id, name, width, height, created_at
+SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
 FROM maps
 WHERE id = $1
 `
@@ -156,6 +158,7 @@ type GetMapMetaRow struct {
 	CampaignID  uuid.UUID          `json:"campaign_id"`
 	ParentMapID pgtype.UUID        `json:"parent_map_id"`
 	Name        string             `json:"name"`
+	FogEnabled  bool               `json:"fog_enabled"`
 	Width       int32              `json:"width"`
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
@@ -169,6 +172,7 @@ func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, 
 		&i.CampaignID,
 		&i.ParentMapID,
 		&i.Name,
+		&i.FogEnabled,
 		&i.Width,
 		&i.Height,
 		&i.CreatedAt,
@@ -250,7 +254,7 @@ func (q *Queries) ListMapPins(ctx context.Context, mapID uuid.UUID) ([]MapPin, e
 }
 
 const listMapsByCampaign = `-- name: ListMapsByCampaign :many
-SELECT id, campaign_id, parent_map_id, name, width, height, created_at
+SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
 FROM maps
 WHERE campaign_id = $1
 ORDER BY created_at
@@ -261,6 +265,7 @@ type ListMapsByCampaignRow struct {
 	CampaignID  uuid.UUID          `json:"campaign_id"`
 	ParentMapID pgtype.UUID        `json:"parent_map_id"`
 	Name        string             `json:"name"`
+	FogEnabled  bool               `json:"fog_enabled"`
 	Width       int32              `json:"width"`
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
@@ -281,6 +286,7 @@ func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) 
 			&i.CampaignID,
 			&i.ParentMapID,
 			&i.Name,
+			&i.FogEnabled,
 			&i.Width,
 			&i.Height,
 			&i.CreatedAt,
@@ -297,15 +303,16 @@ func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) 
 
 const updateMapMeta = `-- name: UpdateMapMeta :one
 UPDATE maps
-SET name = $2, parent_map_id = $3
+SET name = $2, parent_map_id = $3, fog_enabled = $4
 WHERE id = $1
-RETURNING id, campaign_id, parent_map_id, name, width, height, created_at
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
 `
 
 type UpdateMapMetaParams struct {
 	ID          uuid.UUID   `json:"id"`
 	Name        string      `json:"name"`
 	ParentMapID pgtype.UUID `json:"parent_map_id"`
+	FogEnabled  bool        `json:"fog_enabled"`
 }
 
 type UpdateMapMetaRow struct {
@@ -313,19 +320,26 @@ type UpdateMapMetaRow struct {
 	CampaignID  uuid.UUID          `json:"campaign_id"`
 	ParentMapID pgtype.UUID        `json:"parent_map_id"`
 	Name        string             `json:"name"`
+	FogEnabled  bool               `json:"fog_enabled"`
 	Width       int32              `json:"width"`
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (UpdateMapMetaRow, error) {
-	row := q.db.QueryRow(ctx, updateMapMeta, arg.ID, arg.Name, arg.ParentMapID)
+	row := q.db.QueryRow(ctx, updateMapMeta,
+		arg.ID,
+		arg.Name,
+		arg.ParentMapID,
+		arg.FogEnabled,
+	)
 	var i UpdateMapMetaRow
 	err := row.Scan(
 		&i.ID,
 		&i.CampaignID,
 		&i.ParentMapID,
 		&i.Name,
+		&i.FogEnabled,
 		&i.Width,
 		&i.Height,
 		&i.CreatedAt,

@@ -6,19 +6,30 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
-import type { CampaignMap, MapPin } from "../api/client";
+import type { CampaignMap, MapPin, RevealCircle } from "../api/client";
 import {
   useCreateMap,
   useCreateMapPin,
   useDeleteMap,
   useDeleteMapPin,
+  useDeleteReveals,
   useMapDetail,
   useMaps,
+  useRevealBatches,
+  useSubmitReveals,
+  useUpdateMap,
   useUpdateMapPin,
 } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconEyeOff, IconMapPin, IconPlus, IconTrash, IconPencil } from "./ui/icons";
+import {
+  IconEye,
+  IconEyeOff,
+  IconMapPin,
+  IconPlus,
+  IconTrash,
+  IconPencil,
+} from "./ui/icons";
 
 /**
  * The Map: the campaign atlas. One canvas you can pan, zoom and pinch;
@@ -27,6 +38,83 @@ import { IconEyeOff, IconMapPin, IconPlus, IconTrash, IconPencil } from "./ui/ic
  */
 
 type View = { scale: number; tx: number; ty: number };
+
+/** Cap the fog raster so huge maps don't allocate huge canvases; circles are
+ * fractional, so the raster scale never changes the geometry. */
+const FOG_RASTER_MAX = 2048;
+
+/* The fog itself: black for players, a readable dark veil for the DM.
+ * Committed and draft circles punch through; drafts get a dashed gold rim so
+ * the DM can see what hasn't been submitted yet. Sits between the map image
+ * and the pins, and ignores the pointer entirely. */
+function FogCanvas({
+  map,
+  revealed,
+  draft,
+  isDM,
+}: {
+  map: CampaignMap;
+  revealed: RevealCircle[];
+  draft: RevealCircle[];
+  isDM: boolean;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const k = Math.min(1, FOG_RASTER_MAX / Math.max(map.width, map.height));
+    const W = Math.max(1, Math.round(map.width * k));
+    const H = Math.max(1, Math.round(map.height * k));
+    if (canvas.width !== W) canvas.width = W;
+    if (canvas.height !== H) canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = isDM ? 0.62 : 1;
+    ctx.fillStyle = "#060301";
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+
+    // Punch every circle out of the veil, soft-edged.
+    ctx.globalCompositeOperation = "destination-out";
+    for (const c of [...revealed, ...draft]) {
+      const cx = c.x * W;
+      const cy = c.y * H;
+      const cr = Math.max(1, c.r * W);
+      const g = ctx.createRadialGradient(cx, cy, cr * 0.62, cx, cy, cr);
+      g.addColorStop(0, "rgba(0,0,0,1)");
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draft rims, for the DM's eyes while stamping.
+    if (isDM && draft.length > 0) {
+      ctx.globalCompositeOperation = "source-over";
+      ctx.strokeStyle = "rgba(224,169,78,.9)";
+      ctx.setLineDash([6, 5]);
+      ctx.lineWidth = Math.max(1.5, W / 900);
+      for (const c of draft) {
+        ctx.beginPath();
+        ctx.arc(c.x * W, c.y * H, Math.max(1, c.r * W), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+  }, [map.id, map.width, map.height, revealed, draft, isDM]);
+
+  return (
+    <canvas
+      ref={ref}
+      className="pointer-events-none absolute inset-0 h-full w-full"
+    />
+  );
+}
 
 /** Where a tap landed, as fractions of the map image. */
 function tapFraction(
@@ -191,6 +279,75 @@ function PinForm({
   );
 }
 
+/* The DM's reveal ledger: every submitted batch, each removable — tearing
+ * one out fogs its ground over again. */
+function RevealLedger({
+  mapId,
+  mapName,
+  onDelete,
+  deleting,
+  onClose,
+}: {
+  mapId: string;
+  mapName: string;
+  onDelete: (batchId: string) => void;
+  deleting: boolean;
+  onClose: () => void;
+}) {
+  const { data: batches } = useRevealBatches(mapId, true);
+  return (
+    <ParchmentModal onClose={onClose} maxWidth="max-w-[460px]">
+      <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+        {mapName}
+      </div>
+      <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
+        The Reveal Ledger
+      </h3>
+      <p className="font-body m-0 mb-4 text-center text-[13px] italic text-ink-body">
+        Tear a page out and its ground fogs over again.
+      </p>
+      {!batches || batches.length === 0 ? (
+        <p className="font-accent m-0 py-4 text-center text-[14px] italic text-ink-body">
+          Nothing lifted yet — the world is still theirs to earn.
+        </p>
+      ) : (
+        <div className="mb-2 flex max-h-[320px] flex-col gap-2 overflow-y-auto">
+          {batches.map((b) => (
+            <div
+              key={b.id}
+              className="flex items-center justify-between gap-3 rounded-[3px] px-3 py-2"
+              style={{ background: "rgba(0,0,0,.06)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.25)" }}
+            >
+              <div className="min-w-0">
+                <div className="font-heading truncate text-[13.5px] font-bold text-ink">
+                  {b.note || "Unlabeled reveal"}
+                </div>
+                <div className="label-stamp text-[9px] tracking-[1px] text-ink-label">
+                  {b.circles} {b.circles === 1 ? "circle" : "circles"} · {b.poolName} ·{" "}
+                  {new Date(b.createdAt).toLocaleDateString()}
+                </div>
+              </div>
+              <button
+                onClick={() => onDelete(b.id)}
+                disabled={deleting}
+                title="Tear it out — this area fogs over again"
+                className="btn-base btn-ghost-red flex-none p-2"
+              >
+                <IconTrash size={13} strokeWidth={1.8} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex justify-end">
+        <button onClick={onClose} className="btn-base btn-ghost-ink px-5 py-[11px] text-xs">
+          Close
+        </button>
+      </div>
+    </ParchmentModal>
+  );
+}
+
 export default function MapPage() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
@@ -209,9 +366,12 @@ export default function MapPage() {
 
   const createMap = useCreateMap(campaign.id);
   const deleteMap = useDeleteMap(campaign.id);
+  const updateMap = useUpdateMap(campaign.id);
   const createPin = useCreateMapPin(currentId ?? "");
   const updatePin = useUpdateMapPin(currentId ?? "");
   const deletePin = useDeleteMapPin(currentId ?? "");
+  const submitReveals = useSubmitReveals(currentId ?? "");
+  const deleteReveals = useDeleteReveals(currentId ?? "");
 
   // ── viewer state ─────────────────────────────────────────────────────────
   const containerRef = useRef<HTMLDivElement>(null);
@@ -230,6 +390,12 @@ export default function MapPage() {
 
   // ── ui state ─────────────────────────────────────────────────────────────
   const [dropMode, setDropMode] = useState(false);
+  const [stampMode, setStampMode] = useState(false);
+  const [draft, setDraft] = useState<RevealCircle[]>([]);
+  const [brush, setBrush] = useState(0.05); // radius, fraction of map width
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitNote, setSubmitNote] = useState("");
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const [newPinAt, setNewPinAt] = useState<{ x: number; y: number } | null>(null);
   const [openPin, setOpenPin] = useState<MapPin | null>(null);
   const [editingPin, setEditingPin] = useState<MapPin | null>(null);
@@ -256,6 +422,8 @@ export default function MapPage() {
     if (map && fittedFor.current !== map.id) {
       fittedFor.current = map.id;
       setDropMode(false);
+      setStampMode(false);
+      setDraft([]);
       fitToContainer(map.width, map.height);
     }
   }, [map]);
@@ -277,6 +445,22 @@ export default function MapPage() {
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, [currentId]);
+
+  // Ctrl/Cmd+Z pulls the last draft stamp back while stamping — unless a
+  // field has focus (the submit note keeps its own undo).
+  useEffect(() => {
+    if (!stampMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return;
+      if (e.key.toLowerCase() !== "z") return;
+      const t = e.target as HTMLElement;
+      if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return;
+      e.preventDefault();
+      setDraft((d) => d.slice(0, -1));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stampMode]);
 
   function zoomBy(k: number) {
     const el = containerRef.current;
@@ -348,11 +532,16 @@ export default function MapPage() {
     pointers.current.delete(e.pointerId);
     if (pointers.current.size < 2) gesture.current = null;
 
-    // A tap (no drag) on open ground: drop a pin, in drop mode.
+    // A tap (no drag) on open ground: drop a pin, or stamp a reveal.
     if (tap.current && !tap.current.moved && pointers.current.size === 0 && map) {
       if (dropMode && isDM && containerRef.current) {
         const f = tapFraction(e, containerRef.current, viewRef.current, map);
         if (f.x >= 0 && f.x <= 1 && f.y >= 0 && f.y <= 1) setNewPinAt(f);
+      } else if (stampMode && isDM && containerRef.current) {
+        const f = tapFraction(e, containerRef.current, viewRef.current, map);
+        if (f.x >= 0 && f.x <= 1 && f.y >= 0 && f.y <= 1) {
+          setDraft((d) => [...d, { x: f.x, y: f.y, r: brush }]);
+        }
       }
     }
     tap.current = null;
@@ -465,13 +654,67 @@ export default function MapPage() {
             <>
               {map && (
                 <button
-                  onClick={() => setDropMode((d) => !d)}
+                  onClick={() => {
+                    setDropMode((d) => !d);
+                    setStampMode(false);
+                  }}
                   className={`btn-base ${dropMode ? "btn-wax" : "btn-ghost-ink"} px-4 py-2.5 text-[11px]`}
                   style={dropMode ? undefined : { color: "#cdba93" }}
                 >
                   <IconMapPin size={13} strokeWidth={1.9} />
                   {dropMode ? "Tap the map…" : "Drop a pin"}
                 </button>
+              )}
+              {map && (
+                <button
+                  onClick={() =>
+                    updateMap.mutate({
+                      mapId: map.id,
+                      body: {
+                        name: map.name,
+                        ...(map.parentMapId ? { parentMapId: map.parentMapId } : {}),
+                        fogEnabled: !map.fogEnabled,
+                      },
+                    })
+                  }
+                  disabled={updateMap.isPending}
+                  title={
+                    map.fogEnabled
+                      ? "Fog is on — players see only what you have revealed"
+                      : "Fog is off — players see the whole map"
+                  }
+                  className="btn-base btn-ghost-ink px-4 py-2.5 text-[11px]"
+                  style={{ color: map.fogEnabled ? "#9a86b8" : "#cdba93" }}
+                >
+                  {map.fogEnabled ? (
+                    <IconEyeOff size={13} strokeWidth={1.9} />
+                  ) : (
+                    <IconEye size={13} strokeWidth={1.9} />
+                  )}
+                  {map.fogEnabled ? "Fog: on" : "Fog: off"}
+                </button>
+              )}
+              {map?.fogEnabled && (
+                <>
+                  <button
+                    onClick={() => {
+                      setStampMode((s) => !s);
+                      setDropMode(false);
+                    }}
+                    className={`btn-base ${stampMode ? "btn-wax" : "btn-ghost-ink"} px-4 py-2.5 text-[11px]`}
+                    style={stampMode ? undefined : { color: "#cdba93" }}
+                  >
+                    <IconEye size={13} strokeWidth={1.9} />
+                    {stampMode ? "Stamping…" : "Lift the fog"}
+                  </button>
+                  <button
+                    onClick={() => setLedgerOpen(true)}
+                    className="btn-base btn-ghost-ink px-4 py-2.5 text-[11px]"
+                    style={{ color: "#cdba93" }}
+                  >
+                    Ledger
+                  </button>
+                </>
               )}
               <button
                 onClick={() => setHanging(true)}
@@ -513,7 +756,7 @@ export default function MapPage() {
             background: "#0d0803",
             boxShadow: "inset 0 0 0 1px rgba(201,162,39,.28), inset 0 0 60px rgba(0,0,0,.7)",
             touchAction: "none",
-            cursor: dropMode ? "crosshair" : "grab",
+            cursor: dropMode || stampMode ? "crosshair" : "grab",
           }}
         >
           <div
@@ -532,6 +775,14 @@ export default function MapPage() {
               className="block h-full w-full"
               style={{ imageRendering: view.scale > fitScale.current * 4 ? "pixelated" : "auto" }}
             />
+            {map.fogEnabled && (
+              <FogCanvas
+                map={map}
+                revealed={detail?.revealed ?? []}
+                draft={draft}
+                isDM={isDM}
+              />
+            )}
             {(detail?.pins ?? []).map((p) => (
               <PinMarker key={p.id} pin={p} scale={view.scale} onOpen={setOpenPin} />
             ))}
@@ -564,6 +815,63 @@ export default function MapPage() {
               style={{ background: "rgba(94,22,17,.85)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }}
             >
               Tap where the pin goes
+            </div>
+          )}
+
+          {/* the stamping bar: draft controls, nothing committed until Submit */}
+          {stampMode && (
+            <div
+              className="absolute left-1/2 top-3 flex max-w-[95%] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-[3px] px-3.5 py-2"
+              style={{ background: "rgba(16,9,5,.88)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.4)" }}
+            >
+              <span className="label-stamp text-[10px] tracking-[1.5px] text-[#f0dfb8]">
+                {draft.length === 0
+                  ? "Tap to stamp a reveal"
+                  : `${draft.length} stamped`}
+              </span>
+              <span className="flex items-center gap-1">
+                <button
+                  onClick={() => setBrush((b) => Math.max(0.015, b / 1.35))}
+                  title="Smaller brush"
+                  className="font-heading h-6 w-6 cursor-pointer rounded-[2px] border-none text-[13px] font-bold text-[#e0c890]"
+                  style={{ background: "rgba(255,255,255,.06)" }}
+                >
+                  −
+                </button>
+                <span className="label-stamp w-14 text-center text-[9px] tracking-[1px] text-gold-muted">
+                  brush {Math.round(brush * 200)}
+                </span>
+                <button
+                  onClick={() => setBrush((b) => Math.min(0.35, b * 1.35))}
+                  title="Bigger brush"
+                  className="font-heading h-6 w-6 cursor-pointer rounded-[2px] border-none text-[13px] font-bold text-[#e0c890]"
+                  style={{ background: "rgba(255,255,255,.06)" }}
+                >
+                  +
+                </button>
+              </span>
+              {draft.length > 0 && (
+                <span className="flex items-center gap-2">
+                  <button
+                    onClick={() => setDraft((d) => d.slice(0, -1))}
+                    className="label-stamp cursor-pointer border-none bg-transparent text-[10px] font-semibold tracking-[1px] text-gold-muted transition hover:text-ember-bright"
+                  >
+                    Undo
+                  </button>
+                  <button
+                    onClick={() => setDraft([])}
+                    className="label-stamp cursor-pointer border-none bg-transparent text-[10px] font-semibold tracking-[1px] text-gold-muted transition hover:text-ember-bright"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    onClick={() => setSubmitOpen(true)}
+                    className="btn-base btn-gold clip-octagon h-8 px-3.5 text-[11px]"
+                  >
+                    Submit
+                  </button>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -707,6 +1015,77 @@ export default function MapPage() {
             }
           />
         </ParchmentModal>
+      )}
+
+      {/* submit-reveals modal */}
+      {submitOpen && map && (
+        <ParchmentModal onClose={() => setSubmitOpen(false)} maxWidth="max-w-[420px]">
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            {map.name}
+          </div>
+          <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
+            Lift the Fog
+          </h3>
+          <p className="font-body m-0 mb-4 text-center text-[13.5px] italic text-ink-body">
+            {draft.length} {draft.length === 1 ? "circle" : "circles"} will be
+            revealed to the party. This is what they'll see from now on.
+          </p>
+          <label className="block">
+            <span className="field-label">A line for the ledger (optional)</span>
+            <input
+              value={submitNote}
+              onChange={(e) => setSubmitNote(e.target.value)}
+              placeholder="session 12 — the road east"
+              className="input-parchment mt-1 w-full"
+            />
+          </label>
+          {submitReveals.isError && (
+            <div className="font-body mt-2 text-sm italic text-[#8b2520]">
+              {apiError(submitReveals.error)}
+            </div>
+          )}
+          <div className="mt-4 flex items-center justify-end gap-3">
+            <button
+              onClick={() => setSubmitOpen(false)}
+              className="btn-base btn-ghost-ink px-5 py-[11px] text-xs"
+            >
+              Not yet
+            </button>
+            <button
+              onClick={() =>
+                submitReveals.mutate(
+                  {
+                    circles: draft,
+                    ...(submitNote.trim() ? { note: submitNote.trim() } : {}),
+                  },
+                  {
+                    onSuccess: () => {
+                      setDraft([]);
+                      setSubmitNote("");
+                      setSubmitOpen(false);
+                      setStampMode(false);
+                    },
+                  },
+                )
+              }
+              disabled={submitReveals.isPending}
+              className="btn-base btn-gold clip-octagon h-11 px-6 text-[13px]"
+            >
+              {submitReveals.isPending ? "Lifting…" : "Reveal it"}
+            </button>
+          </div>
+        </ParchmentModal>
+      )}
+
+      {/* reveal ledger */}
+      {ledgerOpen && map && (
+        <RevealLedger
+          mapId={map.id}
+          mapName={map.name}
+          onDelete={(id) => deleteReveals.mutate(id)}
+          deleting={deleteReveals.isPending}
+          onClose={() => setLedgerOpen(false)}
+        />
       )}
 
       {/* hang-a-map modal */}

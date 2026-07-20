@@ -85,6 +85,9 @@ export type MapDetail =
 export type MapPin = MapDetail["pins"][number];
 export type MapPinInput =
   paths["/maps/{mapId}/pins"]["post"]["requestBody"]["content"]["application/json"];
+export type RevealCircle = MapDetail["revealed"][number];
+export type RevealBatch =
+  paths["/maps/{mapId}/reveals"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type BestiaryEntry =
   paths["/campaigns/{campaignId}/bestiary"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type BestiaryNote = BestiaryEntry["notes"][number];

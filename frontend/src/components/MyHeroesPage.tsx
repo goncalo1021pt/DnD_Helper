@@ -341,7 +341,7 @@ export default function MyHeroesPage() {
             Quick add
           </button>
           <Link
-            to="forge"
+            to="/questboard/heroes/forge"
             className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px] no-underline"
           >
             <IconPlus size={15} strokeWidth={2} />

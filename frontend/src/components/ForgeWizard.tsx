@@ -241,7 +241,7 @@ export default function ForgeWizard() {
         spells: casting ? spellIds : undefined,
         gear: gearOptions.length > 0 ? gear : undefined,
       },
-      { onSuccess: () => navigate("/questboard/heroes") },
+      { onSuccess: () => navigate("/questboard/profile") },
     );
   }
 
@@ -682,7 +682,7 @@ export default function ForgeWizard() {
               </button>
             )}
             <Link
-              to="/questboard/heroes"
+              to="/questboard/profile"
               className="label-stamp ml-auto text-[10px] text-gold-muted no-underline hover:text-ember-bright"
             >
               Abandon the forge

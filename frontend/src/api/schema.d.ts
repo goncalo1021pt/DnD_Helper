@@ -905,6 +905,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/maps/{mapId}/reveals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        /** The reveal ledger — every submitted batch on this map (DM only) */
+        get: operations["listReveals"];
+        put?: never;
+        /** Lift the fog — commit a draft of stamped circles as one batch (DM only) */
+        post: operations["submitReveals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reveals/{batchId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Tear a batch out of the ledger — its area fogs over again (DM only) */
+        delete: operations["deleteReveals"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pins/{pinId}": {
         parameters: {
             query?: never;
@@ -1256,6 +1295,8 @@ export interface components {
              */
             parentMapId?: string | null;
             name: string;
+            /** @description When true, players see only what their reveal circles uncover. */
+            fogEnabled: boolean;
             /** @description Pixel width of the stored image. */
             width: number;
             height: number;
@@ -1285,6 +1326,31 @@ export interface components {
         MapDetail: {
             map: components["schemas"]["CampaignMap"];
             pins: components["schemas"]["MapPin"][];
+            /** @description The caller's uncovered area — every circle for the DM, the union of the caller's pools for a player. Empty when fog is off. */
+            revealed: components["schemas"]["RevealCircle"][];
+        };
+        RevealCircle: {
+            /** @description Fraction of the image width, 0..1. */
+            x: number;
+            /** @description Fraction of the image height, 0..1. */
+            y: number;
+            /** @description Radius as a fraction of the image width. */
+            r: number;
+        };
+        SubmitRevealsRequest: {
+            /** @description Optional label for the ledger ("session 12 — the road east"). */
+            note?: string;
+            circles: components["schemas"]["RevealCircle"][];
+        };
+        RevealBatch: {
+            /** Format: uuid */
+            id: string;
+            note: string;
+            poolName: string;
+            /** @description How many circles the batch stamped. */
+            circles: number;
+            /** Format: date-time */
+            createdAt: string;
         };
         CreateMapRequest: {
             name: string;
@@ -1297,6 +1363,8 @@ export interface components {
             name: string;
             /** Format: uuid */
             parentMapId?: string | null;
+            /** @description Omit to leave the fog as it is. */
+            fogEnabled?: boolean;
         };
         MapPinInput: {
             label: string;
@@ -3474,6 +3542,84 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listReveals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Batches, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevealBatch"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    submitReveals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: components["parameters"]["MapId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitRevealsRequest"];
+            };
+        };
+        responses: {
+            /** @description The committed batch */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevealBatch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteReveals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
