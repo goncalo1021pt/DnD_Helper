@@ -11,8 +11,72 @@ import (
 	"github.com/google/uuid"
 )
 
+const createLocalUser = `-- name: CreateLocalUser :one
+INSERT INTO users (name, username, email, password_hash, provider, provider_id)
+VALUES ($1, $2, $3, $4, 'local', lower($2))
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash
+`
+
+type CreateLocalUserParams struct {
+	Name         string  `json:"name"`
+	Username     *string `json:"username"`
+	Email        *string `json:"email"`
+	PasswordHash *string `json:"password_hash"`
+}
+
+// Register a username+password account. Display name defaults to the username;
+// provider_id mirrors the lowercased username so (provider, provider_id) stays
+// meaningful and unique.
+func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createLocalUser,
+		arg.Name,
+		arg.Username,
+		arg.Email,
+		arg.PasswordHash,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
+const getLocalUserByLogin = `-- name: GetLocalUserByLogin :one
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash FROM users
+WHERE provider = 'local'
+  AND password_hash IS NOT NULL
+  AND (lower(username) = lower($1) OR lower(email) = lower($1))
+`
+
+// Sign-in lookup: match a local account by its username OR its email,
+// case-insensitively. Only accounts that carry a password can sign in this way.
+func (q *Queries) GetLocalUserByLogin(ctx context.Context, lower string) (User, error) {
+	row := q.db.QueryRow(ctx, getLocalUserByLogin, lower)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
+	)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, image, provider, provider_id, created_at FROM users WHERE id = $1
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -26,12 +90,14 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Provider,
 		&i.ProviderID,
 		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
 	)
 	return i, err
 }
 
 const getUserByProvider = `-- name: GetUserByProvider :one
-SELECT id, name, email, image, provider, provider_id, created_at FROM users WHERE provider = $1 AND provider_id = $2
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash FROM users WHERE provider = $1 AND provider_id = $2
 `
 
 type GetUserByProviderParams struct {
@@ -50,6 +116,8 @@ func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderPa
 		&i.Provider,
 		&i.ProviderID,
 		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
 	)
 	return i, err
 }
@@ -61,7 +129,7 @@ ON CONFLICT (provider, provider_id) DO UPDATE
     SET name  = EXCLUDED.name,
         email = EXCLUDED.email,
         image = EXCLUDED.image
-RETURNING id, name, email, image, provider, provider_id, created_at
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash
 `
 
 type UpsertUserParams struct {
@@ -90,6 +158,8 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		&i.Provider,
 		&i.ProviderID,
 		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
 	)
 	return i, err
 }

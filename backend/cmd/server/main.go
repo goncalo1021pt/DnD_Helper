@@ -50,7 +50,11 @@ func run() error {
 	// Auth: register OAuth providers and a Postgres-backed session manager.
 	auth.RegisterProviders(cfg)
 	sessions := auth.NewSessionManager(pool, cfg.IsProduction())
-	oauth := auth.NewOAuth(sessions, db.New(pool), !cfg.IsProduction())
+	devEnabled := !cfg.IsProduction()
+	if devEnabled {
+		log.Println("auth: DEV LOGIN ENABLED — no password required; never expose this build publicly")
+	}
+	oauth := auth.NewOAuth(sessions, db.New(pool), devEnabled, cfg.LocalAuth)
 
 	router := apphttp.NewRouter(apphttp.Deps{
 		Pool:           pool,

@@ -25,6 +25,9 @@ func (o *OAuth) devLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Login(r.Context(), o.sm, user.ID)
+	if err := Login(r.Context(), o.sm, user.ID); err != nil {
+		http.Error(w, "failed to start session", http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }

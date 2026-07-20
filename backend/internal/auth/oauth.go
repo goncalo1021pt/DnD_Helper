@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
@@ -22,12 +23,16 @@ const (
 	sessionOAuthData  = "oauth_session"
 )
 
-// OAuth wires goth providers to our scs-backed sessions. We use goth providers
-// directly (not gothic) so there is a single session library in play.
+// OAuth holds every auth route — the goth OAuth providers, the dev shortcut,
+// and the local username/password endpoints — over our scs-backed sessions.
+// We use goth providers directly (not gothic) so there is a single session
+// library in play.
 type OAuth struct {
-	sm         *scs.SessionManager
-	queries    *db.Queries
-	devEnabled bool
+	sm           *scs.SessionManager
+	queries      *db.Queries
+	devEnabled   bool
+	localEnabled bool
+	loginLimiter *rateLimiter
 }
 
 // RegisterProviders configures the enabled OAuth providers. Callback URLs are
@@ -52,8 +57,16 @@ func RegisterProviders(cfg *config.Config) {
 	goth.UseProviders(providers...)
 }
 
-func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled bool) *OAuth {
-	return &OAuth{sm: sm, queries: queries, devEnabled: devEnabled}
+func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled, localEnabled bool) *OAuth {
+	return &OAuth{
+		sm:           sm,
+		queries:      queries,
+		devEnabled:   devEnabled,
+		localEnabled: localEnabled,
+		// Up to 25 FAILED auth attempts per IP per 15 minutes; successes don't
+		// count, so a shared-IP table of players is never locked out.
+		loginLimiter: newRateLimiter(25, 15*time.Minute),
+	}
 }
 
 // Routes mounts /auth/{provider}/login, /auth/{provider}/callback and /auth/logout.
@@ -63,6 +76,11 @@ func (o *OAuth) Routes(r chi.Router) {
 	// is a static build, so it can't know the backend's mode without asking.
 	r.Get("/config", o.config)
 	r.Post("/logout", o.logout)
+	if o.localEnabled {
+		// Local username/password accounts.
+		r.Post("/register", o.register)
+		r.Post("/login", o.localLogin)
+	}
 	if o.devEnabled {
 		// Dev-only login shortcut (no real OAuth provider required).
 		r.Get("/dev/login", o.devLogin)
@@ -82,6 +100,7 @@ func (o *OAuth) config(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"devLogin":  o.devEnabled,
+		"localAuth": o.localEnabled,
 		"providers": providers,
 	})
 }
@@ -153,7 +172,10 @@ func (o *OAuth) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Login(r.Context(), o.sm, user.ID)
+	if err := Login(r.Context(), o.sm, user.ID); err != nil {
+		http.Error(w, "failed to start session", http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 

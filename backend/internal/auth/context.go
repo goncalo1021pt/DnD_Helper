@@ -14,9 +14,16 @@ type ctxKey int
 
 const userIDCtxKey ctxKey = 0
 
-// Login records the authenticated user id in the session (call after OAuth).
-func Login(ctx context.Context, sm *scs.SessionManager, userID uuid.UUID) {
+// Login records the authenticated user id in the session. It first rotates the
+// session token so a pre-login session id (which an attacker may have planted)
+// can never be reused as an authenticated one — the standard defense against
+// session fixation. Call after any successful authentication (OAuth, dev, local).
+func Login(ctx context.Context, sm *scs.SessionManager, userID uuid.UUID) error {
+	if err := sm.RenewToken(ctx); err != nil {
+		return err
+	}
 	sm.Put(ctx, sessionUserKey, userID.String())
+	return nil
 }
 
 // Logout clears the session.

@@ -16,6 +16,8 @@ type Config struct {
 	BaseURL     string // public base URL, used to build OAuth callback URLs
 	Env         string // "development" | "production"
 
+	LocalAuth bool // whether username/password accounts are offered
+
 	Discord OAuthProvider
 	Google  OAuthProvider
 }
@@ -50,6 +52,7 @@ func Load() (*Config, error) {
 		SessionKey:  os.Getenv("SESSION_KEY"),
 		BaseURL:     getenv("BASE_URL", "http://localhost:8080"),
 		Env:         getenv("APP_ENV", "development"),
+		LocalAuth:   getenv("LOCAL_AUTH_ENABLED", "true") != "false",
 		Discord: OAuthProvider{
 			ClientID:     os.Getenv("DISCORD_CLIENT_ID"),
 			ClientSecret: os.Getenv("DISCORD_CLIENT_SECRET"),

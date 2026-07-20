@@ -18,6 +18,7 @@ import type {
 
 export interface AuthConfig {
   devLogin: boolean;
+  localAuth: boolean;
   providers: string[];
 }
 

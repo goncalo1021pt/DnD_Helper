@@ -645,11 +645,13 @@ type SkillTree struct {
 }
 
 type User struct {
-	ID         uuid.UUID          `json:"id"`
-	Name       string             `json:"name"`
-	Email      *string            `json:"email"`
-	Image      *string            `json:"image"`
-	Provider   string             `json:"provider"`
-	ProviderID string             `json:"provider_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID           uuid.UUID          `json:"id"`
+	Name         string             `json:"name"`
+	Email        *string            `json:"email"`
+	Image        *string            `json:"image"`
+	Provider     string             `json:"provider"`
+	ProviderID   string             `json:"provider_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Username     *string            `json:"username"`
+	PasswordHash *string            `json:"password_hash"`
 }
