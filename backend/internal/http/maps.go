@@ -493,8 +493,12 @@ func (s *Server) DeleteMapPin(ctx context.Context, request api.DeleteMapPinReque
 
 // ServeMapImage streams a map's image bytes. Lives outside the OpenAPI spec
 // (like the auth routes) so the contract stays JSON; same session middleware,
-// same membership gate as GetMap. Sends a strong ETag and honors
-// If-None-Match so pan/zoom revisits are free.
+// same membership gate as GetMap. A fogged player never receives the hidden
+// pixels: the image is composited server-side with everything outside their
+// revealed circles blacked out, then cached per reveal fingerprint. The DM
+// gets the full image. ETag/If-None-Match keep pan/zoom revisits cheap; the
+// role and reveal state ride the ETag so a browser cache can't cross roles,
+// and Cache-Control: no-cache forces revalidation on every load.
 func (s *Server) ServeMapImage(w http.ResponseWriter, r *http.Request) {
 	mapID, err := uuid.Parse(chi.URLParam(r, "mapID"))
 	if err != nil {
@@ -514,11 +518,57 @@ func (s *Server) ServeMapImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server error", http.StatusInternalServerError)
 		return
 	}
-	if _, err := s.requireMember(r.Context(), meta.CampaignID); err != nil {
+	m, err := s.requireMember(r.Context(), meta.CampaignID)
+	if err != nil {
 		http.Error(w, "not allowed", http.StatusForbidden)
 		return
 	}
-	etag := fmt.Sprintf(`"%s-%d"`, meta.ID, meta.CreatedAt.Time.Unix())
+	isDM := m.Role == db.MembershipRoleDm
+
+	// Fogged path: a player on a fog-enabled map only sees revealed ground.
+	if meta.FogEnabled && !isDM {
+		rows, err := s.queries.ListVisibleRevealCircles(r.Context(), db.ListVisibleRevealCirclesParams{
+			MapID:  mapID,
+			UserID: m.UserID,
+		})
+		if err != nil {
+			http.Error(w, "server error", http.StatusInternalServerError)
+			return
+		}
+		circles := make([]circleGeom, len(rows))
+		for i, c := range rows {
+			circles[i] = circleGeom{X: c.X, Y: c.Y, R: c.R}
+		}
+		version := fogVersion(circles)
+		etag := fmt.Sprintf(`"fog-%s-%s"`, meta.ID, version)
+		if r.Header.Get("If-None-Match") == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		entry, ok := s.fogCache.get(mapID, version)
+		if !ok {
+			img, err := s.queries.GetMapImage(r.Context(), mapID)
+			if err != nil {
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			body, err := renderFoggedImage(img.Image, img.ContentType, circles)
+			if err != nil {
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+			entry = fogCacheEntry{version: version, body: body, contentType: img.ContentType}
+			s.fogCache.put(mapID, entry)
+		}
+		w.Header().Set("Content-Type", entry.contentType)
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", "private, no-cache")
+		_, _ = w.Write(entry.body)
+		return
+	}
+
+	// Full path: the DM, or any member when fog is off.
+	etag := fmt.Sprintf(`"full-%s-%d"`, meta.ID, meta.CreatedAt.Time.Unix())
 	if r.Header.Get("If-None-Match") == etag {
 		w.WriteHeader(http.StatusNotModified)
 		return
@@ -530,6 +580,6 @@ func (s *Server) ServeMapImage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", img.ContentType)
 	w.Header().Set("ETag", etag)
-	w.Header().Set("Cache-Control", "private, max-age=86400")
+	w.Header().Set("Cache-Control", "private, no-cache")
 	_, _ = w.Write(img.Image)
 }
