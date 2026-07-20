@@ -82,7 +82,11 @@ function LocalAuth() {
     ) : null;
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3">
+    <form
+      name={mode === "signin" ? "login" : "register"}
+      onSubmit={submit}
+      className="flex flex-col gap-3"
+    >
       <div className="mb-1 flex rounded-[4px] p-0.5" style={{ background: "rgba(120,80,30,.12)" }}>
         {(["signin", "register"] as const).map((m) => (
           <button
@@ -103,20 +107,32 @@ function LocalAuth() {
         ))}
       </div>
 
+      {/* Keyed by mode so switching tabs remounts the fields as fresh DOM
+          nodes — otherwise React reuses the same <input> elements between
+          sign-in and register and password managers cache a stale field map,
+          mis-filling the saved password into the wrong box. Distinct name/id
+          per form give managers an unambiguous anchor. */}
       {mode === "signin" ? (
-        <>
+        <div key="signin" className="flex flex-col gap-3">
           <label className="block">
             <span className="field-label">Username or email</span>
             <input
+              id="login-identifier"
+              name="username"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className="input-parchment mt-1 w-full"
             />
           </label>
           <label className="block">
             <span className="field-label">Password</span>
             <input
+              id="login-password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -124,16 +140,21 @@ function LocalAuth() {
               className="input-parchment mt-1 w-full"
             />
           </label>
-        </>
+        </div>
       ) : (
-        <>
+        <div key="register" className="flex flex-col gap-3">
           <label className="block">
             <span className="field-label">Email</span>
             <input
+              id="register-email"
+              name="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className="input-parchment mt-1 w-full"
             />
             {errFor("email")}
@@ -141,9 +162,14 @@ function LocalAuth() {
           <label className="block">
             <span className="field-label">Username</span>
             <input
+              id="register-username"
+              name="new-username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="3–32 letters, numbers, . _ -"
               className="input-parchment mt-1 w-full"
             />
@@ -152,6 +178,8 @@ function LocalAuth() {
           <label className="block">
             <span className="field-label">Password</span>
             <input
+              id="register-password"
+              name="new-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -161,7 +189,7 @@ function LocalAuth() {
             <StrengthMeter password={password} avoid={[username, email]} />
             {errFor("password")}
           </label>
-        </>
+        </div>
       )}
 
       {formError && (
