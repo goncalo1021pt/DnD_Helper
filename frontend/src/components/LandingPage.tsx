@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuthConfig, type AuthConfig } from "../hooks";
+import { passwordStrength } from "../lib/password";
 import Crest from "./ui/Crest";
 import Embers from "./ui/Embers";
 import GoldFrameButton from "./ui/GoldFrameButton";
@@ -11,7 +12,203 @@ function providerLogin(provider: string) {
   window.location.href = `/api/auth/${provider}/login`;
 }
 
-/* OAuth (+ dev door) modal, driven by what the backend actually offers. */
+const STRENGTH_TONE = ["#8a7a5a", "#b5654e", "#c99a3f", "#b6a63f", "#7ea63f"];
+
+/* Live strength meter for the registration password. Advisory only. */
+function StrengthMeter({ password, avoid }: { password: string; avoid: string[] }) {
+  const s = passwordStrength(password, avoid);
+  if (!password) return null;
+  return (
+    <div className="mt-1.5">
+      <div className="flex gap-1">
+        {[1, 2, 3, 4].map((i) => (
+          <span
+            key={i}
+            className="h-1 flex-1 rounded-full transition-colors"
+            style={{ background: i <= s.score ? STRENGTH_TONE[s.score] : "rgba(120,80,30,.2)" }}
+          />
+        ))}
+      </div>
+      <div className="mt-1 text-[11px] italic" style={{ color: STRENGTH_TONE[s.score] }}>
+        {s.label}
+      </div>
+    </div>
+  );
+}
+
+/* Local username/password: sign in with either username or email, or register. */
+function LocalAuth() {
+  const [mode, setMode] = useState<"signin" | "register">("signin");
+  const [identifier, setIdentifier] = useState("");
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [fieldError, setFieldError] = useState<{ field: string; error: string } | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setFormError("");
+    setFieldError(null);
+    try {
+      const [path, body] =
+        mode === "signin"
+          ? ["/api/auth/login", { identifier, password }]
+          : ["/api/auth/register", { email, username, password }];
+      const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 204) {
+        window.location.href = "/";
+        return;
+      }
+      const data = (await res.json().catch(() => ({}))) as { field?: string; error?: string };
+      if (data.field) setFieldError({ field: data.field, error: data.error ?? "Invalid." });
+      else setFormError(data.error ?? "Something went wrong — try again.");
+    } catch {
+      setFormError("Could not reach the tavern. Check your connection.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const errFor = (f: string) =>
+    fieldError?.field === f ? (
+      <div className="mt-1 text-[11.5px] italic text-[#8b2520]">{fieldError.error}</div>
+    ) : null;
+
+  return (
+    <form
+      name={mode === "signin" ? "login" : "register"}
+      onSubmit={submit}
+      className="flex flex-col gap-3"
+    >
+      <div className="mb-1 flex rounded-[4px] p-0.5" style={{ background: "rgba(120,80,30,.12)" }}>
+        {(["signin", "register"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setMode(m);
+              setFormError("");
+              setFieldError(null);
+            }}
+            className={`flex-1 rounded-[3px] py-2 text-[12px] font-semibold transition ${
+              mode === m ? "text-ink" : "text-ink-faded hover:text-ink-body"
+            }`}
+            style={mode === m ? { background: "rgba(243,230,200,.7)", boxShadow: "0 1px 2px rgba(0,0,0,.15)" } : undefined}
+          >
+            {m === "signin" ? "Sign in" : "Create account"}
+          </button>
+        ))}
+      </div>
+
+      {/* Keyed by mode so switching tabs remounts the fields as fresh DOM
+          nodes — otherwise React reuses the same <input> elements between
+          sign-in and register and password managers cache a stale field map,
+          mis-filling the saved password into the wrong box. Distinct name/id
+          per form give managers an unambiguous anchor. */}
+      {mode === "signin" ? (
+        <div key="signin" className="flex flex-col gap-3">
+          <label className="block">
+            <span className="field-label">Username or email</span>
+            <input
+              id="login-identifier"
+              name="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="input-parchment mt-1 w-full"
+            />
+          </label>
+          <label className="block">
+            <span className="field-label">Password</span>
+            <input
+              id="login-password"
+              name="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              className="input-parchment mt-1 w-full"
+            />
+          </label>
+        </div>
+      ) : (
+        <div key="register" className="flex flex-col gap-3">
+          <label className="block">
+            <span className="field-label">Email</span>
+            <input
+              id="register-email"
+              name="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="input-parchment mt-1 w-full"
+            />
+            {errFor("email")}
+          </label>
+          <label className="block">
+            <span className="field-label">Username</span>
+            <input
+              id="register-username"
+              name="new-username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="3–32 letters, numbers, . _ -"
+              className="input-parchment mt-1 w-full"
+            />
+            {errFor("username")}
+          </label>
+          <label className="block">
+            <span className="field-label">Password</span>
+            <input
+              id="register-password"
+              name="new-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className="input-parchment mt-1 w-full"
+            />
+            <StrengthMeter password={password} avoid={[username, email]} />
+            {errFor("password")}
+          </label>
+        </div>
+      )}
+
+      {formError && (
+        <div className="text-[12.5px] italic text-[#8b2520]">{formError}</div>
+      )}
+
+      <button
+        type="submit"
+        disabled={busy}
+        className="btn-base btn-gold clip-octagon h-[46px] w-full text-[13px] disabled:opacity-60"
+      >
+        {busy ? "…" : mode === "signin" ? "Sign in" : "Create account & enter"}
+      </button>
+    </form>
+  );
+}
+
+/* Login modal, driven by what the backend actually offers: local accounts,
+ * OAuth providers, and the dev shortcut. */
 function LoginModal({
   config,
   onClose,
@@ -22,6 +219,7 @@ function LoginModal({
   const [devName, setDevName] = useState("");
   const providers = config?.providers ?? [];
   const devLogin = config?.devLogin ?? false;
+  const localAuth = config?.localAuth ?? false;
 
   function enterDev(e: FormEvent) {
     e.preventDefault();
@@ -37,8 +235,18 @@ function LoginModal({
         Enter the Tavern
       </h3>
       <p className="font-body m-0 mb-6 text-center text-[14.5px] italic leading-relaxed text-ink-body">
-        No keys, no passwords. Show the doorman a token you already carry.
+        Sign in to gather your party by the fire.
       </p>
+
+      {localAuth && <LocalAuth />}
+
+      {localAuth && providers.length > 0 && (
+        <div className="my-5 flex items-center gap-3.5">
+          <span className="h-px flex-1 bg-[rgba(120,80,30,.3)]" />
+          <span className="font-accent text-[13px] italic text-ink-faded">or</span>
+          <span className="h-px flex-1 bg-[rgba(120,80,30,.3)]" />
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         {providers.map((p) =>
@@ -78,7 +286,7 @@ function LoginModal({
           ),
         )}
 
-        {config && providers.length === 0 && !devLogin && (
+        {config && providers.length === 0 && !devLogin && !localAuth && (
           <p className="font-body m-0 text-center text-[14.5px] italic text-ink-body">
             The doorman knows no tokens yet — no login methods are configured.
           </p>
@@ -87,7 +295,7 @@ function LoginModal({
 
       {devLogin && (
         <>
-          {providers.length > 0 && (
+          {(providers.length > 0 || localAuth) && (
             <div className="my-5 flex items-center gap-3.5">
               <span className="h-px flex-1 bg-[rgba(120,80,30,.3)]" />
               <span className="font-accent text-[13px] italic text-ink-faded">
