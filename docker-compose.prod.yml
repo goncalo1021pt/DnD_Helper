@@ -1,0 +1,16 @@
+# Production overrides — apply ON TOP of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d --build
+#
+# Public traffic arrives only through the Cloudflare tunnel, which reaches the
+# app over the internal docker network at app:8080. Nothing needs a public host
+# port, so we take Postgres off the host entirely (it must never be reachable on
+# the LAN) and bind the app to localhost only (handy for on-box debugging via
+# SSH, never exposed). This also guarantees no host-port clash with any other
+# app sharing the machine.
+services:
+  postgres:
+    ports: !reset []
+
+  app:
+    ports: !override
+      - "127.0.0.1:8080:8080"
