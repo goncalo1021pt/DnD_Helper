@@ -420,7 +420,7 @@ export interface paths {
         /** The campaign chronicle, newest first (members) */
         get: operations["listEvents"];
         put?: never;
-        /** Write a story entry into the chronicle (DM only) */
+        /** Write an entry into the chronicle (any member; players post to player chat) */
         post: operations["addChronicleNote"];
         delete?: never;
         options?: never;
@@ -1459,6 +1459,8 @@ export interface components {
             id: string;
             /** @description quest_posted, hero_seated, level_up, codex_enabled, xp, milestone, note… */
             kind: string;
+            /** @description The channel a line belongs to (plain string, not an enum, to avoid a codegen name clash): dm (the DM's story notes), rules (rulings + codex changes), player (player posts), log (system happenings). Derived from kind. */
+            category: string;
             message: string;
             actorName?: string | null;
             /** Format: date-time */
@@ -2395,6 +2397,8 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                /** @description Filter to one channel (all | dm | rules | player | log); omit or "all" for everything. Plain string, validated server-side. */
+                category?: string;
             };
             header?: never;
             path: {
@@ -2430,6 +2434,8 @@ export interface operations {
             content: {
                 "application/json": {
                     message: string;
+                    /** @description The DM's channel choice — "dm" (story note) or "rules" (a ruling); defaults to dm. Ignored for players, who always post to player chat. Plain string, validated server-side. */
+                    category?: string;
                 };
             };
         };

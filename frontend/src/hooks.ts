@@ -433,12 +433,12 @@ export function useDeleteItem(characterId: string) {
   });
 }
 
-export function useEvents(campaignId: string, limit = 50) {
+export function useEvents(campaignId: string, category = "all", limit = 50) {
   return useQuery({
-    queryKey: ["events", campaignId, limit],
+    queryKey: ["events", campaignId, category, limit],
     queryFn: async () => {
       const { data, error } = await api.GET("/campaigns/{campaignId}/events", {
-        params: { path: { campaignId }, query: { limit } },
+        params: { path: { campaignId }, query: { limit, category } },
       });
       if (error) throw error;
       return data ?? [];
@@ -449,10 +449,10 @@ export function useEvents(campaignId: string, limit = 50) {
 export function useAddNote(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (message: string) => {
+    mutationFn: async (vars: { message: string; category?: "dm" | "rules" }) => {
       const { data, error } = await api.POST("/campaigns/{campaignId}/events", {
         params: { path: { campaignId } },
-        body: { message },
+        body: { message: vars.message, ...(vars.category ? { category: vars.category } : {}) },
       });
       if (error) throw error;
       return data;
