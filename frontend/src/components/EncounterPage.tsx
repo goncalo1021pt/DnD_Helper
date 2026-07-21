@@ -187,12 +187,44 @@ function CombatantRow({
   );
 }
 
+/* How many to add — a tap-to-change stepper so the DM never has to type. It
+   starts at 1 and can't drop below it, so a single "Add" always means one. */
+function QtyStepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const clamp = (n: number) => Math.min(Math.max(n, 1), 12);
+  return (
+    <div
+      className="flex flex-none items-center rounded-[3px]"
+      style={{ background: "rgba(0,0,0,.2)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.22)" }}
+    >
+      <button
+        onClick={() => onChange(clamp(value - 1))}
+        disabled={value <= 1}
+        title="One fewer"
+        className="flex h-8 w-6 items-center justify-center text-[16px] leading-none text-gold-muted transition hover:text-ember-bright disabled:opacity-30"
+      >
+        −
+      </button>
+      <span className="w-5 text-center font-heading text-[12.5px] font-bold tabular-nums text-cream" title="How many to add">
+        {value}
+      </span>
+      <button
+        onClick={() => onChange(clamp(value + 1))}
+        disabled={value >= 12}
+        title="One more"
+        className="flex h-8 w-6 items-center justify-center text-[14px] leading-none text-gold-muted transition hover:text-ember-bright disabled:opacity-30"
+      >
+        ＋
+      </button>
+    </div>
+  );
+}
+
 /* Type-to-search monster picker — the Den holds hundreds, a dropdown won't do. */
 function MonsterSearch({ campaignId, encounterId }: { campaignId: string; encounterId: string }) {
   const add = useAddCombatant(campaignId, encounterId);
   const { data: monsters } = useRules("monster");
   const [q, setQ] = useState("");
-  const [count, setCount] = useState("1");
+  const [count, setCount] = useState(1);
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -211,8 +243,7 @@ function MonsterSearch({ campaignId, encounterId }: { campaignId: string; encoun
   }, []);
 
   function addMonster(id: string, name: string) {
-    const n = Math.min(Math.max(parseInt(count, 10) || 1, 1), 12);
-    for (let i = 0; i < n; i++) add.mutate({ kind: "monster", contentId: id, hidden: true });
+    for (let i = 0; i < count; i++) add.mutate({ kind: "monster", contentId: id, hidden: true });
     setQ(name);
     setOpen(false);
   }
@@ -245,7 +276,7 @@ function MonsterSearch({ campaignId, encounterId }: { campaignId: string; encoun
           </div>
         )}
       </div>
-      <input value={count} onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))} title="How many to add" className="input-hall h-9 w-12 text-center text-[12px]" />
+      <QtyStepper value={count} onChange={setCount} />
       <span className="label-stamp text-[9px] tracking-[1px] text-gold-muted">added hidden</span>
     </>
   );
@@ -341,12 +372,11 @@ function MonsterBrowser({ campaignId, encounterId }: { campaignId: string; encou
 
 function MonsterRow({ m, add }: { m: RulesContent; add: ReturnType<typeof useAddCombatant> }) {
   const [open, setOpen] = useState(false);
-  const [count, setCount] = useState("1");
+  const [count, setCount] = useState(1);
   const d = m.data as { type?: string; size?: string };
 
   function addIt() {
-    const n = Math.min(Math.max(parseInt(count, 10) || 1, 1), 12);
-    for (let i = 0; i < n; i++) add.mutate({ kind: "monster", contentId: m.id, hidden: true });
+    for (let i = 0; i < count; i++) add.mutate({ kind: "monster", contentId: m.id, hidden: true });
   }
 
   return (
@@ -370,13 +400,8 @@ function MonsterRow({ m, add }: { m: RulesContent; add: ReturnType<typeof useAdd
         <span className="hidden truncate text-[11px] text-cream-muted sm:block">{baseTypeOf(d.type ?? "?")}</span>
         <span className="hidden text-[11px] text-cream-muted sm:block">{d.size ?? "—"}</span>
         <span className="hidden font-heading text-[10.5px] text-gold-muted sm:block">CR {crLabel(m)}</span>
-        <div className="flex flex-none items-center gap-1">
-          <input
-            value={count}
-            onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))}
-            title="How many to add"
-            className="input-hall h-8 w-9 text-center text-[12px]"
-          />
+        <div className="flex flex-none items-center gap-1.5">
+          <QtyStepper value={count} onChange={setCount} />
           <button onClick={addIt} disabled={add.isPending} className="btn-base btn-gold clip-octagon h-8 px-2.5 text-[11px]">
             <IconPlus size={12} /> Add
           </button>
