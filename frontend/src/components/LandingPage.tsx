@@ -46,6 +46,10 @@ function LocalAuth() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
   const [fieldError, setFieldError] = useState<{ field: string; error: string } | null>(null);
+  // The password step can hand off to a TOTP challenge before the session starts.
+  const [twofa, setTwofa] = useState(false);
+  const [code, setCode] = useState("");
+  const [useRecovery, setUseRecovery] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -66,9 +70,33 @@ function LocalAuth() {
         window.location.href = "/";
         return;
       }
-      const data = (await res.json().catch(() => ({}))) as { field?: string; error?: string };
-      if (data.field) setFieldError({ field: data.field, error: data.error ?? "Invalid." });
+      const data = (await res.json().catch(() => ({}))) as { field?: string; error?: string; twofaRequired?: boolean };
+      if (data.twofaRequired) setTwofa(true); // password ok — now collect a code
+      else if (data.field) setFieldError({ field: data.field, error: data.error ?? "Invalid." });
       else setFormError(data.error ?? "Something went wrong — try again.");
+    } catch {
+      setFormError("Could not reach the tavern. Check your connection.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function verify2fa(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setFormError("");
+    try {
+      const res = await fetch("/api/auth/2fa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+      if (res.status === 204) {
+        window.location.href = "/";
+        return;
+      }
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setFormError(data.error ?? "That code didn't match.");
     } catch {
       setFormError("Could not reach the tavern. Check your connection.");
     } finally {
@@ -80,6 +108,56 @@ function LocalAuth() {
     fieldError?.field === f ? (
       <div className="mt-1 text-[11.5px] italic text-[#8b2520]">{fieldError.error}</div>
     ) : null;
+
+  if (twofa) {
+    return (
+      <form name="twofa" onSubmit={verify2fa} className="flex flex-col gap-3">
+        <div className="text-center">
+          <div className="label-stamp mb-1 text-[10px] tracking-[3px] text-ink-label">Two-factor auth</div>
+          <p className="font-body m-0 text-[13px] text-ink-body">
+            {useRecovery
+              ? "Enter one of your recovery codes."
+              : "Enter the 6-digit code from your authenticator app."}
+          </p>
+        </div>
+        <input
+          autoFocus
+          value={code}
+          onChange={(e) =>
+            setCode(useRecovery ? e.target.value : e.target.value.replace(/\D/g, "").slice(0, 6))
+          }
+          inputMode={useRecovery ? "text" : "numeric"}
+          autoComplete="one-time-code"
+          placeholder={useRecovery ? "xxxx-xxxx" : "123456"}
+          className="input-parchment w-full text-center font-mono text-[18px] tracking-[6px]"
+        />
+        {formError && <div className="text-[12.5px] italic text-[#8b2520]">{formError}</div>}
+        <button
+          type="submit"
+          disabled={busy || !code.trim()}
+          className="btn-base btn-gold clip-octagon h-[46px] w-full text-[13px] disabled:opacity-60"
+        >
+          {busy ? "…" : "Verify & enter"}
+        </button>
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => { setUseRecovery((v) => !v); setCode(""); setFormError(""); }}
+            className="label-stamp text-[10px] tracking-[1px] text-ink-label no-underline hover:text-[#8b2520]"
+          >
+            {useRecovery ? "Use an app code" : "Use a recovery code"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setTwofa(false); setCode(""); setFormError(""); setUseRecovery(false); }}
+            className="label-stamp text-[10px] tracking-[1px] text-ink-label no-underline hover:text-ink-body"
+          >
+            ← Back
+          </button>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <form

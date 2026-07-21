@@ -81,11 +81,25 @@ GOOGLE_CLIENT_SECRET=...
 ## 4. Deploy
 
 ```bash
-docker compose --profile full up -d --build      # or: make deploy
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d --build
 ```
 This builds the SPA into the Go binary, starts Postgres, runs DB migrations
 automatically on startup, and connects the tunnel. Then visit
 `https://<your-domain>`.
+
+The `docker-compose.prod.yml` override keeps the app off the LAN: Postgres
+publishes **no** host port (it's reachable only over the internal docker
+network), and the app binds to `127.0.0.1:8080` (on-box debugging only). Public
+traffic arrives solely through the tunnel, which reaches `app:8080` internally.
+
+### More than one app on this host
+
+Cloudflare tunnels are **outbound-only** — nothing listens on a host port — so
+two apps never fight over ports because of the tunnel. Give each app **its own
+tunnel** (its own token + its own public hostname); they never share one.
+Combined with a distinct `COMPOSE_PROJECT_NAME` per app (isolated network +
+`app`/`postgres` names) and the prod override above (no published host ports),
+two stacks coexist on one machine with zero conflict.
 
 ---
 

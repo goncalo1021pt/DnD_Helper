@@ -2120,7 +2120,7 @@ components:
 
     User:
       type: object
-      required: [id, name, provider, emailVerified, createdAt]
+      required: [id, name, provider, emailVerified, twofaEnabled, createdAt]
       properties:
         id:
           type: string
@@ -2139,6 +2139,9 @@ components:
         emailVerified:
           type: boolean
           description: Whether the account's email address is confirmed (OAuth accounts always are).
+        twofaEnabled:
+          type: boolean
+          description: Whether the account has TOTP two-factor authentication turned on (local accounts only).
         createdAt:
           type: string
           format: date-time

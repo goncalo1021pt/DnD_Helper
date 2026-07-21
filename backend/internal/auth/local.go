@@ -142,6 +142,16 @@ func (o *OAuth) localLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Password is right. If this account carries a second factor, don't
+	// authenticate yet — park a pending challenge in the session and let the
+	// client collect a code (see twofaVerify).
+	if user.TotpEnabled {
+		o.sm.Put(r.Context(), sessionPending2FA, user.ID.String())
+		o.sm.Put(r.Context(), sessionPending2FAAt, int(time.Now().Unix()))
+		writeJSON(w, http.StatusOK, map[string]bool{"twofaRequired": true})
+		return
+	}
+
 	if err := Login(r.Context(), o.sm, user.ID); err != nil {
 		http.Error(w, "failed to start session", http.StatusInternalServerError)
 		return

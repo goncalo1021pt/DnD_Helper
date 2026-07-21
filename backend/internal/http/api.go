@@ -239,6 +239,7 @@ func toAPIUser(u db.User) api.User {
 		Image:         u.Image,
 		Provider:      u.Provider,
 		EmailVerified: u.EmailVerified,
+		TwofaEnabled:  u.TotpEnabled,
 		CreatedAt:     u.CreatedAt.Time,
 	}
 }

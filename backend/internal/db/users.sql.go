@@ -12,6 +12,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addRecoveryCode = `-- name: AddRecoveryCode :exec
+INSERT INTO twofa_recovery_codes (user_id, code_hash) VALUES ($1, $2)
+`
+
+type AddRecoveryCodeParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CodeHash string    `json:"code_hash"`
+}
+
+func (q *Queries) AddRecoveryCode(ctx context.Context, arg AddRecoveryCodeParams) error {
+	_, err := q.db.Exec(ctx, addRecoveryCode, arg.UserID, arg.CodeHash)
+	return err
+}
+
 const createEmailToken = `-- name: CreateEmailToken :one
 INSERT INTO email_tokens (user_id, purpose, token_hash, expires_at)
 VALUES ($1, $2, $3, $4)
@@ -48,7 +62,7 @@ func (q *Queries) CreateEmailToken(ctx context.Context, arg CreateEmailTokenPara
 const createLocalUser = `-- name: CreateLocalUser :one
 INSERT INTO users (name, username, email, password_hash, provider, provider_id)
 VALUES ($1, $2, $3, $4, 'local', lower($2))
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled
 `
 
 type CreateLocalUserParams struct {
@@ -80,8 +94,37 @@ func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams
 		&i.Username,
 		&i.PasswordHash,
 		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
 	)
 	return i, err
+}
+
+const deleteRecoveryCodes = `-- name: DeleteRecoveryCodes :exec
+DELETE FROM twofa_recovery_codes WHERE user_id = $1
+`
+
+func (q *Queries) DeleteRecoveryCodes(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteRecoveryCodes, userID)
+	return err
+}
+
+const disableTOTP = `-- name: DisableTOTP :exec
+UPDATE users SET totp_secret = NULL, totp_enabled = false WHERE id = $1
+`
+
+func (q *Queries) DisableTOTP(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, disableTOTP, id)
+	return err
+}
+
+const enableTOTP = `-- name: EnableTOTP :exec
+UPDATE users SET totp_enabled = true WHERE id = $1
+`
+
+func (q *Queries) EnableTOTP(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, enableTOTP, id)
+	return err
 }
 
 const getEmailToken = `-- name: GetEmailToken :one
@@ -106,7 +149,7 @@ func (q *Queries) GetEmailToken(ctx context.Context, tokenHash string) (EmailTok
 }
 
 const getLocalUserByEmail = `-- name: GetLocalUserByEmail :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM users
 WHERE provider = 'local' AND lower(email) = lower($1)
 `
 
@@ -125,12 +168,14 @@ func (q *Queries) GetLocalUserByEmail(ctx context.Context, lower string) (User, 
 		&i.Username,
 		&i.PasswordHash,
 		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
 	)
 	return i, err
 }
 
 const getLocalUserByLogin = `-- name: GetLocalUserByLogin :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM users
 WHERE provider = 'local'
   AND password_hash IS NOT NULL
   AND (lower(username) = lower($1) OR lower(email) = lower($1))
@@ -152,12 +197,38 @@ func (q *Queries) GetLocalUserByLogin(ctx context.Context, lower string) (User, 
 		&i.Username,
 		&i.PasswordHash,
 		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
+	)
+	return i, err
+}
+
+const getRecoveryCode = `-- name: GetRecoveryCode :one
+SELECT id, user_id, code_hash, used_at, created_at FROM twofa_recovery_codes
+WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL
+`
+
+type GetRecoveryCodeParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CodeHash string    `json:"code_hash"`
+}
+
+// A still-usable recovery code for a user, by its hash.
+func (q *Queries) GetRecoveryCode(ctx context.Context, arg GetRecoveryCodeParams) (TwofaRecoveryCode, error) {
+	row := q.db.QueryRow(ctx, getRecoveryCode, arg.UserID, arg.CodeHash)
+	var i TwofaRecoveryCode
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.CodeHash,
+		&i.UsedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified FROM users WHERE id = $1
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -174,12 +245,14 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.Username,
 		&i.PasswordHash,
 		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
 	)
 	return i, err
 }
 
 const getUserByProvider = `-- name: GetUserByProvider :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified FROM users WHERE provider = $1 AND provider_id = $2
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM users WHERE provider = $1 AND provider_id = $2
 `
 
 type GetUserByProviderParams struct {
@@ -201,6 +274,8 @@ func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderPa
 		&i.Username,
 		&i.PasswordHash,
 		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
 	)
 	return i, err
 }
@@ -244,6 +319,21 @@ func (q *Queries) SetPassword(ctx context.Context, arg SetPasswordParams) error 
 	return err
 }
 
+const setTOTPSecret = `-- name: SetTOTPSecret :exec
+UPDATE users SET totp_secret = $2, totp_enabled = false WHERE id = $1
+`
+
+type SetTOTPSecretParams struct {
+	ID         uuid.UUID `json:"id"`
+	TotpSecret *string   `json:"totp_secret"`
+}
+
+// Store a freshly-generated (not-yet-confirmed) encrypted secret during setup.
+func (q *Queries) SetTOTPSecret(ctx context.Context, arg SetTOTPSecretParams) error {
+	_, err := q.db.Exec(ctx, setTOTPSecret, arg.ID, arg.TotpSecret)
+	return err
+}
+
 const upsertUser = `-- name: UpsertUser :one
 INSERT INTO users (name, email, image, provider, provider_id, email_verified)
 VALUES ($1, $2, $3, $4, $5, true)
@@ -252,7 +342,7 @@ ON CONFLICT (provider, provider_id) DO UPDATE
         email          = EXCLUDED.email,
         image          = EXCLUDED.image,
         email_verified = true
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled
 `
 
 type UpsertUserParams struct {
@@ -285,6 +375,8 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		&i.Username,
 		&i.PasswordHash,
 		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
 	)
 	return i, err
 }
@@ -295,5 +387,14 @@ UPDATE email_tokens SET used_at = now() WHERE id = $1
 
 func (q *Queries) UseEmailToken(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, useEmailToken, id)
+	return err
+}
+
+const useRecoveryCode = `-- name: UseRecoveryCode :exec
+UPDATE twofa_recovery_codes SET used_at = now() WHERE id = $1
+`
+
+func (q *Queries) UseRecoveryCode(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, useRecoveryCode, id)
 	return err
 }

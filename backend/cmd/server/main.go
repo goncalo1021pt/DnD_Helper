@@ -56,7 +56,7 @@ func run() error {
 		log.Println("auth: DEV LOGIN ENABLED — no password required; never expose this build publicly")
 	}
 	mailer := mail.New(cfg.ResendAPIKey, cfg.MailFrom)
-	oauth := auth.NewOAuth(sessions, db.New(pool), devEnabled, cfg.LocalAuth, mailer, cfg.BaseURL)
+	oauth := auth.NewOAuth(sessions, db.New(pool), devEnabled, cfg.LocalAuth, mailer, cfg.BaseURL, cfg.SessionKey)
 
 	router := apphttp.NewRouter(apphttp.Deps{
 		Pool:           pool,

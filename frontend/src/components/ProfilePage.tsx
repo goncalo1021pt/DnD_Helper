@@ -12,9 +12,10 @@ import { initials, medallionFor } from "../lib/party";
 import { exportHomebrewPack, parsePackFile } from "../lib/pack";
 import MyHeroesPage from "./MyHeroesPage";
 import ResetHomebrewModal from "./ResetHomebrewModal";
+import TwoFactorSettings from "./TwoFactorSettings";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconBook, IconGear, IconLogOut, IconTrash } from "./ui/icons";
+import { IconBook, IconGear, IconLogOut, IconShield, IconTrash } from "./ui/icons";
 
 const PROVIDER_LABEL: Record<string, string> = {
   discord: "Discord",
@@ -316,18 +317,19 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* ── settings stub ── */}
+      {/* ── settings ── */}
       <div className="panel-hall px-5 py-6 sm:px-[30px]">
-        <div className="flex items-center gap-3">
+        <div className="mb-4 flex items-center gap-3">
           <span className="text-[#7a5e34]">
             <IconGear size={22} strokeWidth={1.6} />
           </span>
-          <div>
-            <span className="font-display text-lg font-bold text-[#cdb582]">Settings</span>
-            <span className="font-accent ml-3 text-[13px] italic text-[#9c855e]">
-              — coming in a future update. —
-            </span>
+          <span className="font-display text-lg font-bold text-[#cdb582]">Settings</span>
+        </div>
+        <div className="pl-1">
+          <div className="label-stamp mb-2 flex items-center gap-2 text-[11px] tracking-[2px] text-[#9c855e]">
+            <IconShield size={14} /> Two-factor authentication
           </div>
+          {user && <TwoFactorSettings user={user} />}
         </div>
       </div>
 
