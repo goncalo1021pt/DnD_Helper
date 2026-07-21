@@ -682,6 +682,14 @@ type SkillTree struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type TwofaRecoveryCode struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	CodeHash  string             `json:"code_hash"`
+	UsedAt    pgtype.Timestamptz `json:"used_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type User struct {
 	ID            uuid.UUID          `json:"id"`
 	Name          string             `json:"name"`
@@ -693,4 +701,6 @@ type User struct {
 	Username      *string            `json:"username"`
 	PasswordHash  *string            `json:"password_hash"`
 	EmailVerified bool               `json:"email_verified"`
+	TotpSecret    *string            `json:"totp_secret"`
+	TotpEnabled   bool               `json:"totp_enabled"`
 }

@@ -36,6 +36,7 @@ type OAuth struct {
 	loginLimiter *rateLimiter
 	mailer       mail.Mailer
 	baseURL      string
+	totpKey      [32]byte // derived from SESSION_KEY; encrypts TOTP secrets at rest
 }
 
 // RegisterProviders configures the enabled OAuth providers. Callback URLs are
@@ -60,7 +61,7 @@ func RegisterProviders(cfg *config.Config) {
 	goth.UseProviders(providers...)
 }
 
-func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled, localEnabled bool, mailer mail.Mailer, baseURL string) *OAuth {
+func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled, localEnabled bool, mailer mail.Mailer, baseURL, sessionKey string) *OAuth {
 	return &OAuth{
 		sm:           sm,
 		queries:      queries,
@@ -71,6 +72,7 @@ func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled, localEnab
 		loginLimiter: newRateLimiter(25, 15*time.Minute),
 		mailer:       mailer,
 		baseURL:      baseURL,
+		totpKey:      deriveTOTPKey(sessionKey),
 	}
 }
 
@@ -90,6 +92,11 @@ func (o *OAuth) Routes(r chi.Router) {
 		r.Post("/resend-verification", o.resendVerification)
 		r.Post("/forgot-password", o.forgotPassword)
 		r.Post("/reset-password", o.resetPassword)
+		// TOTP two-factor: enroll while signed in, then a code challenge at login.
+		r.Post("/2fa/setup", o.twofaSetup)
+		r.Post("/2fa/enable", o.twofaEnable)
+		r.Post("/2fa/disable", o.twofaDisable)
+		r.Post("/2fa/verify", o.twofaVerify)
 	}
 	if o.devEnabled {
 		// Dev-only login shortcut (no real OAuth provider required).

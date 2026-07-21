@@ -60,3 +60,27 @@ UPDATE email_tokens SET used_at = now() WHERE id = $1;
 -- Spend any outstanding tokens of one purpose for a user (e.g. after a reset).
 UPDATE email_tokens SET used_at = now()
 WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL;
+
+-- name: SetTOTPSecret :exec
+-- Store a freshly-generated (not-yet-confirmed) encrypted secret during setup.
+UPDATE users SET totp_secret = $2, totp_enabled = false WHERE id = $1;
+
+-- name: EnableTOTP :exec
+UPDATE users SET totp_enabled = true WHERE id = $1;
+
+-- name: DisableTOTP :exec
+UPDATE users SET totp_secret = NULL, totp_enabled = false WHERE id = $1;
+
+-- name: AddRecoveryCode :exec
+INSERT INTO twofa_recovery_codes (user_id, code_hash) VALUES ($1, $2);
+
+-- name: GetRecoveryCode :one
+-- A still-usable recovery code for a user, by its hash.
+SELECT * FROM twofa_recovery_codes
+WHERE user_id = $1 AND code_hash = $2 AND used_at IS NULL;
+
+-- name: UseRecoveryCode :exec
+UPDATE twofa_recovery_codes SET used_at = now() WHERE id = $1;
+
+-- name: DeleteRecoveryCodes :exec
+DELETE FROM twofa_recovery_codes WHERE user_id = $1;

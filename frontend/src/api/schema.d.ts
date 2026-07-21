@@ -1124,6 +1124,8 @@ export interface components {
             provider: string;
             /** @description Whether the account's email address is confirmed (OAuth accounts always are). */
             emailVerified: boolean;
+            /** @description Whether the account has TOTP two-factor authentication turned on (local accounts only). */
+            twofaEnabled: boolean;
             /** Format: date-time */
             createdAt: string;
         };

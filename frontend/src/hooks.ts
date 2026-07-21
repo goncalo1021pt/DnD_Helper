@@ -1386,3 +1386,43 @@ export function useLogout() {
     onSuccess: () => qc.invalidateQueries(),
   });
 }
+
+// ── Two-factor auth (TOTP) ──────────────────────────────────────────────────
+// These auth routes live outside the OpenAPI surface, so call them directly.
+// A failed call throws with { status, data } so callers can read field errors.
+type TwofaError = Error & { status: number; data: { field?: string; error?: string } };
+
+async function authPost<T>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw Object.assign(new Error("request failed"), { status: res.status, data }) as TwofaError;
+  }
+  return data as T;
+}
+
+export type TwofaSetup = { otpauthUrl: string; secret: string; qrPng: string };
+
+export function useTwofaSetup() {
+  return useMutation({ mutationFn: () => authPost<TwofaSetup>("/api/auth/2fa/setup") });
+}
+
+export function useTwofaEnable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) => authPost<{ recoveryCodes: string[] }>("/api/auth/2fa/enable", { code }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
+  });
+}
+
+export function useTwofaDisable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (password: string) => authPost<Record<string, never>>("/api/auth/2fa/disable", { password }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
+  });
+}
