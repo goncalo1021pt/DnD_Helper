@@ -76,6 +76,12 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
             The Archives
           </Link>
           <Link
+            to="/questboard/rules"
+            className="label-stamp text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
+          >
+            The Rules
+          </Link>
+          <Link
             to="/questboard/profile"
             title="Your profile"
             className="no-underline transition hover:brightness-125"
