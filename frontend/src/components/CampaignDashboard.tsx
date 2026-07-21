@@ -167,7 +167,7 @@ function PartyRow({
 export default function CampaignDashboard() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const { data: codex } = useCodex(campaign.id);
-  const { data: events } = useEvents(campaign.id, 5);
+  const { data: events } = useEvents(campaign.id, "all", 5);
   const milestone = useDeclareMilestone(campaign.id);
   const setProgression = useSetProgression(campaign.id);
   const grantXP = useGrantXP(campaign.id);

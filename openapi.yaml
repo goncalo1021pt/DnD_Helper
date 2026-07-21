@@ -667,6 +667,14 @@ paths:
             minimum: 1
             maximum: 200
             default: 50
+        - name: category
+          in: query
+          description: >
+            Filter to one channel (all | dm | rules | player | log); omit or
+            "all" for everything. Plain string, validated server-side.
+          schema:
+            type: string
+            default: all
       responses:
         "200":
           description: Events
@@ -682,7 +690,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: addChronicleNote
-      summary: Write a story entry into the chronicle (DM only)
+      summary: Write an entry into the chronicle (any member; players post to player chat)
       requestBody:
         required: true
         content:
@@ -695,6 +703,12 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 500
+                category:
+                  type: string
+                  description: >
+                    The DM's channel choice — "dm" (story note) or "rules" (a
+                    ruling); defaults to dm. Ignored for players, who always
+                    post to player chat. Plain string, validated server-side.
       responses:
         "201":
           description: The entry
@@ -2781,7 +2795,7 @@ components:
 
     ChronicleEvent:
       type: object
-      required: [id, kind, message, createdAt]
+      required: [id, kind, category, message, createdAt]
       properties:
         id:
           type: string
@@ -2789,6 +2803,13 @@ components:
         kind:
           type: string
           description: quest_posted, hero_seated, level_up, codex_enabled, xp, milestone, note…
+        category:
+          type: string
+          description: >
+            The channel a line belongs to (plain string, not an enum, to avoid
+            a codegen name clash): dm (the DM's story notes), rules (rulings +
+            codex changes), player (player posts), log (system happenings).
+            Derived from kind.
         message:
           type: string
         actorName:

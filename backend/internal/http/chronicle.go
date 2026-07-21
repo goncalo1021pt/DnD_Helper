@@ -36,10 +36,34 @@ func toAPIEvent(row db.ListEventsRow) api.ChronicleEvent {
 	return api.ChronicleEvent{
 		Id:        row.ID,
 		Kind:      row.Kind,
+		Category:  row.Category,
 		Message:   row.Message,
 		ActorName: row.ActorName,
 		CreatedAt: row.CreatedAt.Time,
 	}
+}
+
+// eventCategory derives a line's channel from its kind, mirroring the CASE in
+// the ListEvents query (used for freshly written entries in the response).
+func eventCategory(kind string) string {
+	switch {
+	case kind == "note":
+		return "dm"
+	case kind == "ruling", strings.HasPrefix(kind, "codex"):
+		return "rules"
+	case kind == "player_note":
+		return "player"
+	default:
+		return "log"
+	}
+}
+
+func validFilterCategory(c string) bool {
+	switch c {
+	case "all", "dm", "rules", "player", "log":
+		return true
+	}
+	return false
 }
 
 // ListEvents returns the chronicle, newest first (members).
@@ -59,8 +83,13 @@ func (s *Server) ListEvents(ctx context.Context, request api.ListEventsRequestOb
 	if request.Params.Limit != nil {
 		limit = int32(*request.Params.Limit)
 	}
+	category := "all"
+	if request.Params.Category != nil && validFilterCategory(*request.Params.Category) {
+		category = *request.Params.Category
+	}
 	rows, err := s.queries.ListEvents(ctx, db.ListEventsParams{
 		CampaignID: campaignID,
+		Column2:    category,
 		Limit:      limit,
 	})
 	if err != nil {
@@ -73,10 +102,12 @@ func (s *Server) ListEvents(ctx context.Context, request api.ListEventsRequestOb
 	return api.ListEvents200JSONResponse(out), nil
 }
 
-// AddChronicleNote lets the DM write a story entry.
+// AddChronicleNote writes an entry into the chronicle. Any member may post:
+// players write to player chat; the DM picks their channel — a story note (dm)
+// or a ruling (rules).
 func (s *Server) AddChronicleNote(ctx context.Context, request api.AddChronicleNoteRequestObject) (api.AddChronicleNoteResponseObject, error) {
 	campaignID := uuid.UUID(request.CampaignId)
-	member, err := s.requireDM(ctx, campaignID)
+	member, err := s.requireMember(ctx, campaignID)
 	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
@@ -90,10 +121,20 @@ func (s *Server) AddChronicleNote(ctx context.Context, request api.AddChronicleN
 	if request.Body == nil || strings.TrimSpace(request.Body.Message) == "" {
 		return api.AddChronicleNote400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "the chronicle rejects empty entries"}}, nil
 	}
+
+	// Players always post to player chat; the DM chooses story (note) or ruling.
+	kind := "player_note"
+	if member.Role == db.MembershipRoleDm {
+		kind = "note"
+		if request.Body.Category != nil && *request.Body.Category == "rules" {
+			kind = "ruling"
+		}
+	}
+
 	row, err := s.queries.AddEvent(ctx, db.AddEventParams{
 		CampaignID:  campaignID,
 		ActorUserID: pgUUID(member.UserID),
-		Kind:        "note",
+		Kind:        kind,
 		Message:     strings.TrimSpace(request.Body.Message),
 	})
 	if err != nil {
@@ -103,6 +144,7 @@ func (s *Server) AddChronicleNote(ctx context.Context, request api.AddChronicleN
 	return api.AddChronicleNote201JSONResponse(api.ChronicleEvent{
 		Id:        row.ID,
 		Kind:      row.Kind,
+		Category:  eventCategory(row.Kind),
 		Message:   row.Message,
 		ActorName: &name,
 		CreatedAt: row.CreatedAt.Time,

@@ -45,16 +45,29 @@ func (q *Queries) AddEvent(ctx context.Context, arg AddEventParams) (CampaignEve
 }
 
 const listEvents = `-- name: ListEvents :many
-SELECT e.id, e.campaign_id, e.actor_user_id, e.kind, e.message, e.created_at, u.name AS actor_name
-FROM campaign_events e
-LEFT JOIN users u ON u.id = e.actor_user_id
-WHERE e.campaign_id = $1
-ORDER BY e.created_at DESC
-LIMIT $2
+WITH ev AS (
+    SELECT e.id, e.campaign_id, e.actor_user_id, e.kind, e.message, e.created_at,
+           u.name AS actor_name,
+           (CASE
+                WHEN e.kind = 'note'        THEN 'dm'
+                WHEN e.kind = 'ruling'      THEN 'rules'
+                WHEN e.kind LIKE 'codex%'   THEN 'rules'
+                WHEN e.kind = 'player_note' THEN 'player'
+                ELSE 'log'
+            END)::text AS category
+    FROM campaign_events e
+    LEFT JOIN users u ON u.id = e.actor_user_id
+    WHERE e.campaign_id = $1
+)
+SELECT id, campaign_id, actor_user_id, kind, message, created_at, actor_name, category FROM ev
+WHERE $2::text = 'all' OR category = $2::text
+ORDER BY created_at DESC
+LIMIT $3
 `
 
 type ListEventsParams struct {
 	CampaignID uuid.UUID `json:"campaign_id"`
+	Column2    string    `json:"column_2"`
 	Limit      int32     `json:"limit"`
 }
 
@@ -66,11 +79,14 @@ type ListEventsRow struct {
 	Message     string             `json:"message"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	ActorName   *string            `json:"actor_name"`
+	Category    string             `json:"category"`
 }
 
-// The chronicle, newest first, with the actor's name.
+// The chronicle, newest first, with the actor's name and a derived channel
+// category. Pass 'all' to see everything, or a category to filter to one
+// channel (filtering on the computed column so it survives the LIMIT).
 func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListEventsRow, error) {
-	rows, err := q.db.Query(ctx, listEvents, arg.CampaignID, arg.Limit)
+	rows, err := q.db.Query(ctx, listEvents, arg.CampaignID, arg.Column2, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +102,7 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListE
 			&i.Message,
 			&i.CreatedAt,
 			&i.ActorName,
+			&i.Category,
 		); err != nil {
 			return nil, err
 		}
