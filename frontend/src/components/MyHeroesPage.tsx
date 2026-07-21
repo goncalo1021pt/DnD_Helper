@@ -14,6 +14,7 @@ import { hpColor, initials, medallionFor } from "../lib/party";
 import CharacterForm, { emptyHero } from "./CharacterForm";
 import LevelUpModal from "./LevelUpModal";
 import AbilityRow from "./ui/AbilityRow";
+import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
 import { IconPencil, IconPlus, IconTrash, IconUsers } from "./ui/icons";
 
@@ -399,6 +400,9 @@ export default function MyHeroesPage() {
           />
         </ParchmentModal>
       )}
+
+      {/* Dice at hand for rolling HP when leveling up from here. */}
+      <FloatingDiceTray />
     </div>
   );
 }
