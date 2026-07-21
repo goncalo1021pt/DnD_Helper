@@ -9,12 +9,46 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createEmailToken = `-- name: CreateEmailToken :one
+INSERT INTO email_tokens (user_id, purpose, token_hash, expires_at)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, purpose, token_hash, expires_at, used_at, created_at
+`
+
+type CreateEmailTokenParams struct {
+	UserID    uuid.UUID          `json:"user_id"`
+	Purpose   string             `json:"purpose"`
+	TokenHash string             `json:"token_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreateEmailToken(ctx context.Context, arg CreateEmailTokenParams) (EmailToken, error) {
+	row := q.db.QueryRow(ctx, createEmailToken,
+		arg.UserID,
+		arg.Purpose,
+		arg.TokenHash,
+		arg.ExpiresAt,
+	)
+	var i EmailToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Purpose,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
 
 const createLocalUser = `-- name: CreateLocalUser :one
 INSERT INTO users (name, username, email, password_hash, provider, provider_id)
 VALUES ($1, $2, $3, $4, 'local', lower($2))
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified
 `
 
 type CreateLocalUserParams struct {
@@ -45,12 +79,58 @@ func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams
 		&i.CreatedAt,
 		&i.Username,
 		&i.PasswordHash,
+		&i.EmailVerified,
+	)
+	return i, err
+}
+
+const getEmailToken = `-- name: GetEmailToken :one
+SELECT id, user_id, purpose, token_hash, expires_at, used_at, created_at FROM email_tokens
+WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+`
+
+// A live token by its hash: not expired, not yet spent.
+func (q *Queries) GetEmailToken(ctx context.Context, tokenHash string) (EmailToken, error) {
+	row := q.db.QueryRow(ctx, getEmailToken, tokenHash)
+	var i EmailToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Purpose,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getLocalUserByEmail = `-- name: GetLocalUserByEmail :one
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified FROM users
+WHERE provider = 'local' AND lower(email) = lower($1)
+`
+
+// For password recovery: a local account by verified-or-not email.
+func (q *Queries) GetLocalUserByEmail(ctx context.Context, lower string) (User, error) {
+	row := q.db.QueryRow(ctx, getLocalUserByEmail, lower)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const getLocalUserByLogin = `-- name: GetLocalUserByLogin :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified FROM users
 WHERE provider = 'local'
   AND password_hash IS NOT NULL
   AND (lower(username) = lower($1) OR lower(email) = lower($1))
@@ -71,12 +151,13 @@ func (q *Queries) GetLocalUserByLogin(ctx context.Context, lower string) (User, 
 		&i.CreatedAt,
 		&i.Username,
 		&i.PasswordHash,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash FROM users WHERE id = $1
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -92,12 +173,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.CreatedAt,
 		&i.Username,
 		&i.PasswordHash,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
 const getUserByProvider = `-- name: GetUserByProvider :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash FROM users WHERE provider = $1 AND provider_id = $2
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified FROM users WHERE provider = $1 AND provider_id = $2
 `
 
 type GetUserByProviderParams struct {
@@ -118,18 +200,59 @@ func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderPa
 		&i.CreatedAt,
 		&i.Username,
 		&i.PasswordHash,
+		&i.EmailVerified,
 	)
 	return i, err
 }
 
+const invalidateUserTokens = `-- name: InvalidateUserTokens :exec
+UPDATE email_tokens SET used_at = now()
+WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL
+`
+
+type InvalidateUserTokensParams struct {
+	UserID  uuid.UUID `json:"user_id"`
+	Purpose string    `json:"purpose"`
+}
+
+// Spend any outstanding tokens of one purpose for a user (e.g. after a reset).
+func (q *Queries) InvalidateUserTokens(ctx context.Context, arg InvalidateUserTokensParams) error {
+	_, err := q.db.Exec(ctx, invalidateUserTokens, arg.UserID, arg.Purpose)
+	return err
+}
+
+const setEmailVerified = `-- name: SetEmailVerified :exec
+UPDATE users SET email_verified = true WHERE id = $1
+`
+
+func (q *Queries) SetEmailVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setEmailVerified, id)
+	return err
+}
+
+const setPassword = `-- name: SetPassword :exec
+UPDATE users SET password_hash = $2 WHERE id = $1
+`
+
+type SetPasswordParams struct {
+	ID           uuid.UUID `json:"id"`
+	PasswordHash *string   `json:"password_hash"`
+}
+
+func (q *Queries) SetPassword(ctx context.Context, arg SetPasswordParams) error {
+	_, err := q.db.Exec(ctx, setPassword, arg.ID, arg.PasswordHash)
+	return err
+}
+
 const upsertUser = `-- name: UpsertUser :one
-INSERT INTO users (name, email, image, provider, provider_id)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO users (name, email, image, provider, provider_id, email_verified)
+VALUES ($1, $2, $3, $4, $5, true)
 ON CONFLICT (provider, provider_id) DO UPDATE
-    SET name  = EXCLUDED.name,
-        email = EXCLUDED.email,
-        image = EXCLUDED.image
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash
+    SET name           = EXCLUDED.name,
+        email          = EXCLUDED.email,
+        image          = EXCLUDED.image,
+        email_verified = true
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified
 `
 
 type UpsertUserParams struct {
@@ -141,6 +264,7 @@ type UpsertUserParams struct {
 }
 
 // Create or update a user on OAuth login, keyed by (provider, provider_id).
+// The provider vouches for the address, so OAuth users are always verified.
 func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, upsertUser,
 		arg.Name,
@@ -160,6 +284,16 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		&i.CreatedAt,
 		&i.Username,
 		&i.PasswordHash,
+		&i.EmailVerified,
 	)
 	return i, err
+}
+
+const useEmailToken = `-- name: UseEmailToken :exec
+UPDATE email_tokens SET used_at = now() WHERE id = $1
+`
+
+func (q *Queries) UseEmailToken(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, useEmailToken, id)
+	return err
 }

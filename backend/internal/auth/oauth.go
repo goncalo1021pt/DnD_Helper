@@ -16,6 +16,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/config"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 )
 
 const (
@@ -33,6 +34,8 @@ type OAuth struct {
 	devEnabled   bool
 	localEnabled bool
 	loginLimiter *rateLimiter
+	mailer       mail.Mailer
+	baseURL      string
 }
 
 // RegisterProviders configures the enabled OAuth providers. Callback URLs are
@@ -57,7 +60,7 @@ func RegisterProviders(cfg *config.Config) {
 	goth.UseProviders(providers...)
 }
 
-func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled, localEnabled bool) *OAuth {
+func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled, localEnabled bool, mailer mail.Mailer, baseURL string) *OAuth {
 	return &OAuth{
 		sm:           sm,
 		queries:      queries,
@@ -66,6 +69,8 @@ func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled, localEnab
 		// Up to 25 FAILED auth attempts per IP per 15 minutes; successes don't
 		// count, so a shared-IP table of players is never locked out.
 		loginLimiter: newRateLimiter(25, 15*time.Minute),
+		mailer:       mailer,
+		baseURL:      baseURL,
 	}
 }
 
@@ -80,6 +85,11 @@ func (o *OAuth) Routes(r chi.Router) {
 		// Local username/password accounts.
 		r.Post("/register", o.register)
 		r.Post("/login", o.localLogin)
+		// Email verification + password recovery.
+		r.Post("/verify-email", o.verifyEmail)
+		r.Post("/resend-verification", o.resendVerification)
+		r.Post("/forgot-password", o.forgotPassword)
+		r.Post("/reset-password", o.resetPassword)
 	}
 	if o.devEnabled {
 		// Dev-only login shortcut (no real OAuth provider required).

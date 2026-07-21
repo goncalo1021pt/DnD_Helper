@@ -18,6 +18,9 @@ type Config struct {
 
 	LocalAuth bool // whether username/password accounts are offered
 
+	ResendAPIKey string // Resend API key; empty ⇒ emails are logged, not sent
+	MailFrom     string // "From" header for transactional email
+
 	Discord OAuthProvider
 	Google  OAuthProvider
 }
@@ -47,12 +50,14 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		Addr:        getenv("APP_ADDR", ":8080"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		SessionKey:  os.Getenv("SESSION_KEY"),
-		BaseURL:     getenv("BASE_URL", "http://localhost:8080"),
-		Env:         getenv("APP_ENV", "development"),
-		LocalAuth:   getenv("LOCAL_AUTH_ENABLED", "true") != "false",
+		Addr:         getenv("APP_ADDR", ":8080"),
+		DatabaseURL:  os.Getenv("DATABASE_URL"),
+		SessionKey:   os.Getenv("SESSION_KEY"),
+		BaseURL:      getenv("BASE_URL", "http://localhost:8080"),
+		Env:          getenv("APP_ENV", "development"),
+		LocalAuth:    getenv("LOCAL_AUTH_ENABLED", "true") != "false",
+		ResendAPIKey: os.Getenv("RESEND_API_KEY"),
+		MailFrom:     getenv("MAIL_FROM", "Quest Board <no-reply@fontao.net>"),
 		Discord: OAuthProvider{
 			ClientID:     os.Getenv("DISCORD_CLIENT_ID"),
 			ClientSecret: os.Getenv("DISCORD_CLIENT_SECRET"),

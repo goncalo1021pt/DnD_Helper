@@ -36,6 +36,9 @@ services:
       BASE_URL: ${BASE_URL:-http://localhost:8080}
       SESSION_KEY: ${SESSION_KEY:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-questboard}:${POSTGRES_PASSWORD:-questboard}@postgres:5432/${POSTGRES_DB:-questboard}?sslmode=disable
+      LOCAL_AUTH_ENABLED: ${LOCAL_AUTH_ENABLED:-true}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
       DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}

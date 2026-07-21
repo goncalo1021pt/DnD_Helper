@@ -508,6 +508,16 @@ type CharacterTree struct {
 	PicksGranted int32     `json:"picks_granted"`
 }
 
+type EmailToken struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Purpose   string             `json:"purpose"`
+	TokenHash string             `json:"token_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	UsedAt    pgtype.Timestamptz `json:"used_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type KnowledgePool struct {
 	ID         uuid.UUID          `json:"id"`
 	CampaignID uuid.UUID          `json:"campaign_id"`
@@ -645,13 +655,14 @@ type SkillTree struct {
 }
 
 type User struct {
-	ID           uuid.UUID          `json:"id"`
-	Name         string             `json:"name"`
-	Email        *string            `json:"email"`
-	Image        *string            `json:"image"`
-	Provider     string             `json:"provider"`
-	ProviderID   string             `json:"provider_id"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	Username     *string            `json:"username"`
-	PasswordHash *string            `json:"password_hash"`
+	ID            uuid.UUID          `json:"id"`
+	Name          string             `json:"name"`
+	Email         *string            `json:"email"`
+	Image         *string            `json:"image"`
+	Provider      string             `json:"provider"`
+	ProviderID    string             `json:"provider_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Username      *string            `json:"username"`
+	PasswordHash  *string            `json:"password_hash"`
+	EmailVerified bool               `json:"email_verified"`
 }

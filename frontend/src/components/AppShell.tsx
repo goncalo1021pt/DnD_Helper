@@ -1,7 +1,45 @@
+import { useState } from "react";
 import { Link, Outlet } from "react-router-dom";
 import type { CurrentUser } from "../api/client";
 import { initials, medallionFor } from "../lib/party";
 import Crest from "./ui/Crest";
+
+/** A gentle, dismissible nudge for local accounts that haven't confirmed
+ * their email yet. Offers to resend the link; recovery needs a verified
+ * address, so we surface it — but never block. */
+function VerifyBanner() {
+  const [state, setState] = useState<"show" | "sent" | "hidden">("show");
+  if (state === "hidden") return null;
+  return (
+    <div
+      className="relative z-[6] mx-auto mt-1 flex max-w-[1240px] flex-wrap items-center justify-center gap-2 px-5 py-2.5 text-center sm:px-11"
+      style={{ background: "rgba(201,162,39,.12)", boxShadow: "inset 0 -1px 0 rgba(201,162,39,.25)" }}
+    >
+      <span className="font-body text-[13px] text-cream-soft">
+        {state === "sent"
+          ? "Sent — check your inbox for the confirmation link."
+          : "Confirm your email to enable password recovery."}
+      </span>
+      {state === "show" && (
+        <button
+          onClick={() => {
+            fetch("/api/auth/resend-verification", { method: "POST" }).finally(() => setState("sent"));
+          }}
+          className="label-stamp cursor-pointer border-none bg-transparent text-[11px] font-semibold tracking-[1px] text-ember-bright hover:text-cream"
+        >
+          Resend link
+        </button>
+      )}
+      <button
+        onClick={() => setState("hidden")}
+        title="Dismiss"
+        className="label-stamp cursor-pointer border-none bg-transparent text-[11px] tracking-[1px] text-gold-muted hover:text-cream"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+}
 
 export default function AppShell({ user }: { user: CurrentUser["user"] }) {
   return (
@@ -63,6 +101,8 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
           </Link>
         </div>
       </header>
+
+      {user.provider === "local" && !user.emailVerified && <VerifyBanner />}
 
       <main className="relative z-[5] mx-auto max-w-[1240px] px-3 pb-20 sm:px-11 pt-4">
         <Outlet />

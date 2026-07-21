@@ -1866,7 +1866,7 @@ components:
 
     User:
       type: object
-      required: [id, name, provider, createdAt]
+      required: [id, name, provider, emailVerified, createdAt]
       properties:
         id:
           type: string
@@ -1881,7 +1881,10 @@ components:
           nullable: true
         provider:
           type: string
-          description: Where the account came from — discord, google, or dev.
+          description: Where the account came from — discord, google, local, or dev.
+        emailVerified:
+          type: boolean
+          description: Whether the account's email address is confirmed (OAuth accounts always are).
         createdAt:
           type: string
           format: date-time
