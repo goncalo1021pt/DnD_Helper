@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { Combatant, EncounterDetail } from "../api/client";
 import {
@@ -24,6 +24,16 @@ const HP_STATE_TONE: Record<string, string> = {
   bloodied: "#c99a3f",
   down: "#8b2520",
 };
+
+// Button intents on the DARK encounter page. The design system's btn-ghost-*
+// classes are for parchment (dark ink text) — on dark they look disabled, so we
+// set explicit light-on-dark styles. The scheme, applied consistently:
+//   gold  = confirm/create (Prepare, Add, Trigger)
+//   wax   = the live-combat verbs (Roll, Next turn)
+//   NEUTRAL = secondary (Prev, back)   RED = destructive   GREEN = heal
+const NEUTRAL_BTN = { color: "#e6d2a0", background: "rgba(201,162,39,.08)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.32)" };
+const RED_BTN = { color: "#d68a72", background: "rgba(139,37,32,.14)", boxShadow: "inset 0 0 0 1px rgba(139,37,32,.5)" };
+const GREEN_BTN = { color: "#8fb15f", background: "rgba(77,107,57,.14)", boxShadow: "inset 0 0 0 1px rgba(77,107,57,.5)" };
 
 function HpStatePill({ state }: { state: string }) {
   return (
@@ -69,6 +79,17 @@ function CombatantRow({
   const roll = useRollCombatant(campaignId, encounterId);
   const del = useDeleteCombatant(campaignId, encounterId);
   const [dmg, setDmg] = useState("");
+  const [initDraft, setInitDraft] = useState(c.initiative?.toString() ?? "");
+  // Resync the typed initiative when it changes elsewhere (a roll, a re-roll).
+  useEffect(() => setInitDraft(c.initiative?.toString() ?? ""), [c.initiative]);
+
+  function commitInit() {
+    const v = initDraft.trim();
+    if (v === "") return;
+    const n = parseInt(v, 10);
+    if (Number.isNaN(n) || n === c.initiative) return;
+    update.mutate({ combatantId: c.id, body: { initiative: n } });
+  }
 
   function applyHp(sign: number) {
     const n = parseInt(dmg, 10);
@@ -86,82 +107,150 @@ function CombatantRow({
         boxShadow: active ? "inset 0 0 0 1px rgba(224,169,78,.5)" : "inset 0 0 0 1px rgba(201,162,39,.16)",
       }}
     >
-      {/* initiative */}
-      <button
-        onClick={() => roll.mutate(c.id)}
-        title="Roll this initiative"
-        className="font-heading flex h-9 w-9 flex-none items-center justify-center rounded-[3px] text-[15px] font-bold tabular-nums text-ember-bright"
-        style={{ background: "rgba(201,162,39,.12)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }}
-      >
-        {c.initiative ?? "—"}
-      </button>
+      {/* initiative — type it, or roll the die */}
+      <div className="flex flex-none items-center gap-1">
+        <input
+          value={initDraft}
+          onChange={(e) => setInitDraft(e.target.value.replace(/[^\d-]/g, ""))}
+          onBlur={commitInit}
+          onKeyDown={(e) => e.key === "Enter" && commitInit()}
+          placeholder="—"
+          title="Type an initiative"
+          className="input-hall h-9 w-11 text-center font-heading text-[15px] font-bold tabular-nums"
+        />
+        <button
+          onClick={() => roll.mutate(c.id)}
+          title="Roll d20 + modifier"
+          className="btn-base btn-wax h-9 w-8 text-[13px]"
+        >
+          🎲
+        </button>
+      </div>
 
-      {/* name + hidden + hp state */}
+      {/* name + hidden + facts */}
       <div className="min-w-[130px] flex-1">
         <div className="flex items-center gap-1.5">
           <span className="font-heading truncate text-[13.5px] font-semibold text-cream">{c.name}</span>
           {c.kind !== "pc" && (
             <button
               onClick={() => update.mutate({ combatantId: c.id, body: { hidden: !c.hidden } })}
-              title={c.hidden ? "Hidden from players — reveal" : "Visible to players — hide"}
-              className="flex-none text-gold-muted hover:text-ember-bright"
+              title={c.hidden ? "Hidden from players — click to reveal" : "Visible to players — click to hide"}
+              className="flex-none"
+              style={{ color: c.hidden ? "#9a86b8" : "#8fb15f" }}
             >
-              {c.hidden ? <IconEyeOff size={13} /> : <IconEye size={13} />}
+              {c.hidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}
             </button>
           )}
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5">
-          <span className="label-stamp text-[8.5px] tracking-[1px] text-ink-label text-gold-muted">
-            AC {c.ac} · +{c.initMod} init
-          </span>
+        <div className="label-stamp mt-0.5 text-[8.5px] tracking-[1px] text-gold-muted">
+          AC {c.ac} · {c.initMod >= 0 ? "+" : ""}{c.initMod} init
+          {c.kind !== "pc" && <span className="ml-1.5">{c.hidden ? "· hidden" : "· shown"}</span>}
         </div>
       </div>
 
-      {/* hp */}
+      {/* hp: current/max, type an amount, then damage or heal */}
       <div className="flex items-center gap-1.5">
-        <span className="font-heading text-[13px] font-bold tabular-nums" style={{ color: HP_STATE_TONE[c.hpState] }}>
+        <span className="font-heading w-14 text-right text-[13px] font-bold tabular-nums" style={{ color: HP_STATE_TONE[c.hpState] }}>
           {c.hpCurrent}/{c.hpMax}
         </span>
         <input
           value={dmg}
           onChange={(e) => setDmg(e.target.value.replace(/\D/g, ""))}
+          onKeyDown={(e) => e.key === "Enter" && applyHp(-1)}
           placeholder="0"
-          className="input-hall input-compact w-12 text-center text-[12px]"
+          title="Amount to damage or heal"
+          className="input-hall h-8 w-12 text-center text-[12px]"
         />
-        <button onClick={() => applyHp(-1)} title="Damage" className="btn-base btn-ghost-red h-7 w-7 text-[13px]">
+        <button onClick={() => applyHp(-1)} disabled={!dmg} title="Damage" className="btn-base h-8 w-8 text-[15px] font-bold disabled:opacity-40" style={RED_BTN}>
           −
         </button>
-        <button onClick={() => applyHp(1)} title="Heal" className="btn-base btn-ghost-ink h-7 w-7 text-[13px]">
+        <button onClick={() => applyHp(1)} disabled={!dmg} title="Heal" className="btn-base h-8 w-8 text-[15px] font-bold disabled:opacity-40" style={GREEN_BTN}>
           +
         </button>
       </div>
 
-      <button
-        onClick={() => del.mutate(c.id)}
-        title="Remove"
-        className="btn-base btn-ghost-red flex-none p-1.5"
-      >
+      <button onClick={() => del.mutate(c.id)} title="Remove from encounter" className="btn-base flex-none p-1.5" style={RED_BTN}>
         <IconTrash size={12} />
       </button>
     </div>
   );
 }
 
-function AddCombatant({ campaignId, encounterId }: { campaignId: string; encounterId: string }) {
+/* Type-to-search monster picker — the Den holds hundreds, a dropdown won't do. */
+function MonsterSearch({ campaignId, encounterId }: { campaignId: string; encounterId: string }) {
   const add = useAddCombatant(campaignId, encounterId);
   const { data: monsters } = useRules("monster");
+  const [q, setQ] = useState("");
+  const [count, setCount] = useState("1");
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  const matches = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return [];
+    return (monsters ?? []).filter((m) => m.name.toLowerCase().includes(term)).slice(0, 8);
+  }, [q, monsters]);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  function addMonster(id: string, name: string) {
+    const n = Math.min(Math.max(parseInt(count, 10) || 1, 1), 12);
+    for (let i = 0; i < n; i++) add.mutate({ kind: "monster", contentId: id, hidden: true });
+    setQ(name);
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <div ref={boxRef} className="relative min-w-[180px] flex-1">
+        <input
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search monsters by name…"
+          className="input-hall h-9 w-full text-[12px]"
+        />
+        {open && matches.length > 0 && (
+          <div
+            className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 max-h-[240px] overflow-y-auto rounded-[4px] py-1"
+            style={{ background: "#1c1108", boxShadow: "0 12px 30px rgba(0,0,0,.6), inset 0 0 0 1px rgba(201,162,39,.35)" }}
+          >
+            {matches.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => addMonster(m.id, m.name)}
+                className="flex w-full items-center justify-between px-3 py-1.5 text-left text-[12.5px] text-cream-soft transition hover:bg-[rgba(201,162,39,.14)]"
+              >
+                <span className="font-heading">{m.name}</span>
+                {m.source !== "srd" && <span className="label-stamp text-[8px] tracking-[1px] text-gold-muted">{(m.data as { book?: string })?.book ?? "homebrew"}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <input value={count} onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))} title="How many to add" className="input-hall h-9 w-12 text-center text-[12px]" />
+      <span className="label-stamp text-[9px] tracking-[1px] text-gold-muted">added hidden</span>
+    </>
+  );
+}
+
+function AddCombatant({ campaignId, encounterId }: { campaignId: string; encounterId: string }) {
+  const add = useAddCombatant(campaignId, encounterId);
   const { data: chars } = useCharacters(campaignId);
   const [kind, setKind] = useState<"monster" | "pc" | "custom">("monster");
-  const [pick, setPick] = useState("");
-  const [count, setCount] = useState("1");
+  const [pcPick, setPcPick] = useState("");
   const [custom, setCustom] = useState({ label: "", hpMax: "", ac: "", initMod: "" });
 
   function addIt() {
-    if (kind === "monster" && pick) {
-      const n = Math.min(Math.max(parseInt(count, 10) || 1, 1), 12);
-      for (let i = 0; i < n; i++) add.mutate({ kind: "monster", contentId: pick, hidden: true });
-    } else if (kind === "pc" && pick) {
-      add.mutate({ kind: "pc", characterId: pick });
+    if (kind === "pc" && pcPick) {
+      add.mutate({ kind: "pc", characterId: pcPick });
+      setPcPick("");
     } else if (kind === "custom" && custom.label.trim()) {
       add.mutate({
         kind: "custom",
@@ -172,48 +261,41 @@ function AddCombatant({ campaignId, encounterId }: { campaignId: string; encount
       });
       setCustom({ label: "", hpMax: "", ac: "", initMod: "" });
     }
-    setPick("");
   }
 
   return (
     <div className="chip-hall flex flex-wrap items-center gap-2 px-3 py-2.5">
-      <select value={kind} onChange={(e) => { setKind(e.target.value as typeof kind); setPick(""); }} className="input-hall input-compact w-28 text-[12px]">
+      <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="input-hall h-9 w-28 text-[12px]">
         <option value="monster">Monster</option>
         <option value="pc">Party</option>
         <option value="custom">Custom</option>
       </select>
 
-      {kind === "monster" && (
+      {kind === "monster" && <MonsterSearch campaignId={campaignId} encounterId={encounterId} />}
+      {kind === "pc" && (
         <>
-          <select value={pick} onChange={(e) => setPick(e.target.value)} className="input-hall input-compact min-w-[160px] flex-1 text-[12px]">
-            <option value="">Choose a monster…</option>
-            {(monsters ?? []).map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
+          <select value={pcPick} onChange={(e) => setPcPick(e.target.value)} className="input-hall h-9 min-w-[160px] flex-1 text-[12px]">
+            <option value="">Choose a hero…</option>
+            {(chars ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <input value={count} onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))} title="How many" className="input-hall input-compact w-12 text-center text-[12px]" />
+          <button onClick={addIt} disabled={!pcPick || add.isPending} className="btn-base btn-gold clip-octagon h-9 px-4 text-[12px]">
+            <IconPlus size={13} /> Add
+          </button>
         </>
-      )}
-      {kind === "pc" && (
-        <select value={pick} onChange={(e) => setPick(e.target.value)} className="input-hall input-compact min-w-[160px] flex-1 text-[12px]">
-          <option value="">Choose a hero…</option>
-          {(chars ?? []).map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
       )}
       {kind === "custom" && (
         <>
-          <input value={custom.label} onChange={(e) => setCustom({ ...custom, label: e.target.value })} placeholder="Name" className="input-hall input-compact min-w-[120px] flex-1 text-[12px]" />
-          <input value={custom.hpMax} onChange={(e) => setCustom({ ...custom, hpMax: e.target.value.replace(/\D/g, "") })} placeholder="HP" className="input-hall input-compact w-14 text-center text-[12px]" />
-          <input value={custom.ac} onChange={(e) => setCustom({ ...custom, ac: e.target.value.replace(/\D/g, "") })} placeholder="AC" className="input-hall input-compact w-14 text-center text-[12px]" />
-          <input value={custom.initMod} onChange={(e) => setCustom({ ...custom, initMod: e.target.value.replace(/[^\d-]/g, "") })} placeholder="+init" className="input-hall input-compact w-14 text-center text-[12px]" />
+          <input value={custom.label} onChange={(e) => setCustom({ ...custom, label: e.target.value })} placeholder="Name" className="input-hall h-9 min-w-[120px] flex-1 text-[12px]" />
+          <input value={custom.hpMax} onChange={(e) => setCustom({ ...custom, hpMax: e.target.value.replace(/\D/g, "") })} placeholder="HP" className="input-hall h-9 w-14 text-center text-[12px]" />
+          <input value={custom.ac} onChange={(e) => setCustom({ ...custom, ac: e.target.value.replace(/\D/g, "") })} placeholder="AC" className="input-hall h-9 w-14 text-center text-[12px]" />
+          <input value={custom.initMod} onChange={(e) => setCustom({ ...custom, initMod: e.target.value.replace(/[^\d-]/g, "") })} placeholder="+init" className="input-hall h-9 w-14 text-center text-[12px]" />
+          <button onClick={addIt} disabled={!custom.label.trim() || add.isPending} className="btn-base btn-gold clip-octagon h-9 px-4 text-[12px]">
+            <IconPlus size={13} /> Add
+          </button>
         </>
       )}
-
-      <button onClick={addIt} disabled={add.isPending} className="btn-base btn-gold clip-octagon h-9 px-4 text-[12px]">
-        <IconPlus size={13} /> Add
-      </button>
     </div>
   );
 }
@@ -237,7 +319,7 @@ function EncounterRunner({ campaign, detail }: { campaign: CampaignContext["camp
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <button onClick={() => rollAll.mutate()} className="btn-base btn-wax px-4 py-2 text-[12px]">
+        <button onClick={() => rollAll.mutate()} className="btn-base btn-wax h-9 px-4 text-[12px]">
           🎲 Roll all initiative
         </button>
         {!active ? (
@@ -253,11 +335,21 @@ function EncounterRunner({ campaign, detail }: { campaign: CampaignContext["camp
               <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">Round</span>
               <span className="font-heading text-sm font-bold text-ember-bright tabular-nums">{enc.round}</span>
             </div>
-            <button onClick={() => step(-1)} className="btn-base btn-ghost-ink h-9 px-3 text-[12px]">‹ Prev</button>
+            <button
+              onClick={() => step(-1)}
+              disabled={enc.round === 1 && enc.turnIndex === 0}
+              title="Previous turn"
+              className="btn-base h-9 px-3 text-[12px] disabled:opacity-40"
+              style={NEUTRAL_BTN}
+            >
+              ‹ Prev
+            </button>
             <button onClick={() => step(1)} className="btn-base btn-wax h-9 px-4 text-[12px]">Next turn ›</button>
             <button
               onClick={() => update.mutate({ encounterId: enc.id, body: { status: "ended" } })}
-              className="btn-base btn-ghost-red h-9 px-3 text-[12px]"
+              title="End the encounter"
+              className="btn-base h-9 px-3 text-[12px]"
+              style={RED_BTN}
             >
               End
             </button>
