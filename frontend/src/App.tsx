@@ -12,6 +12,7 @@ import ProfilePage from "./components/ProfilePage";
 import ForgeWizard from "./components/ForgeWizard";
 import HeroSheetPage from "./components/HeroSheetPage";
 import ArchivesPage from "./components/ArchivesPage";
+import RulesPage from "./components/RulesPage";
 import CodexPage from "./components/CodexPage";
 import MapPage from "./components/MapPage";
 import DenPage from "./components/DenPage";
@@ -62,6 +63,7 @@ export default function App() {
         <Route path="heroes/forge" element={<ForgeWizard />} />
         <Route path="heroes/:heroId" element={<HeroSheetPage />} />
         <Route path="archives" element={<ArchivesPage />} />
+        <Route path="rules" element={<RulesPage />} />
         {/* old shelves point at the merged library */}
         <Route path="spellbook" element={<Navigate to="/questboard/archives" replace />} />
         <Route path="scribe" element={<Navigate to="/questboard/archives" replace />} />

@@ -65,7 +65,9 @@ New section with, roughly in order of value:
   lightweight characters (name, freeform class line, level, HP) with
   owner-or-DM editing and quick ±HP. Deliberately minimal — it becomes the
   entry point to the character builder later.
-- Chronicle / activity feed — needs backend events
+- ~~Chronicle / activity feed~~ — **done (July 2026)**, then grew up (#33):
+  from a DM-only event feed into a shared table log any member posts to, with
+  channels (DM notes / rulings / player chat / happenings) and filters.
 - ~~Next-session countdown~~ — **done (July 2026)**: `next_session_at` on
   campaigns; the DM schedules/clears from the hub's Next Gathering card
   (Emberhall-style Days/Hrs/Min tiles), everyone sees the ticking countdown.
@@ -135,12 +137,71 @@ with a public deployment (questboard.fontao.net) in mind:
 - Still owed before public go-live: an instance front door (invite code /
   approval), since OAuth authenticates but does not authorize.
 
-### Later
-- **XP system**: track XP per character, with the DM giving or taking XP
-  depending on the campaign's progression mode (e.g. XP vs milestone).
-  Pairs with the Chronicle's events.
+### v1 build-out — shipped (July 2026)
+
+The builder, the skill-tree engine, and the campaign's full table toolset all
+landed. Merged to `main`:
+
+- **The Forge + hero sheets** (#22 onward): the 2024 creation wizard (Class →
+  Background → Species → Abilities → Spells → Gear → Name), account-level heroes
+  seated into campaigns, level-ups, spell-slot tracking, inventory + AC/attack
+  math, and a solo hero-sheet page. The Dice Tower rides along wherever you roll
+  (forge, sheet, and above modals for HP rolls on level-up).
+- **Content pipeline**: content-as-data (class / species / background /
+  subclass / feat / spell / item / monster), the Scribe's Desk editor, the
+  per-campaign **codex** (propose / enable / ban) with **strict seating**,
+  private **pack import/export**, the SRD 5.2.1 seed, per-book source labels,
+  and collapse of the same official entry imported by several users.
+- **The Monster Den + Bestiary** (#23 onward): a DM-only monster library (SRD +
+  homebrew, hunting-tool filters, pack import, source labels) and the party's
+  **Bestiary** field-journal with DM-granted sectional reveals.
+- **The Map + fog of war** (#28, #29, #31): postgres-stored campaign maps, a
+  pan/zoom/pinch viewer, DM/party pins, sub-map travel, and knowledge-pool fog
+  stamped on a draft then submitted — **composited server-side** so players
+  never receive the hidden pixels.
+- **The Profile** (#27): identity header, My Heroes moved in, the imported-pack
+  library with per-book removal, embedded export + reset-my-homebrew.
+- **Accounts + security** (#30, #32): local username/email + password accounts
+  alongside Discord/Google (bcrypt, strength policy, IP rate-limiting,
+  session-fixation fix); **email verification + password recovery via Resend**
+  (hashed single-use tokens, anti-enumeration, tavern-themed emails).
+- **The Chronicle** (#33): a shared table log (see Phase 2b).
+- **Progression**: XP grants + milestone level-ups (DM), paired with the
+  Chronicle. *(Later: lift these out of the Chronicle into their own menu — the
+  Chronicle is now a chat surface, so the controls sit oddly there.)*
+
+### Planned before v1 (added July 2026)
+
+Two more DM tools slot in before v1 closes:
+
+- **Encounter generator + initiative tracker** — a DM combat tool. Build
+  encounters from Den monsters + the seated party **ahead of time** (prep a
+  handful at home before a session — they sit as drafts in a per-campaign
+  library) and **trigger any of them at will**; at most one runs at a time
+  (draft → active → ended). Running it opens an initiative tracker.
+  Initiative is **auto-rolled** (d20 + the monster's
+  DEX-based init modifier — one combatant at a time, or a "roll all" button) or
+  **typed** by the DM; the tracker shows turn order, the current turn, and the
+  round, with HP tracked for the fight. **Open design — player integration**:
+  players may not know an enemy exists yet (ambush), or may not know a
+  creature's identity or stats. So enemy visibility in any shared view is
+  DM-controlled and ties into the **Bestiary reveal model** (hidden → generic
+  label → identified). Pending decisions: whether players see the tracker at
+  all; how hidden/unidentified enemies appear; whether players ever see enemy HP
+  (e.g. only a "bloodied" state); and whether players roll their own initiative
+  or the DM rolls for everyone. **Decided: both** — a player can roll their own
+  PC's initiative from their device, and the DM can also roll or type it for
+  anyone who's absent or off-device. Player view = **shared read-only tracker,
+  DM controls reveals** (hidden → generic label → identified via Bestiary;
+  enemy HP shown only as healthy/bloodied/down).
+- **Rules reference tab** — a quick-lookup panel for the fiddly 5e tables: which
+  ability governs each skill (Acrobatics = DEX, Athletics = STR, …), the saving
+  throws, proficiency bonus by level, the standard conditions, and combat
+  actions. Static reference; no per-campaign state.
 
 ## Open questions
 - **Branding**: repo says Quest Board; designs use QuestBoard / The Tavern /
-  Emberhall. Undecided.
+  Emberhall. Settled in practice on **Quest Board** (used across the shipped UI
+  and the fontao.net deploy); the alternates are retired.
 - Exact landing-page composition (v0 base "still needs work").
+- **Encounter generator — player-visibility model** (see Planned before v1).
