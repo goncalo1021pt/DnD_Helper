@@ -542,6 +542,23 @@ type AbilityScores struct {
 	Wis int `json:"wis"`
 }
 
+// AddCombatantRequest defines model for AddCombatantRequest.
+type AddCombatantRequest struct {
+	Ac          *int                `json:"ac,omitempty"`
+	CharacterId *openapi_types.UUID `json:"characterId,omitempty"`
+	ContentId   *openapi_types.UUID `json:"contentId,omitempty"`
+	Hidden      *bool               `json:"hidden,omitempty"`
+	HpMax       *int                `json:"hpMax,omitempty"`
+	InitMod     *int                `json:"initMod,omitempty"`
+
+	// Kind monster (needs contentId) | pc (needs characterId) | custom (typed).
+	Kind string `json:"kind"`
+
+	// Label Name for a custom line, or an override for a monster/PC.
+	Label       *string `json:"label,omitempty"`
+	PlayerLabel *string `json:"playerLabel,omitempty"`
+}
+
 // BestiaryEntry defines model for BestiaryEntry.
 type BestiaryEntry struct {
 	// CanEdit Whether the viewer may rename or delete this entry (creator or DM).
@@ -747,8 +764,56 @@ type CodexEntry struct {
 // CodexEntryStatus defines model for CodexEntry.Status.
 type CodexEntryStatus string
 
+// Combatant defines model for Combatant.
+type Combatant struct {
+	Ac *int `json:"ac,omitempty"`
+
+	// CharacterId DM-only (or the viewer's own PC) — the seated character.
+	CharacterId *openapi_types.UUID `json:"characterId,omitempty"`
+
+	// ContentId DM-only — the Den monster this was built from.
+	ContentId *openapi_types.UUID `json:"contentId,omitempty"`
+
+	// Current Whether it's this combatant's turn right now (false for all when a hidden enemy is acting).
+	Current     bool               `json:"current"`
+	EncounterId openapi_types.UUID `json:"encounterId"`
+
+	// Hidden DM-only flag; hidden combatants are omitted from player payloads entirely.
+	Hidden bool `json:"hidden"`
+
+	// HpCurrent DM, or the owner of a PC combatant. Omitted for players otherwise.
+	HpCurrent *int `json:"hpCurrent,omitempty"`
+	HpMax     *int `json:"hpMax,omitempty"`
+
+	// HpState healthy | bloodied | down — the only HP cue players get for others.
+	HpState string             `json:"hpState"`
+	Id      openapi_types.UUID `json:"id"`
+	InitMod int                `json:"initMod"`
+
+	// Initiative Order value; null until rolled or typed.
+	Initiative *int `json:"initiative,omitempty"`
+
+	// IsMine For a player, whether this is their own PC (they may roll its initiative and see its HP).
+	IsMine *bool `json:"isMine,omitempty"`
+
+	// Kind monster | pc | custom (plain string).
+	Kind string `json:"kind"`
+
+	// Name The DM sees the true label; players see the reveal label ("Unknown" until named).
+	Name string `json:"name"`
+
+	// PlayerLabel DM-only — what players see for this combatant.
+	PlayerLabel *string `json:"playerLabel,omitempty"`
+	SortOrder   int     `json:"sortOrder"`
+}
+
 // CreateCampaignRequest defines model for CreateCampaignRequest.
 type CreateCampaignRequest struct {
+	Name string `json:"name"`
+}
+
+// CreateEncounterRequest defines model for CreateEncounterRequest.
+type CreateEncounterRequest struct {
 	Name string `json:"name"`
 }
 
@@ -774,6 +839,28 @@ type CreateQuestRequest struct {
 type CurrentUser struct {
 	Campaigns []CampaignMembership `json:"campaigns"`
 	User      User                 `json:"user"`
+}
+
+// Encounter defines model for Encounter.
+type Encounter struct {
+	CampaignId     openapi_types.UUID `json:"campaignId"`
+	CombatantCount int                `json:"combatantCount"`
+	CreatedAt      time.Time          `json:"createdAt"`
+	Id             openapi_types.UUID `json:"id"`
+	Name           string             `json:"name"`
+	Round          int                `json:"round"`
+
+	// Status draft | active | ended (plain string, validated server-side).
+	Status string `json:"status"`
+
+	// TurnIndex Index into the initiative order whose turn it is.
+	TurnIndex int `json:"turnIndex"`
+}
+
+// EncounterDetail defines model for EncounterDetail.
+type EncounterDetail struct {
+	Combatants []Combatant `json:"combatants"`
+	Encounter  Encounter   `json:"encounter"`
 }
 
 // Error defines model for Error.
@@ -1209,6 +1296,27 @@ type SubmitRevealsRequest struct {
 	Note *string `json:"note,omitempty"`
 }
 
+// UpdateCombatantRequest defines model for UpdateCombatantRequest.
+type UpdateCombatantRequest struct {
+	Ac          *int    `json:"ac,omitempty"`
+	Hidden      *bool   `json:"hidden,omitempty"`
+	HpCurrent   *int    `json:"hpCurrent,omitempty"`
+	HpMax       *int    `json:"hpMax,omitempty"`
+	Initiative  *int    `json:"initiative,omitempty"`
+	Label       *string `json:"label,omitempty"`
+	PlayerLabel *string `json:"playerLabel,omitempty"`
+}
+
+// UpdateEncounterRequest defines model for UpdateEncounterRequest.
+type UpdateEncounterRequest struct {
+	Name  *string `json:"name,omitempty"`
+	Round *int    `json:"round,omitempty"`
+
+	// Status draft | active | ended. Setting active triggers it (and ends any other running one).
+	Status    *string `json:"status,omitempty"`
+	TurnIndex *int    `json:"turnIndex,omitempty"`
+}
+
 // UpdateMapRequest defines model for UpdateMapRequest.
 type UpdateMapRequest struct {
 	// FogEnabled Omit to leave the fog as it is.
@@ -1249,8 +1357,14 @@ type CampaignId = openapi_types.UUID
 // CharacterId defines model for CharacterId.
 type CharacterId = openapi_types.UUID
 
+// CombatantId defines model for CombatantId.
+type CombatantId = openapi_types.UUID
+
 // ContentKind defines model for ContentKind.
 type ContentKind string
+
+// EncounterId defines model for EncounterId.
+type EncounterId = openapi_types.UUID
 
 // MapId defines model for MapId.
 type MapId = openapi_types.UUID
@@ -1387,6 +1501,9 @@ type SetCodexStatusBulkJSONRequestBody SetCodexStatusBulkJSONBody
 // SetCodexStatusJSONRequestBody defines body for SetCodexStatus for application/json ContentType.
 type SetCodexStatusJSONRequestBody SetCodexStatusJSONBody
 
+// CreateEncounterJSONRequestBody defines body for CreateEncounter for application/json ContentType.
+type CreateEncounterJSONRequestBody = CreateEncounterRequest
+
 // AddChronicleNoteJSONRequestBody defines body for AddChronicleNote for application/json ContentType.
 type AddChronicleNoteJSONRequestBody AddChronicleNoteJSONBody
 
@@ -1437,6 +1554,15 @@ type GrantPicksJSONRequestBody = GrantPicksRequest
 
 // SpendPickJSONRequestBody defines body for SpendPick for application/json ContentType.
 type SpendPickJSONRequestBody = SpendPickRequest
+
+// UpdateCombatantJSONRequestBody defines body for UpdateCombatant for application/json ContentType.
+type UpdateCombatantJSONRequestBody = UpdateCombatantRequest
+
+// UpdateEncounterJSONRequestBody defines body for UpdateEncounter for application/json ContentType.
+type UpdateEncounterJSONRequestBody = UpdateEncounterRequest
+
+// AddCombatantJSONRequestBody defines body for AddCombatant for application/json ContentType.
+type AddCombatantJSONRequestBody = AddCombatantRequest
 
 // UpdateMapJSONRequestBody defines body for UpdateMap for application/json ContentType.
 type UpdateMapJSONRequestBody = UpdateMapRequest
@@ -1530,6 +1656,15 @@ type ServerInterface interface {
 	// The DM's verdict on an entry (enable homebrew, ban/unban SRD)
 	// (PUT /campaigns/{campaignId}/codex/{contentId})
 	SetCodexStatus(w http.ResponseWriter, r *http.Request, campaignId CampaignId, contentId openapi_types.UUID)
+	// The DM's encounter library — drafts, the active one, and past ones (DM only)
+	// (GET /campaigns/{campaignId}/encounters)
+	ListEncounters(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Prepare a new (draft) encounter (DM only)
+	// (POST /campaigns/{campaignId}/encounters)
+	CreateEncounter(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// The running encounter (members) — redacted for players. 204 when none is active.
+	// (GET /campaigns/{campaignId}/encounters/active)
+	GetActiveEncounter(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// The campaign chronicle, newest first (members)
 	// (GET /campaigns/{campaignId}/events)
 	ListEvents(w http.ResponseWriter, r *http.Request, campaignId CampaignId, params ListEventsParams)
@@ -1608,6 +1743,30 @@ type ServerInterface interface {
 	// Spend a granted pick on a reachable node (owner or DM)
 	// (POST /characters/{characterId}/tree/picks)
 	SpendPick(w http.ResponseWriter, r *http.Request, characterId CharacterId)
+	// Remove a combatant (DM only)
+	// (DELETE /combatants/{combatantId})
+	DeleteCombatant(w http.ResponseWriter, r *http.Request, combatantId CombatantId)
+	// Edit a combatant — HP, initiative, reveal, rename (DM only)
+	// (PATCH /combatants/{combatantId})
+	UpdateCombatant(w http.ResponseWriter, r *http.Request, combatantId CombatantId)
+	// Roll this combatant's initiative (DM, or the owner of a PC combatant)
+	// (POST /combatants/{combatantId}/roll)
+	RollCombatantInitiative(w http.ResponseWriter, r *http.Request, combatantId CombatantId)
+	// Discard an encounter and its combatants (DM only)
+	// (DELETE /encounters/{encounterId})
+	DeleteEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId)
+	// One encounter with its combatants — full detail (DM only)
+	// (GET /encounters/{encounterId})
+	GetEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId)
+	// Rename, trigger/end, or advance the tracker (DM only)
+	// (PATCH /encounters/{encounterId})
+	UpdateEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId)
+	// Add a Den monster, a seated PC, or a custom line (DM only)
+	// (POST /encounters/{encounterId}/combatants)
+	AddCombatant(w http.ResponseWriter, r *http.Request, encounterId EncounterId)
+	// Roll initiative (d20 + modifier) for every combatant at once (DM only)
+	// (POST /encounters/{encounterId}/roll-initiative)
+	RollInitiative(w http.ResponseWriter, r *http.Request, encounterId EncounterId)
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -1812,6 +1971,24 @@ func (_ Unimplemented) SetCodexStatus(w http.ResponseWriter, r *http.Request, ca
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// The DM's encounter library — drafts, the active one, and past ones (DM only)
+// (GET /campaigns/{campaignId}/encounters)
+func (_ Unimplemented) ListEncounters(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Prepare a new (draft) encounter (DM only)
+// (POST /campaigns/{campaignId}/encounters)
+func (_ Unimplemented) CreateEncounter(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The running encounter (members) — redacted for players. 204 when none is active.
+// (GET /campaigns/{campaignId}/encounters/active)
+func (_ Unimplemented) GetActiveEncounter(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // The campaign chronicle, newest first (members)
 // (GET /campaigns/{campaignId}/events)
 func (_ Unimplemented) ListEvents(w http.ResponseWriter, r *http.Request, campaignId CampaignId, params ListEventsParams) {
@@ -1965,6 +2142,54 @@ func (_ Unimplemented) GrantPicks(w http.ResponseWriter, r *http.Request, charac
 // Spend a granted pick on a reachable node (owner or DM)
 // (POST /characters/{characterId}/tree/picks)
 func (_ Unimplemented) SpendPick(w http.ResponseWriter, r *http.Request, characterId CharacterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Remove a combatant (DM only)
+// (DELETE /combatants/{combatantId})
+func (_ Unimplemented) DeleteCombatant(w http.ResponseWriter, r *http.Request, combatantId CombatantId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Edit a combatant — HP, initiative, reveal, rename (DM only)
+// (PATCH /combatants/{combatantId})
+func (_ Unimplemented) UpdateCombatant(w http.ResponseWriter, r *http.Request, combatantId CombatantId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Roll this combatant's initiative (DM, or the owner of a PC combatant)
+// (POST /combatants/{combatantId}/roll)
+func (_ Unimplemented) RollCombatantInitiative(w http.ResponseWriter, r *http.Request, combatantId CombatantId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Discard an encounter and its combatants (DM only)
+// (DELETE /encounters/{encounterId})
+func (_ Unimplemented) DeleteEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// One encounter with its combatants — full detail (DM only)
+// (GET /encounters/{encounterId})
+func (_ Unimplemented) GetEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Rename, trigger/end, or advance the tracker (DM only)
+// (PATCH /encounters/{encounterId})
+func (_ Unimplemented) UpdateEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Add a Den monster, a seated PC, or a custom line (DM only)
+// (POST /encounters/{encounterId}/combatants)
+func (_ Unimplemented) AddCombatant(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Roll initiative (d20 + modifier) for every combatant at once (DM only)
+// (POST /encounters/{encounterId}/roll-initiative)
+func (_ Unimplemented) RollInitiative(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2711,6 +2936,102 @@ func (siw *ServerInterfaceWrapper) SetCodexStatus(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetCodexStatus(w, r, campaignId, contentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListEncounters operation middleware
+func (siw *ServerInterfaceWrapper) ListEncounters(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEncounters(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateEncounter operation middleware
+func (siw *ServerInterfaceWrapper) CreateEncounter(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateEncounter(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetActiveEncounter operation middleware
+func (siw *ServerInterfaceWrapper) GetActiveEncounter(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetActiveEncounter(w, r, campaignId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3590,6 +3911,262 @@ func (siw *ServerInterfaceWrapper) SpendPick(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SpendPick(w, r, characterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCombatant operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCombatant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "combatantId" -------------
+	var combatantId CombatantId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "combatantId", chi.URLParam(r, "combatantId"), &combatantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "combatantId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCombatant(w, r, combatantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateCombatant operation middleware
+func (siw *ServerInterfaceWrapper) UpdateCombatant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "combatantId" -------------
+	var combatantId CombatantId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "combatantId", chi.URLParam(r, "combatantId"), &combatantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "combatantId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateCombatant(w, r, combatantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RollCombatantInitiative operation middleware
+func (siw *ServerInterfaceWrapper) RollCombatantInitiative(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "combatantId" -------------
+	var combatantId CombatantId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "combatantId", chi.URLParam(r, "combatantId"), &combatantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "combatantId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RollCombatantInitiative(w, r, combatantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteEncounter operation middleware
+func (siw *ServerInterfaceWrapper) DeleteEncounter(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "encounterId" -------------
+	var encounterId EncounterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "encounterId", chi.URLParam(r, "encounterId"), &encounterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "encounterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteEncounter(w, r, encounterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEncounter operation middleware
+func (siw *ServerInterfaceWrapper) GetEncounter(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "encounterId" -------------
+	var encounterId EncounterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "encounterId", chi.URLParam(r, "encounterId"), &encounterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "encounterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEncounter(w, r, encounterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateEncounter operation middleware
+func (siw *ServerInterfaceWrapper) UpdateEncounter(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "encounterId" -------------
+	var encounterId EncounterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "encounterId", chi.URLParam(r, "encounterId"), &encounterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "encounterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateEncounter(w, r, encounterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddCombatant operation middleware
+func (siw *ServerInterfaceWrapper) AddCombatant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "encounterId" -------------
+	var encounterId EncounterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "encounterId", chi.URLParam(r, "encounterId"), &encounterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "encounterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddCombatant(w, r, encounterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RollInitiative operation middleware
+func (siw *ServerInterfaceWrapper) RollInitiative(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "encounterId" -------------
+	var encounterId EncounterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "encounterId", chi.URLParam(r, "encounterId"), &encounterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "encounterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RollInitiative(w, r, encounterId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4755,6 +5332,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/campaigns/{campaignId}/codex/{contentId}", wrapper.SetCodexStatus)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/encounters", wrapper.ListEncounters)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/encounters", wrapper.CreateEncounter)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/encounters/active", wrapper.GetActiveEncounter)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/campaigns/{campaignId}/events", wrapper.ListEvents)
 	})
 	r.Group(func(r chi.Router) {
@@ -4831,6 +5417,30 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/characters/{characterId}/tree/picks", wrapper.SpendPick)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/combatants/{combatantId}", wrapper.DeleteCombatant)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/combatants/{combatantId}", wrapper.UpdateCombatant)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/combatants/{combatantId}/roll", wrapper.RollCombatantInitiative)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/encounters/{encounterId}", wrapper.DeleteEncounter)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/encounters/{encounterId}", wrapper.GetEncounter)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/encounters/{encounterId}", wrapper.UpdateEncounter)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/encounters/{encounterId}/combatants", wrapper.AddCombatant)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/encounters/{encounterId}/roll-initiative", wrapper.RollInitiative)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health", wrapper.GetHealth)
@@ -5887,6 +6497,179 @@ func (response SetCodexStatus404JSONResponse) VisitSetCodexStatusResponse(w http
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEncountersRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type ListEncountersResponseObject interface {
+	VisitListEncountersResponse(w http.ResponseWriter) error
+}
+
+type ListEncounters200JSONResponse []Encounter
+
+func (response ListEncounters200JSONResponse) VisitListEncountersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEncounters401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListEncounters401JSONResponse) VisitListEncountersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEncounters403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListEncounters403JSONResponse) VisitListEncountersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEncounterRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *CreateEncounterJSONRequestBody
+}
+
+type CreateEncounterResponseObject interface {
+	VisitCreateEncounterResponse(w http.ResponseWriter) error
+}
+
+type CreateEncounter201JSONResponse Encounter
+
+func (response CreateEncounter201JSONResponse) VisitCreateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEncounter400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateEncounter400JSONResponse) VisitCreateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEncounter401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateEncounter401JSONResponse) VisitCreateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateEncounter403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateEncounter403JSONResponse) VisitCreateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveEncounterRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type GetActiveEncounterResponseObject interface {
+	VisitGetActiveEncounterResponse(w http.ResponseWriter) error
+}
+
+type GetActiveEncounter200JSONResponse EncounterDetail
+
+func (response GetActiveEncounter200JSONResponse) VisitGetActiveEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveEncounter204Response struct {
+}
+
+func (response GetActiveEncounter204Response) VisitGetActiveEncounterResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type GetActiveEncounter401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetActiveEncounter401JSONResponse) VisitGetActiveEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetActiveEncounter403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetActiveEncounter403JSONResponse) VisitGetActiveEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -7644,6 +8427,551 @@ func (response SpendPick403JSONResponse) VisitSpendPickResponse(w http.ResponseW
 type SpendPick404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response SpendPick404JSONResponse) VisitSpendPickResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCombatantRequestObject struct {
+	CombatantId CombatantId `json:"combatantId"`
+}
+
+type DeleteCombatantResponseObject interface {
+	VisitDeleteCombatantResponse(w http.ResponseWriter) error
+}
+
+type DeleteCombatant204Response struct {
+}
+
+func (response DeleteCombatant204Response) VisitDeleteCombatantResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteCombatant401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteCombatant401JSONResponse) VisitDeleteCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCombatant403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteCombatant403JSONResponse) VisitDeleteCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCombatant404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteCombatant404JSONResponse) VisitDeleteCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCombatantRequestObject struct {
+	CombatantId CombatantId `json:"combatantId"`
+	Body        *UpdateCombatantJSONRequestBody
+}
+
+type UpdateCombatantResponseObject interface {
+	VisitUpdateCombatantResponse(w http.ResponseWriter) error
+}
+
+type UpdateCombatant200JSONResponse Combatant
+
+func (response UpdateCombatant200JSONResponse) VisitUpdateCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCombatant400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateCombatant400JSONResponse) VisitUpdateCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCombatant401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateCombatant401JSONResponse) VisitUpdateCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCombatant403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateCombatant403JSONResponse) VisitUpdateCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateCombatant404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateCombatant404JSONResponse) VisitUpdateCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollCombatantInitiativeRequestObject struct {
+	CombatantId CombatantId `json:"combatantId"`
+}
+
+type RollCombatantInitiativeResponseObject interface {
+	VisitRollCombatantInitiativeResponse(w http.ResponseWriter) error
+}
+
+type RollCombatantInitiative200JSONResponse Combatant
+
+func (response RollCombatantInitiative200JSONResponse) VisitRollCombatantInitiativeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollCombatantInitiative401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RollCombatantInitiative401JSONResponse) VisitRollCombatantInitiativeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollCombatantInitiative403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RollCombatantInitiative403JSONResponse) VisitRollCombatantInitiativeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollCombatantInitiative404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RollCombatantInitiative404JSONResponse) VisitRollCombatantInitiativeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteEncounterRequestObject struct {
+	EncounterId EncounterId `json:"encounterId"`
+}
+
+type DeleteEncounterResponseObject interface {
+	VisitDeleteEncounterResponse(w http.ResponseWriter) error
+}
+
+type DeleteEncounter204Response struct {
+}
+
+func (response DeleteEncounter204Response) VisitDeleteEncounterResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteEncounter401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteEncounter401JSONResponse) VisitDeleteEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteEncounter403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteEncounter403JSONResponse) VisitDeleteEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteEncounter404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteEncounter404JSONResponse) VisitDeleteEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEncounterRequestObject struct {
+	EncounterId EncounterId `json:"encounterId"`
+}
+
+type GetEncounterResponseObject interface {
+	VisitGetEncounterResponse(w http.ResponseWriter) error
+}
+
+type GetEncounter200JSONResponse EncounterDetail
+
+func (response GetEncounter200JSONResponse) VisitGetEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEncounter401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetEncounter401JSONResponse) VisitGetEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEncounter403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetEncounter403JSONResponse) VisitGetEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEncounter404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetEncounter404JSONResponse) VisitGetEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEncounterRequestObject struct {
+	EncounterId EncounterId `json:"encounterId"`
+	Body        *UpdateEncounterJSONRequestBody
+}
+
+type UpdateEncounterResponseObject interface {
+	VisitUpdateEncounterResponse(w http.ResponseWriter) error
+}
+
+type UpdateEncounter200JSONResponse EncounterDetail
+
+func (response UpdateEncounter200JSONResponse) VisitUpdateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEncounter400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateEncounter400JSONResponse) VisitUpdateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEncounter401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateEncounter401JSONResponse) VisitUpdateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEncounter403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateEncounter403JSONResponse) VisitUpdateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateEncounter404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateEncounter404JSONResponse) VisitUpdateEncounterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddCombatantRequestObject struct {
+	EncounterId EncounterId `json:"encounterId"`
+	Body        *AddCombatantJSONRequestBody
+}
+
+type AddCombatantResponseObject interface {
+	VisitAddCombatantResponse(w http.ResponseWriter) error
+}
+
+type AddCombatant201JSONResponse Combatant
+
+func (response AddCombatant201JSONResponse) VisitAddCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddCombatant400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AddCombatant400JSONResponse) VisitAddCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddCombatant401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AddCombatant401JSONResponse) VisitAddCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddCombatant403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response AddCombatant403JSONResponse) VisitAddCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddCombatant404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AddCombatant404JSONResponse) VisitAddCombatantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollInitiativeRequestObject struct {
+	EncounterId EncounterId `json:"encounterId"`
+}
+
+type RollInitiativeResponseObject interface {
+	VisitRollInitiativeResponse(w http.ResponseWriter) error
+}
+
+type RollInitiative200JSONResponse EncounterDetail
+
+func (response RollInitiative200JSONResponse) VisitRollInitiativeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollInitiative401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response RollInitiative401JSONResponse) VisitRollInitiativeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollInitiative403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RollInitiative403JSONResponse) VisitRollInitiativeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollInitiative404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RollInitiative404JSONResponse) VisitRollInitiativeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -9722,6 +11050,15 @@ type StrictServerInterface interface {
 	// The DM's verdict on an entry (enable homebrew, ban/unban SRD)
 	// (PUT /campaigns/{campaignId}/codex/{contentId})
 	SetCodexStatus(ctx context.Context, request SetCodexStatusRequestObject) (SetCodexStatusResponseObject, error)
+	// The DM's encounter library — drafts, the active one, and past ones (DM only)
+	// (GET /campaigns/{campaignId}/encounters)
+	ListEncounters(ctx context.Context, request ListEncountersRequestObject) (ListEncountersResponseObject, error)
+	// Prepare a new (draft) encounter (DM only)
+	// (POST /campaigns/{campaignId}/encounters)
+	CreateEncounter(ctx context.Context, request CreateEncounterRequestObject) (CreateEncounterResponseObject, error)
+	// The running encounter (members) — redacted for players. 204 when none is active.
+	// (GET /campaigns/{campaignId}/encounters/active)
+	GetActiveEncounter(ctx context.Context, request GetActiveEncounterRequestObject) (GetActiveEncounterResponseObject, error)
 	// The campaign chronicle, newest first (members)
 	// (GET /campaigns/{campaignId}/events)
 	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
@@ -9800,6 +11137,30 @@ type StrictServerInterface interface {
 	// Spend a granted pick on a reachable node (owner or DM)
 	// (POST /characters/{characterId}/tree/picks)
 	SpendPick(ctx context.Context, request SpendPickRequestObject) (SpendPickResponseObject, error)
+	// Remove a combatant (DM only)
+	// (DELETE /combatants/{combatantId})
+	DeleteCombatant(ctx context.Context, request DeleteCombatantRequestObject) (DeleteCombatantResponseObject, error)
+	// Edit a combatant — HP, initiative, reveal, rename (DM only)
+	// (PATCH /combatants/{combatantId})
+	UpdateCombatant(ctx context.Context, request UpdateCombatantRequestObject) (UpdateCombatantResponseObject, error)
+	// Roll this combatant's initiative (DM, or the owner of a PC combatant)
+	// (POST /combatants/{combatantId}/roll)
+	RollCombatantInitiative(ctx context.Context, request RollCombatantInitiativeRequestObject) (RollCombatantInitiativeResponseObject, error)
+	// Discard an encounter and its combatants (DM only)
+	// (DELETE /encounters/{encounterId})
+	DeleteEncounter(ctx context.Context, request DeleteEncounterRequestObject) (DeleteEncounterResponseObject, error)
+	// One encounter with its combatants — full detail (DM only)
+	// (GET /encounters/{encounterId})
+	GetEncounter(ctx context.Context, request GetEncounterRequestObject) (GetEncounterResponseObject, error)
+	// Rename, trigger/end, or advance the tracker (DM only)
+	// (PATCH /encounters/{encounterId})
+	UpdateEncounter(ctx context.Context, request UpdateEncounterRequestObject) (UpdateEncounterResponseObject, error)
+	// Add a Den monster, a seated PC, or a custom line (DM only)
+	// (POST /encounters/{encounterId}/combatants)
+	AddCombatant(ctx context.Context, request AddCombatantRequestObject) (AddCombatantResponseObject, error)
+	// Roll initiative (d20 + modifier) for every combatant at once (DM only)
+	// (POST /encounters/{encounterId}/roll-initiative)
+	RollInitiative(ctx context.Context, request RollInitiativeRequestObject) (RollInitiativeResponseObject, error)
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -10406,6 +11767,91 @@ func (sh *strictHandler) SetCodexStatus(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetCodexStatusResponseObject); ok {
 		if err := validResponse.VisitSetCodexStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListEncounters operation middleware
+func (sh *strictHandler) ListEncounters(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request ListEncountersRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListEncounters(ctx, request.(ListEncountersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListEncounters")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListEncountersResponseObject); ok {
+		if err := validResponse.VisitListEncountersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateEncounter operation middleware
+func (sh *strictHandler) CreateEncounter(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request CreateEncounterRequestObject
+
+	request.CampaignId = campaignId
+
+	var body CreateEncounterJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateEncounter(ctx, request.(CreateEncounterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateEncounter")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateEncounterResponseObject); ok {
+		if err := validResponse.VisitCreateEncounterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetActiveEncounter operation middleware
+func (sh *strictHandler) GetActiveEncounter(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request GetActiveEncounterRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetActiveEncounter(ctx, request.(GetActiveEncounterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetActiveEncounter")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetActiveEncounterResponseObject); ok {
+		if err := validResponse.VisitGetActiveEncounterResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -11207,6 +12653,235 @@ func (sh *strictHandler) SpendPick(w http.ResponseWriter, r *http.Request, chara
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SpendPickResponseObject); ok {
 		if err := validResponse.VisitSpendPickResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteCombatant operation middleware
+func (sh *strictHandler) DeleteCombatant(w http.ResponseWriter, r *http.Request, combatantId CombatantId) {
+	var request DeleteCombatantRequestObject
+
+	request.CombatantId = combatantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteCombatant(ctx, request.(DeleteCombatantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteCombatant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteCombatantResponseObject); ok {
+		if err := validResponse.VisitDeleteCombatantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateCombatant operation middleware
+func (sh *strictHandler) UpdateCombatant(w http.ResponseWriter, r *http.Request, combatantId CombatantId) {
+	var request UpdateCombatantRequestObject
+
+	request.CombatantId = combatantId
+
+	var body UpdateCombatantJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateCombatant(ctx, request.(UpdateCombatantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateCombatant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateCombatantResponseObject); ok {
+		if err := validResponse.VisitUpdateCombatantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RollCombatantInitiative operation middleware
+func (sh *strictHandler) RollCombatantInitiative(w http.ResponseWriter, r *http.Request, combatantId CombatantId) {
+	var request RollCombatantInitiativeRequestObject
+
+	request.CombatantId = combatantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RollCombatantInitiative(ctx, request.(RollCombatantInitiativeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RollCombatantInitiative")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RollCombatantInitiativeResponseObject); ok {
+		if err := validResponse.VisitRollCombatantInitiativeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteEncounter operation middleware
+func (sh *strictHandler) DeleteEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	var request DeleteEncounterRequestObject
+
+	request.EncounterId = encounterId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteEncounter(ctx, request.(DeleteEncounterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteEncounter")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteEncounterResponseObject); ok {
+		if err := validResponse.VisitDeleteEncounterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetEncounter operation middleware
+func (sh *strictHandler) GetEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	var request GetEncounterRequestObject
+
+	request.EncounterId = encounterId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEncounter(ctx, request.(GetEncounterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEncounter")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEncounterResponseObject); ok {
+		if err := validResponse.VisitGetEncounterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateEncounter operation middleware
+func (sh *strictHandler) UpdateEncounter(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	var request UpdateEncounterRequestObject
+
+	request.EncounterId = encounterId
+
+	var body UpdateEncounterJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateEncounter(ctx, request.(UpdateEncounterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateEncounter")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateEncounterResponseObject); ok {
+		if err := validResponse.VisitUpdateEncounterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddCombatant operation middleware
+func (sh *strictHandler) AddCombatant(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	var request AddCombatantRequestObject
+
+	request.EncounterId = encounterId
+
+	var body AddCombatantJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddCombatant(ctx, request.(AddCombatantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddCombatant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddCombatantResponseObject); ok {
+		if err := validResponse.VisitAddCombatantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RollInitiative operation middleware
+func (sh *strictHandler) RollInitiative(w http.ResponseWriter, r *http.Request, encounterId EncounterId) {
+	var request RollInitiativeRequestObject
+
+	request.EncounterId = encounterId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RollInitiative(ctx, request.(RollInitiativeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RollInitiative")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RollInitiativeResponseObject); ok {
+		if err := validResponse.VisitRollInitiativeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -12183,172 +13858,194 @@ func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, tree
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

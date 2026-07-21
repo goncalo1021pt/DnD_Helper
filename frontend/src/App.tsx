@@ -17,6 +17,7 @@ import CodexPage from "./components/CodexPage";
 import MapPage from "./components/MapPage";
 import DenPage from "./components/DenPage";
 import BestiaryPage from "./components/BestiaryPage";
+import EncounterPage from "./components/EncounterPage";
 import ChroniclePage from "./components/ChroniclePage";
 import CampaignView from "./components/CampaignView";
 import CampaignDashboard from "./components/CampaignDashboard";
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="map/:mapId" element={<MapPage />} />
           <Route path="den" element={<DenPage />} />
           <Route path="bestiary" element={<BestiaryPage />} />
+          <Route path="encounters" element={<EncounterPage />} />
           <Route path="chronicle" element={<ChroniclePage />} />
           <Route path="trees" element={<SkillTreesPage />} />
           <Route path="trees/:treeId" element={<TreeEditorPage />} />
