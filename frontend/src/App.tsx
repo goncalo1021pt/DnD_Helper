@@ -1,6 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useCurrentUser } from "./hooks";
 import LandingPage from "./components/LandingPage";
+import {
+  ForgotPasswordPage,
+  ResetPasswordPage,
+  VerifyEmailPage,
+} from "./components/EmailFlowPages";
 import AppShell from "./components/AppShell";
 import CampaignsPage from "./components/CampaignsPage";
 import ProfilePage from "./components/ProfilePage";
@@ -39,6 +44,11 @@ export default function App() {
         index
         element={me ? <Navigate to="/questboard" replace /> : <LandingPage />}
       />
+
+      {/* Email flows — reachable logged out (links arrive by email). */}
+      <Route path="verify-email" element={<VerifyEmailPage />} />
+      <Route path="forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="reset-password" element={<ResetPasswordPage />} />
 
       {/* The tavern proper lives under /questboard and needs a seat at the table. */}
       <Route

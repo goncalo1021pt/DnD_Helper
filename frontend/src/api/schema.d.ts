@@ -983,8 +983,10 @@ export interface components {
             name: string;
             email?: string | null;
             image?: string | null;
-            /** @description Where the account came from — discord, google, or dev. */
+            /** @description Where the account came from — discord, google, local, or dev. */
             provider: string;
+            /** @description Whether the account's email address is confirmed (OAuth accounts always are). */
+            emailVerified: boolean;
             /** Format: date-time */
             createdAt: string;
         };

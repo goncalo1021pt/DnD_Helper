@@ -98,6 +98,10 @@ func (o *OAuth) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Send the confirmation email (best-effort) before logging them in — they
+	// enter unverified and are nudged to confirm.
+	o.sendVerification(r.Context(), user.ID, email)
+
 	if err := Login(r.Context(), o.sm, user.ID); err != nil {
 		http.Error(w, "failed to start session", http.StatusInternalServerError)
 		return

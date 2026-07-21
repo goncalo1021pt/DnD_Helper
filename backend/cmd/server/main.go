@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/config"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 	apphttp "github.com/goncalo1021pt/questboard/backend/internal/http"
+	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
@@ -54,7 +55,8 @@ func run() error {
 	if devEnabled {
 		log.Println("auth: DEV LOGIN ENABLED — no password required; never expose this build publicly")
 	}
-	oauth := auth.NewOAuth(sessions, db.New(pool), devEnabled, cfg.LocalAuth)
+	mailer := mail.New(cfg.ResendAPIKey, cfg.MailFrom)
+	oauth := auth.NewOAuth(sessions, db.New(pool), devEnabled, cfg.LocalAuth, mailer, cfg.BaseURL)
 
 	router := apphttp.NewRouter(apphttp.Deps{
 		Pool:           pool,

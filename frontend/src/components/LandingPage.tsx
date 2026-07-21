@@ -140,6 +140,12 @@ function LocalAuth() {
               className="input-parchment mt-1 w-full"
             />
           </label>
+          <a
+            href="/forgot-password"
+            className="label-stamp -mt-1 self-end text-[10px] tracking-[1px] text-ink-label no-underline hover:text-[#8b2520]"
+          >
+            Forgot password?
+          </a>
         </div>
       ) : (
         <div key="register" className="flex flex-col gap-3">
