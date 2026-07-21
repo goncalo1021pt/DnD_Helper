@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import type { Combatant, EncounterDetail } from "../api/client";
+import type { Combatant, EncounterDetail, RulesContent } from "../api/client";
+import {
+  BASE_TYPES,
+  baseTypeOf,
+  CR_BANDS,
+  crLabel,
+  crValueOf,
+  MONSTER_SORTS,
+  sourceLabel,
+  type MonsterSort,
+} from "../lib/monsters";
+import ContentEntry from "./ui/ContentEntry";
 import {
   useActiveEncounter,
   useAddCombatant,
@@ -240,10 +251,150 @@ function MonsterSearch({ campaignId, encounterId }: { campaignId: string; encoun
   );
 }
 
-function AddCombatant({ campaignId, encounterId }: { campaignId: string; encounterId: string }) {
+/* ═══ The Den browser — the DM's monster picker while building ═════════════
+   A filterable, sortable table of every creature in the Den; each row unfolds
+   to its full stat card so the DM can read a monster before committing it to
+   the fight. Monsters join hidden — revealed in the tracker when players spot
+   them. */
+function MonsterBrowser({ campaignId, encounterId }: { campaignId: string; encounterId: string }) {
+  const { data: monsters } = useRules("monster");
+  const add = useAddCombatant(campaignId, encounterId);
+  const [search, setSearch] = useState("");
+  const [type, setType] = useState("");
+  const [band, setBand] = useState(0);
+  const [source, setSource] = useState("");
+  const [sort, setSort] = useState<MonsterSort>("cr-asc");
+
+  const typeOptions = useMemo(() => {
+    const present = new Set((monsters ?? []).map((m) => baseTypeOf((m.data as { type?: string }).type ?? "")));
+    return BASE_TYPES.filter((t) => present.has(t));
+  }, [monsters]);
+
+  const sourceOptions = useMemo(() => {
+    const present = new Set((monsters ?? []).map(sourceLabel));
+    return [...present].sort((a, b) => {
+      if (a === "SRD") return -1;
+      if (b === "SRD") return 1;
+      if (a === "Homebrew") return 1;
+      if (b === "Homebrew") return -1;
+      return a.localeCompare(b);
+    });
+  }, [monsters]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const inBand = CR_BANDS[band][1];
+    return (monsters ?? [])
+      .filter((m) => {
+        const d = m.data as { type?: string; crValue?: number };
+        if (!inBand(d.crValue ?? 0)) return false;
+        if (type && baseTypeOf(d.type ?? "") !== type) return false;
+        if (source && sourceLabel(m) !== source) return false;
+        if (q && !m.name.toLowerCase().includes(q) && !(d.type ?? "").toLowerCase().includes(q)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        if (sort === "name") return a.name.localeCompare(b.name);
+        const d = sort === "cr-desc" ? crValueOf(b) - crValueOf(a) : crValueOf(a) - crValueOf(b);
+        return d !== 0 ? d : a.name.localeCompare(b.name);
+      });
+  }, [monsters, search, type, band, source, sort]);
+
+  return (
+    <div>
+      <div className="label-stamp mb-2 text-[11px] tracking-[3px] text-gold-muted">The Den</div>
+      <div className="mb-2 flex flex-wrap gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search monsters…"
+          className="input-hall h-9 min-w-[140px] flex-1 text-[12px]"
+        />
+        <select value={type} onChange={(e) => setType(e.target.value)} className="input-hall h-9 text-[12px]">
+          <option value="">Any type</option>
+          {typeOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={band} onChange={(e) => setBand(Number(e.target.value))} className="input-hall h-9 text-[12px]">
+          {CR_BANDS.map(([label], i) => <option key={label} value={i}>{label}</option>)}
+        </select>
+        <select value={source} onChange={(e) => setSource(e.target.value)} className="input-hall h-9 text-[12px]">
+          <option value="">Any source</option>
+          {sourceOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={sort} onChange={(e) => setSort(e.target.value as MonsterSort)} className="input-hall h-9 text-[12px]">
+          {MONSTER_SORTS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+        </select>
+      </div>
+      <div className="label-stamp mb-2 text-[9px] leading-tight tracking-[1.5px] text-gold-muted">
+        {filtered.length} of {monsters?.length ?? 0} creatures · they join hidden, reveal them at the table
+      </div>
+      <div className="flex max-h-[560px] flex-col gap-1 overflow-y-auto pr-1">
+        {filtered.length === 0 ? (
+          <div className="font-accent py-8 text-center text-[13px] italic text-cream-muted">Nothing answers that call.</div>
+        ) : (
+          filtered.map((m) => <MonsterRow key={m.id} m={m} add={add} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MonsterRow({ m, add }: { m: RulesContent; add: ReturnType<typeof useAddCombatant> }) {
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState("1");
+  const d = m.data as { type?: string; size?: string };
+
+  function addIt() {
+    const n = Math.min(Math.max(parseInt(count, 10) || 1, 1), 12);
+    for (let i = 0; i < n; i++) add.mutate({ kind: "monster", contentId: m.id, hidden: true });
+  }
+
+  return (
+    <div className="rounded-[3px]" style={{ background: "rgba(0,0,0,.14)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.16)" }}>
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2 py-1.5 sm:grid-cols-[auto_1fr_6rem_3.5rem_3.5rem_auto]">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          title={open ? "Hide stat block" : "Read stat block"}
+          className="flex h-6 w-6 flex-none items-center justify-center text-[11px] text-gold-muted transition hover:text-ember-bright"
+          style={{ transform: open ? "rotate(90deg)" : "none" }}
+        >
+          ▶
+        </button>
+        <button onClick={() => setOpen((v) => !v)} className="min-w-0 text-left">
+          <span className="font-heading truncate text-[13px] font-semibold text-cream">{m.name}</span>
+          {m.source !== "srd" && <span className="label-stamp ml-1.5 text-[8px] tracking-[1px] text-gold-muted">{sourceLabel(m)}</span>}
+          <div className="label-stamp mt-0.5 text-[8.5px] tracking-[1px] text-gold-muted sm:hidden">
+            {baseTypeOf(d.type ?? "?")} · {d.size ?? "?"} · CR {crLabel(m)}
+          </div>
+        </button>
+        <span className="hidden truncate text-[11px] text-cream-muted sm:block">{baseTypeOf(d.type ?? "?")}</span>
+        <span className="hidden text-[11px] text-cream-muted sm:block">{d.size ?? "—"}</span>
+        <span className="hidden font-heading text-[10.5px] text-gold-muted sm:block">CR {crLabel(m)}</span>
+        <div className="flex flex-none items-center gap-1">
+          <input
+            value={count}
+            onChange={(e) => setCount(e.target.value.replace(/\D/g, ""))}
+            title="How many to add"
+            className="input-hall h-8 w-9 text-center text-[12px]"
+          />
+          <button onClick={addIt} disabled={add.isPending} className="btn-base btn-gold clip-octagon h-8 px-2.5 text-[11px]">
+            <IconPlus size={12} /> Add
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div className="parchment mx-2 mb-2 px-4 py-3">
+          <ContentEntry entry={m} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddCombatant({ campaignId, encounterId, monster = true }: { campaignId: string; encounterId: string; monster?: boolean }) {
   const add = useAddCombatant(campaignId, encounterId);
   const { data: chars } = useCharacters(campaignId);
-  const [kind, setKind] = useState<"monster" | "pc" | "custom">("monster");
+  const [kind, setKind] = useState<"monster" | "pc" | "custom">(monster ? "monster" : "pc");
   const [pcPick, setPcPick] = useState("");
   const [custom, setCustom] = useState({ label: "", hpMax: "", ac: "", initMod: "" });
 
@@ -266,12 +417,12 @@ function AddCombatant({ campaignId, encounterId }: { campaignId: string; encount
   return (
     <div className="chip-hall flex flex-wrap items-center gap-2 px-3 py-2.5">
       <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="input-hall h-9 w-28 text-[12px]">
-        <option value="monster">Monster</option>
+        {monster && <option value="monster">Monster</option>}
         <option value="pc">Party</option>
         <option value="custom">Custom</option>
       </select>
 
-      {kind === "monster" && <MonsterSearch campaignId={campaignId} encounterId={encounterId} />}
+      {monster && kind === "monster" && <MonsterSearch campaignId={campaignId} encounterId={encounterId} />}
       {kind === "pc" && (
         <>
           <select value={pcPick} onChange={(e) => setPcPick(e.target.value)} className="input-hall h-9 min-w-[160px] flex-1 text-[12px]">
@@ -301,11 +452,21 @@ function AddCombatant({ campaignId, encounterId }: { campaignId: string; encount
 }
 
 function EncounterRunner({ campaign, detail }: { campaign: CampaignContext["campaign"]; detail: EncounterDetail }) {
+  // Two lives: while it's building, the D&D-Beyond-style two-pane builder;
+  // once triggered, the full-width initiative tracker.
+  return detail.encounter.status === "active" ? (
+    <ActiveTracker campaign={campaign} detail={detail} />
+  ) : (
+    <BuildLayout campaign={campaign} detail={detail} />
+  );
+}
+
+/* The running fight — round counter, turn stepper, and the live combatant list. */
+function ActiveTracker({ campaign, detail }: { campaign: CampaignContext["campaign"]; detail: EncounterDetail }) {
   const enc = detail.encounter;
   const combatants = detail.combatants;
   const update = useUpdateEncounter(campaign.id);
   const rollAll = useRollInitiative(campaign.id, enc.id);
-  const active = enc.status === "active";
 
   function step(dir: 1 | -1) {
     if (combatants.length === 0) return;
@@ -322,59 +483,106 @@ function EncounterRunner({ campaign, detail }: { campaign: CampaignContext["camp
         <button onClick={() => rollAll.mutate()} className="btn-base btn-wax h-9 px-4 text-[12px]">
           🎲 Roll all initiative
         </button>
-        {!active ? (
-          <button
-            onClick={() => update.mutate({ encounterId: enc.id, body: { status: "active" } })}
-            className="btn-base btn-gold clip-octagon h-9 px-4 text-[12px]"
-          >
-            ▶ Trigger encounter
-          </button>
-        ) : (
-          <>
-            <div className="chip-hall px-3 py-1.5">
-              <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">Round</span>
-              <span className="font-heading text-sm font-bold text-ember-bright tabular-nums">{enc.round}</span>
-            </div>
-            <button
-              onClick={() => step(-1)}
-              disabled={enc.round === 1 && enc.turnIndex === 0}
-              title="Previous turn"
-              className="btn-base h-9 px-3 text-[12px] disabled:opacity-40"
-              style={NEUTRAL_BTN}
-            >
-              ‹ Prev
-            </button>
-            <button onClick={() => step(1)} className="btn-base btn-wax h-9 px-4 text-[12px]">Next turn ›</button>
-            <button
-              onClick={() => update.mutate({ encounterId: enc.id, body: { status: "ended" } })}
-              title="End the encounter"
-              className="btn-base h-9 px-3 text-[12px]"
-              style={RED_BTN}
-            >
-              End
-            </button>
-          </>
-        )}
+        <div className="chip-hall px-3 py-1.5">
+          <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">Round</span>
+          <span className="font-heading text-sm font-bold text-ember-bright tabular-nums">{enc.round}</span>
+        </div>
+        <button
+          onClick={() => step(-1)}
+          disabled={enc.round === 1 && enc.turnIndex === 0}
+          title="Previous turn"
+          className="btn-base h-9 px-3 text-[12px] disabled:opacity-40"
+          style={NEUTRAL_BTN}
+        >
+          ‹ Prev
+        </button>
+        <button onClick={() => step(1)} className="btn-base btn-wax h-9 px-4 text-[12px]">Next turn ›</button>
+        <button
+          onClick={() => update.mutate({ encounterId: enc.id, body: { status: "ended" } })}
+          title="End the encounter"
+          className="btn-base h-9 px-3 text-[12px]"
+          style={RED_BTN}
+        >
+          End
+        </button>
       </div>
 
       <AddCombatant campaignId={campaign.id} encounterId={enc.id} />
 
       <div className="mt-3 flex flex-col gap-1.5">
-        {combatants.length === 0 ? (
-          <div className="font-accent py-6 text-center text-[14px] italic text-cream-muted">
-            No combatants yet — add monsters, heroes, or a custom line above.
+        {combatants.map((c) => (
+          <CombatantRow
+            key={c.id}
+            c={c}
+            active={c.current}
+            campaignId={campaign.id}
+            encounterId={enc.id}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* Building an encounter: the Den on the left to browse and add, the fight
+   being assembled on the right, ready to trigger. Stacks on a phone. */
+function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign"]; detail: EncounterDetail }) {
+  const enc = detail.encounter;
+  const combatants = detail.combatants;
+  const update = useUpdateEncounter(campaign.id);
+  const rollAll = useRollInitiative(campaign.id, enc.id);
+  const canTrigger = combatants.length > 0;
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)]">
+      {/* LEFT — the Den */}
+      <div
+        className="rounded-[4px] p-3"
+        style={{ background: "rgba(0,0,0,.1)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.14)" }}
+      >
+        <MonsterBrowser campaignId={campaign.id} encounterId={enc.id} />
+      </div>
+
+      {/* RIGHT — the fight taking shape */}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between">
+          <div className="label-stamp text-[11px] tracking-[3px] text-gold-muted">In this encounter</div>
+          <div className="label-stamp text-[9px] tracking-[1px] text-gold-muted">
+            {combatants.length} joined
           </div>
-        ) : (
-          combatants.map((c) => (
-            <CombatantRow
-              key={c.id}
-              c={c}
-              active={active && c.current}
-              campaignId={campaign.id}
-              encounterId={enc.id}
-            />
-          ))
-        )}
+        </div>
+        <div className="mb-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => rollAll.mutate()}
+            disabled={!canTrigger}
+            title="Roll d20 + modifier for everyone"
+            className="btn-base btn-wax h-9 px-3 text-[12px] disabled:opacity-40"
+          >
+            🎲 Roll all
+          </button>
+          <button
+            onClick={() => update.mutate({ encounterId: enc.id, body: { status: "active" } })}
+            disabled={!canTrigger}
+            title={canTrigger ? "Begin the fight" : "Add someone to the fight first"}
+            className="btn-base btn-gold clip-octagon h-9 px-4 text-[12px] disabled:opacity-40"
+          >
+            ▶ Trigger
+          </button>
+        </div>
+
+        <AddCombatant campaignId={campaign.id} encounterId={enc.id} monster={false} />
+
+        <div className="mt-3 flex flex-col gap-1.5">
+          {combatants.length === 0 ? (
+            <div className="font-accent py-6 text-center text-[13px] italic text-cream-muted">
+              Empty so far — pick monsters from the Den, or add your party.
+            </div>
+          ) : (
+            combatants.map((c) => (
+              <CombatantRow key={c.id} c={c} active={false} campaignId={campaign.id} encounterId={enc.id} />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

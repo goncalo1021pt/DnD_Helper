@@ -7,6 +7,14 @@ import ContentEntry from "./ui/ContentEntry";
 import ParchmentModal from "./ui/ParchmentModal";
 import { IconPlus } from "./ui/icons";
 import type { CampaignContext } from "./CampaignView";
+import {
+  BASE_TYPES,
+  baseTypeOf,
+  CR_BANDS,
+  MONSTER_SORTS,
+  sourceLabel,
+  type MonsterSort,
+} from "../lib/monsters";
 
 /**
  * The Monster Den: the DM's private menagerie. SRD monsters plus the DM's own
@@ -14,48 +22,6 @@ import type { CampaignContext } from "./CampaignView";
  * codex-shared, and this page refuses anyone who isn't the DM. Players get
  * their look through the Bestiary, one hard-won reveal at a time.
  */
-
-const CR_BANDS: Array<[string, (v: number) => boolean]> = [
-  ["Any CR", () => true],
-  ["CR 0–1", (v) => v <= 1],
-  ["CR 2–4", (v) => v >= 2 && v <= 4],
-  ["CR 5–10", (v) => v >= 5 && v <= 10],
-  ["CR 11–16", (v) => v >= 11 && v <= 16],
-  ["CR 17+", (v) => v >= 17],
-];
-
-/** The 14 creature types of the 2024 rules, for the type filter. */
-const BASE_TYPES = [
-  "Aberration", "Beast", "Celestial", "Construct", "Dragon", "Elemental",
-  "Fey", "Fiend", "Giant", "Humanoid", "Monstrosity", "Ooze", "Plant",
-  "Undead",
-];
-
-/** "Swarm of Tiny Beasts" → Beast, "Fiend (Demon)" → Fiend, "Swarm of Tiny
- * Monstrosities" → Monstrosity (y→ies plural). */
-function baseTypeOf(type: string): string {
-  for (const t of BASE_TYPES) {
-    const plural = t.endsWith("y") ? t.slice(0, -1) + "ies" : t + "s";
-    if (type.includes(t) || type.includes(plural)) return t;
-  }
-  return type;
-}
-
-/** How a monster's origin reads: SRD, its source book (carried by a pack), or
- * the DM's own hand-scribed Homebrew. */
-function sourceLabel(m: RulesContent): string {
-  if (m.source === "srd") return "SRD";
-  const book = (m.data as { book?: string }).book;
-  return book && book.trim() ? book : "Homebrew";
-}
-
-type SortKey = "cr-asc" | "cr-desc" | "name";
-
-const SORTS: Array<[SortKey, string]> = [
-  ["cr-asc", "CR: low → high"],
-  ["cr-desc", "CR: high → low"],
-  ["name", "Name: A → Z"],
-];
 
 export default function DenPage() {
   const { role } = useOutletContext<CampaignContext>();
@@ -67,7 +33,7 @@ export default function DenPage() {
   const [band, setBand] = useState(0);
   const [type, setType] = useState("");
   const [source, setSource] = useState("");
-  const [sort, setSort] = useState<SortKey>("cr-asc");
+  const [sort, setSort] = useState<MonsterSort>("cr-asc");
   const [reading, setReading] = useState<RulesContent | null>(null);
   const [scribing, setScribing] = useState(false);
   const [packReport, setPackReport] = useState<ImportReport | null>(null);
@@ -248,10 +214,10 @@ export default function DenPage() {
         </select>
         <select
           value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
+          onChange={(e) => setSort(e.target.value as MonsterSort)}
           className="input-hall w-[160px]"
         >
-          {SORTS.map(([key, label]) => (
+          {MONSTER_SORTS.map(([key, label]) => (
             <option key={key} value={key}>{label}</option>
           ))}
         </select>
