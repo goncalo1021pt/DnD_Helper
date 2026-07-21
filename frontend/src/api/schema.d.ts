@@ -964,6 +964,143 @@ export interface paths {
         patch: operations["updateMapPin"];
         trace?: never;
     };
+    "/campaigns/{campaignId}/encounters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The DM's encounter library — drafts, the active one, and past ones (DM only) */
+        get: operations["listEncounters"];
+        put?: never;
+        /** Prepare a new (draft) encounter (DM only) */
+        post: operations["createEncounter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/encounters/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The running encounter (members) — redacted for players. 204 when none is active. */
+        get: operations["getActiveEncounter"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        /** One encounter with its combatants — full detail (DM only) */
+        get: operations["getEncounter"];
+        put?: never;
+        post?: never;
+        /** Discard an encounter and its combatants (DM only) */
+        delete: operations["deleteEncounter"];
+        options?: never;
+        head?: never;
+        /** Rename, trigger/end, or advance the tracker (DM only) */
+        patch: operations["updateEncounter"];
+        trace?: never;
+    };
+    "/encounters/{encounterId}/combatants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a Den monster, a seated PC, or a custom line (DM only) */
+        post: operations["addCombatant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{encounterId}/roll-initiative": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Roll initiative (d20 + modifier) for every combatant at once (DM only) */
+        post: operations["rollInitiative"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/combatants/{combatantId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                combatantId: components["parameters"]["CombatantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a combatant (DM only) */
+        delete: operations["deleteCombatant"];
+        options?: never;
+        head?: never;
+        /** Edit a combatant — HP, initiative, reveal, rename (DM only) */
+        patch: operations["updateCombatant"];
+        trace?: never;
+    };
+    "/combatants/{combatantId}/roll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                combatantId: components["parameters"]["CombatantId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Roll this combatant's initiative (DM, or the owner of a PC combatant) */
+        post: operations["rollCombatantInitiative"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1377,6 +1514,97 @@ export interface components {
             /** Format: uuid */
             linkMapId?: string | null;
         };
+        Encounter: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaignId: string;
+            name: string;
+            /** @description draft | active | ended (plain string, validated server-side). */
+            status: string;
+            round: number;
+            /** @description Index into the initiative order whose turn it is. */
+            turnIndex: number;
+            combatantCount: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        Combatant: {
+            /** @description Whether it's this combatant's turn right now (false for all when a hidden enemy is acting). */
+            current: boolean;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            encounterId: string;
+            /** @description monster | pc | custom (plain string). */
+            kind: string;
+            /** @description The DM sees the true label; players see the reveal label ("Unknown" until named). */
+            name: string;
+            /** @description DM-only — what players see for this combatant. */
+            playerLabel?: string | null;
+            /**
+             * Format: uuid
+             * @description DM-only — the Den monster this was built from.
+             */
+            contentId?: string | null;
+            /**
+             * Format: uuid
+             * @description DM-only (or the viewer's own PC) — the seated character.
+             */
+            characterId?: string | null;
+            initMod: number;
+            /** @description Order value; null until rolled or typed. */
+            initiative?: number | null;
+            /** @description DM, or the owner of a PC combatant. Omitted for players otherwise. */
+            hpCurrent?: number | null;
+            hpMax?: number | null;
+            ac?: number | null;
+            /** @description healthy | bloodied | down — the only HP cue players get for others. */
+            hpState: string;
+            /** @description DM-only flag; hidden combatants are omitted from player payloads entirely. */
+            hidden: boolean;
+            /** @description For a player, whether this is their own PC (they may roll its initiative and see its HP). */
+            isMine?: boolean;
+            sortOrder: number;
+        };
+        EncounterDetail: {
+            encounter: components["schemas"]["Encounter"];
+            combatants: components["schemas"]["Combatant"][];
+        };
+        CreateEncounterRequest: {
+            name: string;
+        };
+        UpdateEncounterRequest: {
+            name?: string;
+            /** @description draft | active | ended. Setting active triggers it (and ends any other running one). */
+            status?: string;
+            round?: number;
+            turnIndex?: number;
+        };
+        AddCombatantRequest: {
+            /** @description monster (needs contentId) | pc (needs characterId) | custom (typed). */
+            kind: string;
+            /** Format: uuid */
+            contentId?: string;
+            /** Format: uuid */
+            characterId?: string;
+            /** @description Name for a custom line, or an override for a monster/PC. */
+            label?: string;
+            playerLabel?: string;
+            hpMax?: number;
+            ac?: number;
+            initMod?: number;
+            hidden?: boolean;
+        };
+        UpdateCombatantRequest: {
+            label?: string;
+            playerLabel?: string;
+            initiative?: number | null;
+            hpCurrent?: number;
+            hpMax?: number;
+            ac?: number;
+            hidden?: boolean;
+        };
         BestiaryEntry: {
             /** Format: uuid */
             id: string;
@@ -1618,6 +1846,8 @@ export interface components {
         NodeId: string;
         MapId: string;
         PinId: string;
+        EncounterId: string;
+        CombatantId: string;
     };
     requestBodies: never;
     headers: never;
@@ -3681,6 +3911,301 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listEncounters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Encounters, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Encounter"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEncounterRequest"];
+            };
+        };
+        responses: {
+            /** @description The new encounter */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Encounter"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getActiveEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The active encounter and its combatants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterDetail"];
+                };
+            };
+            /** @description No encounter is running */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The encounter and its combatants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEncounterRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated encounter and combatants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addCombatant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddCombatantRequest"];
+            };
+        };
+        responses: {
+            /** @description The new combatant */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Combatant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    rollInitiative: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The encounter with rolled initiative */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCombatant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                combatantId: components["parameters"]["CombatantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCombatant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                combatantId: components["parameters"]["CombatantId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCombatantRequest"];
+            };
+        };
+        responses: {
+            /** @description The updated combatant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Combatant"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    rollCombatantInitiative: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                combatantId: components["parameters"]["CombatantId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The combatant with a fresh initiative */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Combatant"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

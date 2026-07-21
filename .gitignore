@@ -33,3 +33,5 @@ npm-debug.log*
 
 # Local test assets (maps upload into the app; never commit them)
 /assets/
+
+.claude/settings.local.json

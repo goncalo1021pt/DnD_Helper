@@ -293,6 +293,21 @@ export default function CampaignDashboard() {
           </div>
         </section>
 
+        {/* encounters — the DM's combat tool, shared tracker at the table */}
+        <section className="panel-hall px-6 pb-6 pt-5">
+          <BlockHeader
+            title="Encounters"
+            meta={isDM ? "prepare & run combat" : "the initiative order"}
+            to="encounters"
+            linkLabel={isDM ? "Open encounters" : "See the battle"}
+          />
+          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+            {isDM
+              ? "Prepare battles from the Den and your party, then trigger them and run initiative in-app."
+              : "When the DM triggers a fight, the initiative order and whose turn it is show up here."}
+          </div>
+        </section>
+
         {/* the map — the campaign atlas, open to all at the table */}
         <section className="panel-hall px-6 pb-6 pt-5">
           <BlockHeader

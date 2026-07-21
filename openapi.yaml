@@ -1765,6 +1765,232 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns/{campaignId}/encounters:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listEncounters
+      summary: The DM's encounter library — drafts, the active one, and past ones (DM only)
+      responses:
+        "200":
+          description: Encounters, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Encounter"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createEncounter
+      summary: Prepare a new (draft) encounter (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEncounterRequest"
+      responses:
+        "201":
+          description: The new encounter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Encounter"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/encounters/active:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: getActiveEncounter
+      summary: The running encounter (members) — redacted for players. 204 when none is active.
+      responses:
+        "200":
+          description: The active encounter and its combatants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterDetail"
+        "204":
+          description: No encounter is running
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /encounters/{encounterId}:
+    parameters:
+      - $ref: "#/components/parameters/EncounterId"
+    get:
+      operationId: getEncounter
+      summary: One encounter with its combatants — full detail (DM only)
+      responses:
+        "200":
+          description: The encounter and its combatants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateEncounter
+      summary: Rename, trigger/end, or advance the tracker (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEncounterRequest"
+      responses:
+        "200":
+          description: The updated encounter and combatants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteEncounter
+      summary: Discard an encounter and its combatants (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /encounters/{encounterId}/combatants:
+    parameters:
+      - $ref: "#/components/parameters/EncounterId"
+    post:
+      operationId: addCombatant
+      summary: Add a Den monster, a seated PC, or a custom line (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCombatantRequest"
+      responses:
+        "201":
+          description: The new combatant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Combatant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /encounters/{encounterId}/roll-initiative:
+    parameters:
+      - $ref: "#/components/parameters/EncounterId"
+    post:
+      operationId: rollInitiative
+      summary: Roll initiative (d20 + modifier) for every combatant at once (DM only)
+      responses:
+        "200":
+          description: The encounter with rolled initiative
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EncounterDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /combatants/{combatantId}:
+    parameters:
+      - $ref: "#/components/parameters/CombatantId"
+    patch:
+      operationId: updateCombatant
+      summary: Edit a combatant — HP, initiative, reveal, rename (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCombatantRequest"
+      responses:
+        "200":
+          description: The updated combatant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Combatant"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteCombatant
+      summary: Remove a combatant (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /combatants/{combatantId}/roll:
+    parameters:
+      - $ref: "#/components/parameters/CombatantId"
+    post:
+      operationId: rollCombatantInitiative
+      summary: Roll this combatant's initiative (DM, or the owner of a PC combatant)
+      responses:
+        "200":
+          description: The combatant with a fresh initiative
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Combatant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
   securitySchemes:
     sessionCookie:
@@ -1826,6 +2052,20 @@ components:
         format: uuid
     PinId:
       name: pinId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EncounterId:
+      name: encounterId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CombatantId:
+      name: combatantId
       in: path
       required: true
       schema:
@@ -2632,6 +2872,174 @@ components:
           type: string
           format: uuid
           nullable: true
+
+    Encounter:
+      type: object
+      required: [id, campaignId, name, status, round, turnIndex, combatantCount, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          description: "draft | active | ended (plain string, validated server-side)."
+        round:
+          type: integer
+        turnIndex:
+          type: integer
+          description: Index into the initiative order whose turn it is.
+        combatantCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    Combatant:
+      type: object
+      required: [id, encounterId, kind, name, initMod, hpState, hidden, current, sortOrder]
+      properties:
+        current:
+          type: boolean
+          description: Whether it's this combatant's turn right now (false for all when a hidden enemy is acting).
+        id:
+          type: string
+          format: uuid
+        encounterId:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          description: "monster | pc | custom (plain string)."
+        name:
+          type: string
+          description: The DM sees the true label; players see the reveal label ("Unknown" until named).
+        playerLabel:
+          type: string
+          nullable: true
+          description: DM-only — what players see for this combatant.
+        contentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: DM-only — the Den monster this was built from.
+        characterId:
+          type: string
+          format: uuid
+          nullable: true
+          description: DM-only (or the viewer's own PC) — the seated character.
+        initMod:
+          type: integer
+        initiative:
+          type: integer
+          nullable: true
+          description: Order value; null until rolled or typed.
+        hpCurrent:
+          type: integer
+          nullable: true
+          description: DM, or the owner of a PC combatant. Omitted for players otherwise.
+        hpMax:
+          type: integer
+          nullable: true
+        ac:
+          type: integer
+          nullable: true
+        hpState:
+          type: string
+          description: "healthy | bloodied | down — the only HP cue players get for others."
+        hidden:
+          type: boolean
+          description: DM-only flag; hidden combatants are omitted from player payloads entirely.
+        isMine:
+          type: boolean
+          description: For a player, whether this is their own PC (they may roll its initiative and see its HP).
+        sortOrder:
+          type: integer
+
+    EncounterDetail:
+      type: object
+      required: [encounter, combatants]
+      properties:
+        encounter:
+          $ref: "#/components/schemas/Encounter"
+        combatants:
+          type: array
+          items:
+            $ref: "#/components/schemas/Combatant"
+
+    CreateEncounterRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+
+    UpdateEncounterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          description: "draft | active | ended. Setting active triggers it (and ends any other running one)."
+        round:
+          type: integer
+          minimum: 1
+        turnIndex:
+          type: integer
+          minimum: 0
+
+    AddCombatantRequest:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          description: "monster (needs contentId) | pc (needs characterId) | custom (typed)."
+        contentId:
+          type: string
+          format: uuid
+        characterId:
+          type: string
+          format: uuid
+        label:
+          type: string
+          description: Name for a custom line, or an override for a monster/PC.
+        playerLabel:
+          type: string
+        hpMax:
+          type: integer
+        ac:
+          type: integer
+        initMod:
+          type: integer
+        hidden:
+          type: boolean
+
+    UpdateCombatantRequest:
+      type: object
+      properties:
+        label:
+          type: string
+        playerLabel:
+          type: string
+        initiative:
+          type: integer
+          nullable: true
+        hpCurrent:
+          type: integer
+        hpMax:
+          type: integer
+        ac:
+          type: integer
+        hidden:
+          type: boolean
 
     BestiaryEntry:
       type: object

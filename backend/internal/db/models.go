@@ -518,6 +518,34 @@ type EmailToken struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type Encounter struct {
+	ID         uuid.UUID          `json:"id"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
+	Name       string             `json:"name"`
+	Status     string             `json:"status"`
+	Round      int32              `json:"round"`
+	TurnIndex  int32              `json:"turn_index"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type EncounterCombatant struct {
+	ID          uuid.UUID          `json:"id"`
+	EncounterID uuid.UUID          `json:"encounter_id"`
+	Kind        string             `json:"kind"`
+	ContentID   pgtype.UUID        `json:"content_id"`
+	CharacterID pgtype.UUID        `json:"character_id"`
+	Label       string             `json:"label"`
+	PlayerLabel string             `json:"player_label"`
+	InitMod     int32              `json:"init_mod"`
+	Initiative  *int32             `json:"initiative"`
+	HpCurrent   int32              `json:"hp_current"`
+	HpMax       int32              `json:"hp_max"`
+	Ac          int32              `json:"ac"`
+	Hidden      bool               `json:"hidden"`
+	SortOrder   int32              `json:"sort_order"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type KnowledgePool struct {
 	ID         uuid.UUID          `json:"id"`
 	CampaignID uuid.UUID          `json:"campaign_id"`

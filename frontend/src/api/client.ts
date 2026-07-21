@@ -88,6 +88,13 @@ export type MapPinInput =
 export type RevealCircle = MapDetail["revealed"][number];
 export type RevealBatch =
   paths["/maps/{mapId}/reveals"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type Encounter =
+  paths["/campaigns/{campaignId}/encounters"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type EncounterDetail =
+  paths["/campaigns/{campaignId}/encounters/active"]["get"]["responses"]["200"]["content"]["application/json"];
+export type Combatant = EncounterDetail["combatants"][number];
+export type AddCombatantInput =
+  paths["/encounters/{encounterId}/combatants"]["post"]["requestBody"]["content"]["application/json"];
 export type BestiaryEntry =
   paths["/campaigns/{campaignId}/bestiary"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type BestiaryNote = BestiaryEntry["notes"][number];
