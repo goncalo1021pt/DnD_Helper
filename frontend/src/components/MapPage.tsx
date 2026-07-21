@@ -43,6 +43,17 @@ type View = { scale: number; tx: number; ty: number };
  * fractional, so the raster scale never changes the geometry. */
 const FOG_RASTER_MAX = 2048;
 
+/** A stable fingerprint of a player's revealed set, appended to the image URL
+ * so the browser refetches the server-fogged image when the DM reveals more. */
+function revealSig(circles: RevealCircle[]): string {
+  let h = 0;
+  for (const c of circles) {
+    const s = `${c.x.toFixed(4)},${c.y.toFixed(4)},${c.r.toFixed(4)};`;
+    for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  }
+  return `${(h >>> 0).toString(36)}-${circles.length}`;
+}
+
 /* The fog itself: black for players, a readable dark veil for the DM.
  * Committed and draft circles punch through; drafts get a dashed gold rim so
  * the DM can see what hasn't been submitted yet. Sits between the map image
@@ -769,13 +780,17 @@ export default function MapPage() {
             }}
           >
             <img
-              src={`/api/maps/${map.id}/image`}
+              src={`/api/maps/${map.id}/image?v=${
+                map.fogEnabled && !isDM ? revealSig(detail?.revealed ?? []) : "full"
+              }`}
               alt={map.name}
               draggable={false}
               className="block h-full w-full"
               style={{ imageRendering: view.scale > fitScale.current * 4 ? "pixelated" : "auto" }}
             />
-            {map.fogEnabled && (
+            {/* Players receive a server-fogged image, so only the DM draws the
+                translucent overlay (and the live draft while stamping). */}
+            {map.fogEnabled && isDM && (
               <FogCanvas
                 map={map}
                 revealed={detail?.revealed ?? []}

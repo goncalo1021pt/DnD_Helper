@@ -4,6 +4,7 @@ import type { AbilityScores, RulesContent } from "../api/client";
 import { useForgeCharacter, useRules } from "../hooks";
 import { castingFor, spellOnClassList, type CasterData } from "../lib/spellcasting";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
+import FloatingDiceTray from "./ui/DiceTray";
 import SpellHover from "./ui/SpellHover";
 
 /**
@@ -775,6 +776,9 @@ export default function ForgeWizard() {
           </div>
         </div>
       </div>
+
+      {/* Dice always within reach — handy on the ability-score step. */}
+      <FloatingDiceTray />
     </div>
   );
 }

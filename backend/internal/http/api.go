@@ -18,12 +18,13 @@ import (
 
 // Server implements the generated api.StrictServerInterface.
 type Server struct {
-	pool    *pgxpool.Pool
-	queries *db.Queries
+	pool     *pgxpool.Pool
+	queries  *db.Queries
+	fogCache *fogImageCache
 }
 
 func NewServer(pool *pgxpool.Pool) *Server {
-	return &Server{pool: pool, queries: db.New(pool)}
+	return &Server{pool: pool, queries: db.New(pool), fogCache: newFogImageCache()}
 }
 
 // GetHealth reports liveness and database reachability.

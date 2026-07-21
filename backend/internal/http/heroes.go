@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -183,13 +184,36 @@ func (s *Server) ListRules(ctx context.Context, request api.ListRulesRequestObje
 	if err != nil {
 		return nil, err
 	}
+	// Collapse identical official-book content that several users each
+	// imported: the same (name, book) shows once, preferring the viewer's own
+	// copy. Content with no book (hand-made homebrew, SRD) never collapses, so
+	// genuinely distinct entries that happen to share a name are all kept.
+	type bookKey struct{ name, book string }
+	seen := make(map[bookKey]int, len(rows))
 	out := make([]api.RulesContent, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toAPIRulesContent(db.RulesContent{
+		item := toAPIRulesContent(db.RulesContent{
 			ID: row.ID, Kind: row.Kind, Source: row.Source,
 			Name: row.Name, Summary: row.Summary, Data: row.Data,
 			CreatedBy: row.CreatedBy,
-		}, row.CreatorName, uid))
+		}, row.CreatorName, uid)
+
+		book, _ := item.Data["book"].(string)
+		if strings.TrimSpace(book) == "" {
+			out = append(out, item)
+			continue
+		}
+		key := bookKey{name: strings.ToLower(row.Name), book: book}
+		if idx, ok := seen[key]; ok {
+			// A copy of this official entry is already shown; keep the
+			// viewer's own over anyone else's.
+			if item.Mine && !out[idx].Mine {
+				out[idx] = item
+			}
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, item)
 	}
 	return api.ListRules200JSONResponse(out), nil
 }

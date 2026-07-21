@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { IconDie, IconX } from "./icons";
 
 /**
@@ -210,25 +211,29 @@ export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
   );
 }
 
-/** Corner-button variant for the solo pages (board, party). */
+/**
+ * Corner-button variant for the solo pages (board, party) and the forge.
+ * Rendered through a portal to <body> so it shares the root stacking context
+ * with the modals (which also portal there); otherwise it stays trapped inside
+ * the page's transformed/z-indexed <main> and a modal paints over it — leaving
+ * the dice unreachable exactly when you need them, e.g. rolling HP on level-up.
+ */
 export default function FloatingDiceTray() {
   const [open, setOpen] = useState(false);
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        title="Open the dice tower"
-        className="btn-base btn-gold clip-octagon fixed bottom-6 right-6 z-40 h-12 w-14"
-      >
-        <IconDie size={22} strokeWidth={1.8} />
-      </button>
-    );
-  }
-
-  return (
-    <div className="anim-rise-fast fixed bottom-6 right-6 z-40 w-[330px] max-w-[calc(100vw-3rem)]">
+  const node = !open ? (
+    <button
+      onClick={() => setOpen(true)}
+      title="Open the dice tower"
+      className="btn-base btn-gold clip-octagon fixed bottom-6 right-6 z-[70] h-12 w-14"
+    >
+      <IconDie size={22} strokeWidth={1.8} />
+    </button>
+  ) : (
+    <div className="anim-rise-fast fixed bottom-6 right-6 z-[70] w-[330px] max-w-[calc(100vw-3rem)]">
       <DiceTowerPanel onClose={() => setOpen(false)} />
     </div>
   );
+
+  return createPortal(node, document.body);
 }
