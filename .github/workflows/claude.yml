@@ -9,8 +9,12 @@
 #   - Mention @claude in an issue body/title, an issue comment, a PR review,
 #     or a PR review comment. Claude reads the thread and responds — for a
 #     code request it pushes a branch and opens a PR.
-#   - Assign an issue to the trigger user (see `assignee_trigger` below) to
-#     have Claude pick it up without an explicit mention.
+#   - Add the `claude` label to an issue to have Claude pick it up without
+#     an explicit mention.
+#
+# Assigning the "Claude" bot user in the issue sidebar does NOT run this
+# workflow — that dispatches Anthropic's hosted cloud agent instead, a
+# separate product that runs on claude.ai rather than in Actions.
 #
 # NOTE: for issue/comment events GitHub runs the copy of this file on the
 # DEFAULT branch, so this must be merged into `main` before it does anything.
@@ -22,19 +26,19 @@ on:
   pull_request_review_comment:
     types: [created]
   issues:
-    types: [opened, assigned]
+    types: [opened, labeled]
   pull_request_review:
     types: [submitted]
 
 jobs:
   claude:
-    # Only spend a run when @claude is actually mentioned, or an issue is
-    # assigned (the action's assignee_trigger does the final gating).
+    # Only spend a run when @claude is actually mentioned, or the `claude`
+    # label is added (the action's label_trigger does the final gating).
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && github.event.action == 'assigned') ||
+      (github.event_name == 'issues' && github.event.action == 'labeled' && github.event.label.name == 'claude') ||
       (github.event_name == 'issues' && github.event.action == 'opened' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
@@ -52,12 +56,9 @@ jobs:
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-
-          # Assign an issue to this GitHub username to trigger Claude without
-          # an @claude mention. Set it to your own username (or a bot account)
-          # and assign issues to that user.
-          # assignee_trigger: "goncalo1021pt"
+          # Long-lived token from `claude setup-token` — bills the Claude
+          # Max subscription instead of an API account.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
           # Optional: pin a model / cap turns / pre-allow this repo's commands.
           # claude_args: |
