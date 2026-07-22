@@ -1,0 +1,66 @@
+# Claude Code — @claude on issues and pull requests.
+#
+# Runs the official anthropics/claude-code-action in a GitHub-hosted runner.
+# Claude reads this repo's CLAUDE.md automatically, so it already knows the
+# Quest Board architecture, the contract-first codegen flow, and the `make`
+# targets when it works on a task here.
+#
+# How to trigger it:
+#   - Mention @claude in an issue body/title, an issue comment, a PR review,
+#     or a PR review comment. Claude reads the thread and responds — for a
+#     code request it pushes a branch and opens a PR.
+#   - Assign an issue to the trigger user (see `assignee_trigger` below) to
+#     have Claude pick it up without an explicit mention.
+#
+# NOTE: for issue/comment events GitHub runs the copy of this file on the
+# DEFAULT branch, so this must be merged into `main` before it does anything.
+name: Claude Code
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    # Only spend a run when @claude is actually mentioned, or an issue is
+    # assigned (the action's assignee_trigger does the final gating).
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && github.event.action == 'assigned') ||
+      (github.event_name == 'issues' && github.event.action == 'opened' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # push branches
+      pull-requests: write   # open / comment on PRs
+      issues: write          # comment on issues
+      id-token: write        # OIDC for the action
+      actions: read          # read CI results on PRs
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          # Assign an issue to this GitHub username to trigger Claude without
+          # an @claude mention. Set it to your own username (or a bot account)
+          # and assign issues to that user.
+          # assignee_trigger: "goncalo1021pt"
+
+          # Optional: pin a model / cap turns / pre-allow this repo's commands.
+          # claude_args: |
+          #   --model claude-opus-4-8
+          #   --max-turns 15
+          #   --allowedTools "Bash(make generate),Bash(cd backend && go test ./...),Bash(cd backend && go build ./...),Bash(cd frontend && npm ci),Bash(cd frontend && npm run build)"
