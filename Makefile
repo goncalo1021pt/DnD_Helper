@@ -10,9 +10,13 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
-tools: ## Install codegen tools (sqlc, oapi-codegen)
-	go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+# Codegen tools are PINNED so `make generate` is reproducible and the CI drift
+# check is deterministic. oapi-codegen v2.7.1 generated the committed api.gen.go
+# (v2.8.0 changes the output substantially); sqlc v1.31.1 matches the committed
+# db/. Bump these deliberately, then `make generate` and commit the result.
+tools: ## Install codegen tools (sqlc, oapi-codegen) at pinned versions
+	go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.1
 
 generate: gen-backend gen-frontend ## Regenerate all code from SQL + OpenAPI
 

@@ -1,0 +1,70 @@
+# Dependabot — weekly automated dependency-update PRs.
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates
+#
+# Minor + patch bumps are grouped into a single PR per ecosystem to keep noise
+# down; major bumps come as their own PRs so they get individual review.
+# The CI workflow runs on these PRs (no secrets needed), so a bump that breaks
+# the build, tests, or codegen is caught before merge.
+version: 2
+updates:
+  # Go backend modules (go.mod / go.sum live in backend/).
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Lisbon
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
+
+  # Frontend npm packages (package.json / package-lock.json live in frontend/).
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Lisbon
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  # Actions pinned in .github/workflows/*.yml.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Lisbon
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Base images in the multi-stage build (node / golang / alpine).
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Lisbon
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Images in the docker-compose stacks (postgres; cloudflared is :latest, skipped).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Lisbon
+    commit-message:
+      prefix: "chore(deps)"
