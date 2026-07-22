@@ -11,7 +11,7 @@ COPY frontend ./
 RUN npm run gen:api && npm run build
 
 # --- Stage 2: build the Go binary with the SPA embedded ---
-FROM golang:1.25-alpine AS backend
+FROM golang:1.26-alpine AS backend
 WORKDIR /app/backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
