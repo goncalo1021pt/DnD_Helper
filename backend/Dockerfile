@@ -2,7 +2,7 @@
 # Build context is the repo root (see docker-compose.yml).
 
 # --- Stage 1: build the SPA ---
-FROM node:22-alpine AS frontend
+FROM node:26-alpine AS frontend
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
