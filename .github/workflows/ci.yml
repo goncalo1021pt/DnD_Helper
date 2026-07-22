@@ -1,0 +1,93 @@
+# Continuous integration for Quest Board.
+#
+# Runs on every PR into main (and on pushes to main, to keep the branch green).
+# Three independent jobs, matching docs/VISION.md "Post-v1 roadmap" item #1:
+#   backend   — go vet + go build + go test
+#   frontend  — tsc typecheck + vite build
+#   codegen   — `make generate` produces no diff (spec/SQL and generated code in sync)
+#
+# CD stays manual on purpose: the deploy target sits behind a VPN, and a
+# self-hosted runner on a public repo would let fork PRs execute on the VM.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the in-flight run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend · vet · build · test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: go vet ./...
+      - run: go build ./...
+      - run: go test ./...
+
+  frontend:
+    name: Frontend · typecheck · build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # `npm run build` is `tsc && vite build` — the tsc step is the type check.
+      - run: npm run build
+
+  codegen:
+    name: Codegen · make generate is in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # sqlc + oapi-codegen at pinned versions (see the `tools` target in the
+      # Makefile) so this drift check is deterministic across generator releases.
+      - name: Install codegen tools
+        run: make tools
+      # openapi-typescript lives in the frontend devDependencies (make gen-frontend
+      # runs `npm run gen:api`).
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+      - name: Regenerate from SQL + OpenAPI
+        run: make generate
+      - name: Fail if generated code is stale
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Generated code is out of date — run 'make generate' and commit the result."
+            git status --porcelain
+            exit 1
+          fi
