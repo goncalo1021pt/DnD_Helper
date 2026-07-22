@@ -22,7 +22,7 @@ COPY --from=frontend /app/frontend/dist/assets/ ./internal/static/assets/
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /server ./cmd/server
 
 # --- Stage 3: minimal runtime ---
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates
 COPY --from=backend /server /server
 EXPOSE 8080
