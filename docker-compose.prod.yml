@@ -14,3 +14,43 @@ services:
   app:
     ports: !override
       - "127.0.0.1:8080:8080"
+
+  # Nightly database backups. Dumps the whole database to ./backups on the host
+  # (gzipped SQL, restorable with psql) once a day, keeping the last 14. The
+  # first dump happens immediately on start, so a fresh deploy is covered from
+  # minute one. Sync ./backups somewhere off this machine for real disaster
+  # recovery.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-questboard}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-questboard}
+      PGDATABASE: ${POSTGRES_DB:-questboard}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      # Dump to a plain file first and gzip only on success — piping straight
+      # into gzip would mask pg_dump failures (the pipeline reports gzip's exit
+      # code) and rotate good backups out in favor of empty ones.
+      - |
+        while true; do
+          ts=$$(date +%F-%H%M)
+          f="/backups/questboard-$$ts.sql"
+          if pg_dump > "$$f"; then
+            gzip -f "$$f"
+            echo "backup: wrote questboard-$$ts.sql.gz ($$(du -h "$$f.gz" | cut -f1))"
+            ls -1t /backups/questboard-*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm
+          else
+            echo "backup: FAILED at $$ts — keeping existing dumps" >&2
+            rm -f "$$f"
+          fi
+          sleep 86400
+        done
+    profiles:
+      - full

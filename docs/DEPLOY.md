@@ -113,7 +113,27 @@ docker compose --profile full up -d --build      # redeploy after pulling change
 docker compose --profile full down               # stop (keeps the pgdata volume)
 ```
 
-**Database backup** (the `pgdata` volume holds all data):
+### Database backups
+
+The prod override runs a `backup` service that dumps the whole database to
+`./backups/` (gzipped SQL) **once a day**, keeping the last 14. The first dump
+is written immediately on start. Check on it with:
+
+```bash
+ls -lh backups/
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backup | tail
+```
+
+**Restore** into a fresh database (stack up, app briefly wrong until done):
+```bash
+gunzip -c backups/questboard-<date>.sql.gz | \
+  docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres \
+  psql -U questboard -d questboard
+```
+
+The dumps live on the same machine as the database — for real disaster recovery,
+sync `./backups/` off the box (rclone to cloud storage, an rsync cron to another
+machine, or even a synced folder). An ad-hoc manual dump is still just:
 ```bash
 docker compose exec postgres pg_dump -U questboard questboard > backup-$(date +%F).sql
 ```

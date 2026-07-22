@@ -34,4 +34,7 @@ npm-debug.log*
 # Local test assets (maps upload into the app; never commit them)
 /assets/
 
+# Database dumps written by the prod backup service
+/backups/
+
 .claude/settings.local.json

@@ -199,9 +199,66 @@ Two more DM tools slot in before v1 closes:
   throws, proficiency bonus by level, the standard conditions, and combat
   actions. Static reference; no per-campaign state.
 
+Both shipped (July 2026): the encounter generator landed with a
+D&D-Beyond-style two-pane builder (filterable Den browser, inline stat cards),
+and the rules reference as the app-level "The Rules" page. v1.0.0 launched to
+production at dnd.fontao.net on 2026-07-22.
+
+### Post-v1 — engineering & operations roadmap (added 2026-07-22)
+
+v1 shipped feature-complete but with engineering debt that should be paid down
+before the feature list grows again. In priority order:
+
+1. **Automated tests + CI.** The app has zero committed tests — everything was
+   verified with thorough but throwaway Playwright scripts. Introduce:
+   - **Go unit tests** for the code where bugs are dangerous rather than
+     annoying: password strength + hashing, TOTP encrypt/decrypt + recovery-code
+     normalization, fog reveal geometry, encounter combatant redaction
+     (player-view leaks), codex visibility rules.
+   - **A committed Playwright smoke suite** (register → forge a hero → create
+     campaign → post/claim quest → trigger encounter → 2FA enroll/login) run
+     against the containerized stack.
+   - **GitHub Actions CI** on every PR: `make generate` produces no diff
+     (spec/SQL and generated code in sync), `go vet` + `go build` + `go test`,
+     `tsc --noEmit`, frontend build, then the smoke suite. CD stays manual for
+     now — the deploy target sits behind a VPN, and a self-hosted runner on a
+     public repo is a security liability (fork PRs executing on the VM); revisit
+     if the repo goes private or with environment-gated deploy jobs.
+2. **Observability — Prometheus + Grafana (+ Loki).** Instrument the Go server
+   with the Prometheus client (chi middleware: request rate, latency histograms,
+   error counts, in-flight; plus DB pool stats and Go runtime metrics), expose
+   `/metrics` (never through the tunnel — LAN/VPN only), and run
+   Prometheus + Grafana as a separate compose stack on the VM. Add
+   `postgres_exporter` and `cAdvisor`/`node_exporter` for DB/container/host
+   dashboards. Loki + promtail later for searchable logs. Also fun: game
+   metrics (quests claimed, encounters run, dice rolled) as custom counters.
+3. **Liveness (SSE).** The encounter tracker polls every 8s and the Chronicle
+   refetches on focus; at-the-table combat deserves sub-second updates.
+   Server-Sent Events fit the single-binary model (no websocket infra): one
+   `/api/campaigns/{id}/events/stream` endpoint, per-campaign fan-out in the
+   server, EventSource in the SPA with the current polling kept as fallback.
+4. **Frontend refactor pass.** `hooks.ts` (~1,400 lines) split by domain;
+   the biggest pages (EncounterPage ~750 lines, CampaignDashboard, ForgeWizard)
+   broken into per-feature files. No behavior change — purely tractability.
+5. **Progression menu.** Move the DM's XP/milestone controls out of the
+   Chronicle block into their own dashboard menu (user-flagged July 2026).
+6. **Encounter difficulty calculator.** Party size/level → easy/medium/hard/
+   deadly XP budget with the adjusted-XP multiplier, shown live in the builder;
+   `crValue` is already numeric on every monster.
+7. **Ops hardening.** Nightly DB backups shipped with v1.0.0 (backup service in
+   docker-compose.prod.yml, ./backups, 14 kept) — still to do: sync dumps OFF
+   the VM (rclone/rsync cron); an external uptime monitor for dnd.fontao.net;
+   a documented admin path for a 2FA lockout (user loses authenticator AND
+   recovery codes → manual SQL today: clear totp_* on their users row).
+
 ## Open questions
 - **Branding**: repo says Quest Board; designs use QuestBoard / The Tavern /
   Emberhall. Settled in practice on **Quest Board** (used across the shipped UI
   and the fontao.net deploy); the alternates are retired.
 - Exact landing-page composition (v0 base "still needs work").
-- **Encounter generator — player-visibility model** (see Planned before v1).
+- **Encounter generator — player-visibility model** (see Planned before v1) —
+  settled and shipped: shared read-only tracker, DM-controlled reveals.
+- **Repo visibility** — currently public. Leaning public (portfolio value, the
+  footer credit links to it, unlimited Actions minutes, free Dependabot/code
+  scanning; git history verified clean of secrets). Revisit if book-content
+  hygiene ever becomes hard to guarantee.
