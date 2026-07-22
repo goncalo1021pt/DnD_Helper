@@ -1,0 +1,19 @@
+Quest Board — attribution notices
+=================================
+
+This work includes material from the System Reference Document 5.2.1
+("SRD 5.2.1") by Wizards of the Coast LLC, available at
+https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative
+Commons Attribution 4.0 International License, available at
+https://creativecommons.org/licenses/by/4.0/legalcode.
+
+Specifically, the seed data files under backend/internal/rules/srd/ (classes,
+subclasses, species, backgrounds, feats, spells, items, monsters, and related
+reference tables) are derived from the SRD 5.2.1.
+
+No other Wizards of the Coast content is included in this repository. Content
+imported at runtime by an operator (homebrew or otherwise) is that operator's
+responsibility and never ships with this software.
+
+The application code is separately licensed under the MIT License — see
+LICENSE.
