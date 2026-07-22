@@ -33,8 +33,8 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
@@ -49,8 +49,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -63,19 +63,24 @@ jobs:
     name: Codegen · make generate is in sync
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       # sqlc + oapi-codegen at pinned versions (see the `tools` target in the
       # Makefile) so this drift check is deterministic across generator releases.
+      # sqlc v1.31.1 needs Go >= 1.26 while our module targets 1.25; setup-go v6+
+      # pins GOTOOLCHAIN=local, so allow Go to fetch the newer toolchain for the
+      # tool install only.
       - name: Install codegen tools
+        env:
+          GOTOOLCHAIN: auto
         run: make tools
       # openapi-typescript lives in the frontend devDependencies (make gen-frontend
       # runs `npm run gen:api`).
