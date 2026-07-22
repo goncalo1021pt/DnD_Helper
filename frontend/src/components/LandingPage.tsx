@@ -510,9 +510,6 @@ export default function LandingPage() {
               Enter the Tavern
             </button>
           </div>
-          <div className="label-stamp mt-3.5 text-[11px] tracking-[1.5px] text-[#8f7a55]">
-            No password to forge — sign in with Discord or Google
-          </div>
 
           <div className="mt-[42px] flex items-center gap-[13px]">
             <div className="flex">
@@ -695,7 +692,15 @@ export default function LandingPage() {
             </span>
           </div>
           <span className="font-accent text-sm italic text-[#7d6b50]">
-            Gather your party. © 2026, kept by your table.
+            Crafted by{" "}
+            <a
+              href="https://github.com/goncalo1021pt"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#a87f3a] no-underline transition hover:text-[#c99a3f] hover:underline"
+            >
+              goncalo1021pt
+            </a>
           </span>
         </div>
       </footer>
