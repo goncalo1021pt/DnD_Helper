@@ -73,6 +73,26 @@ func TestRenderFoggedImage(t *testing.T) {
 		}
 	})
 
+	t.Run("feathers the rim instead of cutting it hard", func(t *testing.T) {
+		out, err := renderFoggedImage(raw, "image/png", []circleGeom{{X: 0.5, Y: 0.5, R: 0.2}})
+		if err != nil {
+			t.Fatalf("renderFoggedImage: %v", err)
+		}
+		img := decodePNG(t, out)
+
+		// 16px from a 20px-radius circle's centre sits inside the feather band
+		// (inner edge at 62% of the radius, i.e. 12.4px) — it should be dimmed
+		// toward black, not the full source colour and not pure black.
+		r, g, b, _ := img.At(66, 50).RGBA()
+		r8, g8, b8 := r>>8, g>>8, b>>8
+		if r8 == 20 && g8 == 200 && b8 == 120 {
+			t.Error("rim pixel is full brightness — the feather has no effect")
+		}
+		if r8 == 0 && g8 == 0 && b8 == 0 {
+			t.Error("rim pixel is pure black — the reveal has a hard edge, not a feather")
+		}
+	})
+
 	t.Run("zero-radius circle reveals nothing", func(t *testing.T) {
 		out, err := renderFoggedImage(raw, "image/png", []circleGeom{{X: 0.5, Y: 0.5, R: 0}})
 		if err != nil {

@@ -9,6 +9,7 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"math"
 	"sort"
 	"strconv"
 	"sync"
@@ -28,9 +29,19 @@ import (
 // pixel space.
 type circleGeom struct{ X, Y, R float64 }
 
+// revealFeather is the fraction of a circle's radius, measured inward from
+// its rim, over which reveal fades from fully shown to fully fogged. Mirrors
+// the client's own draft/DM veil (FogCanvas in MapPage.tsx), so the drawn
+// preview and the server-rendered image the player actually receives agree.
+const revealFeather = 0.38
+
 // renderFoggedImage returns image bytes with everything outside the revealed
-// circles blacked out. Content type is preserved (JPEG stays JPEG, PNG stays
-// PNG). With no circles the whole image comes back black.
+// circles blacked out and each circle's rim faded rather than cut hard, so
+// the reveal reads as a torch's edge instead of a stencil. The fade is
+// entirely inside the circle's own radius — it softens the boundary, it
+// never exposes ground beyond it — so no unrevealed pixel data leaves the
+// fog. Content type is preserved (JPEG stays JPEG, PNG stays PNG). With no
+// circles the whole image comes back black.
 func renderFoggedImage(raw []byte, contentType string, circles []circleGeom) ([]byte, error) {
 	src, _, err := image.Decode(bytes.NewReader(raw))
 	if err != nil {
@@ -40,8 +51,15 @@ func renderFoggedImage(raw []byte, contentType string, circles []circleGeom) ([]
 	out := image.NewRGBA(b)
 	draw.Draw(out, b, image.NewUniform(color.RGBA{A: 255}), image.Point{}, draw.Src)
 
-	fw := float64(b.Dx())
+	w := b.Dx()
+	fw := float64(w)
 	fh := float64(b.Dy())
+
+	// How revealed each pixel is, 0 (fogged) to 1 (fully shown). Kept
+	// separate from `out` so overlapping circles take the strongest reveal
+	// rather than repeatedly re-blending the same pixel.
+	alpha := make([]float64, w*b.Dy())
+
 	for _, c := range circles {
 		cx := c.X * fw
 		cy := c.Y * fh
@@ -49,20 +67,53 @@ func renderFoggedImage(raw []byte, contentType string, circles []circleGeom) ([]
 		if cr <= 0 {
 			continue
 		}
-		cr2 := cr * cr
-		// Walk only the circle's bounding box, copying source pixels inside it.
+		inner := cr * (1 - revealFeather)
+		// Walk only the circle's bounding box.
 		minX := clampInt(b.Min.X+int(cx-cr), b.Min.X, b.Max.X)
 		maxX := clampInt(b.Min.X+int(cx+cr)+1, b.Min.X, b.Max.X)
 		minY := clampInt(b.Min.Y+int(cy-cr), b.Min.Y, b.Max.Y)
 		maxY := clampInt(b.Min.Y+int(cy+cr)+1, b.Min.Y, b.Max.Y)
 		for py := minY; py < maxY; py++ {
 			dy := float64(py-b.Min.Y) - cy
+			row := (py - b.Min.Y) * w
 			for px := minX; px < maxX; px++ {
 				dx := float64(px-b.Min.X) - cx
-				if dx*dx+dy*dy <= cr2 {
-					out.Set(px, py, src.At(px, py))
+				d := math.Sqrt(dx*dx + dy*dy)
+				if d >= cr {
+					continue
+				}
+				a := 1.0
+				if d > inner {
+					a = (cr - d) / (cr - inner)
+				}
+				if i := row + (px - b.Min.X); a > alpha[i] {
+					alpha[i] = a
 				}
 			}
+		}
+	}
+
+	for py := b.Min.Y; py < b.Max.Y; py++ {
+		row := (py - b.Min.Y) * w
+		for px := b.Min.X; px < b.Max.X; px++ {
+			a := alpha[row+(px-b.Min.X)]
+			if a <= 0 {
+				continue // stays opaque black
+			}
+			sr, sg, sb, _ := src.At(px, py).RGBA()
+			r8, g8, b8 := uint8(sr>>8), uint8(sg>>8), uint8(sb>>8)
+			if a >= 1 {
+				out.Set(px, py, color.RGBA{R: r8, G: g8, B: b8, A: 255})
+				continue
+			}
+			// Blend toward the black veil; still fully opaque, so the fade
+			// never reveals anything beyond the circle's own edge.
+			out.Set(px, py, color.RGBA{
+				R: uint8(float64(r8) * a),
+				G: uint8(float64(g8) * a),
+				B: uint8(float64(b8) * a),
+				A: 255,
+			})
 		}
 	}
 
