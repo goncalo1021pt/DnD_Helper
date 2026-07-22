@@ -21,6 +21,7 @@ export interface AuthConfig {
   devLogin: boolean;
   localAuth: boolean;
   providers: string[];
+  version?: string;
 }
 
 // Public endpoint describing which login options the backend actually offers.

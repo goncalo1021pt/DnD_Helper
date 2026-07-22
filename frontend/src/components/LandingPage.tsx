@@ -692,7 +692,7 @@ export default function LandingPage() {
             </span>
           </div>
           <span className="font-accent text-sm italic text-[#7d6b50]">
-            Crafted by{" "}
+            {config?.version ? `v${config.version} · ` : ""}Crafted by{" "}
             <a
               href="https://github.com/goncalo1021pt"
               target="_blank"

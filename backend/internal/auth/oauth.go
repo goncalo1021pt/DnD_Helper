@@ -17,6 +17,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/config"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
+	"github.com/goncalo1021pt/questboard/backend/internal/version"
 )
 
 const (
@@ -119,6 +120,7 @@ func (o *OAuth) config(w http.ResponseWriter, r *http.Request) {
 		"devLogin":  o.devEnabled,
 		"localAuth": o.localEnabled,
 		"providers": providers,
+		"version":   version.Current,
 	})
 }
 
