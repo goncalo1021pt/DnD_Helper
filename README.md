@@ -101,10 +101,14 @@ Never hand-edit generated files (`api.gen.go`, `schema.d.ts`, `*.sql.go`,
 
 ## Content & licensing
 
-Baseline game content is the **SRD 5.2.1**, used under
+The application code is licensed under the **MIT License** (see
+[`LICENSE`](./LICENSE)). Baseline game content is the **SRD 5.2.1**, used under
 [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (© Wizards of the
-Coast). Any non-SRD material is the operator's own homebrew, kept out of this
-repository.
+Coast) — the required attribution lives in [`NOTICE`](./NOTICE). Any non-SRD
+material is the operator's own homebrew, kept out of this repository.
+
+Found a security issue? See [`SECURITY.md`](./SECURITY.md) — please report
+privately, not via public issues.
 
 ## Contributing
 
