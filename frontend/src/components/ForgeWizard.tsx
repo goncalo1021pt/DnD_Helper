@@ -45,6 +45,50 @@ function gearLine(o: GearOption) {
   return parts.join(", ");
 }
 
+// A loud, unmissable notice for skill/background collisions — the old warning
+// was tiny italic text buried on the final step, so testers never understood it.
+function SkillAlert({
+  text,
+  tone = "error",
+  onBackToClass,
+}: {
+  text: string;
+  tone?: "error" | "info";
+  onBackToClass?: () => void;
+}) {
+  const c =
+    tone === "error"
+      ? { bg: "rgba(139,37,32,.14)", ring: "rgba(139,37,32,.6)", mark: "#e0725f", body: "#eccbb9", link: "#f0b48f" }
+      : { bg: "rgba(154,112,58,.14)", ring: "rgba(201,162,39,.5)", mark: "#d9b25a", body: "#e4d3ad", link: "#e7c169" };
+  return (
+    <div
+      role="alert"
+      className="font-body mt-3 flex items-start gap-2.5 rounded-[3px] px-3.5 py-2.5 text-[13px] leading-snug"
+      style={{ background: c.bg, boxShadow: `inset 0 0 0 1px ${c.ring}`, color: c.body }}
+    >
+      <span aria-hidden className="font-display mt-[-1px] text-[16px] font-black leading-none" style={{ color: c.mark }}>
+        {tone === "error" ? "!" : "i"}
+      </span>
+      <span>
+        {text}
+        {onBackToClass && (
+          <>
+            {" "}
+            <button
+              type="button"
+              onClick={onBackToClass}
+              className="cursor-pointer border-none bg-transparent p-0 font-semibold underline"
+              style={{ color: c.link }}
+            >
+              ← Back to Class
+            </button>
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
+
 function OptionCard({
   entry,
   selected,
@@ -107,6 +151,9 @@ export default function ForgeWizard() {
   const [bonus2, setBonus2] = useState<AbilityKey | "">("");
   const [bonus1, setBonus1] = useState<AbilityKey | "">("");
   const [name, setName] = useState("");
+  // Skills a background just took back from the class picks — drives a precise,
+  // named warning ("Soldier grants Athletics…") instead of a vague one.
+  const [retracted, setRetracted] = useState<string[]>([]);
 
   const chosenClass = classes?.find((c) => c.id === classId);
   const chosenBackground = backgrounds?.find((b) => b.id === backgroundId);
@@ -189,6 +236,34 @@ export default function ForgeWizard() {
   // Picking a background can retract an earlier class-skill pick (it now grants
   // that skill), so the last step re-checks everything, not just the name.
   const skillsValid = !!classId && skills.length === skillChoose;
+
+  // Class-skill options the chosen background already grants (can't pick twice).
+  const grantedInClass = skillOptions.filter((sk) => bgSkills.includes(sk));
+  const skillsRemaining = skillChoose - skills.length;
+  // One explanation, reused wherever the collision needs surfacing. Error tone
+  // means a background actually clashed with the class list; info tone just
+  // means the class picks aren't finished yet.
+  const skillIssue: { tone: "error" | "info"; text: string } | null = (() => {
+    if (!chosenClass || skillsRemaining <= 0) return null;
+    const more = `Choose ${skillsRemaining} more class skill${skillsRemaining === 1 ? "" : "s"}.`;
+    if (retracted.length > 0) {
+      return {
+        tone: "error",
+        text: `${chosenBackground?.name ?? "Your background"} already grants ${retracted.join(" and ")}, so ${
+          retracted.length === 1 ? "that skill was" : "those skills were"
+        } removed from your class picks. ${more}`,
+      };
+    }
+    if (chosenBackground && grantedInClass.length > 0) {
+      return {
+        tone: "error",
+        text: `${chosenBackground.name} already grants ${grantedInClass.join(" and ")} — you can't pick the same skill twice, so ${
+          grantedInClass.length === 1 ? "it's" : "they're"
+        } greyed out below. ${more}`,
+      };
+    }
+    return { tone: "info", text: `You still need to choose ${skillsRemaining} class skill${skillsRemaining === 1 ? "" : "s"}.` };
+  })();
   const gearValid = gearOptions.length === 0 || gear !== "";
   const allValid =
     skillsValid && !!backgroundId && !!speciesId && abilitiesValid && spellsValid && gearValid;
@@ -221,6 +296,8 @@ export default function ForgeWizard() {
   }
 
   function toggleSkill(sk: string) {
+    // A deliberate skill change supersedes the "we auto-removed…" note.
+    setRetracted([]);
     setSkills((prev) =>
       prev.includes(sk)
         ? prev.filter((s) => s !== sk)
@@ -228,6 +305,33 @@ export default function ForgeWizard() {
           ? [...prev, sk]
           : prev,
     );
+  }
+
+  // One-click standard array, spread to fit the class. Rather than transcribe
+  // the PHB's per-class table (not SRD content), we derive the order from the
+  // class's own primary ability: primary gets the 15, then durability/defence,
+  // then the rest — a solid, playable spread that also works for homebrew.
+  const RESIDUAL_ORDER: AbilityKey[] = ["con", "dex", "wis", "int", "cha", "str"];
+  function recommendArray() {
+    if (!chosenClass) return;
+    const valid = new Set<AbilityKey>(ABILITIES.map(([k]) => k));
+    const primary = (classData?.primaryAbility ?? [])
+      .map((a) => a.toLowerCase() as AbilityKey)
+      .filter((a) => valid.has(a));
+    const order: AbilityKey[] = [];
+    const seen = new Set<AbilityKey>();
+    for (const a of [...primary, ...RESIDUAL_ORDER]) {
+      if (!seen.has(a)) {
+        seen.add(a);
+        order.push(a);
+      }
+    }
+    for (const [k] of ABILITIES) if (!seen.has(k)) order.push(k); // safety net
+    const values = [15, 14, 13, 12, 10, 8];
+    const next = {} as Record<AbilityKey, number>;
+    order.forEach((k, i) => (next[k] = values[i] ?? 8));
+    setMethod("array");
+    setBase(next);
   }
 
   function submit() {
@@ -262,24 +366,37 @@ export default function ForgeWizard() {
           The Forge
         </h2>
         <div className="flex flex-wrap items-center gap-1.5">
-          {steps.map((s, i) => (
-            <span key={s} className="flex items-center gap-1.5">
-              <button
-                onClick={() => i < safeStep && setStep(i)}
-                disabled={i > safeStep}
-                className={`label-stamp border-none bg-transparent text-[10px] font-semibold tracking-[1.5px] ${
-                  i === safeStep
-                    ? "text-ember-bright"
-                    : i < safeStep
-                      ? "cursor-pointer text-gold-hair"
-                      : "text-gold-muted opacity-60"
-                }`}
-              >
-                {s}
-              </button>
-              {i < steps.length - 1 && <span className="text-gold-muted">·</span>}
-            </span>
-          ))}
+          {steps.map((s, i) => {
+            // Step back freely; jump forward only when every step before the
+            // target is already valid — the choices are cached, so a finished
+            // character has a fully clickable rail (no re-clicking Next), while
+            // an unfinished one still steers you to the next gap.
+            const reachable = i <= safeStep || steps.slice(0, i).every((st) => validity[st]);
+            // A completed-but-now-invalid step (e.g. Class after a background
+            // retracted a skill) gets flagged so the fix is easy to find.
+            const invalid = i < safeStep && !validity[s];
+            return (
+              <span key={s} className="flex items-center gap-1.5">
+                <button
+                  onClick={() => reachable && setStep(i)}
+                  disabled={!reachable}
+                  className={`label-stamp border-none bg-transparent text-[10px] font-semibold tracking-[1.5px] ${
+                    i === safeStep
+                      ? "text-ember-bright"
+                      : invalid
+                        ? "cursor-pointer text-[#e0725f]"
+                        : reachable
+                          ? "cursor-pointer text-gold-hair"
+                          : "text-gold-muted opacity-60"
+                  }`}
+                >
+                  {s}
+                  {invalid && " !"}
+                </button>
+                {i < steps.length - 1 && <span className="text-gold-muted">·</span>}
+              </span>
+            );
+          })}
         </div>
       </div>
 
@@ -304,6 +421,7 @@ export default function ForgeWizard() {
                       onPick={() => {
                         if (c.id !== classId) {
                           setSkills([]);
+                          setRetracted([]);
                           setSpellIds([]);
                           setGear("");
                         }
@@ -331,7 +449,7 @@ export default function ForgeWizard() {
                           disabled={granted}
                           title={granted ? `Granted by ${chosenBackground?.name}` : undefined}
                           className={`label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px] ${
-                            granted ? "cursor-default opacity-50" : ""
+                            granted ? "cursor-default line-through opacity-50" : ""
                           }`}
                           style={{
                             background: active ? "linear-gradient(180deg,#8b2520,#5e1611)" : "rgba(16,9,5,.4)",
@@ -344,12 +462,14 @@ export default function ForgeWizard() {
                       );
                     })}
                   </div>
+                  {skillIssue?.tone === "error" && <SkillAlert text={skillIssue.text} />}
                 </div>
               )}
             </>
           )}
 
           {current === "Background" && (
+            <>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {(backgrounds ?? []).map((b) => {
                 const d = b.data as { abilityScores?: string[]; feat?: string; skills?: string[] };
@@ -362,8 +482,10 @@ export default function ForgeWizard() {
                       setBackgroundId(b.id);
                       setBonus2("");
                       setBonus1("");
-                      // A new background may grant skills that collide with picks.
-                      const granted = (d.skills ?? []);
+                      // A new background may grant skills that collide with picks;
+                      // note which ones we take back so the warning can name them.
+                      const granted = d.skills ?? [];
+                      setRetracted(skills.filter((sk) => granted.includes(sk)));
                       setSkills((prev) => prev.filter((sk) => !granted.includes(sk)));
                     }}
                     facts={`${(d.abilityScores ?? []).join("/")} · ${d.feat ?? ""} · ${(d.skills ?? []).join(", ")}`}
@@ -371,6 +493,10 @@ export default function ForgeWizard() {
                 );
               })}
             </div>
+            {skillIssue && (
+              <SkillAlert text={skillIssue.text} tone={skillIssue.tone} onBackToClass={() => setStep(0)} />
+            )}
+            </>
           )}
 
           {current === "Species" && (
@@ -392,6 +518,23 @@ export default function ForgeWizard() {
 
           {current === "Abilities" && (
             <div className="parchment px-6 py-5">
+              {/* Fast start: one click fills a class-tuned standard array. */}
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-[rgba(120,80,30,.25)] pb-4">
+                <div>
+                  <div className="font-display text-[15px] font-bold text-ink">Assign ability scores</div>
+                  <div className="font-body text-[12px] italic text-ink-body">
+                    In a hurry? Take the recommended spread and tweak from there.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={recommendArray}
+                  className="btn-base btn-wax whitespace-nowrap px-4 py-2 text-[10.5px]"
+                  title={`Fill the standard array tuned for a ${chosenClass?.name}`}
+                >
+                  ★ Recommended for {chosenClass?.name}
+                </button>
+              </div>
               {/* method tabs */}
               <div className="mb-4 flex gap-2">
                 {(
@@ -637,13 +780,8 @@ export default function ForgeWizard() {
                   autoFocus
                 />
               </label>
-              {!skillsValid && (
-                <p className="font-body mt-3 text-sm italic text-[#8b2520]">
-                  {chosenBackground?.name ?? "Your background"} already grants{" "}
-                  {bgSkills.join(" and ")}, so one of your class skills was
-                  returned — step back to Class and choose{" "}
-                  {skillChoose - skills.length} more.
-                </p>
+              {skillIssue && (
+                <SkillAlert text={skillIssue.text} tone={skillIssue.tone} onBackToClass={() => setStep(0)} />
               )}
               {forge.isError && (
                 <p className="font-body mt-3 text-sm italic text-[#8b2520]">
