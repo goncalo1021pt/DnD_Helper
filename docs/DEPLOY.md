@@ -64,6 +64,10 @@ cp .env.example .env
 ```
 Set at least:
 ```ini
+# Pins the prod override into EVERY docker compose command run in this
+# directory — without it, a bare `docker compose up` uses only the base file,
+# which re-exposes Postgres on the LAN and drops the backup service.
+COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
 APP_ENV=production
 BASE_URL=https://<your-domain>
 SESSION_KEY=<openssl rand -base64 32>
@@ -81,8 +85,11 @@ GOOGLE_CLIENT_SECRET=...
 ## 4. Deploy
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d --build
+docker compose --profile full up -d --build
 ```
+(`COMPOSE_FILE` in `.env` applies the prod override; equivalent to spelling out
+`-f docker-compose.yml -f docker-compose.prod.yml`.)
+
 This builds the SPA into the Go binary, starts Postgres, runs DB migrations
 automatically on startup, and connects the tunnel. Then visit
 `https://<your-domain>`.
@@ -104,6 +111,9 @@ two stacks coexist on one machine with zero conflict.
 ---
 
 ## Operating it
+
+All of these rely on `COMPOSE_FILE` in `.env` (step 3) so the prod override is
+always in play — never redeploy with an explicit `-f docker-compose.yml` alone.
 
 ```bash
 docker compose --profile full ps                 # status

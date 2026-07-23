@@ -57,8 +57,11 @@ prod: ## Build & start the full PRODUCTION stack (app + postgres + cloudflared)
 
 deploy: prod ## Alias for 'prod'
 
+# --remove-orphans: containers created via the prod overlay (e.g. backup, which
+# only exists in docker-compose.prod.yml) are "orphans" to the base file and
+# would otherwise survive a plain down.
 down: ## Stop & remove the stack (keeps the pgdata volume)
-	docker compose --profile full down
+	docker compose --profile full down --remove-orphans
 
 restart: ## Restart the app container (re-runs migrations on startup)
 	docker compose --profile full restart app
