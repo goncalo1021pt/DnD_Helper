@@ -15,3 +15,22 @@ export function readyToLevel(xp: number, level: number): boolean {
   const next = nextLevelXP(level);
   return next !== null && xp >= next;
 }
+
+/**
+ * Why this hero cannot level up right now, or null when the road is clear.
+ * Mirrors the server's gates so the Level up button never lies: the table's
+ * ceiling first, then the milestone allowance (XP tables gate on XP alone).
+ */
+export function levelUpHold(
+  character: { level: number; pendingLevels?: number | null; campaignId?: string | null },
+  table: { progression?: "milestone" | "xp"; maxLevel?: number | null } | undefined,
+): string | null {
+  if (!character.campaignId || !table) return null; // resting heroes rise freely
+  if (table.maxLevel != null && character.level >= table.maxLevel) {
+    return `at the table's ceiling — level ${table.maxLevel}`;
+  }
+  if ((table.progression ?? "milestone") !== "xp" && (character.pendingLevels ?? 0) < 1) {
+    return "waiting on the DM's milestone";
+  }
+  return null;
+}

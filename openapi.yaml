@@ -878,7 +878,7 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: declareMilestone
-      summary: A milestone — every seated hero gains one pending level-up (DM only)
+      summary: A milestone — seated heroes gain one pending level-up (DM only)
       requestBody:
         required: false
         content:
@@ -889,11 +889,45 @@ paths:
                 note:
                   type: string
                   maxLength: 200
+                characterIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Grant only to these seated heroes; omitted means the whole party.
       responses:
         "204":
           description: Declared
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/milestone/revoke:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: revokeMilestone
+      summary: >
+        Take back an unspent level-up (DM only) — from the chosen heroes, or
+        one from everyone when none are named. Already-spent levels stay.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                characterIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "204":
+          description: Taken back
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -916,6 +950,39 @@ paths:
                 mode:
                   type: string
                   enum: [milestone, xp]
+      responses:
+        "200":
+          description: The campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/max-level:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setMaxLevel
+      summary: Set or clear the table's level ceiling (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                maxLevel:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                  nullable: true
+                  description: Highest level heroes may reach here; null restores the standard 20.
       responses:
         "200":
           description: The campaign
@@ -2287,6 +2354,10 @@ components:
           type: string
           enum: [milestone, xp]
           description: How heroes advance at this table.
+        maxLevel:
+          type: integer
+          nullable: true
+          description: The DM's level ceiling for this table; null means the standard 20.
 
     CampaignMembership:
       type: object

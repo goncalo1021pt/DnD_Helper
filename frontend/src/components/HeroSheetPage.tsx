@@ -3,12 +3,14 @@ import { Link, useParams } from "react-router-dom";
 import type { InventoryItem, RulesContent } from "../api/client";
 import {
   useAddItem,
+  useCampaigns,
   useCharacterDetail,
   useDeleteItem,
   useRules,
   useSetSpellSlots,
   useUpdateItem,
 } from "../hooks";
+import { levelUpHold } from "../lib/progression";
 import { acFromEquipment, profBonus, weaponAttacks } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
@@ -113,6 +115,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function HeroSheetPage() {
   const { heroId } = useParams<{ heroId: string }>();
   const { data: detail, isLoading, error } = useCharacterDetail(heroId);
+  const { data: memberships } = useCampaigns();
   const { data: classes } = useRules("class");
   const { data: subclasses } = useRules("subclass");
   const { data: itemLibrary } = useRules("item");
@@ -194,6 +197,8 @@ export default function HeroSheetPage() {
     );
   }
 
+  const table = memberships?.find((m) => m.campaign.id === character.campaignId)?.campaign;
+  const hold = levelUpHold(character, table);
   const abilities = sheet?.abilities;
   const prof = profBonus(character.level);
   const ac = abilities ? acFromEquipment(detail.items, abilities) : null;
@@ -246,12 +251,22 @@ export default function HeroSheetPage() {
             HP {character.hpCurrent}/{character.hpMax}
           </span>
           {canEdit && sheet && character.level < 20 && (
-            <button
-              onClick={() => setLevelling(true)}
-              className="btn-base btn-gold clip-octagon h-10 px-5 text-[12px]"
-            >
-              Level up
-            </button>
+            hold ? (
+              <span
+                className="label-stamp rounded-[2px] px-2.5 py-2 text-[9.5px] tracking-[1.5px]"
+                style={{ color: "#9a703a", background: "rgba(120,86,42,.12)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.35)" }}
+                title="The DM controls when the party rises"
+              >
+                ⧗ {hold}
+              </span>
+            ) : (
+              <button
+                onClick={() => setLevelling(true)}
+                className="btn-base btn-gold clip-octagon h-10 px-5 text-[12px]"
+              >
+                Level up
+              </button>
+            )
           )}
         </div>
       </div>

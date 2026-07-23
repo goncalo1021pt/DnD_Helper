@@ -1,18 +1,14 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import type { Character } from "../api/client";
 import {
   useCharacters,
   useCodex,
-  useDeclareMilestone,
   useEvents,
-  useGrantXP,
   useQuests,
-  useSetProgression,
   useUpdateCharacter,
 } from "../hooks";
 import { EventLine } from "./ChroniclePage";
-import ParchmentModal from "./ui/ParchmentModal";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import type { CampaignContext } from "./CampaignView";
 import { DiceTowerPanel } from "./ui/DiceTray";
@@ -72,7 +68,7 @@ function DMScreenPanel() {
         to="dm"
         icon={<IconUsers strokeWidth={1.8} />}
         title="DM Menu"
-        sub="Who sits at your table — kick or ban"
+        sub="Table rules, XP & milestones — kick or ban"
       />
       <ScreenRow
         to="den"
@@ -234,13 +230,6 @@ export default function CampaignDashboard() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const { data: codex } = useCodex(campaign.id);
   const { data: events } = useEvents(campaign.id, "all", 5);
-  const milestone = useDeclareMilestone(campaign.id);
-  const setProgression = useSetProgression(campaign.id);
-  const grantXP = useGrantXP(campaign.id);
-  const [granting, setGranting] = useState(false);
-  const [xpAmount, setXpAmount] = useState("");
-  const [xpReason, setXpReason] = useState("");
-  const [xpTargets, setXpTargets] = useState<string[]>([]);
   const progression = campaign.progression ?? "milestone";
   const codexAdmitted = (codex ?? []).filter((e) => e.status === "enabled").length;
   const codexWaiting = (codex ?? []).filter((e) => e.status === "proposed").length;
@@ -405,37 +394,6 @@ export default function CampaignDashboard() {
             to="chronicle"
             linkLabel="Open the chronicle"
           />
-          {isDM && (
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              {progression === "milestone" ? (
-                <button
-                  onClick={() => milestone.mutate(undefined)}
-                  disabled={milestone.isPending}
-                  className="btn-base btn-gold clip-octagon h-9 px-4 text-[11px]"
-                >
-                  Milestone reached
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setXpTargets((characters ?? []).map((c) => c.id));
-                    setGranting(true);
-                  }}
-                  className="btn-base btn-gold clip-octagon h-9 px-4 text-[11px]"
-                >
-                  Grant XP
-                </button>
-              )}
-              <select
-                value={progression}
-                onChange={(e) => setProgression.mutate(e.target.value as "milestone" | "xp")}
-                className="input-hall h-9 w-36 text-[12px]"
-              >
-                <option value="milestone">Milestone</option>
-                <option value="xp">XP</option>
-              </select>
-            </div>
-          )}
           {(events ?? []).length > 0 ? (
             <div className="flex flex-col gap-3">
               {(events ?? []).map((e) => (
@@ -453,93 +411,6 @@ export default function CampaignDashboard() {
 
         {isDM && <DMScreenPanel />}
       </div>
-
-      {granting && (
-        <ParchmentModal onClose={() => setGranting(false)} maxWidth="max-w-[440px]">
-          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Chronicle
-          </div>
-          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Grant Experience
-          </h3>
-          <div className="flex flex-col gap-4 text-ink-strong">
-            <label className="flex flex-col gap-1.5">
-              <span className="field-label">XP (negative to dock)</span>
-              <input
-                type="number"
-                className="input-parchment input-compact w-36"
-                value={xpAmount}
-                onChange={(e) => setXpAmount(e.target.value)}
-                placeholder="250"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="field-label">Reason (optional)</span>
-              <input
-                className="input-parchment input-compact"
-                value={xpReason}
-                maxLength={200}
-                onChange={(e) => setXpReason(e.target.value)}
-                placeholder="e.g. The wyrm of Emberpeak"
-              />
-            </label>
-            <div className="flex flex-col gap-1.5">
-              <span className="field-label">To</span>
-              <div className="flex flex-wrap gap-2">
-                {(characters ?? []).map((c) => {
-                  const on = xpTargets.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() =>
-                        setXpTargets((prev) =>
-                          on ? prev.filter((id) => id !== c.id) : [...prev, c.id],
-                        )
-                      }
-                      className="label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px]"
-                      style={{
-                        background: on ? "linear-gradient(180deg,#8b2520,#5e1611)" : "rgba(120,86,42,.13)",
-                        color: on ? "#f3d9c0" : "#4a3620",
-                        boxShadow: `inset 0 0 0 1px ${on ? "#3f0f0e" : "rgba(120,80,30,.45)"}`,
-                      }}
-                    >
-                      {c.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3">
-              <button onClick={() => setGranting(false)} className="btn-base btn-ghost-ink px-5 py-[11px] text-xs">
-                Cancel
-              </button>
-              <button
-                onClick={() =>
-                  grantXP.mutate(
-                    {
-                      amount: Number(xpAmount),
-                      characterIds: xpTargets,
-                      reason: xpReason.trim() || undefined,
-                    },
-                    {
-                      onSuccess: () => {
-                        setGranting(false);
-                        setXpAmount("");
-                        setXpReason("");
-                      },
-                    },
-                  )
-                }
-                disabled={!xpAmount || Number(xpAmount) === 0 || xpTargets.length === 0 || grantXP.isPending}
-                className="btn-base btn-gold clip-octagon h-11 px-6 text-sm"
-              >
-                {grantXP.isPending ? "Granting…" : "Grant"}
-              </button>
-            </div>
-          </div>
-        </ParchmentModal>
-      )}
     </div>
   );
 }

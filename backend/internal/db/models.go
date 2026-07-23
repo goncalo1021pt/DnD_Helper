@@ -432,6 +432,7 @@ type Campaign struct {
 	InviteCode    string             `json:"invite_code"`
 	NextSessionAt pgtype.Timestamptz `json:"next_session_at"`
 	Progression   ProgressionMode    `json:"progression"`
+	MaxLevel      *int16             `json:"max_level"`
 }
 
 type CampaignBan struct {

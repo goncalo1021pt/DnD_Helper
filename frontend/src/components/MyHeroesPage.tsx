@@ -11,6 +11,7 @@ import {
   useUpdateCharacter,
 } from "../hooks";
 import { hpColor, initials, medallionFor } from "../lib/party";
+import { levelUpHold } from "../lib/progression";
 import CharacterForm, { emptyHero } from "./CharacterForm";
 import LevelUpModal from "./LevelUpModal";
 import AbilityRow from "./ui/AbilityRow";
@@ -104,6 +105,10 @@ function HeroCard({ character }: { character: Character }) {
   const color = hpColor(character.hpCurrent, character.hpMax);
   const pct = character.hpMax > 0 ? (character.hpCurrent / character.hpMax) * 100 : 0;
   const seated = !!character.campaignId;
+  const hold = levelUpHold(
+    character,
+    campaigns?.find((m) => m.campaign.id === character.campaignId)?.campaign,
+  );
 
   return (
     <div className="parchment px-[22px] pb-5 pt-[18px]">
@@ -232,12 +237,22 @@ function HeroCard({ character }: { character: Character }) {
       {/* actions */}
       <div className="mt-3.5 flex items-center justify-end gap-2">
         {character.sheet && character.level < 20 && (
-          <button
-            onClick={() => setLevelling(true)}
-            className="btn-base btn-wax mr-auto px-3.5 py-2 text-[10px]"
-          >
-            Level up ↑
-          </button>
+          hold ? (
+            <span
+              className="label-stamp mr-auto rounded-[2px] px-2 py-1.5 text-[8.5px] tracking-[1px]"
+              style={{ color: "#7a5626", background: "rgba(120,86,42,.12)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.35)" }}
+              title="The DM controls when the party rises"
+            >
+              ⧗ {hold}
+            </span>
+          ) : (
+            <button
+              onClick={() => setLevelling(true)}
+              className="btn-base btn-wax mr-auto px-3.5 py-2 text-[10px]"
+            >
+              Level up ↑
+            </button>
+          )
         )}
         <button
           onClick={() => setEditing(true)}

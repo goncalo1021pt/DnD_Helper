@@ -253,12 +253,38 @@ func (q *Queries) GetCharacter(ctx context.Context, id uuid.UUID) (Character, er
 const grantMilestone = `-- name: GrantMilestone :exec
 UPDATE characters
 SET pending_levels = pending_levels + 1, updated_at = now()
-WHERE campaign_id = $1
+WHERE campaign_id = $1 AND level < $2
 `
 
-// One pending level-up for every hero seated at the campaign.
-func (q *Queries) GrantMilestone(ctx context.Context, campaignID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, grantMilestone, campaignID)
+type GrantMilestoneParams struct {
+	CampaignID pgtype.UUID `json:"campaign_id"`
+	Level      int32       `json:"level"`
+}
+
+// One pending level-up for every hero seated at the campaign, except those
+// already standing at the table's ceiling.
+func (q *Queries) GrantMilestone(ctx context.Context, arg GrantMilestoneParams) error {
+	_, err := q.db.Exec(ctx, grantMilestone, arg.CampaignID, arg.Level)
+	return err
+}
+
+const grantMilestoneTo = `-- name: GrantMilestoneTo :exec
+UPDATE characters
+SET pending_levels = pending_levels + 1, updated_at = now()
+WHERE campaign_id = $1
+  AND level < $2
+  AND id = ANY($3::uuid[])
+`
+
+type GrantMilestoneToParams struct {
+	CampaignID pgtype.UUID `json:"campaign_id"`
+	Ceiling    int32       `json:"ceiling"`
+	Ids        []uuid.UUID `json:"ids"`
+}
+
+// One pending level-up for the chosen seated heroes, ceiling respected.
+func (q *Queries) GrantMilestoneTo(ctx context.Context, arg GrantMilestoneToParams) error {
+	_, err := q.db.Exec(ctx, grantMilestoneTo, arg.CampaignID, arg.Ceiling, arg.Ids)
 	return err
 }
 
@@ -572,6 +598,37 @@ func (q *Queries) ListCharactersByOwner(ctx context.Context, ownerUserID uuid.UU
 		return nil, err
 	}
 	return items, nil
+}
+
+const revokeMilestone = `-- name: RevokeMilestone :exec
+UPDATE characters
+SET pending_levels = pending_levels - 1, updated_at = now()
+WHERE campaign_id = $1 AND pending_levels > 0
+`
+
+// Take back one unspent level-up from everyone at the table.
+func (q *Queries) RevokeMilestone(ctx context.Context, campaignID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, revokeMilestone, campaignID)
+	return err
+}
+
+const revokeMilestoneFrom = `-- name: RevokeMilestoneFrom :exec
+UPDATE characters
+SET pending_levels = pending_levels - 1, updated_at = now()
+WHERE campaign_id = $1
+  AND pending_levels > 0
+  AND id = ANY($2::uuid[])
+`
+
+type RevokeMilestoneFromParams struct {
+	CampaignID pgtype.UUID `json:"campaign_id"`
+	Ids        []uuid.UUID `json:"ids"`
+}
+
+// Take back one unspent level-up from the chosen seated heroes.
+func (q *Queries) RevokeMilestoneFrom(ctx context.Context, arg RevokeMilestoneFromParams) error {
+	_, err := q.db.Exec(ctx, revokeMilestoneFrom, arg.CampaignID, arg.Ids)
+	return err
 }
 
 const seatCharacter = `-- name: SeatCharacter :one

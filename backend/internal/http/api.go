@@ -217,15 +217,16 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 	out := make([]api.CampaignMembership, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, api.CampaignMembership{
-			Campaign: api.Campaign{
-				Id:            row.ID,
+			Campaign: toAPICampaign(db.Campaign{
+				ID:            row.ID,
 				Name:          row.Name,
-				OwnerUserId:   row.OwnerUserID,
-				CreatedAt:     row.CreatedAt.Time,
+				OwnerUserID:   row.OwnerUserID,
+				CreatedAt:     row.CreatedAt,
 				InviteCode:    row.InviteCode,
-				NextSessionAt: tsPtr(row.NextSessionAt),
-				Progression:   (*api.CampaignProgression)(ptrString(string(row.Progression))),
-			},
+				NextSessionAt: row.NextSessionAt,
+				Progression:   row.Progression,
+				MaxLevel:      row.MaxLevel,
+			}),
 			Role: toAPIRole(row.Role),
 		})
 	}
@@ -254,6 +255,11 @@ func toAPIUser(u db.User) api.User {
 }
 
 func toAPICampaign(c db.Campaign) api.Campaign {
+	var maxLevel *int
+	if c.MaxLevel != nil {
+		v := int(*c.MaxLevel)
+		maxLevel = &v
+	}
 	return api.Campaign{
 		Id:            c.ID,
 		Name:          c.Name,
@@ -262,7 +268,16 @@ func toAPICampaign(c db.Campaign) api.Campaign {
 		InviteCode:    c.InviteCode,
 		NextSessionAt: tsPtr(c.NextSessionAt),
 		Progression:   (*api.CampaignProgression)(ptrString(string(c.Progression))),
+		MaxLevel:      maxLevel,
 	}
+}
+
+// campaignCeiling is the highest level heroes may reach at this table.
+func campaignCeiling(c db.Campaign) int {
+	if c.MaxLevel != nil {
+		return int(*c.MaxLevel)
+	}
+	return 20
 }
 
 func ptrString(s string) *string { return &s }

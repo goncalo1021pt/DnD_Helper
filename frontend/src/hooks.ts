@@ -564,16 +564,54 @@ export function useGrantXP(campaignId: string) {
 export function useDeclareMilestone(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (note?: string) => {
+    // Omit characterIds to raise the whole party; name heroes to single them out.
+    mutationFn: async (input?: { note?: string; characterIds?: string[] }) => {
       const { error } = await api.POST("/campaigns/{campaignId}/milestone", {
         params: { path: { campaignId } },
-        body: { note },
+        body: { note: input?.note, characterIds: input?.characterIds },
       });
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["characters", campaignId] });
       qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
+export function useRevokeMilestone(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    // Omit characterIds to take one back from everyone.
+    mutationFn: async (characterIds?: string[]) => {
+      const { error } = await api.POST("/campaigns/{campaignId}/milestone/revoke", {
+        params: { path: { campaignId } },
+        body: { characterIds },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
+export function useSetMaxLevel(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (maxLevel: number | null) => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/max-level", {
+        params: { path: { campaignId } },
+        body: { maxLevel },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
       qc.invalidateQueries({ queryKey: ["events", campaignId] });
     },
   });

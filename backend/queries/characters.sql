@@ -87,10 +87,33 @@ WHERE campaign_id = $1 AND id = ANY($3::uuid[])
 RETURNING *;
 
 -- name: GrantMilestone :exec
--- One pending level-up for every hero seated at the campaign.
+-- One pending level-up for every hero seated at the campaign, except those
+-- already standing at the table's ceiling.
 UPDATE characters
 SET pending_levels = pending_levels + 1, updated_at = now()
-WHERE campaign_id = $1;
+WHERE campaign_id = $1 AND level < $2;
+
+-- name: GrantMilestoneTo :exec
+-- One pending level-up for the chosen seated heroes, ceiling respected.
+UPDATE characters
+SET pending_levels = pending_levels + 1, updated_at = now()
+WHERE campaign_id = sqlc.arg(campaign_id)
+  AND level < sqlc.arg(ceiling)
+  AND id = ANY(sqlc.arg(ids)::uuid[]);
+
+-- name: RevokeMilestoneFrom :exec
+-- Take back one unspent level-up from the chosen seated heroes.
+UPDATE characters
+SET pending_levels = pending_levels - 1, updated_at = now()
+WHERE campaign_id = sqlc.arg(campaign_id)
+  AND pending_levels > 0
+  AND id = ANY(sqlc.arg(ids)::uuid[]);
+
+-- name: RevokeMilestone :exec
+-- Take back one unspent level-up from everyone at the table.
+UPDATE characters
+SET pending_levels = pending_levels - 1, updated_at = now()
+WHERE campaign_id = $1 AND pending_levels > 0;
 
 -- name: SpendPendingLevel :exec
 UPDATE characters

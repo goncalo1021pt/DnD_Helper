@@ -192,11 +192,15 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		return badRequest(msg)
 	}
 
-	// Milestone tables gate level-ups on a pending allowance (XP is advisory).
+	// Milestone tables gate level-ups on a pending allowance (XP is advisory),
+	// and no seated hero rises past the DM's ceiling.
 	if campaignID, seated := seatedCampaign(character); seated {
 		campaign, err := s.queries.GetCampaign(ctx, campaignID)
 		if err != nil {
 			return nil, err
+		}
+		if campaign.MaxLevel != nil && int(character.Level) >= int(*campaign.MaxLevel) {
+			return badRequest(fmt.Sprintf("the table's ceiling is level %d — the DM must raise it first", *campaign.MaxLevel))
 		}
 		if campaign.Progression == db.ProgressionModeMilestone && character.PendingLevels < 1 {
 			return badRequest("no milestone reached yet — the DM decides when the party rises")
