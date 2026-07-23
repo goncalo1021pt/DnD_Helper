@@ -1257,7 +1257,9 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createCharacter
-      summary: Add a character owned by the caller (any campaign member)
+      summary: >
+        Quick-add a table-born character to the roster (DM only) — players
+        bring account heroes through the seat flow, where the door applies
       requestBody:
         required: true
         content:

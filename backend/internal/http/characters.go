@@ -67,10 +67,11 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 	return api.ListCharacters200JSONResponse(out), nil
 }
 
-// CreateCharacter adds a character owned by the caller (any campaign member).
+// CreateCharacter quick-adds a table-born character to the roster. DM only:
+// a member-wide quick-add would let players seat past the barred door.
 func (s *Server) CreateCharacter(ctx context.Context, request api.CreateCharacterRequestObject) (api.CreateCharacterResponseObject, error) {
 	campaignID := uuid.UUID(request.CampaignId)
-	member, err := s.requireMember(ctx, campaignID)
+	member, err := s.requireDM(ctx, campaignID)
 	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):

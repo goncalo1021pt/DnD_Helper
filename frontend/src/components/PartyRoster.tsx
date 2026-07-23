@@ -456,13 +456,16 @@ export default function PartyRoster() {
             The Skill Trees →
           </Link>
           <SummonControl campaignId={campaign.id} />
-          <button
-            onClick={() => setAdding(true)}
-            className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
-          >
-            <IconPlus size={15} strokeWidth={2} />
-            Take a Seat
-          </button>
+          {isDM && (
+            <button
+              onClick={() => setAdding(true)}
+              title="Add a character born of this table — it will not appear in anyone's My Heroes"
+              className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
+            >
+              <IconPlus size={15} strokeWidth={2} />
+              Quick-add
+            </button>
+          )}
         </div>
       </div>
 
@@ -502,9 +505,13 @@ export default function PartyRoster() {
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
             The Party Ledger
           </div>
-          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Take a Seat at the Table
+          <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
+            Born of this Table
           </h3>
+          <p className="font-body m-0 mb-4 text-center text-[13px] italic text-ink-body">
+            A quick character for this roster alone — never listed in My
+            Heroes, struck for good when removed.
+          </p>
           <CharacterForm
             initial={emptyHero}
             mode="create"
