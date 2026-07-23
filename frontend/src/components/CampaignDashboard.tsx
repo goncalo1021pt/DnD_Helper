@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import type { Character } from "../api/client";
 import {
@@ -17,6 +17,72 @@ import { hpColor, initials, medallionFor } from "../lib/party";
 import type { CampaignContext } from "./CampaignView";
 import { DiceTowerPanel } from "./ui/DiceTray";
 import NextGatheringCard from "./ui/NextGatheringCard";
+import { IconDragon, IconUsers } from "./ui/icons";
+
+/* One row of the DM's Screen: icon chip, title over a whisper, chevron. */
+function ScreenRow({
+  to,
+  icon,
+  title,
+  sub,
+}: {
+  to: string;
+  icon: ReactNode;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3.5 rounded-[3px] px-3 py-2.5 no-underline transition hover:bg-[rgba(201,162,39,.08)]"
+    >
+      <span
+        className="flex h-9 w-9 flex-none items-center justify-center rounded-[8px] text-ember-bright"
+        style={{ background: "rgba(201,162,39,.12)", border: "1px solid rgba(201,162,39,.22)" }}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="font-heading block text-[14px] font-bold text-cream">
+          {title}
+        </span>
+        <span className="font-accent block truncate text-[12.5px] italic text-cream-muted">
+          {sub}
+        </span>
+      </span>
+      <span className="text-gold-muted">›</span>
+    </Link>
+  );
+}
+
+/*
+ * The DM's Screen: the compact menu of DM-only tools, tucked in the right
+ * rail. New DM tools become rows here, not new dashboard blocks.
+ */
+function DMScreenPanel() {
+  return (
+    <section className="panel-hall px-3 pb-3 pt-4">
+      <div className="label-stamp mb-2 flex items-baseline justify-between px-3 text-[11px]">
+        <span className="font-semibold tracking-[2px] text-gold-muted">
+          The DM's Screen
+        </span>
+        <span className="text-[10px] text-ink-label">yours alone</span>
+      </div>
+      <ScreenRow
+        to="dm"
+        icon={<IconUsers strokeWidth={1.8} />}
+        title="DM Menu"
+        sub="Who sits at your table — kick or ban"
+      />
+      <ScreenRow
+        to="den"
+        icon={<IconDragon strokeWidth={1.8} />}
+        title="The Monster Den"
+        sub="Your private menagerie, statted and searchable"
+      />
+    </section>
+  );
+}
 
 /* Small stable tilt for the mini notices, from the quest id. */
 function slipRotation(id: string): string {
@@ -262,22 +328,6 @@ export default function CampaignDashboard() {
           )}
         </section>
 
-        {/* monster den — the DM's private menagerie */}
-        {isDM && (
-          <section className="panel-hall px-6 pb-6 pt-5">
-            <BlockHeader
-              title="The Monster Den"
-              meta="DM eyes only"
-              to="den"
-              linkLabel="Enter the den"
-            />
-            <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-              Every creature in your collection — statted, searchable, and
-              invisible to the party.
-            </div>
-          </section>
-        )}
-
         {/* bestiary — the party's field journal, open to all at the table */}
         <section className="panel-hall px-6 pb-6 pt-5">
           <BlockHeader
@@ -400,6 +450,8 @@ export default function CampaignDashboard() {
         </section>
 
         <DiceTowerPanel />
+
+        {isDM && <DMScreenPanel />}
       </div>
 
       {granting && (

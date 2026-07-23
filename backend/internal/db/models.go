@@ -434,6 +434,12 @@ type Campaign struct {
 	Progression   ProgressionMode    `json:"progression"`
 }
 
+type CampaignBan struct {
+	CampaignID uuid.UUID          `json:"campaign_id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	BannedAt   pgtype.Timestamptz `json:"banned_at"`
+}
+
 type CampaignContent struct {
 	CampaignID uuid.UUID          `json:"campaign_id"`
 	ContentID  uuid.UUID          `json:"content_id"`

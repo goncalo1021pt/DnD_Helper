@@ -14,6 +14,11 @@ export type CampaignMembership =
 export type Campaign = CampaignMembership["campaign"];
 export type Role = CampaignMembership["role"];
 
+export type Member =
+  paths["/campaigns/{campaignId}/members"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type Ban =
+  paths["/campaigns/{campaignId}/bans"]["get"]["responses"]["200"]["content"]["application/json"][number];
+
 export type Quest =
   paths["/campaigns/{campaignId}/quests"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type QuestReward = Quest["rewards"][number];

@@ -107,6 +107,85 @@ export function useRegenerateInvite(campaignId: string) {
   });
 }
 
+// --- Members (the DM Menu) ---
+
+export function useMembers(campaignId: string) {
+  return useQuery({
+    queryKey: ["members", campaignId],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/campaigns/{campaignId}/members", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+// DM only — keep disabled for players so the 403 never surfaces as an error.
+export function useBans(campaignId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["bans", campaignId],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/campaigns/{campaignId}/bans", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled,
+  });
+}
+
+// A kick touches more than the member list: the player's heroes are unseated
+// and their open quest claims released, so those caches go stale too.
+function invalidateAfterRemoval(qc: ReturnType<typeof useQueryClient>, campaignId: string) {
+  qc.invalidateQueries({ queryKey: ["members", campaignId] });
+  qc.invalidateQueries({ queryKey: ["bans", campaignId] });
+  qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+  qc.invalidateQueries({ queryKey: ["quests", campaignId] });
+}
+
+export function useKickMember(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await api.DELETE("/campaigns/{campaignId}/members/{userId}", {
+        params: { path: { campaignId, userId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateAfterRemoval(qc, campaignId),
+  });
+}
+
+export function useBanMember(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await api.POST("/campaigns/{campaignId}/bans", {
+        params: { path: { campaignId } },
+        body: { userId },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateAfterRemoval(qc, campaignId),
+  });
+}
+
+export function useUnbanMember(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await api.DELETE("/campaigns/{campaignId}/bans/{userId}", {
+        params: { path: { campaignId, userId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["bans", campaignId] }),
+  });
+}
+
 // --- Quests ---
 
 export function useQuests(campaignId: string) {

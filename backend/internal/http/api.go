@@ -152,6 +152,15 @@ func (s *Server) JoinCampaign(ctx context.Context, request api.JoinCampaignReque
 		}
 		return nil, err
 	}
+	banned, err := s.queries.IsBanned(ctx, db.IsBannedParams{CampaignID: campaign.ID, UserID: uid})
+	if err != nil {
+		return nil, err
+	}
+	if banned {
+		return api.JoinCampaign403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{
+			Error: "you have been barred from this table",
+		}}, nil
+	}
 	if err := s.queries.JoinCampaign(ctx, db.JoinCampaignParams{UserID: uid, CampaignID: campaign.ID}); err != nil {
 		return nil, err
 	}
