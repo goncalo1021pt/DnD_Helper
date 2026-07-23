@@ -275,18 +275,116 @@ func (s *Server) DeclareMilestone(ctx context.Context, request api.DeclareMilest
 	if err != nil {
 		return nil, err
 	}
-	if err := s.queries.GrantMilestone(ctx, db.GrantMilestoneParams{
+	ceiling := int32(campaignCeiling(campaign))
+
+	line := "A milestone is reached — the party may rise a level"
+	if ids, names, err := s.seatedHeroesNamed(ctx, campaignID, milestoneTargets(request.Body)); err != nil {
+		return nil, err
+	} else if ids != nil {
+		if len(ids) == 0 {
+			return api.DeclareMilestone400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: "none of those heroes are seated at this table",
+			}}, nil
+		}
+		if err := s.queries.GrantMilestoneTo(ctx, db.GrantMilestoneToParams{
+			CampaignID: pgUUID(campaignID), Ceiling: ceiling, Ids: ids,
+		}); err != nil {
+			return nil, err
+		}
+		line = fmt.Sprintf("A milestone is reached for %s — they may rise a level", joinNames(names))
+	} else if err := s.queries.GrantMilestone(ctx, db.GrantMilestoneParams{
 		CampaignID: pgUUID(campaignID),
-		Level:      int32(campaignCeiling(campaign)),
+		Level:      ceiling,
 	}); err != nil {
 		return nil, err
 	}
-	line := "A milestone is reached — the party may rise a level"
 	if request.Body != nil && request.Body.Note != nil && strings.TrimSpace(*request.Body.Note) != "" {
 		line += " — " + strings.TrimSpace(*request.Body.Note)
 	}
 	s.logEvent(ctx, campaignID, member.UserID, "milestone", line)
 	return api.DeclareMilestone204Response{}, nil
+}
+
+// milestoneTargets pulls the optional characterIds out of a milestone body;
+// nil means "the whole party".
+func milestoneTargets(body *api.DeclareMilestoneJSONRequestBody) []uuid.UUID {
+	if body == nil || body.CharacterIds == nil {
+		return nil
+	}
+	ids := make([]uuid.UUID, 0, len(*body.CharacterIds))
+	for _, id := range *body.CharacterIds {
+		ids = append(ids, uuid.UUID(id))
+	}
+	return ids
+}
+
+// seatedHeroesNamed filters the requested hero ids down to those actually
+// seated at the campaign and returns their names for the chronicle. A nil
+// request yields (nil, nil, nil) — the caller treats that as "everyone".
+func (s *Server) seatedHeroesNamed(ctx context.Context, campaignID uuid.UUID, requested []uuid.UUID) ([]uuid.UUID, []string, error) {
+	if requested == nil {
+		return nil, nil, nil
+	}
+	roster, err := s.queries.ListCharactersByCampaign(ctx, pgUUID(campaignID))
+	if err != nil {
+		return nil, nil, err
+	}
+	nameByID := make(map[uuid.UUID]string, len(roster))
+	for _, c := range roster {
+		nameByID[c.ID] = c.Name
+	}
+	ids := make([]uuid.UUID, 0, len(requested))
+	names := make([]string, 0, len(requested))
+	for _, id := range requested {
+		if n, ok := nameByID[id]; ok {
+			ids = append(ids, id)
+			names = append(names, n)
+		}
+	}
+	return ids, names, nil
+}
+
+// RevokeMilestone takes back unspent level-ups (DM only) — from the chosen
+// heroes, or one from everyone when none are named.
+func (s *Server) RevokeMilestone(ctx context.Context, request api.RevokeMilestoneRequestObject) (api.RevokeMilestoneResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	member, err := s.requireDM(ctx, campaignID)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.RevokeMilestone401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.RevokeMilestone403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+
+	var requested []uuid.UUID
+	if request.Body != nil && request.Body.CharacterIds != nil {
+		requested = make([]uuid.UUID, 0, len(*request.Body.CharacterIds))
+		for _, id := range *request.Body.CharacterIds {
+			requested = append(requested, uuid.UUID(id))
+		}
+	}
+	line := "The DM takes back the party's unspent level-ups"
+	if ids, names, err := s.seatedHeroesNamed(ctx, campaignID, requested); err != nil {
+		return nil, err
+	} else if ids != nil {
+		if len(ids) == 0 {
+			return api.RevokeMilestone204Response{}, nil
+		}
+		if err := s.queries.RevokeMilestoneFrom(ctx, db.RevokeMilestoneFromParams{
+			CampaignID: pgUUID(campaignID), Ids: ids,
+		}); err != nil {
+			return nil, err
+		}
+		line = fmt.Sprintf("The DM takes back %s's unspent level-up", joinNames(names))
+	} else if err := s.queries.RevokeMilestone(ctx, pgUUID(campaignID)); err != nil {
+		return nil, err
+	}
+	s.logEvent(ctx, campaignID, member.UserID, "milestone", line)
+	return api.RevokeMilestone204Response{}, nil
 }
 
 // SetProgression flips the campaign between milestone and XP advancement.

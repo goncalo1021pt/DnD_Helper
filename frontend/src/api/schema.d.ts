@@ -537,8 +537,27 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** A milestone — every seated hero gains one pending level-up (DM only) */
+        /** A milestone — seated heroes gain one pending level-up (DM only) */
         post: operations["declareMilestone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/milestone/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take back an unspent level-up (DM only) — from the chosen heroes, or one from everyone when none are named. Already-spent levels stay. */
+        post: operations["revokeMilestone"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2983,6 +3002,8 @@ export interface operations {
             content: {
                 "application/json": {
                     note?: string;
+                    /** @description Grant only to these seated heroes; omitted means the whole party. */
+                    characterIds?: string[];
                 };
             };
         };
@@ -2995,6 +3016,34 @@ export interface operations {
                 content?: never;
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    revokeMilestone: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    characterIds?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Taken back */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };

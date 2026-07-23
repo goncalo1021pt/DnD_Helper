@@ -878,7 +878,7 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: declareMilestone
-      summary: A milestone — every seated hero gains one pending level-up (DM only)
+      summary: A milestone — seated heroes gain one pending level-up (DM only)
       requestBody:
         required: false
         content:
@@ -889,11 +889,45 @@ paths:
                 note:
                   type: string
                   maxLength: 200
+                characterIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Grant only to these seated heroes; omitted means the whole party.
       responses:
         "204":
           description: Declared
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/milestone/revoke:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: revokeMilestone
+      summary: >
+        Take back an unspent level-up (DM only) — from the chosen heroes, or
+        one from everyone when none are named. Already-spent levels stay.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                characterIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        "204":
+          description: Taken back
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":

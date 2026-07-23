@@ -9,6 +9,7 @@ import {
   useGrantXP,
   useKickMember,
   useMembers,
+  useRevokeMilestone,
   useSetMaxLevel,
   useSetProgression,
   useUnbanMember,
@@ -54,9 +55,11 @@ function TableRulesSection({ campaign }: { campaign: Campaign }) {
   const setProgression = useSetProgression(campaign.id);
   const setMaxLevel = useSetMaxLevel(campaign.id);
   const milestone = useDeclareMilestone(campaign.id);
+  const revoke = useRevokeMilestone(campaign.id);
   const grantXP = useGrantXP(campaign.id);
   const { data: characters } = useCharacters(campaign.id);
   const [granting, setGranting] = useState(false);
+  const [confirmingMilestone, setConfirmingMilestone] = useState(false);
   const [xpAmount, setXpAmount] = useState("");
   const [xpReason, setXpReason] = useState("");
   const [xpTargets, setXpTargets] = useState<string[]>([]);
@@ -117,7 +120,7 @@ function TableRulesSection({ campaign }: { campaign: Campaign }) {
 
         {progression === "milestone" ? (
           <button
-            onClick={() => milestone.mutate(undefined)}
+            onClick={() => setConfirmingMilestone(true)}
             disabled={milestone.isPending}
             className="btn-base btn-gold clip-octagon h-9 px-4 text-[11px]"
           >
@@ -151,6 +154,7 @@ function TableRulesSection({ campaign }: { campaign: Campaign }) {
           <ul className="m-0 grid list-none gap-1.5 p-0">
             {(characters ?? []).map((c) => {
               const atCeiling = campaign.maxLevel != null && c.level >= campaign.maxLevel;
+              const pending = c.pendingLevels ?? 0;
               return (
                 <li key={c.id} className="flex flex-wrap items-center gap-3">
                   <span className="font-heading min-w-0 max-w-[220px] flex-1 truncate text-[13.5px] font-bold text-cream">
@@ -163,9 +167,9 @@ function TableRulesSection({ campaign }: { campaign: Campaign }) {
                     <span className="label-stamp text-[9px] tracking-[1px] text-[#c98a6a]">
                       at the ceiling
                     </span>
-                  ) : (c.pendingLevels ?? 0) > 0 ? (
+                  ) : pending > 0 ? (
                     <span className="label-stamp text-[9px] tracking-[1px]" style={{ color: "#ecc673" }}>
-                      ▲ {c.pendingLevels} level-up{(c.pendingLevels ?? 0) > 1 ? "s" : ""} waiting
+                      ▲ {pending} level-up{pending > 1 ? "s" : ""} waiting
                     </span>
                   ) : (
                     <span className="label-stamp text-[9px] tracking-[1px] text-cream-muted">
@@ -174,11 +178,66 @@ function TableRulesSection({ campaign }: { campaign: Campaign }) {
                         : `${(c.xp ?? 0).toLocaleString()} XP`}
                     </span>
                   )}
+                  {progression === "milestone" && (
+                    <span className="ml-auto flex flex-none items-center gap-1.5">
+                      <button
+                        onClick={() => revoke.mutate([c.id])}
+                        disabled={revoke.isPending || pending < 1}
+                        title="Take back one unspent level-up"
+                        className="label-stamp cursor-pointer rounded-[2px] px-2 py-1 text-[11px] text-cream-soft transition hover:brightness-125 disabled:cursor-default disabled:opacity-35"
+                        style={{ background: "rgba(139,37,32,.22)", border: "1px solid rgba(139,37,32,.5)" }}
+                      >
+                        −
+                      </button>
+                      <button
+                        onClick={() => milestone.mutate({ characterIds: [c.id] })}
+                        disabled={milestone.isPending || atCeiling}
+                        title="Grant this hero one level-up"
+                        className="label-stamp cursor-pointer rounded-[2px] px-2 py-1 text-[11px] text-cream-soft transition hover:brightness-125 disabled:cursor-default disabled:opacity-35"
+                        style={{ background: "rgba(201,162,39,.16)", border: "1px solid rgba(201,162,39,.4)" }}
+                      >
+                        +
+                      </button>
+                    </span>
+                  )}
                 </li>
               );
             })}
           </ul>
         </div>
+      )}
+
+      {confirmingMilestone && (
+        <ParchmentModal onClose={() => setConfirmingMilestone(false)}>
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            Table Rules
+          </div>
+          <h3 className="font-display m-0 mb-3 text-center text-2xl font-bold text-ink">
+            Declare a Milestone?
+          </h3>
+          <p className="font-body mb-4 text-[13.5px] leading-relaxed text-ink-body">
+            Every seated hero below the ceiling banks one level-up to spend on
+            their sheet. Change your mind? Take unspent ones back with the − in
+            The Party's Rise.
+          </p>
+          <div className="flex items-center justify-end gap-4">
+            <button
+              onClick={() => setConfirmingMilestone(false)}
+              className="label-stamp cursor-pointer border-none bg-transparent px-2 text-[12px] text-ink-label transition hover:text-ink"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() =>
+                milestone.mutate({}, { onSuccess: () => setConfirmingMilestone(false) })
+              }
+              disabled={milestone.isPending}
+              className="btn-base btn-gold clip-octagon h-10 px-6 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {milestone.isPending ? "Declaring…" : "Declare it"}
+            </button>
+          </div>
+        </ParchmentModal>
       )}
 
       {granting && (
