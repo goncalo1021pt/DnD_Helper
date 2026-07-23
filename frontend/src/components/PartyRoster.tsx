@@ -233,7 +233,7 @@ function CharacterCard({
           {(character.pendingLevels ?? 0) > 0 && (
             <span
               className="label-stamp rounded-[2px] px-2 py-1 text-[8.5px] tracking-[1.5px]"
-              style={{ color: "#ecc673", background: "rgba(201,162,39,.14)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.4)" }}
+              style={{ color: "#3f2d08", background: "rgba(201,162,39,.35)", boxShadow: "inset 0 0 0 1px rgba(150,110,30,.6)" }}
             >
               ▲ {character.pendingLevels} level-up{(character.pendingLevels ?? 0) > 1 ? "s" : ""} waiting
             </span>
@@ -243,8 +243,8 @@ function CharacterCard({
               className="label-stamp rounded-[2px] px-2 py-1 text-[8.5px] tracking-[1.5px]"
               style={
                 readyToLevel(character.xp ?? 0, character.level)
-                  ? { color: "#8fb15f", background: "rgba(143,177,95,.12)", boxShadow: "inset 0 0 0 1px rgba(143,177,95,.4)" }
-                  : { color: "#9a703a", background: "rgba(120,86,42,.1)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.3)" }
+                  ? { color: "#2f4a12", background: "rgba(143,177,95,.28)", boxShadow: "inset 0 0 0 1px rgba(95,130,55,.55)" }
+                  : { color: "#7a5626", background: "rgba(120,86,42,.12)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.35)" }
               }
             >
               {readyToLevel(character.xp ?? 0, character.level)

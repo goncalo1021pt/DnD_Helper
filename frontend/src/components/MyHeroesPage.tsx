@@ -240,7 +240,7 @@ function HeroCard({ character }: { character: Character }) {
           hold ? (
             <span
               className="label-stamp mr-auto rounded-[2px] px-2 py-1.5 text-[8.5px] tracking-[1px]"
-              style={{ color: "#9a703a", background: "rgba(120,86,42,.1)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.3)" }}
+              style={{ color: "#7a5626", background: "rgba(120,86,42,.12)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.35)" }}
               title="The DM controls when the party rises"
             >
               ⧗ {hold}
