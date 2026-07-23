@@ -372,15 +372,17 @@ export function useSeatCharacter() {
       characterId: string;
       campaignId: string | null;
     }) => {
-      const { data, error } = await api.PUT("/characters/{characterId}/seat", {
+      const { data, error, response } = await api.PUT("/characters/{characterId}/seat", {
         params: { path: { characterId } },
         body: { campaignId },
       });
       if (error) throw error;
-      return data;
+      // 202: the door is barred — the request waits for the DM's nod.
+      return { data, pending: response.status === 202 };
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["my-seat-requests"] });
       qc.invalidateQueries({ queryKey: ["characters"] });
       qc.invalidateQueries({ queryKey: ["character-detail", vars.characterId] });
     },
@@ -595,6 +597,83 @@ export function useRevokeMilestone(campaignId: string) {
       qc.invalidateQueries({ queryKey: ["characters", campaignId] });
       qc.invalidateQueries({ queryKey: ["my-characters"] });
       qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
+export function useSetSeatingApproval(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/seating-approval", {
+        params: { path: { campaignId } },
+        body: { enabled },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
+// DM only — the heroes waiting at the door.
+export function useSeatRequests(campaignId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["seat-requests", campaignId],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/campaigns/{campaignId}/seat-requests", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled,
+  });
+}
+
+export function useApproveSeat(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (characterId: string) => {
+      const { error } = await api.POST(
+        "/campaigns/{campaignId}/seat-requests/{characterId}/approve",
+        { params: { path: { campaignId, characterId } } },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["seat-requests", campaignId] });
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
+export function useDenySeat(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (characterId: string) => {
+      const { error } = await api.DELETE(
+        "/campaigns/{campaignId}/seat-requests/{characterId}",
+        { params: { path: { campaignId, characterId } } },
+      );
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["seat-requests", campaignId] }),
+  });
+}
+
+// The caller's own heroes still waiting at a door.
+export function useMySeatRequests() {
+  return useQuery({
+    queryKey: ["my-seat-requests"],
+    queryFn: async () => {
+      const { data, error } = await api.GET("/me/seat-requests");
+      if (error) throw error;
+      return data ?? [];
     },
   });
 }

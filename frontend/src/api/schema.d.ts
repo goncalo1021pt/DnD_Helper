@@ -230,6 +230,23 @@ export interface paths {
         patch: operations["updateQuest"];
         trace?: never;
     };
+    "/me/seat-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's heroes still waiting at a table's door */
+        get: operations["listMySeatRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/characters": {
         parameters: {
             query?: never;
@@ -602,6 +619,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/seating-approval": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Bar or open the table's door — barred means new heroes wait for the DM's nod (DM only) */
+        put: operations["setSeatingApproval"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/seat-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The heroes waiting at the door, oldest first (DM only) */
+        get: operations["listSeatRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/seat-requests/{characterId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Let a waiting hero take their seat (DM only); re-checks the codex first */
+        post: operations["approveSeatRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/seat-requests/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Turn a waiting hero away from the door (DM only) */
+        delete: operations["denySeatRequest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/codex": {
         parameters: {
             query?: never;
@@ -674,7 +769,7 @@ export interface paths {
         /** The campaign's party roster (members only) */
         get: operations["listCharacters"];
         put?: never;
-        /** Add a character owned by the caller (any campaign member) */
+        /** Quick-add a table-born character to the roster (DM only) — players bring account heroes through the seat flow, where the door applies */
         post: operations["createCharacter"];
         delete?: never;
         options?: never;
@@ -1268,6 +1363,8 @@ export interface components {
             progression?: "milestone" | "xp";
             /** @description The DM's level ceiling for this table; null means the standard 20. */
             maxLevel?: number | null;
+            /** @description When true the door is barred — new heroes wait for the DM's approval before seating. */
+            requireSeatingApproval?: boolean;
         };
         CampaignMembership: {
             campaign: components["schemas"]["Campaign"];
@@ -1293,6 +1390,29 @@ export interface components {
         BanRequest: {
             /** Format: uuid */
             userId: string;
+        };
+        PendingSeat: {
+            /** Format: uuid */
+            characterId: string;
+            name: string;
+            class?: string | null;
+            level: number;
+            /** @description Display name of the player who knocks. */
+            ownerName: string;
+            /** Format: date-time */
+            requestedAt: string;
+        };
+        SeatPending: {
+            /** Format: uuid */
+            campaignId: string;
+            campaignName: string;
+        };
+        MySeatRequest: {
+            /** Format: uuid */
+            characterId: string;
+            /** Format: uuid */
+            campaignId: string;
+            campaignName: string;
         };
         CurrentUser: {
             user: components["schemas"]["User"];
@@ -1372,6 +1492,8 @@ export interface components {
             createdAt: string;
             /** @description True when the caller owns this character. */
             mine: boolean;
+            /** @description Born of a quick-add on a campaign roster: lives and dies with the table, never listed in My Heroes, never seated elsewhere. Account heroes are the opposite — the roster may only unseat them. */
+            tableBorn: boolean;
             /** @description Experience points (XP-mode campaigns; advisory). */
             xp?: number;
             /** @description Milestone level-ups waiting to be taken. */
@@ -2411,6 +2533,27 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listMySeatRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pending requests, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MySeatRequest"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     listMyCharacters: {
         parameters: {
             query?: never;
@@ -2506,6 +2649,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Character"];
+                };
+            };
+            /** @description The table's door is barred — the request is lodged and awaits the DM's nod */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatPending"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -3110,6 +3262,119 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    setSeatingApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listSeatRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pending seat requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingSeat"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    approveSeatRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Seated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The hero uses content the campaign's codex has not admitted; the request stays pending */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatConflict"];
+                };
+            };
+        };
+    };
+    denySeatRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Turned away */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getCodex: {

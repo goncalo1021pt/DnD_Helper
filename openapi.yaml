@@ -340,6 +340,22 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /me/seat-requests:
+    get:
+      operationId: listMySeatRequests
+      summary: The caller's heroes still waiting at a table's door
+      responses:
+        "200":
+          description: Pending requests, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MySeatRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /me/characters:
     get:
       operationId: listMyCharacters
@@ -417,6 +433,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Character"
+        "202":
+          description: The table's door is barred — the request is lodged and awaits the DM's nod
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatPending"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -997,6 +1019,98 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /campaigns/{campaignId}/seating-approval:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setSeatingApproval
+      summary: Bar or open the table's door — barred means new heroes wait for the DM's nod (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        "200":
+          description: The campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/seat-requests:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listSeatRequests
+      summary: The heroes waiting at the door, oldest first (DM only)
+      responses:
+        "200":
+          description: Pending seat requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PendingSeat"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{campaignId}/seat-requests/{characterId}/approve:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/CharacterId"
+    post:
+      operationId: approveSeatRequest
+      summary: Let a waiting hero take their seat (DM only); re-checks the codex first
+      responses:
+        "204":
+          description: Seated
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The hero uses content the campaign's codex has not admitted; the request stays pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeatConflict"
+
+  /campaigns/{campaignId}/seat-requests/{characterId}:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/CharacterId"
+    delete:
+      operationId: denySeatRequest
+      summary: Turn a waiting hero away from the door (DM only)
+      responses:
+        "204":
+          description: Turned away
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /campaigns/{campaignId}/codex:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -1143,7 +1257,9 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createCharacter
-      summary: Add a character owned by the caller (any campaign member)
+      summary: >
+        Quick-add a table-born character to the roster (DM only) — players
+        bring account heroes through the seat flow, where the door applies
       requestBody:
         required: true
         content:
@@ -2358,6 +2474,9 @@ components:
           type: integer
           nullable: true
           description: The DM's level ceiling for this table; null means the standard 20.
+        requireSeatingApproval:
+          type: boolean
+          description: When true the door is barred — new heroes wait for the DM's approval before seating.
 
     CampaignMembership:
       type: object
@@ -2409,6 +2528,50 @@ components:
         userId:
           type: string
           format: uuid
+
+    PendingSeat:
+      type: object
+      required: [characterId, name, level, ownerName, requestedAt]
+      properties:
+        characterId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        class:
+          type: string
+          nullable: true
+        level:
+          type: integer
+        ownerName:
+          type: string
+          description: Display name of the player who knocks.
+        requestedAt:
+          type: string
+          format: date-time
+
+    SeatPending:
+      type: object
+      required: [campaignId, campaignName]
+      properties:
+        campaignId:
+          type: string
+          format: uuid
+        campaignName:
+          type: string
+
+    MySeatRequest:
+      type: object
+      required: [characterId, campaignId, campaignName]
+      properties:
+        characterId:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        campaignName:
+          type: string
 
     CurrentUser:
       type: object
@@ -2528,7 +2691,7 @@ components:
     Character:
       type: object
       required:
-        [id, ownerUserId, ownerName, name, class, level, hpCurrent, hpMax, createdAt, mine]
+        [id, ownerUserId, ownerName, name, class, level, hpCurrent, hpMax, createdAt, mine, tableBorn]
       properties:
         id:
           type: string
@@ -2565,6 +2728,12 @@ components:
         mine:
           type: boolean
           description: True when the caller owns this character.
+        tableBorn:
+          type: boolean
+          description: >
+            Born of a quick-add on a campaign roster: lives and dies with the
+            table, never listed in My Heroes, never seated elsewhere. Account
+            heroes are the opposite — the roster may only unseat them.
         xp:
           type: integer
           description: Experience points (XP-mode campaigns; advisory).

@@ -142,6 +142,7 @@ function CharacterCard({
   const [editing, setEditing] = useState(false);
   const update = useUpdateCharacter(campaignId);
   const del = useDeleteCharacter(campaignId);
+  const seat = useSeatCharacter();
 
   const color = hpColor(character.hpCurrent, character.hpMax);
   const pct = character.hpMax > 0 ? (character.hpCurrent / character.hpMax) * 100 : 0;
@@ -198,6 +199,14 @@ function CharacterCard({
               {" "}
               · played by {character.ownerName}
             </span>
+            {character.tableBorn && (
+              <span
+                className="label-stamp ml-2 text-[8px] tracking-[1px] text-ink-label"
+                title="Born of this table — not in anyone's My Heroes"
+              >
+                of this table
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -299,17 +308,33 @@ function CharacterCard({
           >
             <IconPencil strokeWidth={1.8} />
           </button>
-          <button
-            onClick={() => {
-              if (confirm(`Strike "${character.name}" from the roster?`))
-                del.mutate(character.id);
-            }}
-            disabled={del.isPending}
-            title="Remove"
-            className="btn-base btn-ghost-red p-[9px]"
-          >
-            <IconTrash strokeWidth={1.8} />
-          </button>
+          {character.tableBorn ? (
+            /* Born of the table: striking it destroys it — there is no shelf
+               to return to. Account heroes can only be unseated here; deleting
+               one is the owner's act, from My Heroes. */
+            <button
+              onClick={() => {
+                if (confirm(`Strike "${character.name}" from the roster? Born of this table, they will be gone for good.`))
+                  del.mutate(character.id);
+              }}
+              disabled={del.isPending}
+              title="Strike from the roster (table-born: gone for good)"
+              className="btn-base btn-ghost-red p-[9px]"
+            >
+              <IconTrash strokeWidth={1.8} />
+            </button>
+          ) : character.mine ? (
+            <button
+              onClick={() =>
+                seat.mutate({ characterId: character.id, campaignId: null })
+              }
+              disabled={seat.isPending}
+              title="Unseat — the hero returns to your My Heroes shelf"
+              className="btn-base btn-ghost-ink px-3 py-[9px] text-[10px]"
+            >
+              Unseat
+            </button>
+          ) : null}
         </div>
       )}
 
@@ -431,13 +456,16 @@ export default function PartyRoster() {
             The Skill Trees →
           </Link>
           <SummonControl campaignId={campaign.id} />
-          <button
-            onClick={() => setAdding(true)}
-            className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
-          >
-            <IconPlus size={15} strokeWidth={2} />
-            Take a Seat
-          </button>
+          {isDM && (
+            <button
+              onClick={() => setAdding(true)}
+              title="Add a character born of this table — it will not appear in anyone's My Heroes"
+              className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
+            >
+              <IconPlus size={15} strokeWidth={2} />
+              Quick-add
+            </button>
+          )}
         </div>
       </div>
 
@@ -477,9 +505,13 @@ export default function PartyRoster() {
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
             The Party Ledger
           </div>
-          <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Take a Seat at the Table
+          <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
+            Born of this Table
           </h3>
+          <p className="font-body m-0 mb-4 text-center text-[13px] italic text-ink-body">
+            A quick character for this roster alone — never listed in My
+            Heroes, struck for good when removed.
+          </p>
           <CharacterForm
             initial={emptyHero}
             mode="create"

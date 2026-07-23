@@ -15,7 +15,7 @@ import (
 const createAccountCharacter = `-- name: CreateAccountCharacter :one
 INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
 VALUES (NULL, $1, $2, $3, $4, $5, $6)
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born
 `
 
 type CreateAccountCharacterParams struct {
@@ -64,14 +64,15 @@ func (q *Queries) CreateAccountCharacter(ctx context.Context, arg CreateAccountC
 		&i.SpellSlotsUsed,
 		&i.Xp,
 		&i.PendingLevels,
+		&i.TableBorn,
 	)
 	return i, err
 }
 
 const createCharacter = `-- name: CreateCharacter :one
-INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels
+INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max, table_born)
+VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born
 `
 
 type CreateCharacterParams struct {
@@ -84,6 +85,7 @@ type CreateCharacterParams struct {
 	HpMax       int32       `json:"hp_max"`
 }
 
+// Quick-add straight onto a roster: the character is born of the table.
 func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams) (Character, error) {
 	row := q.db.QueryRow(ctx, createCharacter,
 		arg.CampaignID,
@@ -121,6 +123,7 @@ func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams
 		&i.SpellSlotsUsed,
 		&i.Xp,
 		&i.PendingLevels,
+		&i.TableBorn,
 	)
 	return i, err
 }
@@ -134,13 +137,29 @@ func (q *Queries) DeleteCharacter(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteTableBornOfUser = `-- name: DeleteTableBornOfUser :exec
+DELETE FROM characters
+WHERE owner_user_id = $1 AND campaign_id = $2 AND table_born
+`
+
+type DeleteTableBornOfUserParams struct {
+	OwnerUserID uuid.UUID   `json:"owner_user_id"`
+	CampaignID  pgtype.UUID `json:"campaign_id"`
+}
+
+// A kicked player's table-born characters die with their seat.
+func (q *Queries) DeleteTableBornOfUser(ctx context.Context, arg DeleteTableBornOfUserParams) error {
+	_, err := q.db.Exec(ctx, deleteTableBornOfUser, arg.OwnerUserID, arg.CampaignID)
+	return err
+}
+
 const forgeCharacter = `-- name: ForgeCharacter :one
 INSERT INTO characters (
     campaign_id, owner_user_id, name, class, level, hp_current, hp_max,
     strength, dexterity, constitution, intelligence, wisdom, charisma,
     skills, class_id, species_id, background_id
 ) VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born
 `
 
 type ForgeCharacterParams struct {
@@ -209,12 +228,13 @@ func (q *Queries) ForgeCharacter(ctx context.Context, arg ForgeCharacterParams) 
 		&i.SpellSlotsUsed,
 		&i.Xp,
 		&i.PendingLevels,
+		&i.TableBorn,
 	)
 	return i, err
 }
 
 const getCharacter = `-- name: GetCharacter :one
-SELECT id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels FROM characters WHERE id = $1
+SELECT id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born FROM characters WHERE id = $1
 `
 
 func (q *Queries) GetCharacter(ctx context.Context, id uuid.UUID) (Character, error) {
@@ -246,6 +266,7 @@ func (q *Queries) GetCharacter(ctx context.Context, id uuid.UUID) (Character, er
 		&i.SpellSlotsUsed,
 		&i.Xp,
 		&i.PendingLevels,
+		&i.TableBorn,
 	)
 	return i, err
 }
@@ -292,7 +313,7 @@ const grantXP = `-- name: GrantXP :many
 UPDATE characters
 SET xp = GREATEST(xp + $2, 0), updated_at = now()
 WHERE campaign_id = $1 AND id = ANY($3::uuid[])
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born
 `
 
 type GrantXPParams struct {
@@ -337,6 +358,7 @@ func (q *Queries) GrantXP(ctx context.Context, arg GrantXPParams) ([]Character, 
 			&i.SpellSlotsUsed,
 			&i.Xp,
 			&i.PendingLevels,
+			&i.TableBorn,
 		); err != nil {
 			return nil, err
 		}
@@ -359,7 +381,7 @@ SET level = $2,
     feats = $12,
     updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born
 `
 
 type LevelUpCharacterParams struct {
@@ -421,12 +443,13 @@ func (q *Queries) LevelUpCharacter(ctx context.Context, arg LevelUpCharacterPara
 		&i.SpellSlotsUsed,
 		&i.Xp,
 		&i.PendingLevels,
+		&i.TableBorn,
 	)
 	return i, err
 }
 
 const listCharactersByCampaign = `-- name: ListCharactersByCampaign :many
-SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, c.subclass_id, c.feats, c.spell_slots_used, c.xp, c.pending_levels, u.name AS owner_name, rc_class.data AS class_data
+SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, c.subclass_id, c.feats, c.spell_slots_used, c.xp, c.pending_levels, c.table_born, u.name AS owner_name, rc_class.data AS class_data
 FROM characters c
 JOIN users u ON u.id = c.owner_user_id
 LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
@@ -460,6 +483,7 @@ type ListCharactersByCampaignRow struct {
 	SpellSlotsUsed []int16            `json:"spell_slots_used"`
 	Xp             int32              `json:"xp"`
 	PendingLevels  int16              `json:"pending_levels"`
+	TableBorn      bool               `json:"table_born"`
 	OwnerName      string             `json:"owner_name"`
 	ClassData      []byte             `json:"class_data"`
 }
@@ -499,6 +523,7 @@ func (q *Queries) ListCharactersByCampaign(ctx context.Context, campaignID pgtyp
 			&i.SpellSlotsUsed,
 			&i.Xp,
 			&i.PendingLevels,
+			&i.TableBorn,
 			&i.OwnerName,
 			&i.ClassData,
 		); err != nil {
@@ -513,11 +538,11 @@ func (q *Queries) ListCharactersByCampaign(ctx context.Context, campaignID pgtyp
 }
 
 const listCharactersByOwner = `-- name: ListCharactersByOwner :many
-SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, c.subclass_id, c.feats, c.spell_slots_used, c.xp, c.pending_levels, camp.name AS campaign_name, rc_class.data AS class_data
+SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, c.subclass_id, c.feats, c.spell_slots_used, c.xp, c.pending_levels, c.table_born, camp.name AS campaign_name, rc_class.data AS class_data
 FROM characters c
 LEFT JOIN campaigns camp ON camp.id = c.campaign_id
 LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
-WHERE c.owner_user_id = $1
+WHERE c.owner_user_id = $1 AND NOT c.table_born
 ORDER BY c.created_at ASC
 `
 
@@ -547,11 +572,13 @@ type ListCharactersByOwnerRow struct {
 	SpellSlotsUsed []int16            `json:"spell_slots_used"`
 	Xp             int32              `json:"xp"`
 	PendingLevels  int16              `json:"pending_levels"`
+	TableBorn      bool               `json:"table_born"`
 	CampaignName   *string            `json:"campaign_name"`
 	ClassData      []byte             `json:"class_data"`
 }
 
 // The user's heroes across all campaigns, including unseated ones.
+// Table-born characters belong to their roster, not to My Heroes.
 func (q *Queries) ListCharactersByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]ListCharactersByOwnerRow, error) {
 	rows, err := q.db.Query(ctx, listCharactersByOwner, ownerUserID)
 	if err != nil {
@@ -587,6 +614,7 @@ func (q *Queries) ListCharactersByOwner(ctx context.Context, ownerUserID uuid.UU
 			&i.SpellSlotsUsed,
 			&i.Xp,
 			&i.PendingLevels,
+			&i.TableBorn,
 			&i.CampaignName,
 			&i.ClassData,
 		); err != nil {
@@ -634,7 +662,7 @@ func (q *Queries) RevokeMilestoneFrom(ctx context.Context, arg RevokeMilestoneFr
 const seatCharacter = `-- name: SeatCharacter :one
 UPDATE characters SET campaign_id = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born
 `
 
 type SeatCharacterParams struct {
@@ -672,6 +700,7 @@ func (q *Queries) SeatCharacter(ctx context.Context, arg SeatCharacterParams) (C
 		&i.SpellSlotsUsed,
 		&i.Xp,
 		&i.PendingLevels,
+		&i.TableBorn,
 	)
 	return i, err
 }
@@ -680,7 +709,7 @@ const setSpellSlotsUsed = `-- name: SetSpellSlotsUsed :one
 UPDATE characters
 SET spell_slots_used = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born
 `
 
 type SetSpellSlotsUsedParams struct {
@@ -717,6 +746,7 @@ func (q *Queries) SetSpellSlotsUsed(ctx context.Context, arg SetSpellSlotsUsedPa
 		&i.SpellSlotsUsed,
 		&i.Xp,
 		&i.PendingLevels,
+		&i.TableBorn,
 	)
 	return i, err
 }
@@ -741,7 +771,7 @@ SET name       = $2,
     hp_max     = $6,
     updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born
 `
 
 type UpdateCharacterParams struct {
@@ -789,6 +819,7 @@ func (q *Queries) UpdateCharacter(ctx context.Context, arg UpdateCharacterParams
 		&i.SpellSlotsUsed,
 		&i.Xp,
 		&i.PendingLevels,
+		&i.TableBorn,
 	)
 	return i, err
 }

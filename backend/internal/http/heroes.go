@@ -45,6 +45,7 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			SpellSlotsUsed: row.SpellSlotsUsed,
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
+			TableBorn:      row.TableBorn,
 		}, me.Name, uid, row.ClassData)
 		c.CampaignName = row.CampaignName
 		out = append(out, c)
@@ -97,6 +98,11 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 	if character.OwnerUserID != uid {
 		return api.SeatCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 	}
+	if character.TableBorn {
+		return api.SeatCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "this character was born at the table and cannot leave it",
+		}}, nil
+	}
 
 	var target pgtype.UUID
 	var campaignName *string
@@ -109,7 +115,8 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 			}
 			return nil, err
 		}
-		if _, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: campaignID}); err != nil {
+		membership, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: campaignID})
+		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return api.SeatCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 			}
@@ -131,8 +138,27 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 			}
 			return api.SeatCharacter409JSONResponse(conflict), nil
 		}
+		// A barred door: players lodge a request and wait for the DM's nod.
+		if campaign.RequireSeatingApproval && membership.Role != db.MembershipRoleDm {
+			if err := s.queries.UpsertSeatRequest(ctx, db.UpsertSeatRequestParams{
+				CharacterID: character.ID, CampaignID: campaignID,
+			}); err != nil {
+				return nil, err
+			}
+			s.logEvent(ctx, campaignID, uid, "hero_seated",
+				fmt.Sprintf("%s waits at the door for the DM's nod", character.Name))
+			return api.SeatCharacter202JSONResponse(api.SeatPending{
+				CampaignId: campaignID, CampaignName: campaign.Name,
+			}), nil
+		}
 		target = pgUUID(campaignID)
 		campaignName = &campaign.Name
+	}
+
+	// Seating or unseating clears any request still waiting at a door —
+	// unseating doubles as the player's way to withdraw one.
+	if _, err := s.queries.DeleteSeatRequest(ctx, character.ID); err != nil {
+		return nil, err
 	}
 
 	updated, err := s.queries.SeatCharacter(ctx, db.SeatCharacterParams{

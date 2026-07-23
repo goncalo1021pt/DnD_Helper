@@ -10,8 +10,9 @@ ORDER BY c.created_at ASC;
 SELECT * FROM characters WHERE id = $1;
 
 -- name: CreateCharacter :one
-INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+-- Quick-add straight onto a roster: the character is born of the table.
+INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max, table_born)
+VALUES ($1, $2, $3, $4, $5, $6, $7, true)
 RETURNING *;
 
 -- name: UpdateCharacter :one
@@ -30,12 +31,18 @@ DELETE FROM characters WHERE id = $1;
 
 -- name: ListCharactersByOwner :many
 -- The user's heroes across all campaigns, including unseated ones.
+-- Table-born characters belong to their roster, not to My Heroes.
 SELECT c.*, camp.name AS campaign_name, rc_class.data AS class_data
 FROM characters c
 LEFT JOIN campaigns camp ON camp.id = c.campaign_id
 LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
-WHERE c.owner_user_id = $1
+WHERE c.owner_user_id = $1 AND NOT c.table_born
 ORDER BY c.created_at ASC;
+
+-- name: DeleteTableBornOfUser :exec
+-- A kicked player's table-born characters die with their seat.
+DELETE FROM characters
+WHERE owner_user_id = $1 AND campaign_id = $2 AND table_born;
 
 -- name: SeatCharacter :one
 -- Seat a hero at a campaign (or NULL to return them to My Heroes).

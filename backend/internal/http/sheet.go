@@ -26,6 +26,15 @@ func (s *Server) requireCharacterViewer(ctx context.Context, character db.Charac
 	}
 	campaignID, seated := seatedCampaign(character)
 	if !seated {
+		// A hero waiting at a barred door may be previewed by that
+		// table's DM before the seat is granted.
+		if req, err := s.queries.GetSeatRequest(ctx, character.ID); err == nil {
+			if _, dmErr := s.requireDM(ctx, req.CampaignID); dmErr == nil {
+				return nil
+			}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
 		return errForbidden
 	}
 	_, err := s.requireMember(ctx, campaignID)

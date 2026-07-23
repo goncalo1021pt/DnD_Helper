@@ -214,6 +214,9 @@ func (s *Server) removeMemberTx(ctx context.Context, campaignID, userID uuid.UUI
 	if _, err := qtx.DeleteMembership(ctx, db.DeleteMembershipParams{UserID: userID, CampaignID: campaignID}); err != nil {
 		return err
 	}
+	if err := qtx.DeleteTableBornOfUser(ctx, db.DeleteTableBornOfUserParams{OwnerUserID: userID, CampaignID: pgUUID(campaignID)}); err != nil {
+		return err
+	}
 	if err := qtx.UnseatCharactersOfUser(ctx, db.UnseatCharactersOfUserParams{OwnerUserID: userID, CampaignID: pgUUID(campaignID)}); err != nil {
 		return err
 	}
@@ -221,6 +224,9 @@ func (s *Server) removeMemberTx(ctx context.Context, campaignID, userID uuid.UUI
 		return err
 	}
 	if err := qtx.RemoveUserFromCampaignPools(ctx, db.RemoveUserFromCampaignPoolsParams{UserID: userID, CampaignID: campaignID}); err != nil {
+		return err
+	}
+	if err := qtx.DeleteSeatRequestsOfUser(ctx, db.DeleteSeatRequestsOfUserParams{OwnerUserID: userID, CampaignID: campaignID}); err != nil {
 		return err
 	}
 	if ban {
