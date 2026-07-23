@@ -223,6 +223,9 @@ func (s *Server) removeMemberTx(ctx context.Context, campaignID, userID uuid.UUI
 	if err := qtx.RemoveUserFromCampaignPools(ctx, db.RemoveUserFromCampaignPoolsParams{UserID: userID, CampaignID: campaignID}); err != nil {
 		return err
 	}
+	if err := qtx.DeleteSeatRequestsOfUser(ctx, db.DeleteSeatRequestsOfUserParams{OwnerUserID: userID, CampaignID: campaignID}); err != nil {
+		return err
+	}
 	if ban {
 		if err := qtx.BanUser(ctx, db.BanUserParams{CampaignID: campaignID, UserID: userID}); err != nil {
 			return err

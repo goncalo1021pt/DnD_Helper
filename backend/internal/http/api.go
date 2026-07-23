@@ -218,14 +218,15 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 	for _, row := range rows {
 		out = append(out, api.CampaignMembership{
 			Campaign: toAPICampaign(db.Campaign{
-				ID:            row.ID,
-				Name:          row.Name,
-				OwnerUserID:   row.OwnerUserID,
-				CreatedAt:     row.CreatedAt,
-				InviteCode:    row.InviteCode,
-				NextSessionAt: row.NextSessionAt,
-				Progression:   row.Progression,
-				MaxLevel:      row.MaxLevel,
+				ID:                     row.ID,
+				Name:                   row.Name,
+				OwnerUserID:            row.OwnerUserID,
+				CreatedAt:              row.CreatedAt,
+				InviteCode:             row.InviteCode,
+				NextSessionAt:          row.NextSessionAt,
+				Progression:            row.Progression,
+				MaxLevel:               row.MaxLevel,
+				RequireSeatingApproval: row.RequireSeatingApproval,
 			}),
 			Role: toAPIRole(row.Role),
 		})
@@ -261,14 +262,15 @@ func toAPICampaign(c db.Campaign) api.Campaign {
 		maxLevel = &v
 	}
 	return api.Campaign{
-		Id:            c.ID,
-		Name:          c.Name,
-		OwnerUserId:   c.OwnerUserID,
-		CreatedAt:     c.CreatedAt.Time,
-		InviteCode:    c.InviteCode,
-		NextSessionAt: tsPtr(c.NextSessionAt),
-		Progression:   (*api.CampaignProgression)(ptrString(string(c.Progression))),
-		MaxLevel:      maxLevel,
+		Id:                     c.ID,
+		Name:                   c.Name,
+		OwnerUserId:            c.OwnerUserID,
+		CreatedAt:              c.CreatedAt.Time,
+		InviteCode:             c.InviteCode,
+		NextSessionAt:          tsPtr(c.NextSessionAt),
+		Progression:            (*api.CampaignProgression)(ptrString(string(c.Progression))),
+		MaxLevel:               maxLevel,
+		RequireSeatingApproval: &c.RequireSeatingApproval,
 	}
 }
 

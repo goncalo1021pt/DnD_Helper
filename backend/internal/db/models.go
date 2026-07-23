@@ -425,14 +425,15 @@ type BestiaryNote struct {
 }
 
 type Campaign struct {
-	ID            uuid.UUID          `json:"id"`
-	Name          string             `json:"name"`
-	OwnerUserID   uuid.UUID          `json:"owner_user_id"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	InviteCode    string             `json:"invite_code"`
-	NextSessionAt pgtype.Timestamptz `json:"next_session_at"`
-	Progression   ProgressionMode    `json:"progression"`
-	MaxLevel      *int16             `json:"max_level"`
+	ID                     uuid.UUID          `json:"id"`
+	Name                   string             `json:"name"`
+	OwnerUserID            uuid.UUID          `json:"owner_user_id"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	InviteCode             string             `json:"invite_code"`
+	NextSessionAt          pgtype.Timestamptz `json:"next_session_at"`
+	Progression            ProgressionMode    `json:"progression"`
+	MaxLevel               *int16             `json:"max_level"`
+	RequireSeatingApproval bool               `json:"require_seating_approval"`
 }
 
 type CampaignBan struct {
@@ -652,6 +653,12 @@ type RulesContent struct {
 	CreatedBy pgtype.UUID        `json:"created_by"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SeatRequest struct {
+	CharacterID uuid.UUID          `json:"character_id"`
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Session struct {

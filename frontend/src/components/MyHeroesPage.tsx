@@ -6,6 +6,7 @@ import {
   useCreateMyCharacter,
   useDeleteCharacter,
   useMyCharacters,
+  useMySeatRequests,
   useProposeCodex,
   useSeatCharacter,
   useUpdateCharacter,
@@ -88,7 +89,13 @@ function SeatConflictModal({
   );
 }
 
-function HeroCard({ character }: { character: Character }) {
+function HeroCard({
+  character,
+  waitingAt,
+}: {
+  character: Character;
+  waitingAt: string | null;
+}) {
   const { data: campaigns } = useCampaigns();
   const seat = useSeatCharacter();
   const update = useUpdateCharacter(character.campaignId ?? "");
@@ -187,6 +194,24 @@ function HeroCard({ character }: { character: Character }) {
               className="btn-base btn-ghost-ink flex-none px-3 py-1.5 text-[10px]"
             >
               Unseat
+            </button>
+          </div>
+        ) : waitingAt ? (
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className="label-stamp truncate text-[9.5px] tracking-[1.5px] text-ink-label"
+              title={`Waiting at the door of ${waitingAt} — the DM decides`}
+            >
+              ⧗ waiting at the door of {waitingAt}
+            </span>
+            <button
+              onClick={() =>
+                seat.mutate({ characterId: character.id, campaignId: null })
+              }
+              disabled={seat.isPending}
+              className="btn-base btn-ghost-ink flex-none px-3 py-1.5 text-[10px]"
+            >
+              Withdraw
             </button>
           </div>
         ) : (
@@ -327,6 +352,7 @@ function HeroCard({ character }: { character: Character }) {
 /** The account-level roster: every hero you own, seated or resting. */
 export default function MyHeroesPage() {
   const { data: heroes, isLoading } = useMyCharacters();
+  const { data: pendingSeats } = useMySeatRequests();
   const create = useCreateMyCharacter();
   const [forging, setForging] = useState(false);
 
@@ -373,7 +399,14 @@ export default function MyHeroesPage() {
       ) : heroes && heroes.length > 0 ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-6">
           {heroes.map((h) => (
-            <HeroCard key={h.id} character={h} />
+            <HeroCard
+              key={h.id}
+              character={h}
+              waitingAt={
+                (pendingSeats ?? []).find((r) => r.characterId === h.id)
+                  ?.campaignName ?? null
+              }
+            />
           ))}
         </div>
       ) : (
