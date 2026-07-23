@@ -29,6 +29,7 @@ func NewRouter(deps Deps) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(enforceTLS)
 
 	srv := NewServer(deps.Pool)
 	strict := api.NewStrictHandler(srv, nil)
