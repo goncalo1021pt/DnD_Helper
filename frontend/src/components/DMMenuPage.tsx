@@ -142,6 +142,45 @@ function TableRulesSection({ campaign }: { campaign: Campaign }) {
           : "XP is advisory — heroes level when their total says so, never past the ceiling."}
       </div>
 
+      {/* the party's rise — who stands where, and who waits on the DM */}
+      {(characters ?? []).length > 0 && (
+        <div className="mt-4 pt-3" style={{ borderTop: "1px solid rgba(201,162,39,.18)" }}>
+          <div className="label-stamp mb-2 text-[10px] tracking-[1.5px] text-gold-muted">
+            The party's rise
+          </div>
+          <ul className="m-0 grid list-none gap-1.5 p-0">
+            {(characters ?? []).map((c) => {
+              const atCeiling = campaign.maxLevel != null && c.level >= campaign.maxLevel;
+              return (
+                <li key={c.id} className="flex flex-wrap items-center gap-3">
+                  <span className="font-heading min-w-0 max-w-[220px] flex-1 truncate text-[13.5px] font-bold text-cream">
+                    {c.name}
+                  </span>
+                  <span className="label-stamp text-[10px] tracking-[1px] text-cream-soft">
+                    Lv {c.level}
+                  </span>
+                  {atCeiling ? (
+                    <span className="label-stamp text-[9px] tracking-[1px] text-[#c98a6a]">
+                      at the ceiling
+                    </span>
+                  ) : (c.pendingLevels ?? 0) > 0 ? (
+                    <span className="label-stamp text-[9px] tracking-[1px]" style={{ color: "#ecc673" }}>
+                      ▲ {c.pendingLevels} level-up{(c.pendingLevels ?? 0) > 1 ? "s" : ""} waiting
+                    </span>
+                  ) : (
+                    <span className="label-stamp text-[9px] tracking-[1px] text-cream-muted">
+                      {progression === "milestone"
+                        ? "no milestone banked"
+                        : `${(c.xp ?? 0).toLocaleString()} XP`}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {granting && (
         <ParchmentModal onClose={() => setGranting(false)} maxWidth="max-w-[440px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
