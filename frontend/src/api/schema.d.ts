@@ -769,7 +769,7 @@ export interface paths {
         /** The campaign's party roster (members only) */
         get: operations["listCharacters"];
         put?: never;
-        /** Add a character owned by the caller (any campaign member) */
+        /** Quick-add a table-born character to the roster (DM only) — players bring account heroes through the seat flow, where the door applies */
         post: operations["createCharacter"];
         delete?: never;
         options?: never;
