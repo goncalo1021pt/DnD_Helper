@@ -61,6 +61,7 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			SpellSlotsUsed: row.SpellSlotsUsed,
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
+			TableBorn:      row.TableBorn,
 		}, row.OwnerName, member.UserID, row.ClassData))
 	}
 	return api.ListCharacters200JSONResponse(out), nil
@@ -162,14 +163,25 @@ func (s *Server) DeleteCharacter(ctx context.Context, request api.DeleteCharacte
 		return nil, err
 	}
 
-	if _, err := s.requireCharacterEditor(ctx, character); err != nil {
-		switch {
-		case errors.Is(err, errNoAuth):
-			return api.DeleteCharacter401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
-		case errors.Is(err, errForbidden):
-			return api.DeleteCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
-		default:
-			return nil, err
+	// Destroying a hero is the owner's act alone. The one exception is a
+	// table-born character, which the seated table's DM may also strike.
+	uid, ok := auth.UserID(ctx)
+	if !ok {
+		return api.DeleteCharacter401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	if uid != character.OwnerUserID {
+		allowed := false
+		if campaignID, seated := seatedCampaign(character); seated && character.TableBorn {
+			if _, err := s.requireDM(ctx, campaignID); err == nil {
+				allowed = true
+			} else if !errors.Is(err, errForbidden) && !errors.Is(err, errNoAuth) {
+				return nil, err
+			}
+		}
+		if !allowed {
+			return api.DeleteCharacter403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{
+				Error: "only the hero's owner may destroy them — the table can only unseat",
+			}}, nil
 		}
 	}
 
@@ -317,5 +329,6 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 		HpMax:       int(c.HpMax),
 		CreatedAt:   c.CreatedAt.Time,
 		Mine:        c.OwnerUserID == viewer,
+		TableBorn:   c.TableBorn,
 	}
 }

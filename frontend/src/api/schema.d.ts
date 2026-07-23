@@ -1492,6 +1492,8 @@ export interface components {
             createdAt: string;
             /** @description True when the caller owns this character. */
             mine: boolean;
+            /** @description Born of a quick-add on a campaign roster: lives and dies with the table, never listed in My Heroes, never seated elsewhere. Account heroes are the opposite — the roster may only unseat them. */
+            tableBorn: boolean;
             /** @description Experience points (XP-mode campaigns; advisory). */
             xp?: number;
             /** @description Milestone level-ups waiting to be taken. */

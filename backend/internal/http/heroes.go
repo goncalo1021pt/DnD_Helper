@@ -45,6 +45,7 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			SpellSlotsUsed: row.SpellSlotsUsed,
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
+			TableBorn:      row.TableBorn,
 		}, me.Name, uid, row.ClassData)
 		c.CampaignName = row.CampaignName
 		out = append(out, c)
@@ -96,6 +97,11 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 	}
 	if character.OwnerUserID != uid {
 		return api.SeatCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+	}
+	if character.TableBorn {
+		return api.SeatCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "this character was born at the table and cannot leave it",
+		}}, nil
 	}
 
 	var target pgtype.UUID

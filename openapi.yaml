@@ -2689,7 +2689,7 @@ components:
     Character:
       type: object
       required:
-        [id, ownerUserId, ownerName, name, class, level, hpCurrent, hpMax, createdAt, mine]
+        [id, ownerUserId, ownerName, name, class, level, hpCurrent, hpMax, createdAt, mine, tableBorn]
       properties:
         id:
           type: string
@@ -2726,6 +2726,12 @@ components:
         mine:
           type: boolean
           description: True when the caller owns this character.
+        tableBorn:
+          type: boolean
+          description: >
+            Born of a quick-add on a campaign roster: lives and dies with the
+            table, never listed in My Heroes, never seated elsewhere. Account
+            heroes are the opposite — the roster may only unseat them.
         xp:
           type: integer
           description: Experience points (XP-mode campaigns; advisory).
