@@ -25,7 +25,14 @@ export default function CampaignsPage() {
     setJoinError("");
     joinCampaign.mutate(trimmed, {
       onSuccess: () => setCode(""),
-      onError: () => setJoinError("No table answers to that code."),
+      // A bad code gets the flavor line; a real refusal (e.g. banned) speaks
+      // with the server's own words.
+      onError: (err) => {
+        const msg = (err as { error?: string })?.error;
+        setJoinError(
+          msg && !/not found/i.test(msg) ? msg : "No table answers to that code.",
+        );
+      },
     });
   }
 

@@ -100,6 +100,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -116,6 +118,111 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Campaign"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{campaignId}/members:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listMembers
+      summary: Everyone seated at the table (members only)
+      responses:
+        "200":
+          description: The campaign's members, DMs first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{campaignId}/members/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/UserId"
+    delete:
+      operationId: kickMember
+      summary: >
+        Remove a player from the table (DM only). Their heroes return to
+        My Heroes, their claims on open quests are released, and they leave
+        any knowledge pools. They may rejoin with the invite code unless banned.
+      responses:
+        "204":
+          description: Removed from the campaign
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{campaignId}/bans:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listBans
+      summary: Players barred from rejoining this campaign (DM only)
+      responses:
+        "200":
+          description: Current bans, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ban"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: banMember
+      summary: >
+        Bar a user from this campaign (DM only). If currently a member they
+        are kicked first; the invite code no longer admits them until unbanned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BanRequest"
+      responses:
+        "204":
+          description: Banned
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /campaigns/{campaignId}/bans/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/UserId"
+    delete:
+      operationId: unbanMember
+      summary: Lift a ban so the invite code admits them again (DM only)
+      responses:
+        "204":
+          description: Ban lifted
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2071,6 +2178,13 @@ components:
       schema:
         type: string
         format: uuid
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   responses:
     Unauthorized:
@@ -2182,6 +2296,48 @@ components:
           $ref: "#/components/schemas/Campaign"
         role:
           $ref: "#/components/schemas/Role"
+
+    Member:
+      type: object
+      required: [userId, name, role, joinedAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        image:
+          type: string
+          nullable: true
+        role:
+          $ref: "#/components/schemas/Role"
+        joinedAt:
+          type: string
+          format: date-time
+
+    Ban:
+      type: object
+      required: [userId, name, bannedAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        image:
+          type: string
+          nullable: true
+        bannedAt:
+          type: string
+          format: date-time
+
+    BanRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+          format: uuid
 
     CurrentUser:
       type: object

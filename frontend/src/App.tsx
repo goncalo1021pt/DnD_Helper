@@ -26,6 +26,7 @@ import PartyRoster from "./components/PartyRoster";
 import SkillTreesPage from "./components/SkillTreesPage";
 import TreeEditorPage from "./components/TreeEditorPage";
 import CharacterWebPage from "./components/CharacterWebPage";
+import DMMenuPage from "./components/DMMenuPage";
 
 export default function App() {
   const { data: me, isLoading } = useCurrentUser();
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="bestiary" element={<BestiaryPage />} />
           <Route path="encounters" element={<EncounterPage />} />
           <Route path="chronicle" element={<ChroniclePage />} />
+          <Route path="dm" element={<DMMenuPage />} />
           <Route path="trees" element={<SkillTreesPage />} />
           <Route path="trees/:treeId" element={<TreeEditorPage />} />
           <Route path="characters/:charId/web" element={<CharacterWebPage />} />
