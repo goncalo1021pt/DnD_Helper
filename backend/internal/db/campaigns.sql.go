@@ -40,7 +40,7 @@ func (q *Queries) AddMembership(ctx context.Context, arg AddMembershipParams) (M
 const createCampaign = `-- name: CreateCampaign :one
 INSERT INTO campaigns (name, owner_user_id, invite_code)
 VALUES ($1, $2, $3)
-RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression
+RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level
 `
 
 type CreateCampaignParams struct {
@@ -60,12 +60,13 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 		&i.InviteCode,
 		&i.NextSessionAt,
 		&i.Progression,
+		&i.MaxLevel,
 	)
 	return i, err
 }
 
 const getCampaign = `-- name: GetCampaign :one
-SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression FROM campaigns WHERE id = $1
+SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level FROM campaigns WHERE id = $1
 `
 
 func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, error) {
@@ -79,12 +80,13 @@ func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, erro
 		&i.InviteCode,
 		&i.NextSessionAt,
 		&i.Progression,
+		&i.MaxLevel,
 	)
 	return i, err
 }
 
 const getCampaignByInviteCode = `-- name: GetCampaignByInviteCode :one
-SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression FROM campaigns WHERE invite_code = $1
+SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level FROM campaigns WHERE invite_code = $1
 `
 
 func (q *Queries) GetCampaignByInviteCode(ctx context.Context, inviteCode string) (Campaign, error) {
@@ -98,6 +100,7 @@ func (q *Queries) GetCampaignByInviteCode(ctx context.Context, inviteCode string
 		&i.InviteCode,
 		&i.NextSessionAt,
 		&i.Progression,
+		&i.MaxLevel,
 	)
 	return i, err
 }
@@ -142,7 +145,7 @@ func (q *Queries) JoinCampaign(ctx context.Context, arg JoinCampaignParams) erro
 }
 
 const listCampaignsForUser = `-- name: ListCampaignsForUser :many
-SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, c.next_session_at, c.progression, m.role
+SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, c.next_session_at, c.progression, c.max_level, m.role
 FROM campaigns c
 JOIN memberships m ON m.campaign_id = c.id
 WHERE m.user_id = $1
@@ -157,6 +160,7 @@ type ListCampaignsForUserRow struct {
 	InviteCode    string             `json:"invite_code"`
 	NextSessionAt pgtype.Timestamptz `json:"next_session_at"`
 	Progression   ProgressionMode    `json:"progression"`
+	MaxLevel      *int16             `json:"max_level"`
 	Role          MembershipRole     `json:"role"`
 }
 
@@ -178,6 +182,7 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 			&i.InviteCode,
 			&i.NextSessionAt,
 			&i.Progression,
+			&i.MaxLevel,
 			&i.Role,
 		); err != nil {
 			return nil, err
@@ -191,7 +196,7 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 }
 
 const regenerateInviteCode = `-- name: RegenerateInviteCode :one
-UPDATE campaigns SET invite_code = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression
+UPDATE campaigns SET invite_code = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level
 `
 
 type RegenerateInviteCodeParams struct {
@@ -210,12 +215,38 @@ func (q *Queries) RegenerateInviteCode(ctx context.Context, arg RegenerateInvite
 		&i.InviteCode,
 		&i.NextSessionAt,
 		&i.Progression,
+		&i.MaxLevel,
+	)
+	return i, err
+}
+
+const setMaxLevel = `-- name: SetMaxLevel :one
+UPDATE campaigns SET max_level = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level
+`
+
+type SetMaxLevelParams struct {
+	ID       uuid.UUID `json:"id"`
+	MaxLevel *int16    `json:"max_level"`
+}
+
+func (q *Queries) SetMaxLevel(ctx context.Context, arg SetMaxLevelParams) (Campaign, error) {
+	row := q.db.QueryRow(ctx, setMaxLevel, arg.ID, arg.MaxLevel)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerUserID,
+		&i.CreatedAt,
+		&i.InviteCode,
+		&i.NextSessionAt,
+		&i.Progression,
+		&i.MaxLevel,
 	)
 	return i, err
 }
 
 const setNextSession = `-- name: SetNextSession :one
-UPDATE campaigns SET next_session_at = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression
+UPDATE campaigns SET next_session_at = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level
 `
 
 type SetNextSessionParams struct {
@@ -234,12 +265,13 @@ func (q *Queries) SetNextSession(ctx context.Context, arg SetNextSessionParams) 
 		&i.InviteCode,
 		&i.NextSessionAt,
 		&i.Progression,
+		&i.MaxLevel,
 	)
 	return i, err
 }
 
 const setProgression = `-- name: SetProgression :one
-UPDATE campaigns SET progression = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression
+UPDATE campaigns SET progression = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level
 `
 
 type SetProgressionParams struct {
@@ -258,6 +290,7 @@ func (q *Queries) SetProgression(ctx context.Context, arg SetProgressionParams) 
 		&i.InviteCode,
 		&i.NextSessionAt,
 		&i.Progression,
+		&i.MaxLevel,
 	)
 	return i, err
 }

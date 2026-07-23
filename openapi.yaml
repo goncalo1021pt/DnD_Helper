@@ -930,6 +930,39 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /campaigns/{campaignId}/max-level:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setMaxLevel
+      summary: Set or clear the table's level ceiling (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                maxLevel:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                  nullable: true
+                  description: Highest level heroes may reach here; null restores the standard 20.
+      responses:
+        "200":
+          description: The campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /campaigns/{campaignId}/codex:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -2287,6 +2320,10 @@ components:
           type: string
           enum: [milestone, xp]
           description: How heroes advance at this table.
+        maxLevel:
+          type: integer
+          nullable: true
+          description: The DM's level ceiling for this table; null means the standard 20.
 
     CampaignMembership:
       type: object

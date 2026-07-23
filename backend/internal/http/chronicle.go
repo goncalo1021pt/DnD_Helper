@@ -271,7 +271,14 @@ func (s *Server) DeclareMilestone(ctx context.Context, request api.DeclareMilest
 			return nil, err
 		}
 	}
-	if err := s.queries.GrantMilestone(ctx, pgUUID(campaignID)); err != nil {
+	campaign, err := s.queries.GetCampaign(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.queries.GrantMilestone(ctx, db.GrantMilestoneParams{
+		CampaignID: pgUUID(campaignID),
+		Level:      int32(campaignCeiling(campaign)),
+	}); err != nil {
 		return nil, err
 	}
 	line := "A milestone is reached — the party may rise a level"
@@ -309,4 +316,46 @@ func (s *Server) SetProgression(ctx context.Context, request api.SetProgressionR
 	s.logEvent(ctx, campaignID, member.UserID, "progression",
 		fmt.Sprintf("The table now advances by %s", request.Body.Mode))
 	return api.SetProgression200JSONResponse(toAPICampaign(updated)), nil
+}
+
+// SetMaxLevel sets or clears the DM's level ceiling for the table.
+func (s *Server) SetMaxLevel(ctx context.Context, request api.SetMaxLevelRequestObject) (api.SetMaxLevelResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	member, err := s.requireDM(ctx, campaignID)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.SetMaxLevel401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.SetMaxLevel403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+	if request.Body == nil {
+		return api.SetMaxLevel400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a body is required"}}, nil
+	}
+	var ceiling *int16
+	if request.Body.MaxLevel != nil {
+		v := *request.Body.MaxLevel
+		if v < 1 || v > 20 {
+			return api.SetMaxLevel400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: "the ceiling must sit between 1 and 20",
+			}}, nil
+		}
+		l := int16(v)
+		ceiling = &l
+	}
+	updated, err := s.queries.SetMaxLevel(ctx, db.SetMaxLevelParams{ID: campaignID, MaxLevel: ceiling})
+	if err != nil {
+		return nil, err
+	}
+	if ceiling != nil {
+		s.logEvent(ctx, campaignID, member.UserID, "progression",
+			fmt.Sprintf("The DM sets the table's ceiling at level %d", *ceiling))
+	} else {
+		s.logEvent(ctx, campaignID, member.UserID, "progression",
+			"The table's ceiling returns to the standard 20")
+	}
+	return api.SetMaxLevel200JSONResponse(toAPICampaign(updated)), nil
 }

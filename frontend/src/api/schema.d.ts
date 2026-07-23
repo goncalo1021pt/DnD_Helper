@@ -564,6 +564,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/max-level": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Set or clear the table's level ceiling (DM only) */
+        put: operations["setMaxLevel"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/codex": {
         parameters: {
             query?: never;
@@ -1228,6 +1247,8 @@ export interface components {
              * @enum {string}
              */
             progression?: "milestone" | "xp";
+            /** @description The DM's level ceiling for this table; null means the standard 20. */
+            maxLevel?: number | null;
         };
         CampaignMembership: {
             campaign: components["schemas"]["Campaign"];
@@ -2992,6 +3013,38 @@ export interface operations {
                 "application/json": {
                     /** @enum {string} */
                     mode: "milestone" | "xp";
+                };
+            };
+        };
+        responses: {
+            /** @description The campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setMaxLevel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Highest level heroes may reach here; null restores the standard 20. */
+                    maxLevel?: number | null;
                 };
             };
         };

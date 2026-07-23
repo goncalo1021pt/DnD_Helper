@@ -579,6 +579,24 @@ export function useDeclareMilestone(campaignId: string) {
   });
 }
 
+export function useSetMaxLevel(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (maxLevel: number | null) => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/max-level", {
+        params: { path: { campaignId } },
+        body: { maxLevel },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
 export function useSetProgression(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({

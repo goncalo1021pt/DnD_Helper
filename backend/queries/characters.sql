@@ -87,10 +87,11 @@ WHERE campaign_id = $1 AND id = ANY($3::uuid[])
 RETURNING *;
 
 -- name: GrantMilestone :exec
--- One pending level-up for every hero seated at the campaign.
+-- One pending level-up for every hero seated at the campaign, except those
+-- already standing at the table's ceiling.
 UPDATE characters
 SET pending_levels = pending_levels + 1, updated_at = now()
-WHERE campaign_id = $1;
+WHERE campaign_id = $1 AND level < $2;
 
 -- name: SpendPendingLevel :exec
 UPDATE characters

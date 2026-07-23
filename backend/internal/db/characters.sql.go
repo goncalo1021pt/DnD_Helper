@@ -253,12 +253,18 @@ func (q *Queries) GetCharacter(ctx context.Context, id uuid.UUID) (Character, er
 const grantMilestone = `-- name: GrantMilestone :exec
 UPDATE characters
 SET pending_levels = pending_levels + 1, updated_at = now()
-WHERE campaign_id = $1
+WHERE campaign_id = $1 AND level < $2
 `
 
-// One pending level-up for every hero seated at the campaign.
-func (q *Queries) GrantMilestone(ctx context.Context, campaignID pgtype.UUID) error {
-	_, err := q.db.Exec(ctx, grantMilestone, campaignID)
+type GrantMilestoneParams struct {
+	CampaignID pgtype.UUID `json:"campaign_id"`
+	Level      int32       `json:"level"`
+}
+
+// One pending level-up for every hero seated at the campaign, except those
+// already standing at the table's ceiling.
+func (q *Queries) GrantMilestone(ctx context.Context, arg GrantMilestoneParams) error {
+	_, err := q.db.Exec(ctx, grantMilestone, arg.CampaignID, arg.Level)
 	return err
 }
 

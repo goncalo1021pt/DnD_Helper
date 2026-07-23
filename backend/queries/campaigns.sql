@@ -41,3 +41,6 @@ UPDATE campaigns SET next_session_at = $2 WHERE id = $1 RETURNING *;
 
 -- name: SetProgression :one
 UPDATE campaigns SET progression = $2 WHERE id = $1 RETURNING *;
+
+-- name: SetMaxLevel :one
+UPDATE campaigns SET max_level = $2 WHERE id = $1 RETURNING *;
