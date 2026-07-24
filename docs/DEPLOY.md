@@ -85,7 +85,7 @@ GOOGLE_CLIENT_SECRET=...
 ## 4. Deploy
 
 ```bash
-docker compose --profile full up -d --build
+make prod       # docker compose --profile full up -d --build
 ```
 (`COMPOSE_FILE` in `.env` applies the prod override; equivalent to spelling out
 `-f docker-compose.yml -f docker-compose.prod.yml`.)
@@ -116,12 +116,14 @@ All of these rely on `COMPOSE_FILE` in `.env` (step 3) so the prod override is
 always in play — never redeploy with an explicit `-f docker-compose.yml` alone.
 
 ```bash
-docker compose --profile full ps                 # status
-docker compose --profile full logs -f app        # app logs
-docker compose --profile full logs -f cloudflared# tunnel logs
-docker compose --profile full up -d --build      # redeploy after pulling changes
-docker compose --profile full down               # stop (keeps the pgdata volume)
+make ps                 # status
+make logs S=app         # app logs (or S=cloudflared, S=postgres)
+make prod               # redeploy after pulling changes
+make down               # stop (keeps the pgdata volume)
 ```
+
+Each wraps the equivalent `docker compose --profile full …` command, so plain
+compose works too if `make` isn't installed.
 
 ### Database backups
 
@@ -131,14 +133,13 @@ is written immediately on start. Check on it with:
 
 ```bash
 ls -lh backups/
-docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backup | tail
+docker compose logs backup | tail   # `make logs S=backup` follows instead
 ```
 
 **Restore** into a fresh database (stack up, app briefly wrong until done):
 ```bash
 gunzip -c backups/questboard-<date>.sql.gz | \
-  docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T postgres \
-  psql -U questboard -d questboard
+  docker compose exec -T postgres psql -U questboard -d questboard
 ```
 
 The dumps live on the same machine as the database — for real disaster recovery,

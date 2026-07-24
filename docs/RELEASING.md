@@ -42,6 +42,10 @@ git tag vX.Y.Z        # annotate if you like: -a vX.Y.Z -m "..."
 git push origin vX.Y.Z
 ```
 
+Mind the `v` — the tag is `v1.2.0`, not `1.2.0`. Pushing a name that doesn't
+exist locally fails with `src refspec … does not match any`; if you mistyped it,
+`git tag -d <wrong>` and re-tag (an unpushed tag is free to delete).
+
 ## 4. Publish the GitHub release
 
 ```bash
@@ -58,9 +62,14 @@ On the VM (see `docs/DEPLOY.md`; VPN must be up):
 ```bash
 ssh goncalo@<vm-host>
 cd DnD_Helper
-git pull                                    # now on the tagged main
-docker compose --profile full up -d --build # COMPOSE_FILE in .env applies the prod override
+git pull        # now on the tagged main
+make prod       # docker compose --profile full up -d --build
 ```
+
+`COMPOSE_FILE` in the server's `.env` applies the production override, so no
+`-f` flags are needed. The build takes a few minutes and the old container keeps
+serving the whole time; the only downtime is the few seconds of the container
+swap at the end.
 
 ## 6. Verify live
 
@@ -69,5 +78,5 @@ curl -s https://<your-domain>/api/auth/config   # "version":"X.Y.Z"
 curl -sI https://<your-domain> | grep -i strict-transport-security
 ```
 
-Also eyeball the landing footer (shows vX.Y.Z) and `docker compose --profile
-full ps` on the VM (app healthy, backup running).
+Also eyeball the footer (shows vX.Y.Z on every page) and `make ps` on the VM
+(app healthy, backup running).
