@@ -153,6 +153,17 @@ func (q *Queries) DeleteTableBornOfUser(ctx context.Context, arg DeleteTableBorn
 	return err
 }
 
+const deleteTableBornOfCampaign = `-- name: DeleteTableBornOfCampaign :exec
+DELETE FROM characters
+WHERE campaign_id = $1 AND table_born
+`
+
+// A struck campaign's table-born characters die with the table.
+func (q *Queries) DeleteTableBornOfCampaign(ctx context.Context, campaignID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTableBornOfCampaign, campaignID)
+	return err
+}
+
 const forgeCharacter = `-- name: ForgeCharacter :one
 INSERT INTO characters (
     campaign_id, owner_user_id, name, class, level, hp_current, hp_max,
@@ -656,6 +667,17 @@ type RevokeMilestoneFromParams struct {
 // Take back one unspent level-up from the chosen seated heroes.
 func (q *Queries) RevokeMilestoneFrom(ctx context.Context, arg RevokeMilestoneFromParams) error {
 	_, err := q.db.Exec(ctx, revokeMilestoneFrom, arg.CampaignID, arg.Ids)
+	return err
+}
+
+const unseatCharactersOfCampaign = `-- name: UnseatCharactersOfCampaign :exec
+UPDATE characters SET campaign_id = NULL, updated_at = now()
+WHERE campaign_id = $1
+`
+
+// A struck campaign's remaining heroes return to their owners' My Heroes shelf.
+func (q *Queries) UnseatCharactersOfCampaign(ctx context.Context, campaignID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, unseatCharactersOfCampaign, campaignID)
 	return err
 }
 

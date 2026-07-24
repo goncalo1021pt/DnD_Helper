@@ -44,3 +44,10 @@ UPDATE campaigns SET progression = $2 WHERE id = $1 RETURNING *;
 
 -- name: SetMaxLevel :one
 UPDATE campaigns SET max_level = $2 WHERE id = $1 RETURNING *;
+
+-- name: DeleteCampaign :exec
+-- Everything scoped to the campaign cascades: memberships, quests, skill
+-- trees, codex rulings, chronicle events, bestiary notes, maps, encounters,
+-- bans, and seat requests. Characters are handled separately beforehand —
+-- table-born ones die with the table, seated heroes are unseated first.
+DELETE FROM campaigns WHERE id = $1;

@@ -211,6 +211,58 @@ func (s *Server) RegenerateInvite(ctx context.Context, request api.RegenerateInv
 	return nil, errors.New("could not generate a unique invite code")
 }
 
+// DeleteCampaign permanently strikes a campaign (DM only). Seated heroes
+// return to My Heroes; everything else scoped to the campaign — quests, the
+// chronicle, codex, maps, encounters, memberships, bans — is gone with it.
+func (s *Server) DeleteCampaign(ctx context.Context, request api.DeleteCampaignRequestObject) (api.DeleteCampaignResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	if _, err := s.queries.GetCampaign(ctx, campaignID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.DeleteCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	if _, err := s.requireDM(ctx, campaignID); err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.DeleteCampaign401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.DeleteCampaign403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+
+	if err := s.deleteCampaignTx(ctx, campaignID); err != nil {
+		return nil, err
+	}
+	return api.DeleteCampaign204Response{}, nil
+}
+
+// deleteCampaignTx atomically returns seated heroes to My Heroes (table-born
+// ones die with the table, matching a kick) before striking the campaign row;
+// everything else cascades from the foreign key.
+func (s *Server) deleteCampaignTx(ctx context.Context, campaignID uuid.UUID) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+
+	cid := pgUUID(campaignID)
+	if err := qtx.DeleteTableBornOfCampaign(ctx, cid); err != nil {
+		return err
+	}
+	if err := qtx.UnseatCharactersOfCampaign(ctx, cid); err != nil {
+		return err
+	}
+	if err := qtx.DeleteCampaign(ctx, campaignID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.CampaignMembership, error) {
 	rows, err := s.queries.ListCampaignsForUser(ctx, uid)
 	if err != nil {

@@ -1709,6 +1709,9 @@ type ServerInterface interface {
 	// Join a campaign as a player using its invite code
 	// (POST /campaigns/join)
 	JoinCampaign(w http.ResponseWriter, r *http.Request)
+	// Permanently delete a campaign (DM only)
+	// (DELETE /campaigns/{campaignId})
+	DeleteCampaign(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// Players barred from rejoining this campaign (DM only)
 	// (GET /campaigns/{campaignId}/bans)
 	ListBans(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
@@ -2018,6 +2021,12 @@ func (_ Unimplemented) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 // Join a campaign as a player using its invite code
 // (POST /campaigns/join)
 func (_ Unimplemented) JoinCampaign(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Permanently delete a campaign (DM only)
+// (DELETE /campaigns/{campaignId})
+func (_ Unimplemented) DeleteCampaign(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2657,6 +2666,38 @@ func (siw *ServerInterfaceWrapper) JoinCampaign(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.JoinCampaign(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCampaign operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCampaign(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCampaign(w, r, campaignId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -5901,6 +5942,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/campaigns/join", wrapper.JoinCampaign)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/campaigns/{campaignId}", wrapper.DeleteCampaign)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/campaigns/{campaignId}/bans", wrapper.ListBans)
 	})
 	r.Group(func(r chi.Router) {
@@ -6352,6 +6396,64 @@ func (response JoinCampaign403JSONResponse) VisitJoinCampaignResponse(w http.Res
 type JoinCampaign404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response JoinCampaign404JSONResponse) VisitJoinCampaignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCampaignRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type DeleteCampaignResponseObject interface {
+	VisitDeleteCampaignResponse(w http.ResponseWriter) error
+}
+
+type DeleteCampaign204Response struct {
+}
+
+func (response DeleteCampaign204Response) VisitDeleteCampaignResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteCampaign401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteCampaign401JSONResponse) VisitDeleteCampaignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCampaign403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteCampaign403JSONResponse) VisitDeleteCampaignResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCampaign404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteCampaign404JSONResponse) VisitDeleteCampaignResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -12422,6 +12524,9 @@ type StrictServerInterface interface {
 	// Join a campaign as a player using its invite code
 	// (POST /campaigns/join)
 	JoinCampaign(ctx context.Context, request JoinCampaignRequestObject) (JoinCampaignResponseObject, error)
+	// Permanently delete a campaign (DM only)
+	// (DELETE /campaigns/{campaignId})
+	DeleteCampaign(ctx context.Context, request DeleteCampaignRequestObject) (DeleteCampaignResponseObject, error)
 	// Players barred from rejoining this campaign (DM only)
 	// (GET /campaigns/{campaignId}/bans)
 	ListBans(ctx context.Context, request ListBansRequestObject) (ListBansResponseObject, error)
@@ -12820,6 +12925,32 @@ func (sh *strictHandler) JoinCampaign(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(JoinCampaignResponseObject); ok {
 		if err := validResponse.VisitJoinCampaignResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteCampaign operation middleware
+func (sh *strictHandler) DeleteCampaign(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request DeleteCampaignRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteCampaign(ctx, request.(DeleteCampaignRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteCampaign")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteCampaignResponseObject); ok {
+		if err := validResponse.VisitDeleteCampaignResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
