@@ -5,6 +5,7 @@ import Crest from "./ui/Crest";
 import Embers from "./ui/Embers";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import ParchmentModal from "./ui/ParchmentModal";
+import SiteFooter from "./ui/SiteFooter";
 import { IconCoins, IconHome, IconScroll, IconUsers } from "./ui/icons";
 
 /* Full-page redirect to the backend OAuth flow. */
@@ -677,33 +678,7 @@ export default function LandingPage() {
       </section>
 
       {/* footer */}
-      <footer
-        className="relative z-[5]"
-        style={{
-          borderTop: "1px solid rgba(201,162,39,.16)",
-          background: "linear-gradient(180deg, transparent, rgba(20,12,6,.6))",
-        }}
-      >
-        <div className="mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-5 px-6 py-6 sm:px-11">
-          <div className="flex items-center gap-[11px]">
-            <Crest size={26} className="text-[#a87f3a]" />
-            <span className="font-display text-[15px] font-bold text-[#bfa676]">
-              Quest Board
-            </span>
-          </div>
-          <span className="font-accent text-sm italic text-[#7d6b50]">
-            {config?.version ? `v${config.version} · ` : ""}Crafted by{" "}
-            <a
-              href="https://github.com/goncalo1021pt"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#a87f3a] no-underline transition hover:text-[#c99a3f] hover:underline"
-            >
-              goncalo1021pt
-            </a>
-          </span>
-        </div>
-      </footer>
+      <SiteFooter />
 
       {loginOpen && (
         <LoginModal config={config} onClose={() => setLoginOpen(false)} />
