@@ -3,4 +3,4 @@
 package version
 
 // Current is the running application version, surfaced via /api/auth/config.
-const Current = "1.2.0"
+const Current = "1.3.0"

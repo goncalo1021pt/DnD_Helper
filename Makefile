@@ -3,8 +3,10 @@
 
 GOBIN := $(shell go env GOPATH)/bin
 STATIC := backend/internal/static
+OBS_DIR := observability
 
-.PHONY: help generate gen-backend gen-frontend frontend embed backend build run test prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
+.PHONY: help generate gen-backend gen-frontend frontend embed backend build run test prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB \
+	obs-up obs-down obs-restart obs-ps obs-logs
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -71,6 +73,23 @@ ps: ## Show stack status
 
 logs: ## Follow logs (use: make logs S=app|postgres|cloudflared)
 	docker compose --profile full logs -f $(S)
+
+# --- Observability stack (separate compose project; see observability/) -----
+
+obs-up: ## Start the monitoring stack (Prometheus + Grafana + exporters)
+	cd $(OBS_DIR) && docker compose up -d
+
+obs-down: ## Stop the monitoring stack (keeps Prometheus/Grafana data volumes)
+	cd $(OBS_DIR) && docker compose down
+
+obs-restart: ## Reload the monitoring stack (picks up config/dashboard/alert changes)
+	cd $(OBS_DIR) && docker compose up -d --force-recreate
+
+obs-ps: ## Show monitoring stack status
+	cd $(OBS_DIR) && docker compose ps
+
+obs-logs: ## Follow monitoring logs (use: make obs-logs S=grafana|prometheus)
+	cd $(OBS_DIR) && docker compose logs -f $(S)
 
 clean: ## Remove build artifacts
 	rm -rf bin frontend/dist
