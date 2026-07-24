@@ -337,7 +337,12 @@ export function useUpdateCharacter(campaignId: string) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      // HP edits here can mirror into the campaign's running encounter (see
+      // syncCombatantHP server-side) — refresh whichever encounter views are open.
+      qc.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("encounter") });
+    },
   });
 }
 
@@ -1462,7 +1467,12 @@ export function useUpdateCombatant(campaignId: string, encounterId: string) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => invalidateEncounters(qc, campaignId, encounterId),
+    onSuccess: () => {
+      invalidateEncounters(qc, campaignId, encounterId);
+      // A PC's HP here can mirror onto its character (see syncCharacterHP
+      // server-side) — refresh the Party roster too.
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+    },
   });
 }
 

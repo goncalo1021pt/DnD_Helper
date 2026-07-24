@@ -416,12 +416,25 @@ function MonsterRow({ m, add }: { m: RulesContent; add: ReturnType<typeof useAdd
   );
 }
 
-function AddCombatant({ campaignId, encounterId, monster = true }: { campaignId: string; encounterId: string; monster?: boolean }) {
+function AddCombatant({
+  campaignId,
+  encounterId,
+  monster = true,
+  party = true,
+  existingCharacterIds = [],
+}: {
+  campaignId: string;
+  encounterId: string;
+  monster?: boolean;
+  party?: boolean;
+  existingCharacterIds?: string[];
+}) {
   const add = useAddCombatant(campaignId, encounterId);
   const { data: chars } = useCharacters(campaignId);
-  const [kind, setKind] = useState<"monster" | "pc" | "custom">(monster ? "monster" : "pc");
+  const [kind, setKind] = useState<"monster" | "pc" | "custom">(monster ? "monster" : party ? "pc" : "custom");
   const [pcPick, setPcPick] = useState("");
   const [custom, setCustom] = useState({ label: "", hpMax: "", ac: "", initMod: "" });
+  const availableChars = (chars ?? []).filter((c) => !existingCharacterIds.includes(c.id));
 
   function addIt() {
     if (kind === "pc" && pcPick) {
@@ -439,25 +452,39 @@ function AddCombatant({ campaignId, encounterId, monster = true }: { campaignId:
     }
   }
 
+  // Summon every party member not already in the fight, in one go — as
+  // distinct from picking one hero at a time above.
+  function summonParty() {
+    availableChars.forEach((c) => add.mutate({ kind: "pc", characterId: c.id }));
+  }
+
   return (
     <div className="chip-hall flex flex-wrap items-center gap-2 px-3 py-2.5">
       <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="input-hall h-9 w-28 text-[12px]">
         {monster && <option value="monster">Monster</option>}
-        <option value="pc">Party</option>
+        {party && <option value="pc">Party</option>}
         <option value="custom">Custom</option>
       </select>
 
       {monster && kind === "monster" && <MonsterSearch campaignId={campaignId} encounterId={encounterId} />}
-      {kind === "pc" && (
+      {party && kind === "pc" && (
         <>
           <select value={pcPick} onChange={(e) => setPcPick(e.target.value)} className="input-hall h-9 min-w-[160px] flex-1 text-[12px]">
             <option value="">Choose a hero…</option>
-            {(chars ?? []).map((c) => (
+            {availableChars.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
           <button onClick={addIt} disabled={!pcPick || add.isPending} className="btn-base btn-gold clip-octagon h-9 px-4 text-[12px]">
-            <IconPlus size={13} /> Add
+            <IconPlus size={13} /> Summon member
+          </button>
+          <button
+            onClick={summonParty}
+            disabled={availableChars.length === 0 || add.isPending}
+            title="Add every party member not already in the fight, all at once"
+            className="btn-base btn-wax h-9 px-4 text-[12px] disabled:opacity-40"
+          >
+            <IconPlus size={13} /> Summon party
           </button>
         </>
       )}
@@ -532,7 +559,11 @@ function ActiveTracker({ campaign, detail }: { campaign: CampaignContext["campai
         </button>
       </div>
 
-      <AddCombatant campaignId={campaign.id} encounterId={enc.id} />
+      <AddCombatant
+        campaignId={campaign.id}
+        encounterId={enc.id}
+        existingCharacterIds={combatants.filter((c) => c.kind === "pc" && c.characterId).map((c) => c.characterId as string)}
+      />
 
       <div className="mt-3 flex flex-col gap-1.5">
         {combatants.map((c) => (
@@ -595,12 +626,12 @@ function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign
           </button>
         </div>
 
-        <AddCombatant campaignId={campaign.id} encounterId={enc.id} monster={false} />
+        <AddCombatant campaignId={campaign.id} encounterId={enc.id} monster={false} party={false} />
 
         <div className="mt-3 flex flex-col gap-1.5">
           {combatants.length === 0 ? (
             <div className="font-accent py-6 text-center text-[13px] italic text-cream-muted">
-              Empty so far — pick monsters from the Den, or add your party.
+              Empty so far — pick monsters from the Den, or add a custom foe. Your party joins once you trigger the fight.
             </div>
           ) : (
             combatants.map((c) => (

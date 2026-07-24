@@ -555,7 +555,62 @@ func (s *Server) UpdateCombatant(ctx context.Context, request api.UpdateCombatan
 	if err != nil {
 		return nil, err
 	}
+	// A PC's HP is a live mirror of the Party roster: whichever side the DM
+	// edits, the other follows, so the two never drift apart mid-fight.
+	if row.Kind == "pc" && row.CharacterID.Valid && (params.HpCurrent != row.HpCurrent || params.HpMax != row.HpMax) {
+		if err := s.syncCharacterHP(ctx, uuid.UUID(row.CharacterID.Bytes), params.HpCurrent, params.HpMax); err != nil {
+			return nil, err
+		}
+	}
 	return api.UpdateCombatant200JSONResponse(combatantForDM(c, false)), nil
+}
+
+// syncCharacterHP mirrors a combatant's HP back onto its seated character, so
+// damage taken in the tracker shows up on the Party roster too.
+func (s *Server) syncCharacterHP(ctx context.Context, characterID uuid.UUID, hpCurrent, hpMax int32) error {
+	ch, err := s.queries.GetCharacter(ctx, characterID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	_, err = s.queries.UpdateCharacter(ctx, db.UpdateCharacterParams{
+		ID: ch.ID, Name: ch.Name, Class: ch.Class, Level: ch.Level,
+		HpCurrent: hpCurrent, HpMax: hpMax,
+	})
+	return err
+}
+
+// syncCombatantHP mirrors a party member's current HP into their live
+// combatant row, if they're seated in the campaign's active encounter. Keeps
+// the Party roster and the encounter tracker from drifting apart mid-fight.
+func (s *Server) syncCombatantHP(ctx context.Context, campaignID uuid.UUID, ch db.Character) error {
+	enc, err := s.queries.GetActiveEncounter(ctx, campaignID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	combatants, err := s.queries.ListCombatants(ctx, enc.ID)
+	if err != nil {
+		return err
+	}
+	for _, c := range combatants {
+		if c.Kind != "pc" || !c.CharacterID.Valid || uuid.UUID(c.CharacterID.Bytes) != ch.ID {
+			continue
+		}
+		if c.HpCurrent == ch.HpCurrent && c.HpMax == ch.HpMax {
+			return nil
+		}
+		_, err := s.queries.UpdateCombatant(ctx, db.UpdateCombatantParams{
+			ID: c.ID, Label: c.Label, PlayerLabel: c.PlayerLabel, Initiative: c.Initiative,
+			HpCurrent: ch.HpCurrent, HpMax: ch.HpMax, Ac: c.Ac, Hidden: c.Hidden,
+		})
+		return err
+	}
+	return nil
 }
 
 // DeleteCombatant removes a combatant.
