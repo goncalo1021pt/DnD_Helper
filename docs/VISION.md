@@ -89,13 +89,12 @@ builder wizard second.** The app's first purpose is the user's own table.
 
 **Skill trees** — two custom story-gated progression webs, separate from
 standard D&D advancement (Vecna's tree first, Raven Queen's later; design doc
-lives in the user's campaign notes). **Engine built July 2026** (branch
-`skill-trees`, in user testing): the Loom (tree/node/edge editor), pacts,
+lives in the user's campaign notes). **Engine shipped July 2026** — routed at
+`/questboard/campaigns/:id/trees` (the Loom tree/node/edge editor) with pacts,
 DM-granted picks, reachability-gated spending, party-card integration, and a
-functional SVG web view — demoed with a 50-node six-limb Vecna web. Still
-open before PR: user testing; then later a full personal visual design pass
-(user note: "full personal design, think about later"). Engine principles,
-all agreed:
+functional SVG web view, demoed with a 50-node six-limb Vecna web. Still owed:
+a full personal visual design pass (user note: "full personal design, think
+about later"). Engine principles, all agreed:
 - Content-as-data: trees → limbs → nodes (minor/keystone, flavor + trade-off
   text) → edges (a PoE-style web). The DM designs powers in a tree editor as
   the campaign design firms up; the engine never hardcodes content.
@@ -122,7 +121,7 @@ all agreed:
   then the sheet view, then level-ups integrating the skill trees.
 
 **Content trust model (decided July 2026, PR #15)** — three rules, chosen
-with a public deployment (questboard.fontao.net) in mind:
+with a public deployment (dnd.fontao.net) in mind:
 - **Homebrew is private to its author.** The Scribe's Desk is a personal
   shelf; nothing you scribe is visible to anyone else by default. Names are
   unique per author, not per instance — two users may each own a "Gunslinger".
@@ -134,8 +133,15 @@ with a public deployment (questboard.fontao.net) in mind:
   codex-legal is held at the door (409 + one-tap proposal to the DM). The
   same legality gates level-up choices for seated heroes. Visibility rule
   everywhere: SRD + your own + enabled-in-your-campaigns.
-- Still owed before public go-live: an instance front door (invite code /
-  approval), since OAuth authenticates but does not authorize.
+- Instance access model — **decided 2026-07-24: dnd.fontao.net is a
+  deliberately open server.** Anyone can sign up (Discord/Google or local
+  account) and bring their own table; there is intentionally no invite-code or
+  approval gate at the front door. The safety rests on the per-account/per-
+  campaign isolation the content-trust model already enforces (your homebrew is
+  private to you; a campaign's codex is ruled solely by its DM) plus the account
+  hardening below (email verification, optional TOTP, failed-login rate
+  limiting). If the server is ever abused, the gate would be added then — the
+  schema supports it, the choice is policy, not missing code.
 
 ### v1 build-out — shipped (July 2026)
 
@@ -204,27 +210,52 @@ D&D-Beyond-style two-pane builder (filterable Den browser, inline stat cards),
 and the rules reference as the app-level "The Rules" page. v1.0.0 launched to
 production at dnd.fontao.net on 2026-07-22.
 
-### Post-v1 — engineering & operations roadmap (added 2026-07-22)
+### Post-launch — v1.1.0 and v1.2.0 (July 2026)
 
-v1 shipped feature-complete but with engineering debt that should be paid down
-before the feature list grows again. In priority order:
+Shipped after the v1.0.0 launch, in release order:
 
-1. **Automated tests + CI.** The app has zero committed tests — everything was
-   verified with thorough but throwaway Playwright scripts. Introduce:
-   - **Go unit tests** for the code where bugs are dangerous rather than
-     annoying: password strength + hashing, TOTP encrypt/decrypt + recovery-code
-     normalization, fog reveal geometry, encounter combatant redaction
-     (player-view leaks), codex visibility rules.
-   - **A committed Playwright smoke suite** (register → forge a hero → create
-     campaign → post/claim quest → trigger encounter → 2FA enroll/login) run
-     against the containerized stack.
-   - **GitHub Actions CI** on every PR: `make generate` produces no diff
-     (spec/SQL and generated code in sync), `go vet` + `go build` + `go test`,
-     `tsc --noEmit`, frontend build, then the smoke suite. CD stays manual for
-     now — the deploy target sits behind a VPN, and a self-hosted runner on a
-     public repo is a security liability (fork PRs executing on the VM); revisit
-     if the repo goes private or with environment-gated deploy jobs.
-2. **Observability — Prometheus + Grafana (+ Loki).** Instrument the Go server
+- **CI + first tests, the Claude Code GitHub Action** (#55, #57): Actions CI on
+  every PR (Go vet/build/test · frontend typecheck/build · codegen-in-sync),
+  Dependabot, and `@claude`/label-triggered automation. First committed Go unit
+  tests landed alongside (auth crypto, password policy, fog geometry, encounter
+  redaction).
+- **The DM Menu** (#59, #60, #61) — the "manage this table" surface, in three
+  parts: **see / kick / ban** players; **Table Rules** (progression mode + level
+  ceiling, and the XP/milestone grant controls *moved here out of the Chronicle*
+  — closing post-v1 debt item 5); and **seating approval** — a DM-toggled "at the
+  door" gate where players preview a hero and request a seat the DM admits.
+- **Clarity + polish**: character-creation skill/background conflicts made
+  explicit (#56); server-rendered fog edge feathered instead of hard-cut (#58).
+- **v1.1.0 — HTTPS enforcement** (#62): edge "Always Use HTTPS" plus an in-app
+  HSTS + `X-Forwarded-Proto` redirect middleware, so the guarantee is
+  version-controlled, not only dashboard config. Shipped with a compose-teardown
+  fix (#63, `COMPOSE_FILE` pins the prod override) and `docs/RELEASING.md`.
+- **v1.2.0 — site-wide footer** (#65): the version + credits + a repo link now
+  appear on every page, not just the landing.
+
+### Post-v1 — engineering & operations roadmap (added 2026-07-22; status 2026-07-24)
+
+v1 shipped feature-complete but with engineering debt to pay down before the
+feature list grows again. **Honest status two weeks on: feature work kept racing
+ahead (the whole DM Menu, HTTPS, footer) while this list barely moved — only the
+progression menu (item 5) is done, CI landed, and item 4 has drifted *backwards*.
+Now that 1.2.0 is out, the next slot should go to this list, not more features.**
+In priority order:
+
+1. **Automated tests + CI.** 🟡 *partly done.*
+   - **CI shipped** (#55/#57): every PR runs `make generate`-in-sync, `go vet` +
+     `go build` + `go test`, `tsc --noEmit`, and the frontend build. CD stays
+     manual — the deploy target sits behind a VPN and a self-hosted runner on a
+     public repo is a fork-PR liability; revisit if the repo goes private or with
+     environment-gated deploy jobs.
+   - **Go unit tests: 4 of 5 targets done** — password strength + hashing, TOTP
+     encrypt/decrypt + recovery-code normalization, fog reveal geometry, and
+     encounter combatant redaction all have tests. **Still owed: codex/seating
+     visibility rules** (the highest-value gap — a leak there crosses tables).
+   - **Committed Playwright smoke suite: still not started** — end-to-end
+     verification is still throwaway scripts. (register → forge a hero → create
+     campaign → post/claim quest → trigger encounter → 2FA enroll/login.)
+2. ❌ *not started.* **Observability — Prometheus + Grafana (+ Loki).** Instrument the Go server
    with the Prometheus client (chi middleware: request rate, latency histograms,
    error counts, in-flight; plus DB pool stats and Go runtime metrics), expose
    `/metrics` (never through the tunnel — LAN/VPN only), and run
@@ -232,33 +263,46 @@ before the feature list grows again. In priority order:
    `postgres_exporter` and `cAdvisor`/`node_exporter` for DB/container/host
    dashboards. Loki + promtail later for searchable logs. Also fun: game
    metrics (quests claimed, encounters run, dice rolled) as custom counters.
-3. **Liveness (SSE).** The encounter tracker polls every 8s and the Chronicle
+3. ❌ *not started.* **Liveness (SSE).** The encounter tracker polls every 8s and the Chronicle
    refetches on focus; at-the-table combat deserves sub-second updates.
    Server-Sent Events fit the single-binary model (no websocket infra): one
    `/api/campaigns/{id}/events/stream` endpoint, per-campaign fan-out in the
    server, EventSource in the SPA with the current polling kept as fallback.
-4. **Frontend refactor pass.** `hooks.ts` (~1,400 lines) split by domain;
-   the biggest pages (EncounterPage ~750 lines, CampaignDashboard, ForgeWizard)
-   broken into per-feature files. No behavior change — purely tractability.
-5. **Progression menu.** Move the DM's XP/milestone controls out of the
-   Chronicle block into their own dashboard menu (user-flagged July 2026).
-6. **Encounter difficulty calculator.** Party size/level → easy/medium/hard/
-   deadly XP budget with the adjusted-XP multiplier, shown live in the builder;
-   `crValue` is already numeric on every monster.
-7. **Ops hardening.** Nightly DB backups shipped with v1.0.0 (backup service in
-   docker-compose.prod.yml, ./backups, 14 kept) — still to do: sync dumps OFF
-   the VM (rclone/rsync cron); an external uptime monitor for dnd.fontao.net;
-   a documented admin path for a 2FA lockout (user loses authenticator AND
-   recovery codes → manual SQL today: clear totp_* on their users row).
+4. 🔴 *regressed — now the most overdue.* **Frontend refactor pass.** The goal
+   was to split `hooks.ts` (~1,400 lines then) by domain and break up the
+   biggest pages. Instead everything grew: `hooks.ts` is **1,625** lines,
+   ForgeWizard **922**, EncounterPage **774**, and the DM Menu added a new
+   **650**-line page. No behavior change intended — purely tractability, and it
+   gets harder every feature it's deferred behind.
+5. ✅ *done (#60).* **Progression menu.** The DM's XP/milestone controls moved
+   out of the Chronicle block into the DM Menu's Table Rules section.
+6. ❌ *not started.* **Encounter difficulty calculator.** Party size/level →
+   easy/medium/hard/deadly XP budget with the adjusted-XP multiplier, shown live
+   in the builder; `crValue` is already numeric on every monster.
+7. 🟡 *partly done.* **Ops hardening.** Nightly DB backups shipped with v1.0.0
+   (backup service in docker-compose.prod.yml, ./backups, 14 kept). HTTPS is now
+   enforced end-to-end (v1.1.0, #62). **Still to do**: sync dumps OFF the VM
+   (rclone/rsync cron); an external uptime monitor for dnd.fontao.net; a
+   documented admin path for a 2FA lockout (user loses authenticator AND recovery
+   codes → manual SQL today: clear totp_* on their users row).
 
 ## Open questions
-- **Branding**: repo says Quest Board; designs use QuestBoard / The Tavern /
-  Emberhall. Settled in practice on **Quest Board** (used across the shipped UI
-  and the fontao.net deploy); the alternates are retired.
+
+Genuinely still open:
 - Exact landing-page composition (v0 base "still needs work").
-- **Encounter generator — player-visibility model** (see Planned before v1) —
-  settled and shipped: shared read-only tracker, DM-controlled reveals.
-- **Repo visibility** — currently public. Leaning public (portfolio value, the
-  footer credit links to it, unlimited Actions minutes, free Dependabot/code
-  scanning; git history verified clean of secrets). Revisit if book-content
-  hygiene ever becomes hard to guarantee.
+- The full personal visual design pass for the skill-tree web (engine shipped
+  functional; the bespoke look is deferred — "think about later").
+
+Settled (kept for the record):
+- **Branding** → **Quest Board**. The design-package alternates (QuestBoard /
+  The Tavern / Emberhall) are retired; Quest Board is used across the shipped UI
+  and the dnd.fontao.net deploy.
+- **Encounter generator — player-visibility model** → shipped: shared read-only
+  tracker, DM-controlled reveals (hidden → generic label → identified via
+  Bestiary; enemy HP only as healthy/bloodied/down).
+- **Instance access** → **open server**, decided 2026-07-24 (see the content-
+  trust model above): sign-ups are open, no invite/approval gate by choice.
+- **Repo visibility** → **public**, and staying so: portfolio value, the footer
+  now links to it from every page, unlimited Actions minutes, free
+  Dependabot/code scanning; git history verified clean of secrets. Revisit only
+  if book-content hygiene ever becomes hard to guarantee.
