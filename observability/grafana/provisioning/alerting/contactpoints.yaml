@@ -1,0 +1,18 @@
+# Where alerts are delivered. The Discord webhook URL comes from the
+# DISCORD_WEBHOOK_URL environment variable (set in .env, never committed), so
+# this file is safe to keep in git.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: discord
+    receivers:
+      - uid: discord_questboard
+        type: discord
+        settings:
+          # A channel Incoming Webhook URL (Discord app → channel → Integrations
+          # → Webhooks), NOT a Developer-Portal application webhook.
+          url: $DISCORD_WEBHOOK_URL
+          title: "{{ template \"default.title\" . }}"
+        # Also send a message when an alert stops firing (recovers).
+        disableResolveMessage: false

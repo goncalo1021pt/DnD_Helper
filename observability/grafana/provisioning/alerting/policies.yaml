@@ -1,0 +1,13 @@
+# The notification policy: every alert routes to the Discord contact point.
+# (Provisioning the root policy means it becomes read-only in the UI — edit it
+# here instead.)
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: discord
+    # Group alerts that fire together into one Discord message.
+    group_by: ["grafana_folder", "alertname"]
+    group_wait: 30s        # wait a moment to batch a burst before first send
+    group_interval: 5m     # min time between updates for a group
+    repeat_interval: 4h    # re-notify about a still-firing alert this often

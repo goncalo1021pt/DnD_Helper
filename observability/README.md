@@ -127,9 +127,40 @@ The provisioned dashboard is `grafana/dashboards/questboard.json`. You can edit
 it live in Grafana (allowed), but to make a change **stick across a `down -v`**,
 export it (Dashboard → Settings → JSON Model) and commit it back to that file.
 
+## Alerting to Discord
+
+Grafana is provisioned (as code, under `grafana/provisioning/alerting/`) to push
+alerts to a Discord channel. Four rules ship enabled:
+
+| Rule | Fires when | Severity |
+|---|---|---|
+| App is DOWN | Prometheus can't scrape `app:9091` for 2m | critical |
+| High 5xx error rate | >5% of requests are 5xx for 5m | warning |
+| Root disk >85% full | host `/` over 85% for 10m | warning |
+| DB pool near saturation | >90% of the pool in use for 5m | warning |
+
+**It's a webhook, not a bot** — no bot token, no hosting, no Developer-Portal
+application. In the Discord *app*: a channel → **⚙ Edit Channel → Integrations →
+Webhooks → New Webhook → Copy Webhook URL**. That URL (which contains a secret
+token) goes in `.env`:
+
+```bash
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/<id>/<token>
+docker compose up -d grafana        # reload provisioning
+```
+
+Until it's set, Grafana still boots and the rules still evaluate — alerts just
+aren't delivered anywhere (the compose default is a harmless placeholder URL).
+
+**Test it:** Grafana → Alerting → Contact points → **discord** → *Test*. A
+message should land in the channel.
+
+Tune thresholds/durations in `grafana/provisioning/alerting/rules.yaml`, the
+routing (grouping, repeat interval) in `policies.yaml`. Because the root policy
+is provisioned, edit it in the file, not the UI.
+
 ## Later (roadmap)
 
 - **Loki + promtail** for searchable logs alongside metrics.
-- **Alerting** — Prometheus alert rules / Grafana alerts (e.g. error rate high,
-  DB pool saturated, disk filling).
+- More alert rules as you learn what actually pages you (e.g. latency SLO burn).
 - An off-host scrape or `remote_write` so metrics survive the VM.
