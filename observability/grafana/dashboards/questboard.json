@@ -1,0 +1,166 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "tags": ["questboard"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "Quest Board — Overview",
+  "uid": "questboard-overview",
+  "templating": { "list": [] },
+  "refresh": "15s",
+  "panels": [
+    {
+      "type": "row",
+      "title": "HTTP",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Request rate",
+      "id": 1,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "sum(rate(questboard_http_requests_total[5m]))" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Error rate (4xx+5xx)",
+      "id": 2,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.05 }, { "color": "red", "value": 0.2 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "sum(rate(questboard_http_requests_total{status=~\"4..|5..\"}[5m])) / clamp_min(sum(rate(questboard_http_requests_total[5m])), 1e-9)" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "In-flight requests",
+      "id": 3,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 20 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "sum(questboard_http_requests_in_flight)" }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "p95 latency",
+      "id": 4,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.3 }, { "color": "red", "value": 1 }] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "histogram_quantile(0.95, sum(rate(questboard_http_request_duration_seconds_bucket[5m])) by (le))" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Request rate by route",
+      "id": 5,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "sum by (route) (rate(questboard_http_requests_total[5m]))", "legendFormat": "{{route}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency quantiles",
+      "id": 6,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 5 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "histogram_quantile(0.50, sum(rate(questboard_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "histogram_quantile(0.95, sum(rate(questboard_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "histogram_quantile(0.99, sum(rate(questboard_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests by status",
+      "id": 7,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "sum by (status) (rate(questboard_http_requests_total[5m]))", "legendFormat": "{{status}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "DB connection pool",
+      "id": 8,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 5 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "questboard_db_pool_acquired_conns", "legendFormat": "in use" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "questboard_db_pool_idle_conns", "legendFormat": "idle" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "questboard_db_pool_total_conns", "legendFormat": "total" },
+        { "refId": "D", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "questboard_db_pool_max_conns", "legendFormat": "max" }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Game & Runtime",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+      "id": 101,
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Game events (per minute)",
+      "id": 9,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "sum by (event) (rate(questboard_game_events_total[5m])) * 60", "legendFormat": "{{event}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Goroutines",
+      "id": 10,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "go_goroutines{job=\"questboard-app\"}", "legendFormat": "goroutines" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Heap in use",
+      "id": 11,
+      "datasource": { "type": "prometheus", "uid": "questboard-prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 22 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "questboard-prometheus" }, "expr": "go_memstats_heap_inuse_bytes{job=\"questboard-app\"}", "legendFormat": "heap in use" }
+      ]
+    }
+  ]
+}

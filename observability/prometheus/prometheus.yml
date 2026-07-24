@@ -1,0 +1,34 @@
+# Prometheus scrape configuration for the Quest Board stack.
+# Targets are docker service names, resolved over the shared app network.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: questboard
+
+scrape_configs:
+  # The Go application's private metrics endpoint (:9091, never tunneled).
+  - job_name: questboard-app
+    static_configs:
+      - targets: ["app:9091"]
+
+  # Prometheus scraping itself.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Host: CPU, memory, disk, network.
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Per-container resource usage.
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # PostgreSQL internals.
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]

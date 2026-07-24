@@ -16,6 +16,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
 // The eighteen skills of the 2024 rules, for validating wildcard choices.
@@ -349,5 +350,6 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 	if err != nil {
 		return nil, err
 	}
+	metrics.HeroForged()
 	return api.ForgeCharacter201JSONResponse(toAPICharacterWithClass(hero, me.Name, uid, class.Data)), nil
 }

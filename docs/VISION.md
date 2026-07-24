@@ -255,14 +255,18 @@ In priority order:
    - **Committed Playwright smoke suite: still not started** — end-to-end
      verification is still throwaway scripts. (register → forge a hero → create
      campaign → post/claim quest → trigger encounter → 2FA enroll/login.)
-2. ❌ *not started.* **Observability — Prometheus + Grafana (+ Loki).** Instrument the Go server
-   with the Prometheus client (chi middleware: request rate, latency histograms,
-   error counts, in-flight; plus DB pool stats and Go runtime metrics), expose
-   `/metrics` (never through the tunnel — LAN/VPN only), and run
-   Prometheus + Grafana as a separate compose stack on the VM. Add
-   `postgres_exporter` and `cAdvisor`/`node_exporter` for DB/container/host
-   dashboards. Loki + promtail later for searchable logs. Also fun: game
-   metrics (quests claimed, encounters run, dice rolled) as custom counters.
+2. ✅ *done (2026-07-24).* **Observability — Prometheus + Grafana (+ Loki).**
+   The Go server is instrumented via `internal/metrics` (chi middleware for
+   request rate / latency histograms / error counts / in-flight, a pgx pool
+   collector, Go runtime + process stats, and game counters — quests
+   created/claimed, campaigns, heroes forged, encounters run). `/metrics` is
+   served on a **separate listener (`:9091`, `METRICS_ADDR`)** the tunnel never
+   routes, so it cannot leak publicly. A self-contained `observability/` compose
+   stack (Prometheus + Grafana + `postgres_exporter` + `cAdvisor` +
+   `node_exporter`) joins the app's docker network, scrapes everything, and
+   auto-provisions a Grafana datasource + "Quest Board — Overview" dashboard.
+   Still later: Loki + promtail (searchable logs) and alerting (item 8 below) —
+   see `observability/README.md` and `observability/USING.md`.
 3. ❌ *not started.* **Liveness (SSE).** The encounter tracker polls every 8s and the Chronicle
    refetches on focus; at-the-table combat deserves sub-second updates.
    Server-Sent Events fit the single-binary model (no websocket infra): one
@@ -285,6 +289,16 @@ In priority order:
    (rclone/rsync cron); an external uptime monitor for dnd.fontao.net; a
    documented admin path for a 2FA lockout (user loses authenticator AND recovery
    codes → manual SQL today: clear totp_* on their users row).
+8. ❌ *not started — natural next step after observability (#2).* **Alerting to
+   Discord.** Metrics are collected but nothing watches them yet; today a problem
+   is only visible if someone is looking at Grafana. Add alert rules (Grafana
+   unified alerting, or Prometheus + Alertmanager) that push to a Discord webhook
+   so the box tells us when something breaks — without staring at a dashboard.
+   First rules worth having: app target **down**, HTTP **error rate high**
+   (5xx > 5% for 5m), **DB pool saturated** (in-use near max), and host **disk
+   nearly full** (node-exporter, >85%) — the last one guards the whole homelab,
+   not just Quest Board. Keep the webhook URL in the gitignored
+   `observability/.env`.
 
 ## Open questions
 

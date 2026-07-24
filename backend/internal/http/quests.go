@@ -12,6 +12,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
 // Authorization sentinels, translated to typed responses per endpoint.
@@ -142,6 +143,7 @@ func (s *Server) CreateQuest(ctx context.Context, request api.CreateQuestRequest
 	}
 	s.logEvent(ctx, campaignID, dm.UserID, "quest_posted",
 		fmt.Sprintf("A notice is nailed to the board: %q", quest.Title))
+	metrics.QuestCreated()
 	return api.CreateQuest201JSONResponse(out), nil
 }
 
@@ -265,6 +267,7 @@ func (s *Server) ClaimQuest(ctx context.Context, request api.ClaimQuestRequestOb
 	if err := s.queries.ClaimQuest(ctx, db.ClaimQuestParams{QuestID: questID, UserID: member.UserID}); err != nil {
 		return nil, err
 	}
+	metrics.QuestClaimed()
 	claimerName, _ := s.ownerName(ctx, member.UserID)
 	s.logEvent(ctx, quest.CampaignID, member.UserID, "quest_claimed",
 		fmt.Sprintf("%s claims the notice %q", claimerName, quest.Title))

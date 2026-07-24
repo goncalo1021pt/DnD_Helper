@@ -1,0 +1,114 @@
+# Observability stack — Prometheus + Grafana + exporters.
+#
+# This is a SEPARATE compose project from the app. It runs on the same host and
+# joins the app's docker network so Prometheus can scrape the app's private
+# :9091/metrics and the postgres exporter can reach the database — none of which
+# is ever exposed through the Cloudflare tunnel.
+#
+#   cd observability
+#   cp .env.example .env      # then set GF_ADMIN_PASSWORD and check APP_NETWORK
+#   docker compose up -d
+#
+# Grafana:    http://<host>:3000   (admin / $GF_ADMIN_PASSWORD)
+# Prometheus: http://<host>:9090
+#
+# SECURITY: keep these ports on the LAN/VPN only. Never route them through the
+# tunnel — they expose internal metrics and a Grafana admin login.
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    ports:
+      # Bind to the given host interface (default: all — restrict to a LAN/VPN
+      # address in .env for a real deployment).
+      - "${BIND_ADDR:-0.0.0.0}:9090:9090"
+    networks:
+      - obs
+      - app
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-admin}
+      # This stack lives behind a VPN/LAN; no public sign-up, no anonymous view.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${BIND_ADDR:-0.0.0.0}:3000:3000"
+    networks:
+      - obs
+
+  # Host metrics: CPU, memory, disk, filesystem, network.
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      # Plain read-only bind (not rslave) so it also starts on WSL2, where the
+      # host root is not a shared mount. A homelab host rarely mounts new
+      # filesystems at runtime, so losing slave propagation costs nothing here.
+      - /:/host:ro
+    networks:
+      - obs
+
+  # Per-container metrics (CPU/mem/net/fs by container).
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - obs
+
+  # PostgreSQL metrics (connections, transactions, locks, table/index stats).
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.16.0
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-questboard}:${POSTGRES_PASSWORD:-questboard}@${POSTGRES_HOST:-postgres}:5432/${POSTGRES_DB:-questboard}?sslmode=disable"
+    networks:
+      - obs
+      - app
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  # Private network for the monitoring components to talk to each other.
+  obs:
+    driver: bridge
+  # The app's existing network, joined as external so we can scrape app:9091
+  # and reach postgres:5432 by service name. APP_NETWORK must match the app
+  # stack's network — `docker network ls` shows it (usually questboard_default,
+  # or <COMPOSE_PROJECT_NAME>_default when the app sets that).
+  app:
+    external: true
+    name: ${APP_NETWORK:-questboard_default}

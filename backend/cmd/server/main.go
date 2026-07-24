@@ -14,6 +14,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 	apphttp "github.com/goncalo1021pt/questboard/backend/internal/http"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
+	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
@@ -43,6 +44,9 @@ func run() error {
 	}
 	defer pool.Close()
 
+	// Expose connection-pool health on /metrics.
+	metrics.RegisterDBPool(pool)
+
 	// Seed/refresh the SRD rules content (idempotent upsert).
 	if err := rules.Seed(ctx, db.New(pool)); err != nil {
 		return err
@@ -70,6 +74,18 @@ func run() error {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
+	// Private metrics server on a SEPARATE port. The Cloudflare tunnel only
+	// routes to the app port, so /metrics can never leak publicly — it is
+	// reachable only over the LAN/VPN (or the internal docker network, where
+	// Prometheus scrapes it).
+	metricsMux := stdhttp.NewServeMux()
+	metricsMux.Handle("/metrics", metrics.Handler())
+	metricsSrv := &stdhttp.Server{
+		Addr:              cfg.MetricsAddr,
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
 	go func() {
 		log.Printf("listening on %s (env=%s)", cfg.Addr, cfg.Env)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, stdhttp.ErrServerClosed) {
@@ -78,10 +94,18 @@ func run() error {
 		}
 	}()
 
+	go func() {
+		log.Printf("metrics listening on %s/metrics", cfg.MetricsAddr)
+		if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, stdhttp.ErrServerClosed) {
+			log.Printf("metrics server error: %v", err)
+		}
+	}()
+
 	<-ctx.Done()
 	log.Println("shutting down...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	_ = metricsSrv.Shutdown(shutdownCtx)
 	return srv.Shutdown(shutdownCtx)
 }

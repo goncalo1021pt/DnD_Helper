@@ -14,6 +14,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
 // Server implements the generated api.StrictServerInterface.
@@ -96,6 +97,7 @@ func (s *Server) CreateCampaign(ctx context.Context, request api.CreateCampaignR
 			}
 			return nil, err
 		}
+		metrics.CampaignCreated()
 		return api.CreateCampaign201JSONResponse(toAPICampaign(campaign)), nil
 	}
 	return nil, errors.New("could not generate a unique invite code")

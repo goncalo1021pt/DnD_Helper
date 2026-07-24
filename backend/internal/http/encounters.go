@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
 // Encounters: the DM prepares combats ahead of time, triggers one at will, and
@@ -300,6 +301,11 @@ func (s *Server) UpdateEncounter(ctx context.Context, request api.UpdateEncounte
 			// Only one runs at a time.
 			if err := s.queries.EndOtherActiveEncounters(ctx, db.EndOtherActiveEncountersParams{CampaignID: enc.CampaignID, ID: enc.ID}); err != nil {
 				return nil, err
+			}
+			// Count a run only on the draft/ended → active transition, not on
+			// idempotent re-sets of an already-active encounter.
+			if enc.Status != "active" {
+				metrics.EncounterRun()
 			}
 		}
 		if enc, err = s.queries.SetEncounterStatus(ctx, db.SetEncounterStatusParams{ID: enc.ID, Status: *b.Status}); err != nil {
