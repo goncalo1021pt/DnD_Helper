@@ -6,8 +6,10 @@ A small, self-hosted web app for running **D&D 5.5e (2024)** campaigns: a tavern
 homebrew-friendly rules **codex** — all behind a single container and your own
 login.
 
-> **Status: v1.0.0 — first stable release.** Runs in production as a single
-> container behind a Cloudflare Tunnel.
+> **Status: v1.2.0.** Runs in production as a single container behind a
+> Cloudflare Tunnel. The author's own table is live at
+> **[dnd.fontao.net](https://dnd.fontao.net)** — have a look around, or
+> self-host your own with the walkthrough below.
 
 ## Features
 
@@ -30,7 +32,9 @@ login.
   items and monsters are content-as-data; import/export as packs.
 - **Accounts & security** — sign in with **Discord/Google** or a local
   **username + password**; email verification and password recovery (Resend);
-  optional **two-factor auth (TOTP)** with recovery codes.
+  optional **two-factor auth (TOTP)** with recovery codes. HTTPS is enforced
+  end-to-end (edge redirect + HSTS), and session cookies are `Secure`,
+  `HttpOnly`, `SameSite=Lax`.
 
 ## Stack
 
@@ -77,16 +81,20 @@ never mounted when `APP_ENV=production`.
 make build                    # SPA -> embed -> single Go binary at bin/server
 ```
 
-Full self-hosted stack (app + Postgres + Cloudflare tunnel), with the production
-override that keeps Postgres and the app off the LAN:
+Full self-hosted stack (app + Postgres + Cloudflare tunnel):
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile full up -d --build
+make prod                     # docker compose --profile full up -d --build
 ```
+
+On a server, `COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml` in `.env`
+applies the production override to every compose command — it keeps Postgres off
+the LAN, binds the app to localhost, and runs nightly database backups.
 
 The complete production walkthrough — Cloudflare Tunnel, OAuth apps, the `.env`
 checklist, and running more than one app on a host — is in
-[`docs/DEPLOY.md`](./docs/DEPLOY.md).
+[`docs/DEPLOY.md`](./docs/DEPLOY.md); cutting a versioned release is documented
+in [`docs/RELEASING.md`](./docs/RELEASING.md).
 
 ## Code generation
 
@@ -112,4 +120,7 @@ privately, not via public issues.
 
 ## Contributing
 
-Work happens on feature branches; `main` only changes via reviewed PRs.
+Work happens on feature branches; `main` only changes via reviewed PRs, each
+gated on CI (Go vet/build/test, frontend typecheck/build, and a check that the
+generated code is in sync with the spec). Releases follow
+[`docs/RELEASING.md`](./docs/RELEASING.md).
