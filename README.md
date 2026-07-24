@@ -7,9 +7,9 @@ homebrew-friendly rules **codex** — all behind a single container and your own
 login.
 
 > **Status: v1.2.0.** Runs in production as a single container behind a
-> Cloudflare Tunnel. The author's own table is live at
-> **[dnd.fontao.net](https://dnd.fontao.net)** — have a look around, or
-> self-host your own with the walkthrough below.
+> Cloudflare Tunnel. An open instance is live at
+> **[dnd.fontao.net](https://dnd.fontao.net)** — sign up and bring your table,
+> or self-host your own with the walkthrough below.
 
 ## Features
 
