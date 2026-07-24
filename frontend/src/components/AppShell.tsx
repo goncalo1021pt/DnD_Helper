@@ -3,6 +3,7 @@ import { Link, Outlet } from "react-router-dom";
 import type { CurrentUser } from "../api/client";
 import { initials, medallionFor } from "../lib/party";
 import Crest from "./ui/Crest";
+import SiteFooter from "./ui/SiteFooter";
 
 /** A gentle, dismissible nudge for local accounts that haven't confirmed
  * their email yet. Offers to resend the link; recovery needs a verified
@@ -12,7 +13,7 @@ function VerifyBanner() {
   if (state === "hidden") return null;
   return (
     <div
-      className="relative z-[6] mx-auto mt-1 flex max-w-[1240px] flex-wrap items-center justify-center gap-2 px-5 py-2.5 text-center sm:px-11"
+      className="relative z-[6] mx-auto mt-1 flex w-full max-w-[1240px] flex-wrap items-center justify-center gap-2 px-5 py-2.5 text-center sm:px-11"
       style={{ background: "rgba(201,162,39,.12)", boxShadow: "inset 0 -1px 0 rgba(201,162,39,.25)" }}
     >
       <span className="font-body text-[13px] text-cream-soft">
@@ -43,11 +44,13 @@ function VerifyBanner() {
 
 export default function AppShell({ user }: { user: CurrentUser["user"] }) {
   return (
-    <div className="bg-hearth font-body relative min-h-screen overflow-x-hidden text-cream">
+    <div className="bg-hearth font-body relative flex min-h-screen flex-col overflow-x-hidden text-cream">
       <div className="overlay-vignette fixed" />
       <div className="overlay-grain fixed" />
 
-      <header className="relative z-[6] mx-auto flex max-w-[1240px] flex-wrap items-center justify-between gap-5 px-5 py-6 sm:px-11">
+      {/* w-full is load-bearing: as a flex item, mx-auto would otherwise
+          shrink this to its content width instead of spanning the container. */}
+      <header className="relative z-[6] mx-auto flex w-full max-w-[1240px] flex-wrap items-center justify-between gap-5 px-5 py-6 sm:px-11">
         <Link to="/" className="flex items-center gap-3.5 no-underline">
           <Crest
             size={46}
@@ -110,9 +113,11 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
 
       {user.provider === "local" && !user.emailVerified && <VerifyBanner />}
 
-      <main className="relative z-[5] mx-auto max-w-[1240px] px-3 pb-20 sm:px-11 pt-4">
+      <main className="relative z-[5] mx-auto w-full max-w-[1240px] flex-1 px-3 pb-20 sm:px-11 pt-4">
         <Outlet />
       </main>
+
+      <SiteFooter />
     </div>
   );
 }
