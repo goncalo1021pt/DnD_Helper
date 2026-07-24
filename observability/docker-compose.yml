@@ -46,6 +46,10 @@ services:
       # This stack lives behind a VPN/LAN; no public sign-up, no anonymous view.
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
+      # Discord webhook for alert delivery (provisioned contact point reads this).
+      # Structurally-valid placeholder default so Grafana still boots before you
+      # set a real one; until then alerts fire but delivery no-ops.
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-https://discord.com/api/webhooks/0/placeholder}
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

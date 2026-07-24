@@ -1,0 +1,127 @@
+# Alert rules. Each rule runs a Prometheus query (refId A) and compares it to a
+# threshold (refId C); when C is breached for the rule's `for:` duration, the
+# alert fires and the notification policy sends it to Discord.
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: questboard
+    folder: Quest Board
+    interval: 1m
+    rules:
+      # 1) The app is unreachable — Prometheus can't scrape app:9091 at all.
+      - uid: qb-app-down
+        title: "Quest Board — app is DOWN"
+        condition: C
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The app has been unreachable for 2 minutes (Prometheus cannot scrape app:9091)."
+        noDataState: Alerting
+        execErrState: Alerting
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: questboard-prometheus
+            model:
+              refId: A
+              instant: true
+              expr: 'up{job="questboard-app"}'
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+
+      # 2) Server errors — more than 5% of requests are 5xx (real breakage;
+      #    excludes 4xx like the normal 401 login gate).
+      - uid: qb-error-rate
+        title: "Quest Board — high 5xx error rate"
+        condition: C
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Over 5% of HTTP requests have returned 5xx for 5 minutes."
+        noDataState: OK
+        execErrState: Alerting
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: questboard-prometheus
+            model:
+              refId: A
+              instant: true
+              expr: 'sum(rate(questboard_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(questboard_http_requests_total[5m])), 0.001)'
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+
+      # 3) Host disk almost full — guards the whole homelab, not just this app.
+      - uid: qb-disk-full
+        title: "Host — root disk over 85% full"
+        condition: C
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The host root filesystem is over 85% full."
+        noDataState: OK
+        execErrState: Alerting
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: questboard-prometheus
+            model:
+              refId: A
+              instant: true
+              expr: '1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay",mountpoint="/"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay",mountpoint="/"})'
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.85] }
+
+      # 4) DB connection pool saturating — requests are queuing for a connection.
+      - uid: qb-db-pool
+        title: "Quest Board — DB pool near saturation"
+        condition: C
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Over 90% of the DB connection pool has been in use for 5 minutes."
+        noDataState: OK
+        execErrState: Alerting
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: questboard-prometheus
+            model:
+              refId: A
+              instant: true
+              expr: 'questboard_db_pool_acquired_conns / questboard_db_pool_max_conns'
+          - refId: C
+            relativeTimeRange: { from: 0, to: 0 }
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.9] }
