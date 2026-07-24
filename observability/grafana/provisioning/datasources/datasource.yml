@@ -1,0 +1,12 @@
+# Auto-provisioned Prometheus data source. The fixed uid lets the bundled
+# dashboards reference it without manual wiring.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    uid: questboard-prometheus
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

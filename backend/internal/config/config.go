@@ -11,6 +11,7 @@ import (
 // Config holds all runtime configuration, sourced from environment variables.
 type Config struct {
 	Addr        string // host:port the HTTP server binds to
+	MetricsAddr string // host:port for the private Prometheus /metrics listener
 	DatabaseURL string // postgres connection string
 	SessionKey  string // secret used to sign session cookies
 	BaseURL     string // public base URL, used to build OAuth callback URLs
@@ -51,6 +52,7 @@ func Load() (*Config, error) {
 
 	cfg := &Config{
 		Addr:         getenv("APP_ADDR", ":8080"),
+		MetricsAddr:  getenv("METRICS_ADDR", ":9091"),
 		DatabaseURL:  os.Getenv("DATABASE_URL"),
 		SessionKey:   os.Getenv("SESSION_KEY"),
 		BaseURL:      getenv("BASE_URL", "http://localhost:8080"),

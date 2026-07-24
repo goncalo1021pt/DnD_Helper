@@ -33,6 +33,10 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-production}
       APP_ADDR: ":8080"
+      # Private Prometheus endpoint on a SEPARATE port. The Cloudflare tunnel
+      # only routes :8080, so /metrics here can never leak publicly — the
+      # observability stack scrapes it over the internal docker network.
+      METRICS_ADDR: ":9091"
       BASE_URL: ${BASE_URL:-http://localhost:8080}
       SESSION_KEY: ${SESSION_KEY:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-questboard}:${POSTGRES_PASSWORD:-questboard}@postgres:5432/${POSTGRES_DB:-questboard}?sslmode=disable
@@ -48,6 +52,10 @@ services:
     # Override APP_HOST_PORT to avoid conflicts with other apps on the host.
     ports:
       - "${APP_HOST_PORT:-8080}:8080"
+    # :9091 (metrics) is intentionally NOT host-published — it stays on the
+    # internal docker network for Prometheus to scrape. `expose` documents it.
+    expose:
+      - "9091"
     profiles:
       - full
 

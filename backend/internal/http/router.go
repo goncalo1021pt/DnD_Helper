@@ -10,6 +10,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
+	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 	"github.com/goncalo1021pt/questboard/backend/internal/static"
 )
 
@@ -27,6 +28,7 @@ func NewRouter(deps Deps) http.Handler {
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(metrics.Middleware)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(enforceTLS)
