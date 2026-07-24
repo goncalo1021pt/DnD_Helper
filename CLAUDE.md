@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Quest Board — a self-hosted D&D campaign helper: a tavern quest board (DM authors quests + rewards, players join via invite code and self-claim) with a character builder planned. Go backend + React SPA, shipped as a single container behind a Cloudflare Tunnel.
+Quest Board — a self-hosted D&D campaign helper: a tavern quest board (DM authors quests + rewards, players join via invite code and self-claim), a 2024-rules character builder, custom skill trees, battle maps with server-side fog of war, a Monster Den + Bestiary, an encounter builder + initiative tracker, a shared Chronicle, and a homebrew codex. Go backend + React SPA, shipped as a single container behind a Cloudflare Tunnel. Live at dnd.fontao.net.
 
 ## Commands
 
@@ -28,7 +28,7 @@ make test                       # NOT unit tests: runs the whole app in containe
 make prod                       # full production stack (app + postgres + cloudflared)
 make logs S=app                 # follow a service's logs (app|postgres|cloudflared)
 
-# Go tests (none exist yet; when added)
+# Go unit tests (a small suite exists: auth crypto/password, http fog/encounter/tls)
 cd backend && go test ./...
 ```
 

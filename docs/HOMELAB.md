@@ -10,7 +10,7 @@ document covers the VM underneath and the LAN/VPN "showcase" mode.
 ```
 laptop (VPN) ──▶ Proxmox host  root@192.168.0.5  ("pve")
                    └─ VM 200 "apps"  goncalo@192.168.0.70  (Debian 13)
-                        └─ docker compose: postgres + app  (+ cloudflared in prod)
+                        └─ docker compose: postgres + app  (+ cloudflared + backup in prod)
 ```
 
 - VM 200: 2 cores, 4 GB RAM, 32 GB disk, static IP `192.168.0.70/24`, gw `.1`.
