@@ -16,6 +16,14 @@
 # workflow — that dispatches Anthropic's hosted cloud agent instead, a
 # separate product that runs on claude.ai rather than in Actions.
 #
+# IMPORTANT — this repo is contract-first + code-generated at both ends
+# (openapi.yaml + queries/*.sql -> `make generate`). For Claude to actually
+# build, regenerate, and test its own changes — instead of hand-writing the
+# generated files (api.gen.go / schema.d.ts / *.sql.go) and hoping they match —
+# the runner needs the Go + Node toolchain AND the pinned codegen tools
+# installed BEFORE the action runs, and the action needs those commands on its
+# allowedTools list. Both are set up below (mirrors .github/workflows/ci.yml).
+#
 # NOTE: for issue/comment events GitHub runs the copy of this file on the
 # DEFAULT branch, so this must be merged into `main` before it does anything.
 name: Claude Code
@@ -53,6 +61,43 @@ jobs:
         with:
           fetch-depth: 1
 
+      # --- Toolchain so Claude can run make/go/npm/sqlc/oapi-codegen itself ---
+      # These run as ordinary workflow steps (full network) and prime the caches,
+      # so once Claude takes over, `make generate`, `go build/test`, and the
+      # frontend build all work offline against what's already installed.
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # sqlc + oapi-codegen at the versions pinned in the Makefile `tools` target,
+      # so `make generate` is reproducible and matches the CI drift check.
+      # sqlc v1.31.1 needs Go >= 1.26 while the module targets 1.25; setup-go
+      # pins GOTOOLCHAIN=local, so allow Go to fetch the newer toolchain for the
+      # tool install only (same as ci.yml's codegen job).
+      - name: Install codegen tools (sqlc, oapi-codegen)
+        env:
+          GOTOOLCHAIN: auto
+        run: make tools
+
+      - name: Install frontend deps (openapi-typescript + build)
+        run: npm ci
+        working-directory: frontend
+
+      # Pre-download Go modules so Claude's `go build`/`go test` don't need
+      # network once the action's sandbox takes over.
+      - name: Warm the Go module cache
+        run: go mod download
+        working-directory: backend
+
       - name: Run Claude Code
         uses: anthropics/claude-code-action@v1
         with:
@@ -60,8 +105,11 @@ jobs:
           # Max subscription instead of an API account.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # Optional: pin a model / cap turns / pre-allow this repo's commands.
-          # claude_args: |
-          #   --model claude-opus-4-8
-          #   --max-turns 15
-          #   --allowedTools "Bash(make generate),Bash(cd backend && go test ./...),Bash(cd backend && go build ./...),Bash(cd frontend && npm ci),Bash(cd frontend && npm run build)"
+          # Let Claude actually run the build/codegen/test toolchain. Without
+          # this the action's sandbox denies every go/make/npm call — which is
+          # why earlier runs hand-wrote the generated files and skipped tests.
+          # Scoped to the commands this repo's workflow needs; broaden to the
+          # bare "Bash" rule if you want to allow everything.
+          claude_args: |
+            --max-turns 40
+            --allowedTools "Bash(make:*),Bash(go:*),Bash(gofmt:*),Bash(npm:*),Bash(npx:*),Bash(sqlc:*),Bash(oapi-codegen:*),Bash(jq:*),Bash(git:*),Bash(cd:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(rg:*),Bash(sed:*),Bash(find:*),Bash(mkdir:*),Bash(cp:*),Bash(mv:*),Bash(rm:*),Bash(echo:*),Bash(test:*),Bash(true:*)"
