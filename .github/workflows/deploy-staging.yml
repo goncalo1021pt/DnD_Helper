@@ -1,0 +1,73 @@
+# Deploy a branch to the staging VM — one tap from the GitHub mobile app.
+#
+# This is the "test a claude-bot PR from my phone" button. It runs on the
+# self-hosted runner living inside the apps-staging VM (label: staging), so it
+# deploys the chosen branch to dnd-test.fontao.net with no SSH and never touches
+# prod (VM 200) or its database (separate VM, separate pgdata volume).
+#
+# How to run it from a phone:
+#   GitHub app → this repo → Actions → "Deploy to staging" → Run workflow →
+#   pick the branch in "Use workflow from" (leave the ref box empty) → Run.
+#   Then open https://dnd-test.fontao.net.
+#
+# Setup that makes this work: docs/STAGING.md (provision the VM, register the
+# runner with scripts/homelab/setup-staging-runner.sh).
+name: Deploy to staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch/tag/SHA to deploy (blank = the branch selected above)"
+        required: false
+        default: ""
+
+# Only the repo owner can deploy. workflow_dispatch already requires write
+# access, and self-hosted runners only pick up jobs from this repo — this actor
+# guard is defence-in-depth so nothing else (e.g. the claude bot's token) can
+# push code onto the staging box.
+jobs:
+  deploy:
+    if: github.actor == github.repository_owner
+    runs-on: [self-hosted, staging]
+    steps:
+      - name: Resolve target ref
+        id: target
+        run: |
+          TARGET="${{ github.event.inputs.ref }}"
+          [ -z "$TARGET" ] && TARGET="${{ github.ref_name }}"
+          echo "ref=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "Deploying: $TARGET"
+
+      # Deploy in the canonical clone on the box (persistent .env, pgdata volume,
+      # backups/) rather than the runner's throwaway workspace.
+      - name: Check out target branch in the staging clone
+        run: |
+          cd ~/DnD_Helper
+          git fetch --prune origin
+          git checkout -B "${{ steps.target.outputs.ref }}" "origin/${{ steps.target.outputs.ref }}"
+          git reset --hard "origin/${{ steps.target.outputs.ref }}"
+          git log --oneline -1
+
+      - name: Build & deploy (make deploy)
+        run: |
+          cd ~/DnD_Helper
+          # COMPOSE_FILE in the staging .env pins the prod override, so this is
+          # the full tunnelled stack: SPA -> embedded Go binary, migrations run
+          # on startup, cloudflared reconnects. The user is in the docker group
+          # (provision-staging.sh), so no sudo needed.
+          make deploy
+
+      - name: Wait for health
+        run: |
+          cd ~/DnD_Helper
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+              echo "HEALTHY — deployed ${{ steps.target.outputs.ref }} to staging"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::staging did not become healthy in time"
+          docker compose --profile full logs --tail 50 app || true
+          exit 1
