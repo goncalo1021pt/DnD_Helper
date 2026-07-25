@@ -85,7 +85,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Permanently delete a campaign (DM only) */
+        /**
+         * Permanently delete a campaign (DM only)
+         * @description Strikes the campaign for good: quests, the chronicle, codex rulings, maps, encounters, memberships, and bans are all removed with it. Heroes seated there return to My Heroes rather than being deleted.
+         */
         delete: operations["deleteCampaign"];
         options?: never;
         head?: never;
