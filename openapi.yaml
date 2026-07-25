@@ -105,6 +105,26 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns/{campaignId}:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    delete:
+      operationId: deleteCampaign
+      summary: Permanently delete a campaign (DM only)
+      description: >
+        Strikes the campaign for good: quests, the chronicle, codex rulings,
+        maps, encounters, memberships, and bans are all removed with it.
+        Heroes seated there return to My Heroes rather than being deleted.
+      responses:
+        "204":
+          description: Campaign deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /campaigns/{campaignId}/regenerate-invite:
     parameters:
       - $ref: "#/components/parameters/CampaignId"

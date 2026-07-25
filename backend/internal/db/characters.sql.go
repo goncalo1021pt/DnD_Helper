@@ -137,6 +137,17 @@ func (q *Queries) DeleteCharacter(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteTableBornOfCampaign = `-- name: DeleteTableBornOfCampaign :exec
+DELETE FROM characters
+WHERE campaign_id = $1 AND table_born
+`
+
+// A struck campaign's table-born characters die with the table.
+func (q *Queries) DeleteTableBornOfCampaign(ctx context.Context, campaignID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTableBornOfCampaign, campaignID)
+	return err
+}
+
 const deleteTableBornOfUser = `-- name: DeleteTableBornOfUser :exec
 DELETE FROM characters
 WHERE owner_user_id = $1 AND campaign_id = $2 AND table_born
@@ -759,6 +770,17 @@ WHERE id = $1 AND pending_levels > 0
 
 func (q *Queries) SpendPendingLevel(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, spendPendingLevel, id)
+	return err
+}
+
+const unseatCharactersOfCampaign = `-- name: UnseatCharactersOfCampaign :exec
+UPDATE characters SET campaign_id = NULL, updated_at = now()
+WHERE campaign_id = $1
+`
+
+// A struck campaign's remaining heroes return to their owners' My Heroes shelf.
+func (q *Queries) UnseatCharactersOfCampaign(ctx context.Context, campaignID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, unseatCharactersOfCampaign, campaignID)
 	return err
 }
 

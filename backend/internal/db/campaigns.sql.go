@@ -66,6 +66,19 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 	return i, err
 }
 
+const deleteCampaign = `-- name: DeleteCampaign :exec
+DELETE FROM campaigns WHERE id = $1
+`
+
+// Everything scoped to the campaign cascades: memberships, quests, skill
+// trees, codex rulings, chronicle events, bestiary notes, maps, encounters,
+// bans, and seat requests. Characters are handled separately beforehand —
+// table-born ones die with the table, seated heroes are unseated first.
+func (q *Queries) DeleteCampaign(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteCampaign, id)
+	return err
+}
+
 const getCampaign = `-- name: GetCampaign :one
 SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval FROM campaigns WHERE id = $1
 `
