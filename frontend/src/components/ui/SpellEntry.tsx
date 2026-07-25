@@ -24,6 +24,9 @@ interface SpellData {
 }
 
 function inline(text: string): ReactNode[] {
+  // SRD source uses &emsp; as a literal HTML entity for indentation; this
+  // renderer has no HTML-entity decoding step, so translate it directly.
+  text = text.replace(/&emsp;/g, " ");
   // **bold** and _italic_, non-nested — enough for SRD prose.
   return text.split(/(\*\*[^*]+\*\*|_[^_]+_)/g).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**"))
