@@ -1316,6 +1316,29 @@ export interface paths {
         patch: operations["updateCombatant"];
         trace?: never;
     };
+    "/encounters/{encounterId}/combatant-groups/{groupId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a whole mob at once (DM only)
+         * @description Deletes every combatant sharing this groupId. Removing one dead skeleton is still a plain combatant delete; this is for clearing the entire unit.
+         */
+        delete: operations["deleteCombatantGroup"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/combatants/{combatantId}/roll": {
         parameters: {
             query?: never;
@@ -1852,6 +1875,11 @@ export interface components {
             /** @description For a player, whether this is their own PC (they may roll its initiative and see its HP). */
             isMine?: boolean;
             sortOrder: number;
+            /**
+             * Format: uuid
+             * @description Set when this combatant is one of a mob added together. Everything sharing a groupId is consecutive in the list and acts on a single turn; the tracker collapses the run into one entry.
+             */
+            groupId?: string | null;
         };
         EncounterDetail: {
             encounter: components["schemas"]["Encounter"];
@@ -1881,6 +1909,8 @@ export interface components {
             ac?: number;
             initMod?: number;
             hidden?: boolean;
+            /** @description How many to add; omitted means 1. Above 1 they arrive as one GROUP — a single initiative, a single turn, numbered labels ("Skeleton 1"…) — while each keeps its own HP. Add one at a time instead if you want genuinely independent monsters. Ignored for kind=pc; a character can only be seated once. */
+            count?: number;
         };
         UpdateCombatantRequest: {
             label?: string;
@@ -4736,13 +4766,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The new combatant */
+            /** @description The combatants added — one element for a lone addition, or every member of the group when count > 1. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Combatant"];
+                    "application/json": components["schemas"]["Combatant"][];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -4824,6 +4854,30 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCombatantGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+                groupId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

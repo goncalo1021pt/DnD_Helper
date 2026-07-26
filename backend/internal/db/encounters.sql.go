@@ -15,9 +15,9 @@ import (
 const addCombatant = `-- name: AddCombatant :one
 INSERT INTO encounter_combatants (
     encounter_id, kind, content_id, character_id, label, player_label,
-    init_mod, hp_current, hp_max, ac, hidden, sort_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at
+    init_mod, hp_current, hp_max, ac, hidden, sort_order, group_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id
 `
 
 type AddCombatantParams struct {
@@ -33,6 +33,7 @@ type AddCombatantParams struct {
 	Ac          int32       `json:"ac"`
 	Hidden      bool        `json:"hidden"`
 	SortOrder   int32       `json:"sort_order"`
+	GroupID     pgtype.UUID `json:"group_id"`
 }
 
 func (q *Queries) AddCombatant(ctx context.Context, arg AddCombatantParams) (EncounterCombatant, error) {
@@ -49,6 +50,7 @@ func (q *Queries) AddCombatant(ctx context.Context, arg AddCombatantParams) (Enc
 		arg.Ac,
 		arg.Hidden,
 		arg.SortOrder,
+		arg.GroupID,
 	)
 	var i EncounterCombatant
 	err := row.Scan(
@@ -67,6 +69,7 @@ func (q *Queries) AddCombatant(ctx context.Context, arg AddCombatantParams) (Enc
 		&i.Hidden,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.GroupID,
 	)
 	return i, err
 }
@@ -103,6 +106,24 @@ DELETE FROM encounter_combatants WHERE id = $1
 
 func (q *Queries) DeleteCombatant(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteCombatant, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteCombatantGroup = `-- name: DeleteCombatantGroup :execrows
+DELETE FROM encounter_combatants WHERE encounter_id = $1 AND group_id = $2
+`
+
+type DeleteCombatantGroupParams struct {
+	EncounterID uuid.UUID   `json:"encounter_id"`
+	GroupID     pgtype.UUID `json:"group_id"`
+}
+
+// Remove a whole mob at once.
+func (q *Queries) DeleteCombatantGroup(ctx context.Context, arg DeleteCombatantGroupParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteCombatantGroup, arg.EncounterID, arg.GroupID)
 	if err != nil {
 		return 0, err
 	}
@@ -157,7 +178,7 @@ func (q *Queries) GetActiveEncounter(ctx context.Context, campaignID uuid.UUID) 
 }
 
 const getCombatant = `-- name: GetCombatant :one
-SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, e.campaign_id, e.status AS encounter_status
+SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, c.group_id, e.campaign_id, e.status AS encounter_status
 FROM encounter_combatants c
 JOIN encounters e ON e.id = c.encounter_id
 WHERE c.id = $1
@@ -179,6 +200,7 @@ type GetCombatantRow struct {
 	Hidden          bool               `json:"hidden"`
 	SortOrder       int32              `json:"sort_order"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	GroupID         pgtype.UUID        `json:"group_id"`
 	CampaignID      uuid.UUID          `json:"campaign_id"`
 	EncounterStatus string             `json:"encounter_status"`
 }
@@ -203,6 +225,7 @@ func (q *Queries) GetCombatant(ctx context.Context, id uuid.UUID) (GetCombatantR
 		&i.Hidden,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.GroupID,
 		&i.CampaignID,
 		&i.EncounterStatus,
 	)
@@ -229,13 +252,18 @@ func (q *Queries) GetEncounter(ctx context.Context, id uuid.UUID) (Encounter, er
 }
 
 const listCombatants = `-- name: ListCombatants :many
-SELECT id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at FROM encounter_combatants
+SELECT id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id FROM encounter_combatants
 WHERE encounter_id = $1
-ORDER BY (initiative IS NULL), initiative DESC, init_mod DESC, sort_order, created_at
+ORDER BY (initiative IS NULL), initiative DESC, init_mod DESC,
+         COALESCE(group_id, id), sort_order, created_at
 `
 
 // Initiative order: highest initiative first, unrolled (NULL) last, then by
-// init modifier and add order to break ties.
+// init modifier and add order to break ties. Members of a group always land
+// side by side (they share an initiative and a group_id, and coalescing to the
+// row's own id keeps loners sorting exactly as they did before) — the tracker
+// collapses each run of them into a single entry, so they must never interleave
+// with another combatant that happened to roll the same number.
 func (q *Queries) ListCombatants(ctx context.Context, encounterID uuid.UUID) ([]EncounterCombatant, error) {
 	rows, err := q.db.Query(ctx, listCombatants, encounterID)
 	if err != nil {
@@ -261,6 +289,7 @@ func (q *Queries) ListCombatants(ctx context.Context, encounterID uuid.UUID) ([]
 			&i.Hidden,
 			&i.SortOrder,
 			&i.CreatedAt,
+			&i.GroupID,
 		); err != nil {
 			return nil, err
 		}
@@ -348,7 +377,7 @@ func (q *Queries) RenameEncounter(ctx context.Context, arg RenameEncounterParams
 }
 
 const setCombatantInitiative = `-- name: SetCombatantInitiative :one
-UPDATE encounter_combatants SET initiative = $2 WHERE id = $1 RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at
+UPDATE encounter_combatants SET initiative = $2 WHERE id = $1 RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id
 `
 
 type SetCombatantInitiativeParams struct {
@@ -375,6 +404,7 @@ func (q *Queries) SetCombatantInitiative(ctx context.Context, arg SetCombatantIn
 		&i.Hidden,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.GroupID,
 	)
 	return i, err
 }
@@ -403,12 +433,29 @@ func (q *Queries) SetEncounterStatus(ctx context.Context, arg SetEncounterStatus
 	return i, err
 }
 
+const setGroupInitiative = `-- name: SetGroupInitiative :exec
+UPDATE encounter_combatants SET initiative = $2
+WHERE encounter_id = $1 AND group_id = $3
+`
+
+type SetGroupInitiativeParams struct {
+	EncounterID uuid.UUID   `json:"encounter_id"`
+	Initiative  *int32      `json:"initiative"`
+	GroupID     pgtype.UUID `json:"group_id"`
+}
+
+// A group acts as one creature, so its members share a single roll.
+func (q *Queries) SetGroupInitiative(ctx context.Context, arg SetGroupInitiativeParams) error {
+	_, err := q.db.Exec(ctx, setGroupInitiative, arg.EncounterID, arg.Initiative, arg.GroupID)
+	return err
+}
+
 const updateCombatant = `-- name: UpdateCombatant :one
 UPDATE encounter_combatants
 SET label = $2, player_label = $3, initiative = $4, hp_current = $5,
     hp_max = $6, ac = $7, hidden = $8
 WHERE id = $1
-RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at
+RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id
 `
 
 type UpdateCombatantParams struct {
@@ -450,6 +497,7 @@ func (q *Queries) UpdateCombatant(ctx context.Context, arg UpdateCombatantParams
 		&i.Hidden,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.GroupID,
 	)
 	return i, err
 }

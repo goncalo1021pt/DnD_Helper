@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
@@ -76,7 +78,32 @@ func combatantForDM(c db.EncounterCombatant, current bool) api.Combatant {
 	}
 	hc, hm, ac := int(c.HpCurrent), int(c.HpMax), int(c.Ac)
 	out.HpCurrent, out.HpMax, out.Ac = &hc, &hm, &ac
+	out.GroupId = groupIDOf(c)
 	return out
+}
+
+// isCurrent decides whether a combatant is the one acting. A mob acts as a
+// unit, so every member lights up when the turn lands on any of them.
+//
+// The Valid guards matter more than they look: an ungrouped combatant has an
+// invalid (NULL) group, and NULL == NULL would make every loner in the fight
+// "current" the moment the turn sat on any other loner.
+func isCurrent(c db.EncounterCombatant, currentID uuid.UUID, currentGroup pgtype.UUID) bool {
+	if c.ID == currentID {
+		return true
+	}
+	return currentGroup.Valid && c.GroupID.Valid && c.GroupID.Bytes == currentGroup.Bytes
+}
+
+// groupIDOf exposes the mob a combatant belongs to, or nil when it stands
+// alone. Both roles get it: the tracker folds a run of members into one entry,
+// and a player seeing "Skeleton 1/2/3" should see them stacked the same way.
+func groupIDOf(c db.EncounterCombatant) *uuid.UUID {
+	if !c.GroupID.Valid {
+		return nil
+	}
+	id := uuid.UUID(c.GroupID.Bytes)
+	return &id
 }
 
 func combatantForPlayer(c db.EncounterCombatant, mine, current bool) api.Combatant {
@@ -103,6 +130,7 @@ func combatantForPlayer(c db.EncounterCombatant, mine, current bool) api.Combata
 		v := int(*c.Initiative)
 		out.Initiative = &v
 	}
+	out.GroupId = groupIDOf(c)
 	if mine {
 		hc, hm, ac := int(c.HpCurrent), int(c.HpMax), int(c.Ac)
 		out.HpCurrent, out.HpMax, out.Ac = &hc, &hm, &ac
@@ -137,12 +165,16 @@ func (s *Server) assembleDetail(ctx context.Context, enc db.Encounter, isDM bool
 	// running. Marked per-combatant so a filtered player list still highlights
 	// the right one (or none, when a hidden enemy is acting).
 	var currentID uuid.UUID
+	var currentGroup pgtype.UUID
 	if enc.Status == "active" && int(enc.TurnIndex) >= 0 && int(enc.TurnIndex) < len(combatants) {
 		currentID = combatants[enc.TurnIndex].ID
+		// A mob acts together, so the whole group lights up — landing the turn
+		// index on any member marks all of them.
+		currentGroup = combatants[enc.TurnIndex].GroupID
 	}
 	out := make([]api.Combatant, 0, len(combatants))
 	for _, c := range combatants {
-		current := c.ID == currentID
+		current := isCurrent(c, currentID, currentGroup)
 		if isDM {
 			out = append(out, combatantForDM(c, current))
 			continue
@@ -460,11 +492,87 @@ func (s *Server) AddCombatant(ctx context.Context, request api.AddCombatantReque
 	}
 	snap.EncounterID = enc.ID
 	snap.Kind = request.Body.Kind
-	c, err := s.queries.AddCombatant(ctx, snap)
+
+	count := 1
+	if request.Body.Count != nil {
+		count = *request.Body.Count
+	}
+	// A character is seated once; five copies of the same hero is never what
+	// the DM meant. Everything else may arrive as a mob.
+	if request.Body.Kind == "pc" {
+		count = 1
+	}
+	if count < 1 || count > maxGroupSize {
+		return api.AddCombatant400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: fmt.Sprintf("add between 1 and %d at a time", maxGroupSize),
+		}}, nil
+	}
+
+	added, err := s.addCombatantsTx(ctx, snap, count)
 	if err != nil {
 		return nil, err
 	}
-	return api.AddCombatant201JSONResponse(combatantForDM(c, false)), nil
+	out := make([]api.Combatant, 0, len(added))
+	for _, c := range added {
+		out = append(out, combatantForDM(c, false))
+	}
+	return api.AddCombatant201JSONResponse(out), nil
+}
+
+// maxGroupSize caps a single add. Mirrors the stepper's ceiling in the UI, and
+// keeps one fat-fingered request from stuffing a hundred rows into a fight.
+const maxGroupSize = 12
+
+// addCombatantsTx writes n combatants as one unit. n == 1 is the old behaviour
+// exactly: a lone row with no group. Above that they share a group_id and get
+// numbered labels ("Skeleton 1", "Skeleton 2", …), so the tracker can fold them
+// into a single initiative entry that takes one turn — while each row keeps its
+// own HP, which is the whole reason they stay separate rows.
+//
+// All-or-nothing: a mob half-written into a live fight is worse than no mob.
+func (s *Server) addCombatantsTx(ctx context.Context, snap db.AddCombatantParams, n int) ([]db.EncounterCombatant, error) {
+	if n == 1 {
+		c, err := s.queries.AddCombatant(ctx, snap)
+		if err != nil {
+			return nil, err
+		}
+		return []db.EncounterCombatant{c}, nil
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+
+	groupID := pgUUID(uuid.New())
+	base, basePlayer := snap.Label, snap.PlayerLabel
+	out := make([]db.EncounterCombatant, 0, n)
+	for i := 1; i <= n; i++ {
+		member := snap
+		member.GroupID = groupID
+		// Number the sort order too. Every row in one transaction gets the SAME
+		// created_at (now() is the transaction timestamp), so without this the
+		// members tie on every sort key and Postgres may hand them back in any
+		// order — the mob would reshuffle under the DM between refreshes.
+		member.SortOrder = int32(i)
+		member.Label = fmt.Sprintf("%s %d", base, i)
+		// Only number the player-facing name if the DM set one; a blank stays
+		// blank so players keep seeing "Unknown" rather than "Unknown 3".
+		if basePlayer != "" {
+			member.PlayerLabel = fmt.Sprintf("%s %d", basePlayer, i)
+		}
+		c, e := qtx.AddCombatant(ctx, member)
+		if e != nil {
+			return nil, e
+		}
+		out = append(out, c)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // RollInitiative rolls d20 + modifier for every combatant at once.
@@ -486,7 +594,24 @@ func (s *Server) RollInitiative(ctx context.Context, request api.RollInitiativeR
 	if err != nil {
 		return nil, err
 	}
+	// One die per fighting unit: a mob of eight skeletons rolls once and moves
+	// as one, the way a DM runs it at the table. Members share the result.
+	rolled := map[uuid.UUID]int32{}
 	for _, c := range combatants {
+		if c.GroupID.Valid {
+			gid := uuid.UUID(c.GroupID.Bytes)
+			roll, seen := rolled[gid]
+			if !seen {
+				roll = rollD20() + c.InitMod
+				rolled[gid] = roll
+				if err := s.queries.SetGroupInitiative(ctx, db.SetGroupInitiativeParams{
+					EncounterID: enc.ID, GroupID: c.GroupID, Initiative: &roll,
+				}); err != nil {
+					return nil, err
+				}
+			}
+			continue
+		}
 		roll := rollD20() + c.InitMod
 		if _, err := s.queries.SetCombatantInitiative(ctx, db.SetCombatantInitiativeParams{ID: c.ID, Initiative: &roll}); err != nil {
 			return nil, err
@@ -554,6 +679,17 @@ func (s *Server) UpdateCombatant(ctx context.Context, request api.UpdateCombatan
 	c, err := s.queries.UpdateCombatant(ctx, params)
 	if err != nil {
 		return nil, err
+	}
+	// Initiative belongs to the unit, not the individual: retyping it on one
+	// skeleton moves the whole mob, or they would split across the order and
+	// stop being one entry. HP deliberately does NOT spread — that is per
+	// skeleton, and is why members stay separate rows.
+	if b.Initiative != nil && row.GroupID.Valid {
+		if err := s.queries.SetGroupInitiative(ctx, db.SetGroupInitiativeParams{
+			EncounterID: row.EncounterID, GroupID: row.GroupID, Initiative: params.Initiative,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	// A PC's HP is a live mirror of the Party roster: whichever side the DM
 	// edits, the other follows, so the two never drift apart mid-fight.
@@ -637,6 +773,36 @@ func (s *Server) DeleteCombatant(ctx context.Context, request api.DeleteCombatan
 	return api.DeleteCombatant204Response{}, nil
 }
 
+// DeleteCombatantGroup clears a whole mob. Killing one skeleton is a plain
+// combatant delete; this is "the summoner died, the swarm goes with it".
+func (s *Server) DeleteCombatantGroup(ctx context.Context, request api.DeleteCombatantGroupRequestObject) (api.DeleteCombatantGroupResponseObject, error) {
+	enc, err := s.requireEncounterDM(ctx, request.EncounterId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.DeleteCombatantGroup404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.DeleteCombatantGroup401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.DeleteCombatantGroup403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	// Scoped to this encounter, so a stale group id from another fight can't
+	// reach across and empty it.
+	n, err := s.queries.DeleteCombatantGroup(ctx, db.DeleteCombatantGroupParams{
+		EncounterID: enc.ID, GroupID: pgUUID(request.GroupId),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return api.DeleteCombatantGroup404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+	}
+	return api.DeleteCombatantGroup204Response{}, nil
+}
+
 // RollCombatantInitiative rolls one combatant's initiative. The DM may roll any;
 // a player may roll their own PC.
 func (s *Server) RollCombatantInitiative(ctx context.Context, request api.RollCombatantInitiativeRequestObject) (api.RollCombatantInitiativeResponseObject, error) {
@@ -676,6 +842,15 @@ func (s *Server) RollCombatantInitiative(ctx context.Context, request api.RollCo
 	c, err := s.queries.SetCombatantInitiative(ctx, db.SetCombatantInitiativeParams{ID: row.ID, Initiative: &roll})
 	if err != nil {
 		return nil, err
+	}
+	// Rolling the die on one member rolls for the mob — it is one unit taking
+	// one turn, so a single result has to cover all of them.
+	if row.GroupID.Valid {
+		if err := s.queries.SetGroupInitiative(ctx, db.SetGroupInitiativeParams{
+			EncounterID: row.EncounterID, GroupID: row.GroupID, Initiative: &roll,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if isDM {
 		return api.RollCombatantInitiative200JSONResponse(combatantForDM(c, false)), nil

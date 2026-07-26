@@ -1489,6 +1489,20 @@ export function useDeleteCombatant(campaignId: string, encounterId: string) {
   });
 }
 
+/* Clear a whole mob in one call — twelve skeletons shouldn't be twelve taps. */
+export function useDeleteCombatantGroup(campaignId: string, encounterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (groupId: string) => {
+      const { error } = await api.DELETE("/encounters/{encounterId}/combatant-groups/{groupId}", {
+        params: { path: { encounterId, groupId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateEncounters(qc, campaignId, encounterId),
+  });
+}
+
 export function useRollCombatant(campaignId: string, encounterId: string) {
   const qc = useQueryClient();
   return useMutation({

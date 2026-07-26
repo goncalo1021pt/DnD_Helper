@@ -37,7 +37,7 @@ func TestCombatantForPlayerRedactsEnemies(t *testing.T) {
 		EncounterID: uuid.New(),
 		Kind:        "monster",
 		Label:       "Ancient Red Dragon", // the DM's true name — must NOT appear
-		PlayerLabel: "Looming Shape",       // what players are allowed to see
+		PlayerLabel: "Looming Shape",      // what players are allowed to see
 		InitMod:     3,
 		HpCurrent:   40,
 		HpMax:       100,
@@ -136,5 +136,72 @@ func TestCombatantForPlayerOtherPCHidesNumbers(t *testing.T) {
 	}
 	if out.HpState != "bloodied" { // 5 of 30
 		t.Errorf("HpState = %q; want 'bloodied'", out.HpState)
+	}
+}
+
+// --- mobs ------------------------------------------------------------------
+
+// A group takes ONE turn: the turn index lands on a single member, but every
+// member of that mob must read as current, or the tracker would highlight one
+// skeleton out of five.
+func TestIsCurrentLightsTheWholeMob(t *testing.T) {
+	mob := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	other := pgtype.UUID{Bytes: uuid.New(), Valid: true}
+	acting := uuid.New()
+
+	lead := db.EncounterCombatant{ID: acting, GroupID: mob}
+	sibling := db.EncounterCombatant{ID: uuid.New(), GroupID: mob}
+	stranger := db.EncounterCombatant{ID: uuid.New(), GroupID: other}
+
+	if !isCurrent(lead, acting, mob) {
+		t.Error("the combatant the turn landed on should be current")
+	}
+	if !isCurrent(sibling, acting, mob) {
+		t.Error("a sibling in the acting mob should be current")
+	}
+	if isCurrent(stranger, acting, mob) {
+		t.Error("a different mob must not be current")
+	}
+}
+
+// The regression this guards: ungrouped combatants all carry a NULL group, so a
+// naive equality check would make every loner current at once.
+func TestIsCurrentDoesNotMatchNullGroups(t *testing.T) {
+	acting := uuid.New()
+	lone := db.EncounterCombatant{ID: acting}          // NULL group
+	otherLone := db.EncounterCombatant{ID: uuid.New()} // also NULL group
+	mobMember := db.EncounterCombatant{ID: uuid.New(), GroupID: pgtype.UUID{Bytes: uuid.New(), Valid: true}}
+
+	if !isCurrent(lone, acting, pgtype.UUID{}) {
+		t.Error("the acting loner should be current")
+	}
+	if isCurrent(otherLone, acting, pgtype.UUID{}) {
+		t.Error("a second ungrouped combatant must NOT be current — NULL != NULL")
+	}
+	if isCurrent(mobMember, acting, pgtype.UUID{}) {
+		t.Error("a mob member must not be current while a loner acts")
+	}
+}
+
+// groupId has to reach both payloads: the DM tracker folds the run into one
+// entry, and players should see "Skeleton ×3" rather than three lines.
+func TestGroupIDReachesBothPayloads(t *testing.T) {
+	gid := uuid.New()
+	member := db.EncounterCombatant{
+		ID: uuid.New(), EncounterID: uuid.New(), Kind: "monster",
+		Label: "Skeleton 2", PlayerLabel: "Skeleton 2",
+		HpCurrent: 8, HpMax: 13, Ac: 13,
+		GroupID: pgtype.UUID{Bytes: gid, Valid: true},
+	}
+	if got := combatantForDM(member, false).GroupId; got == nil || *got != gid {
+		t.Errorf("DM payload groupId = %v; want %v", got, gid)
+	}
+	if got := combatantForPlayer(member, false, false).GroupId; got == nil || *got != gid {
+		t.Errorf("player payload groupId = %v; want %v", got, gid)
+	}
+
+	lone := db.EncounterCombatant{ID: uuid.New(), Kind: "monster", Label: "Goblin"}
+	if got := combatantForDM(lone, false).GroupId; got != nil {
+		t.Errorf("an ungrouped combatant should report no group, got %v", *got)
 	}
 }

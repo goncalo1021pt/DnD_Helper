@@ -36,16 +36,30 @@ DELETE FROM encounters WHERE id = $1;
 -- name: AddCombatant :one
 INSERT INTO encounter_combatants (
     encounter_id, kind, content_id, character_id, label, player_label,
-    init_mod, hp_current, hp_max, ac, hidden, sort_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    init_mod, hp_current, hp_max, ac, hidden, sort_order, group_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 RETURNING *;
 
 -- name: ListCombatants :many
 -- Initiative order: highest initiative first, unrolled (NULL) last, then by
--- init modifier and add order to break ties.
+-- init modifier and add order to break ties. Members of a group always land
+-- side by side (they share an initiative and a group_id, and coalescing to the
+-- row's own id keeps loners sorting exactly as they did before) — the tracker
+-- collapses each run of them into a single entry, so they must never interleave
+-- with another combatant that happened to roll the same number.
 SELECT * FROM encounter_combatants
 WHERE encounter_id = $1
-ORDER BY (initiative IS NULL), initiative DESC, init_mod DESC, sort_order, created_at;
+ORDER BY (initiative IS NULL), initiative DESC, init_mod DESC,
+         COALESCE(group_id, id), sort_order, created_at;
+
+-- name: SetGroupInitiative :exec
+-- A group acts as one creature, so its members share a single roll.
+UPDATE encounter_combatants SET initiative = $2
+WHERE encounter_id = $1 AND group_id = $3;
+
+-- name: DeleteCombatantGroup :execrows
+-- Remove a whole mob at once.
+DELETE FROM encounter_combatants WHERE encounter_id = $1 AND group_id = $2;
 
 -- name: GetCombatant :one
 -- A combatant with its encounter's campaign, so handlers gate in one read.
