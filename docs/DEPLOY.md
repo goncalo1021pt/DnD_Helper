@@ -151,6 +151,12 @@ docker compose exec postgres pg_dump -U questboard questboard > backup-$(date +%
 
 ## Running a separate test environment (staging)
 
+> **On a Proxmox homelab?** The recommended setup is a **dedicated staging VM**
+> with its own tunnel and a one-tap "Deploy to staging" GitHub Action (test
+> branches — including claude-bot PRs — from your phone). That full runbook is
+> **[STAGING.md](./STAGING.md)**. The same-host second-clone approach below is
+> the lighter alternative when you don't want a second VM.
+
 Run a **second, fully isolated stack** on the same server to test before prod.
 Each stack is a separate Compose project, so its containers, network, and database
 volume are independent — you can wipe/seed staging with zero risk to prod data.
