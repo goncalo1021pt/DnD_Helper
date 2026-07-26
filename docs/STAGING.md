@@ -41,6 +41,14 @@ qm set 201 --ciupgrade 0
 qm start 201
 ```
 
+> `/tmp/keys.pub` is scratch and won't survive a host reboot. Rather than
+> re-uploading your keys, lift the ones VM 200 already trusts:
+>
+> ```bash
+> qm config 200 | sed -n 's/^sshkeys: //p' \
+>   | perl -pe 's/%([0-9A-Fa-f]{2})/chr(hex($1))/ge' > /tmp/keys.pub
+> ```
+
 > Tight on host RAM? 2 GB is enough for staging (`--memory 2048`) — it isn't
 > serving real players.
 
@@ -58,15 +66,46 @@ In the Zero Trust dashboard, **exactly like prod but a second tunnel**
 Tunnels are outbound-only, so this never collides with the prod tunnel even
 though both boxes run an `app` on :8080.
 
-## 3. Add the staging OAuth redirect URLs
+## 3. Decide how you log in to staging
 
-Reuse the *same* Discord/Google apps as prod — they allow multiple redirect
-URIs. Add:
+Two supported shapes. Pick one — they need different dashboard work.
+
+**A. Mirror prod (real OAuth).** The default. Staging behaves exactly like the
+live game, so it's the faithful test and it's safe on a public URL. Reuse the
+*same* Discord/Google apps as prod — they allow multiple redirect URIs — and add:
 
 ```
 https://dnd-test.fontao.net/api/auth/discord/callback
 https://dnd-test.fontao.net/api/auth/google/callback
 ```
+
+**B. Dev login behind Cloudflare Access.** Faster for phone testing: log in as
+any name, no OAuth round-trip, and you can be three different players in a
+minute. The dev door on a public URL would let *anyone* in, so Cloudflare Access
+is not optional here — it must be in place **before** the tunnel is attached.
+No OAuth redirect URIs needed at all.
+
+Zero Trust → **Access → Applications → Add an application → Self-hosted**, or
+the guided **"Set up secure access to private apps from any browser" → Connect a
+private web application** path, which asks the same things in six steps:
+
+| Field | Value |
+|---|---|
+| Name your application | `Quest Board staging` |
+| Internal hostname or IP address | `app` |
+| Protocol / port | `HTTP` / `8080` |
+| Public domain | `dnd-test` . `fontao.net` |
+| Policy | name `Only me`, action **Allow**, Include → **Emails** → your address |
+| Session duration | something long (1 month) so your phone isn't re-authing |
+
+`app` — not an IP — because cloudflared shares the compose network with the
+server and resolves it by service name. If the guided path offers to create or
+deploy a *new* tunnel (its steps 4 and 5), pick the existing `questboard-staging`
+and ignore the install command; the connector is already running on the VM.
+
+With no IdP configured, enable **One-time PIN** (Settings → Authentication) — it
+emails you a code, nothing to set up. Access gates every path including
+`/api/*`; the SPA is same-origin so it carries the auth cookie automatically.
 
 ## 4. Provision the VM
 
@@ -79,6 +118,30 @@ This installs Docker + make, clones the repo, writes a staging `.env` (own
 secrets, `COMPOSE_PROJECT_NAME=questboard-staging`, `BASE_URL=https://dnd-test.fontao.net`,
 prod override pinned), and brings the tunnelled stack up. Verify at
 **https://dnd-test.fontao.net**.
+
+For path **B**, add `APP_ENV=development` — and confirm the Access application
+is live first:
+
+```bash
+ssh goncalo@192.168.0.71 'APP_ENV=development TUNNEL_TOKEN=<token> ./provision-staging.sh'
+```
+
+Belt and braces: run it with **no** `TUNNEL_TOKEN` first. The prod override
+binds the app to `127.0.0.1:8080`, so it builds and boots reachable only from
+the box itself. Set up Access, then attach the tunnel:
+
+```bash
+ssh goncalo@192.168.0.71 'cd ~/DnD_Helper \
+  && sed -i "s|^TUNNEL_TOKEN=.*|TUNNEL_TOKEN=<token>|" .env && make deploy'
+```
+
+Then check Access is actually enforcing before you trust it — an anonymous
+request must NOT reach the app:
+
+```bash
+curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://dnd-test.fontao.net/
+# expect 302 -> https://<team>.cloudflareaccess.com/...  (a 200 means the app is WIDE OPEN)
+```
 
 ## 5. Register the deploy runner
 

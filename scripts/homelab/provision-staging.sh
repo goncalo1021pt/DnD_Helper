@@ -14,10 +14,28 @@
 #   TUNNEL_TOKEN  staging tunnel token from the CF dashboard. If set, the full
 #                 tunnelled stack comes up now; if empty, only postgres+app start
 #                 and you add the token to .env later, then run `make deploy`.
+#   APP_ENV       production (default) mirrors prod: real OAuth, dev door OFF.
+#                 development opens the dev login (log in as any name, no OAuth)
+#                 — convenient for phone testing, but it is ONLY safe if
+#                 dnd-test.fontao.net sits behind Cloudflare Access restricted
+#                 to your email. See docs/STAGING.md.
 set -euo pipefail
 
 BASE_URL="${BASE_URL:-https://dnd-test.fontao.net}"
 TUNNEL_TOKEN="${TUNNEL_TOKEN:-}"
+APP_ENV="${APP_ENV:-production}"
+
+if [ "$APP_ENV" != "production" ] && [ -n "$TUNNEL_TOKEN" ]; then
+  cat <<'WARN'
+
+  !! APP_ENV is not production and a tunnel token was supplied.
+     The dev login door will be OPEN on a public URL. This is only safe behind
+     a Cloudflare Access application limited to your own email — configure that
+     FIRST (Zero Trust -> Access -> Applications). Continuing in 5s.
+
+WARN
+  sleep 5
+fi
 
 echo "=== [1/5] base packages ==="
 sudo apt-get update -qq
@@ -50,7 +68,7 @@ if [ ! -f .env ]; then
     echo "# --- staging overrides (added by provision-staging.sh) ---"
     echo "COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml"
     echo "COMPOSE_PROJECT_NAME=questboard-staging"
-    echo "APP_ENV=production"
+    echo "APP_ENV=$APP_ENV"
     echo "BASE_URL=$BASE_URL"
     echo "SESSION_KEY=$(openssl rand -base64 32)"
     echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
@@ -62,16 +80,19 @@ else
 fi
 
 echo "=== [5/5] bring up the stack ==="
+# `usermod -aG docker` above does not affect THIS shell — the new group only
+# applies to sessions started after it. Run the compose steps under `sg docker`
+# so a fresh provision works in one pass instead of dying on a socket
+# permission error; later logins (and the Actions runner) get the group for free.
 if [ -n "$TUNNEL_TOKEN" ]; then
   # COMPOSE_FILE in .env pins the prod override, so this is the full tunnelled
   # stack (postgres + app + cloudflared + backup).
-  make deploy
+  sg docker -c "make deploy"
   echo "staging is up behind the tunnel — verify at $BASE_URL"
 else
   # No tunnel yet: run postgres + app only so you can smoke-test on the LAN,
   # then add TUNNEL_TOKEN to .env and run `make deploy` to attach the tunnel.
-  APP_ENV=production BASE_URL="$BASE_URL" \
-    docker compose up -d --build postgres app
+  sg docker -c "APP_ENV=$APP_ENV BASE_URL='$BASE_URL' docker compose up -d --build postgres app"
   echo ""
   echo "postgres + app are up (no tunnel yet). Next:"
   echo "  1) create the staging tunnel (docs/STAGING.md), then in ~/DnD_Helper:"
