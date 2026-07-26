@@ -18,7 +18,7 @@ set -euo pipefail
 
 TOKEN="${1:?usage: setup-staging-runner.sh <REGISTRATION_TOKEN>}"
 REPO_URL="https://github.com/goncalo1021pt/DnD_Helper"
-RUNNER_VERSION="2.319.1"   # bump to the latest from github.com/actions/runner/releases
+RUNNER_VERSION="2.336.0"   # bump to the latest from github.com/actions/runner/releases
 DIR="$HOME/actions-runner"
 
 echo "=== download runner v$RUNNER_VERSION ==="
@@ -28,6 +28,12 @@ if [ ! -f ./config.sh ]; then
     "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
   tar xzf runner.tar.gz && rm runner.tar.gz
 fi
+
+echo "=== runner native deps ==="
+# The runner is a .NET app and needs libicu, which the Debian genericcloud image
+# doesn't ship. Without this, config.sh dies with "Libicu's dependencies is
+# missing for Dotnet Core 6.0" before it ever contacts GitHub.
+sudo ./bin/installdependencies.sh >/dev/null
 
 echo "=== register (labels: self-hosted,staging) ==="
 # --unattended + --replace so re-running just re-registers cleanly.
