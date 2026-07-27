@@ -146,6 +146,13 @@ func (s *Server) UpdateCharacter(ctx context.Context, request api.UpdateCharacte
 	if err != nil {
 		return nil, err
 	}
+	// Mirror HP forward into whichever running encounter this hero is fighting
+	// in — see syncCombatantHP.
+	if character.HpCurrent != updated.HpCurrent || character.HpMax != updated.HpMax {
+		if err := s.syncCombatantHP(ctx, updated); err != nil {
+			return nil, err
+		}
+	}
 	ownerName, err := s.ownerName(ctx, updated.OwnerUserID)
 	if err != nil {
 		return nil, err

@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
@@ -16,10 +18,12 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
-// Encounters: the DM prepares combats ahead of time, triggers one at will, and
-// runs initiative. Players get a redacted shared view — hidden combatants are
-// dropped, enemy HP shows only as a state, and only the viewer's own PC exposes
-// numbers (and can roll its own initiative).
+// Encounters: the DM prepares combats ahead of time, triggers them at will, and
+// runs initiative. An encounter is either inactive or active, and several may be
+// active at once — a party that splits into two groups is two fights on the
+// board. Players get a redacted view of the one fight their own hero stands in:
+// hidden combatants are dropped, enemy HP shows only as a state, and only the
+// viewer's own PC exposes numbers (and can roll its own initiative).
 
 func rollD20() int32 { return int32(rand.IntN(20)) + 1 }
 
@@ -76,7 +80,32 @@ func combatantForDM(c db.EncounterCombatant, current bool) api.Combatant {
 	}
 	hc, hm, ac := int(c.HpCurrent), int(c.HpMax), int(c.Ac)
 	out.HpCurrent, out.HpMax, out.Ac = &hc, &hm, &ac
+	out.GroupId = groupIDOf(c)
 	return out
+}
+
+// isCurrent decides whether a combatant is the one acting. A mob acts as a
+// unit, so every member lights up when the turn lands on any of them.
+//
+// The Valid guards matter more than they look: an ungrouped combatant has an
+// invalid (NULL) group, and NULL == NULL would make every loner in the fight
+// "current" the moment the turn sat on any other loner.
+func isCurrent(c db.EncounterCombatant, currentID uuid.UUID, currentGroup pgtype.UUID) bool {
+	if c.ID == currentID {
+		return true
+	}
+	return currentGroup.Valid && c.GroupID.Valid && c.GroupID.Bytes == currentGroup.Bytes
+}
+
+// groupIDOf exposes the mob a combatant belongs to, or nil when it stands
+// alone. Both roles get it: the tracker folds a run of members into one entry,
+// and a player seeing "Skeleton 1/2/3" should see them stacked the same way.
+func groupIDOf(c db.EncounterCombatant) *uuid.UUID {
+	if !c.GroupID.Valid {
+		return nil
+	}
+	id := uuid.UUID(c.GroupID.Bytes)
+	return &id
 }
 
 func combatantForPlayer(c db.EncounterCombatant, mine, current bool) api.Combatant {
@@ -103,6 +132,7 @@ func combatantForPlayer(c db.EncounterCombatant, mine, current bool) api.Combata
 		v := int(*c.Initiative)
 		out.Initiative = &v
 	}
+	out.GroupId = groupIDOf(c)
 	if mine {
 		hc, hm, ac := int(c.HpCurrent), int(c.HpMax), int(c.Ac)
 		out.HpCurrent, out.HpMax, out.Ac = &hc, &hm, &ac
@@ -137,12 +167,16 @@ func (s *Server) assembleDetail(ctx context.Context, enc db.Encounter, isDM bool
 	// running. Marked per-combatant so a filtered player list still highlights
 	// the right one (or none, when a hidden enemy is acting).
 	var currentID uuid.UUID
+	var currentGroup pgtype.UUID
 	if enc.Status == "active" && int(enc.TurnIndex) >= 0 && int(enc.TurnIndex) < len(combatants) {
 		currentID = combatants[enc.TurnIndex].ID
+		// A mob acts together, so the whole group lights up — landing the turn
+		// index on any member marks all of them.
+		currentGroup = combatants[enc.TurnIndex].GroupID
 	}
 	out := make([]api.Combatant, 0, len(combatants))
 	for _, c := range combatants {
-		current := c.ID == currentID
+		current := isCurrent(c, currentID, currentGroup)
 		if isDM {
 			out = append(out, combatantForDM(c, current))
 			continue
@@ -183,7 +217,7 @@ func (s *Server) ListEncounters(ctx context.Context, request api.ListEncountersR
 	return api.ListEncounters200JSONResponse(out), nil
 }
 
-// CreateEncounter prepares a new draft encounter.
+// CreateEncounter prepares a new, inactive encounter.
 func (s *Server) CreateEncounter(ctx context.Context, request api.CreateEncounterRequestObject) (api.CreateEncounterResponseObject, error) {
 	if _, err := s.requireDM(ctx, request.CampaignId); err != nil {
 		switch {
@@ -205,7 +239,15 @@ func (s *Server) CreateEncounter(ctx context.Context, request api.CreateEncounte
 	return api.CreateEncounter201JSONResponse(encounterFromRow(enc, 0)), nil
 }
 
-// GetActiveEncounter returns the running encounter, redacted for players.
+// GetActiveEncounter returns the running encounter this member belongs to,
+// redacted for players.
+//
+// "The" active encounter stopped being a single thing once a split party could
+// have two fights going. A player gets the one their own hero is standing in —
+// the other half of the party is off having a battle that is none of their
+// business, and they should not be watching its initiative order. The DM, who
+// sees every fight from the library anyway, gets the most recently triggered
+// one as a landing view.
 func (s *Server) GetActiveEncounter(ctx context.Context, request api.GetActiveEncounterRequestObject) (api.GetActiveEncounterResponseObject, error) {
 	m, err := s.requireMember(ctx, request.CampaignId)
 	if err != nil {
@@ -217,14 +259,30 @@ func (s *Server) GetActiveEncounter(ctx context.Context, request api.GetActiveEn
 		}
 		return nil, err
 	}
-	enc, err := s.queries.GetActiveEncounter(ctx, request.CampaignId)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	isDM := m.Role == db.MembershipRoleDm
+	var enc db.Encounter
+	if isDM {
+		running, e := s.queries.ListActiveEncounters(ctx, request.CampaignId)
+		if e != nil {
+			return nil, e
+		}
+		if len(running) == 0 {
 			return api.GetActiveEncounter204Response{}, nil
 		}
-		return nil, err
+		enc = running[0]
+	} else {
+		var e error
+		enc, e = s.queries.GetActiveEncounterForUser(ctx, db.GetActiveEncounterForUserParams{
+			CampaignID: request.CampaignId, OwnerUserID: m.UserID,
+		})
+		if e != nil {
+			if errors.Is(e, pgx.ErrNoRows) {
+				return api.GetActiveEncounter204Response{}, nil
+			}
+			return nil, e
+		}
 	}
-	detail, err := s.assembleDetail(ctx, enc, m.Role == db.MembershipRoleDm, m.UserID)
+	detail, err := s.assembleDetail(ctx, enc, isDM, m.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -293,23 +351,32 @@ func (s *Server) UpdateEncounter(ctx context.Context, request api.UpdateEncounte
 	}
 	if b.Status != nil {
 		switch *b.Status {
-		case "draft", "active", "ended":
+		case "inactive", "active":
 		default:
-			return api.UpdateEncounter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "status must be draft, active, or ended"}}, nil
+			return api.UpdateEncounter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "status must be active or inactive"}}, nil
 		}
-		if *b.Status == "active" {
-			// Only one runs at a time.
-			if err := s.queries.EndOtherActiveEncounters(ctx, db.EndOtherActiveEncountersParams{CampaignID: enc.CampaignID, ID: enc.ID}); err != nil {
-				return nil, err
-			}
-			// Count a run only on the draft/ended → active transition, not on
-			// idempotent re-sets of an already-active encounter.
+		switch {
+		case *b.Status == "active":
+			// Several fights may run side by side — a split party is two
+			// encounters at once — so triggering one no longer stands the
+			// others down. Count a run only on the inactive → active
+			// transition, not on idempotent re-sets of a running encounter.
 			if enc.Status != "active" {
 				metrics.EncounterRun()
 			}
-		}
-		if enc, err = s.queries.SetEncounterStatus(ctx, db.SetEncounterStatusParams{ID: enc.ID, Status: *b.Status}); err != nil {
-			return nil, err
+			if enc, err = s.queries.SetEncounterStatus(ctx, db.SetEncounterStatusParams{ID: enc.ID, Status: *b.Status}); err != nil {
+				return nil, err
+			}
+		case enc.Status == "active":
+			if enc, err = s.standDown(ctx, enc); err != nil {
+				return nil, err
+			}
+		default:
+			// Already inactive — nothing to release, but keep the write so the
+			// response reflects the requested state.
+			if enc, err = s.queries.SetEncounterStatus(ctx, db.SetEncounterStatusParams{ID: enc.ID, Status: *b.Status}); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if b.Round != nil || b.TurnIndex != nil {
@@ -331,6 +398,78 @@ func (s *Server) UpdateEncounter(ctx context.Context, request api.UpdateEncounte
 		return nil, err
 	}
 	return api.UpdateEncounter200JSONResponse(detail), nil
+}
+
+// standDown takes a running encounter out of the fight and leaves it as a
+// prepared one again: the summoned party is released, initiative is wiped, and
+// the round counter goes back to the top.
+//
+// This is what makes "inactive" mean something. Before, a finished fight kept
+// its heroes and their rolled initiative, so reopening it in the builder showed
+// a party nobody had summoned and an order nobody had rolled — and a hero left
+// behind in a stale encounter could not be summoned into the next one.
+//
+// All-or-nothing: an encounter that released its party but kept its initiative
+// is a worse state than either end.
+func (s *Server) standDown(ctx context.Context, enc db.Encounter) (db.Encounter, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return enc, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+
+	if err := qtx.ClearEncounterParty(ctx, enc.ID); err != nil {
+		return enc, err
+	}
+	if err := qtx.ClearEncounterInitiative(ctx, enc.ID); err != nil {
+		return enc, err
+	}
+	out, err := qtx.SetEncounterStatus(ctx, db.SetEncounterStatusParams{ID: enc.ID, Status: "inactive"})
+	if err != nil {
+		return enc, err
+	}
+	if out, err = qtx.UpdateEncounterProgress(ctx, db.UpdateEncounterProgressParams{ID: enc.ID, Round: 1, TurnIndex: 0}); err != nil {
+		return enc, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return enc, err
+	}
+	return out, nil
+}
+
+// StandDownEncounters ends every running fight in a campaign at once.
+//
+// With several encounters open — and encounter grouping not built yet — a DM
+// who has lost track of which fight still holds a player would otherwise have
+// to open each one hunting for them. This releases all of them in one press.
+func (s *Server) StandDownEncounters(ctx context.Context, request api.StandDownEncountersRequestObject) (api.StandDownEncountersResponseObject, error) {
+	if _, err := s.requireDM(ctx, request.CampaignId); err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.StandDownEncounters401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.StandDownEncounters403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	running, err := s.queries.ListActiveEncounters(ctx, request.CampaignId)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]api.Encounter, 0, len(running))
+	for _, enc := range running {
+		stood, err := s.standDown(ctx, enc)
+		if err != nil {
+			return nil, err
+		}
+		count, err := s.queries.ListCombatants(ctx, stood.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, encounterFromRow(stood, len(count)))
+	}
+	return api.StandDownEncounters200JSONResponse(out), nil
 }
 
 // DeleteEncounter discards an encounter and its combatants.
@@ -460,11 +599,103 @@ func (s *Server) AddCombatant(ctx context.Context, request api.AddCombatantReque
 	}
 	snap.EncounterID = enc.ID
 	snap.Kind = request.Body.Kind
-	c, err := s.queries.AddCombatant(ctx, snap)
+
+	count := 1
+	if request.Body.Count != nil {
+		count = *request.Body.Count
+	}
+	// A character is seated once; five copies of the same hero is never what
+	// the DM meant. Everything else may arrive as a mob.
+	if request.Body.Kind == "pc" {
+		count = 1
+		// One hero, one fight. Several encounters can run at once, so a hero
+		// summoned into a second one would have their HP mirrored from two
+		// tracker rows into a single character sheet — a heal in one battle
+		// undoing a hit in the other. The DM stands the first fight down (or
+		// removes them from it) before summoning them elsewhere.
+		busy, err := s.queries.ListActiveCombatantsForCharacter(ctx, snap.CharacterID)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range busy {
+			if c.EncounterID != enc.ID {
+				return api.AddCombatant400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+					Error: fmt.Sprintf("%s is already fighting in another encounter — stand that one down first", snap.Label),
+				}}, nil
+			}
+		}
+	}
+	if count < 1 || count > maxGroupSize {
+		return api.AddCombatant400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: fmt.Sprintf("add between 1 and %d at a time", maxGroupSize),
+		}}, nil
+	}
+
+	added, err := s.addCombatantsTx(ctx, snap, count)
 	if err != nil {
 		return nil, err
 	}
-	return api.AddCombatant201JSONResponse(combatantForDM(c, false)), nil
+	out := make([]api.Combatant, 0, len(added))
+	for _, c := range added {
+		out = append(out, combatantForDM(c, false))
+	}
+	return api.AddCombatant201JSONResponse(out), nil
+}
+
+// maxGroupSize caps a single add. Mirrors the stepper's ceiling in the UI, and
+// keeps one fat-fingered request from stuffing a hundred rows into a fight.
+const maxGroupSize = 12
+
+// addCombatantsTx writes n combatants as one unit. n == 1 is the old behaviour
+// exactly: a lone row with no group. Above that they share a group_id and get
+// numbered labels ("Skeleton 1", "Skeleton 2", …), so the tracker can fold them
+// into a single initiative entry that takes one turn — while each row keeps its
+// own HP, which is the whole reason they stay separate rows.
+//
+// All-or-nothing: a mob half-written into a live fight is worse than no mob.
+func (s *Server) addCombatantsTx(ctx context.Context, snap db.AddCombatantParams, n int) ([]db.EncounterCombatant, error) {
+	if n == 1 {
+		c, err := s.queries.AddCombatant(ctx, snap)
+		if err != nil {
+			return nil, err
+		}
+		return []db.EncounterCombatant{c}, nil
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+
+	groupID := pgUUID(uuid.New())
+	base, basePlayer := snap.Label, snap.PlayerLabel
+	out := make([]db.EncounterCombatant, 0, n)
+	for i := 1; i <= n; i++ {
+		member := snap
+		member.GroupID = groupID
+		// Number the sort order too. Every row in one transaction gets the SAME
+		// created_at (now() is the transaction timestamp), so without this the
+		// members tie on every sort key and Postgres may hand them back in any
+		// order — the mob would reshuffle under the DM between refreshes.
+		member.SortOrder = int32(i)
+		member.Label = fmt.Sprintf("%s %d", base, i)
+		// Only number the player-facing name if the DM set one; a blank stays
+		// blank so players keep seeing "Unknown" rather than "Unknown 3".
+		if basePlayer != "" {
+			member.PlayerLabel = fmt.Sprintf("%s %d", basePlayer, i)
+		}
+		c, e := qtx.AddCombatant(ctx, member)
+		if e != nil {
+			return nil, e
+		}
+		out = append(out, c)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // RollInitiative rolls d20 + modifier for every combatant at once.
@@ -486,7 +717,24 @@ func (s *Server) RollInitiative(ctx context.Context, request api.RollInitiativeR
 	if err != nil {
 		return nil, err
 	}
+	// One die per fighting unit: a mob of eight skeletons rolls once and moves
+	// as one, the way a DM runs it at the table. Members share the result.
+	rolled := map[uuid.UUID]int32{}
 	for _, c := range combatants {
+		if c.GroupID.Valid {
+			gid := uuid.UUID(c.GroupID.Bytes)
+			roll, seen := rolled[gid]
+			if !seen {
+				roll = rollD20() + c.InitMod
+				rolled[gid] = roll
+				if err := s.queries.SetGroupInitiative(ctx, db.SetGroupInitiativeParams{
+					EncounterID: enc.ID, GroupID: c.GroupID, Initiative: &roll,
+				}); err != nil {
+					return nil, err
+				}
+			}
+			continue
+		}
 		roll := rollD20() + c.InitMod
 		if _, err := s.queries.SetCombatantInitiative(ctx, db.SetCombatantInitiativeParams{ID: c.ID, Initiative: &roll}); err != nil {
 			return nil, err
@@ -555,7 +803,72 @@ func (s *Server) UpdateCombatant(ctx context.Context, request api.UpdateCombatan
 	if err != nil {
 		return nil, err
 	}
+	// Initiative belongs to the unit, not the individual: retyping it on one
+	// skeleton moves the whole mob, or they would split across the order and
+	// stop being one entry. HP deliberately does NOT spread — that is per
+	// skeleton, and is why members stay separate rows.
+	if b.Initiative != nil && row.GroupID.Valid {
+		if err := s.queries.SetGroupInitiative(ctx, db.SetGroupInitiativeParams{
+			EncounterID: row.EncounterID, GroupID: row.GroupID, Initiative: params.Initiative,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	// A PC's HP is a live mirror of the Party roster: whichever side the DM
+	// edits, the other follows, so the two never drift apart mid-fight.
+	if row.Kind == "pc" && row.CharacterID.Valid && (params.HpCurrent != row.HpCurrent || params.HpMax != row.HpMax) {
+		if err := s.syncCharacterHP(ctx, uuid.UUID(row.CharacterID.Bytes), params.HpCurrent, params.HpMax); err != nil {
+			return nil, err
+		}
+	}
 	return api.UpdateCombatant200JSONResponse(combatantForDM(c, false)), nil
+}
+
+// syncCharacterHP mirrors a combatant's HP back onto its seated character, so
+// damage taken in the tracker shows up on the Party roster too.
+func (s *Server) syncCharacterHP(ctx context.Context, characterID uuid.UUID, hpCurrent, hpMax int32) error {
+	ch, err := s.queries.GetCharacter(ctx, characterID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	_, err = s.queries.UpdateCharacter(ctx, db.UpdateCharacterParams{
+		ID: ch.ID, Name: ch.Name, Class: ch.Class, Level: ch.Level,
+		HpCurrent: hpCurrent, HpMax: hpMax,
+	})
+	return err
+}
+
+// syncCombatantHP mirrors a party member's current HP into their live combatant
+// row, wherever they're fighting. Keeps the Party roster and the encounter
+// tracker from drifting apart mid-fight.
+//
+// A hero is barred from being seated in two running fights at once (see
+// AddCombatant), so this normally touches exactly one row — but it walks every
+// match rather than assuming, since a fight triggered around an already-seated
+// hero could still produce two.
+func (s *Server) syncCombatantHP(ctx context.Context, ch db.Character) error {
+	seated, err := s.queries.ListActiveCombatantsForCharacter(ctx, pgUUID(ch.ID))
+	if err != nil {
+		return err
+	}
+	for _, c := range seated {
+		if c.Kind != "pc" {
+			continue
+		}
+		if c.HpCurrent == ch.HpCurrent && c.HpMax == ch.HpMax {
+			continue
+		}
+		if _, err := s.queries.UpdateCombatant(ctx, db.UpdateCombatantParams{
+			ID: c.ID, Label: c.Label, PlayerLabel: c.PlayerLabel, Initiative: c.Initiative,
+			HpCurrent: ch.HpCurrent, HpMax: ch.HpMax, Ac: c.Ac, Hidden: c.Hidden,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeleteCombatant removes a combatant.
@@ -580,6 +893,36 @@ func (s *Server) DeleteCombatant(ctx context.Context, request api.DeleteCombatan
 		return nil, err
 	}
 	return api.DeleteCombatant204Response{}, nil
+}
+
+// DeleteCombatantGroup clears a whole mob. Killing one skeleton is a plain
+// combatant delete; this is "the summoner died, the swarm goes with it".
+func (s *Server) DeleteCombatantGroup(ctx context.Context, request api.DeleteCombatantGroupRequestObject) (api.DeleteCombatantGroupResponseObject, error) {
+	enc, err := s.requireEncounterDM(ctx, request.EncounterId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.DeleteCombatantGroup404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.DeleteCombatantGroup401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.DeleteCombatantGroup403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	// Scoped to this encounter, so a stale group id from another fight can't
+	// reach across and empty it.
+	n, err := s.queries.DeleteCombatantGroup(ctx, db.DeleteCombatantGroupParams{
+		EncounterID: enc.ID, GroupID: pgUUID(request.GroupId),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		return api.DeleteCombatantGroup404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+	}
+	return api.DeleteCombatantGroup204Response{}, nil
 }
 
 // RollCombatantInitiative rolls one combatant's initiative. The DM may roll any;
@@ -621,6 +964,15 @@ func (s *Server) RollCombatantInitiative(ctx context.Context, request api.RollCo
 	c, err := s.queries.SetCombatantInitiative(ctx, db.SetCombatantInitiativeParams{ID: row.ID, Initiative: &roll})
 	if err != nil {
 		return nil, err
+	}
+	// Rolling the die on one member rolls for the mob — it is one unit taking
+	// one turn, so a single result has to cover all of them.
+	if row.GroupID.Valid {
+		if err := s.queries.SetGroupInitiative(ctx, db.SetGroupInitiativeParams{
+			EncounterID: row.EncounterID, GroupID: row.GroupID, Initiative: &roll,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if isDM {
 		return api.RollCombatantInitiative200JSONResponse(combatantForDM(c, false)), nil
