@@ -78,4 +78,5 @@ All server state goes through TanStack Query hooks in `hooks.ts` (queries + muta
 
 - Work on feature branches; `main` only changes via reviewed PRs.
 - Deployment details (Cloudflare Tunnel, OAuth app setup, production `.env` checklist) live in `docs/DEPLOY.md` and the bottom of `.env.example`. Multiple stacks on one host are isolated via `COMPOSE_PROJECT_NAME`.
+- Metrics: `internal/metrics` serves Prometheus metrics on a private second listener (`:9091`, `METRICS_ADDR`) the tunnel never routes. The Prometheus + Grafana stack that scrapes it is homelab-wide and lives in its own repo: <https://github.com/goncalo1021pt/homelab-observability>.
 - Design direction and feature roadmap live in `docs/VISION.md`; the design reference packages it curates are the zips in `design/`.
