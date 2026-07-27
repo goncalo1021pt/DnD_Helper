@@ -110,6 +110,21 @@ func (s *Server) CreateQuest(ctx context.Context, request api.CreateQuestRequest
 		}}, nil
 	}
 
+	locationID, locationName, err := s.resolveQuestLocation(ctx, campaignID, body.LocationId)
+	if err != nil {
+		return nil, err
+	}
+	if body.LocationId != nil && !locationID.Valid {
+		return api.CreateQuest400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "location not found on this campaign",
+		}}, nil
+	}
+	// A notice goes up straight away unless the DM is drafting it.
+	visible := true
+	if body.VisibleToParty != nil {
+		visible = *body.VisibleToParty
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -118,14 +133,16 @@ func (s *Server) CreateQuest(ctx context.Context, request api.CreateQuestRequest
 	qtx := s.queries.WithTx(tx)
 
 	quest, err := qtx.CreateQuest(ctx, db.CreateQuestParams{
-		CampaignID:  campaignID,
-		Title:       title,
-		Description: optStr(body.Description),
-		Giver:       body.Giver,
-		Location:    body.Location,
-		Difficulty:  difficultyOrDefault(body.Difficulty),
-		Status:      db.QuestStatusAvailable,
-		CreatedBy:   dm.UserID,
+		CampaignID:     campaignID,
+		Title:          title,
+		Description:    optStr(body.Description),
+		Giver:          body.Giver,
+		Location:       nameOr(locationName, body.Location),
+		LocationID:     locationID,
+		VisibleToParty: visible,
+		Difficulty:     difficultyOrDefault(body.Difficulty),
+		Status:         db.QuestStatusAvailable,
+		CreatedBy:      dm.UserID,
 	})
 	if err != nil {
 		return nil, err
@@ -141,8 +158,12 @@ func (s *Server) CreateQuest(ctx context.Context, request api.CreateQuestRequest
 	if err != nil {
 		return nil, err
 	}
-	s.logEvent(ctx, campaignID, dm.UserID, "quest_posted",
-		fmt.Sprintf("A notice is nailed to the board: %q", quest.Title))
+	// A drafted notice stays out of the Chronicle — announcing it would leak
+	// the very thing the DM is holding back.
+	if visible {
+		s.logEvent(ctx, campaignID, dm.UserID, "quest_posted",
+			fmt.Sprintf("A notice is nailed to the board: %q", quest.Title))
+	}
 	metrics.QuestCreated()
 	return api.CreateQuest201JSONResponse(out), nil
 }
@@ -179,6 +200,21 @@ func (s *Server) UpdateQuest(ctx context.Context, request api.UpdateQuestRequest
 		}}, nil
 	}
 
+	locationID, locationName, err := s.resolveQuestLocation(ctx, quest.CampaignID, body.LocationId)
+	if err != nil {
+		return nil, err
+	}
+	if body.LocationId != nil && !locationID.Valid {
+		return api.UpdateQuest400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "location not found on this campaign",
+		}}, nil
+	}
+	// Omitting the flag leaves the veil where the DM last set it.
+	visible := quest.VisibleToParty
+	if body.VisibleToParty != nil {
+		visible = *body.VisibleToParty
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -187,13 +223,15 @@ func (s *Server) UpdateQuest(ctx context.Context, request api.UpdateQuestRequest
 	qtx := s.queries.WithTx(tx)
 
 	if _, err := qtx.UpdateQuest(ctx, db.UpdateQuestParams{
-		ID:          questID,
-		Title:       title,
-		Description: optStr(body.Description),
-		Giver:       body.Giver,
-		Location:    body.Location,
-		Difficulty:  db.QuestDifficulty(string(body.Difficulty)),
-		Status:      db.QuestStatus(string(body.Status)),
+		ID:             questID,
+		Title:          title,
+		Description:    optStr(body.Description),
+		Giver:          body.Giver,
+		Location:       nameOr(locationName, body.Location),
+		LocationID:     locationID,
+		VisibleToParty: visible,
+		Difficulty:     db.QuestDifficulty(string(body.Difficulty)),
+		Status:         db.QuestStatus(string(body.Status)),
 	}); err != nil {
 		return nil, err
 	}
@@ -262,6 +300,16 @@ func (s *Server) ClaimQuest(ctx context.Context, request api.ClaimQuestRequestOb
 			return api.ClaimQuest403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 		default:
 			return nil, err
+		}
+	}
+	// A notice the party cannot see cannot be claimed, even by guessing its id.
+	if member.Role != db.MembershipRoleDm {
+		visible, err := s.questVisibleToMember(ctx, quest, member.UserID)
+		if err != nil {
+			return nil, err
+		}
+		if !visible {
+			return api.ClaimQuest404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
 	}
 	if err := s.queries.ClaimQuest(ctx, db.ClaimQuestParams{QuestID: questID, UserID: member.UserID}); err != nil {

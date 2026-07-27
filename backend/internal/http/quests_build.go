@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
@@ -20,6 +22,50 @@ func optStr(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+// nameOr prefers a linked location's name over the legacy freeform text, so the
+// two never disagree about where a notice hangs.
+func nameOr(name, fallback *string) *string {
+	if name != nil {
+		return name
+	}
+	return fallback
+}
+
+// resolveQuestLocation validates that a requested location belongs to the
+// campaign and returns the column value plus its display name. A nil request
+// unpins the notice; an unknown id comes back invalid for the caller to reject.
+func (s *Server) resolveQuestLocation(ctx context.Context, campaignID uuid.UUID, locationID *uuid.UUID) (pgtype.UUID, *string, error) {
+	if locationID == nil {
+		return pgtype.UUID{}, nil, nil
+	}
+	loc, err := s.queries.GetLocation(ctx, *locationID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return pgtype.UUID{}, nil, nil
+		}
+		return pgtype.UUID{}, nil, err
+	}
+	if loc.CampaignID != campaignID {
+		return pgtype.UUID{}, nil, nil
+	}
+	name := loc.Name
+	return pgUUID(loc.ID), &name, nil
+}
+
+// questVisibleToMember reports whether any hero this member has seated at the
+// campaign can see the notice.
+func (s *Server) questVisibleToMember(ctx context.Context, quest db.Quest, userID uuid.UUID) (bool, error) {
+	v, err := s.loadVeil(ctx, quest.CampaignID)
+	if err != nil {
+		return false, err
+	}
+	charIDs, err := s.seatedCharacterIDs(ctx, quest.CampaignID, userID)
+	if err != nil {
+		return false, err
+	}
+	return v.questVisibleToAny(quest, charIDs), nil
 }
 
 func difficultyOrDefault(d *api.QuestDifficulty) db.QuestDifficulty {
@@ -51,10 +97,30 @@ func insertRewards(ctx context.Context, q *db.Queries, questID uuid.UUID, reward
 	return nil
 }
 
-// buildQuests assembles the full board for a campaign (quests + rewards + claims)
-// in a fixed number of queries, marking which quests the caller has claimed.
+// buildQuests assembles the board for a campaign (quests + rewards + claims) in
+// a fixed number of queries, marking which quests the caller has claimed.
+//
+// The board is filtered by the veil: the DM sees every notice plus its
+// visibility state, a player sees only what is unveiled to one of their heroes.
 func (s *Server) buildQuests(ctx context.Context, campaignID uuid.UUID) ([]api.Quest, error) {
 	uid, _ := auth.UserID(ctx)
+
+	isDM := false
+	if m, err := s.requireMember(ctx, campaignID); err == nil {
+		isDM = m.Role == db.MembershipRoleDm
+	}
+	var charIDs []uuid.UUID
+	if !isDM {
+		var err error
+		charIDs, err = s.seatedCharacterIDs(ctx, campaignID, uid)
+		if err != nil {
+			return nil, err
+		}
+	}
+	v, err := s.loadVeil(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
 
 	quests, err := s.queries.ListQuestsByCampaign(ctx, campaignID)
 	if err != nil {
@@ -94,7 +160,28 @@ func (s *Server) buildQuests(ctx context.Context, campaignID uuid.UUID) ([]api.Q
 
 	out := make([]api.Quest, 0, len(quests))
 	for _, q := range quests {
-		out = append(out, toAPIQuest(q, rewardsByQuest[q.ID], claimsByQuest[q.ID], claimedByMe[q.ID]))
+		if !isDM && !v.questVisibleToAny(q, charIDs) {
+			continue
+		}
+		quest := toAPIQuest(q, rewardsByQuest[q.ID], claimsByQuest[q.ID], claimedByMe[q.ID])
+		if loc, ok := v.locations[q.LocationID.Bytes]; ok && q.LocationID.Valid {
+			// The linked place is the display name players see, so renaming a
+			// city renames it on every notice hanging there.
+			name := loc.Name
+			quest.Location = &name
+			id := loc.ID
+			quest.LocationId = &id
+		}
+		if isDM {
+			visible := q.VisibleToParty
+			quest.VisibleToParty = &visible
+			overrides := v.overridesFor(v.questOverrides[q.ID])
+			quest.Visibility = &overrides
+			// A notice can be posted and still dark because its city is veiled.
+			hidden := q.LocationID.Valid && !v.locationVisibleTo(q.LocationID.Bytes, uuid.Nil)
+			quest.HiddenByLocation = &hidden
+		}
+		out = append(out, quest)
 	}
 	return out, nil
 }

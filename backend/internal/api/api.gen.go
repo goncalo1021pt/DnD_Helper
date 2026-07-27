@@ -442,6 +442,24 @@ func (e SeatConflictMissingState) Valid() bool {
 	}
 }
 
+// Defines values for VisibilityScope.
+const (
+	VisibilityScopeCharacter VisibilityScope = "character"
+	VisibilityScopeParty     VisibilityScope = "party"
+)
+
+// Valid indicates whether the value is a known member of the VisibilityScope enum.
+func (e VisibilityScope) Valid() bool {
+	switch e {
+	case VisibilityScopeCharacter:
+		return true
+	case VisibilityScopeParty:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ContentKind.
 const (
 	Background ContentKind = "background"
@@ -845,6 +863,16 @@ type CreateEncounterRequest struct {
 	Name string `json:"name"`
 }
 
+// CreateLocationRequest defines model for CreateLocationRequest.
+type CreateLocationRequest struct {
+	Description *string             `json:"description,omitempty"`
+	Name        string              `json:"name"`
+	ParentId    *openapi_types.UUID `json:"parentId,omitempty"`
+
+	// VisibleToParty New places start veiled so the DM can draft a whole region first.
+	VisibleToParty *bool `json:"visibleToParty,omitempty"`
+}
+
 // CreateMapRequest defines model for CreateMapRequest.
 type CreateMapRequest struct {
 	// ImageBase64 The image file, base64-encoded. JPEG or PNG, up to 10 MB decoded.
@@ -858,9 +886,17 @@ type CreateQuestRequest struct {
 	Description *string          `json:"description,omitempty"`
 	Difficulty  *QuestDifficulty `json:"difficulty,omitempty"`
 	Giver       *string          `json:"giver,omitempty"`
-	Location    *string          `json:"location,omitempty"`
-	Rewards     *[]RewardInput   `json:"rewards,omitempty"`
-	Title       string           `json:"title"`
+
+	// Location Legacy freeform place name, kept for boards that predate the location tree. Ignored when locationId is set.
+	Location *string `json:"location,omitempty"`
+
+	// LocationId The place this notice hangs in. Must belong to the same campaign.
+	LocationId *openapi_types.UUID `json:"locationId,omitempty"`
+	Rewards    *[]RewardInput      `json:"rewards,omitempty"`
+	Title      string              `json:"title"`
+
+	// VisibleToParty Post it to the board straight away, or leave it drafted (false) until the DM reveals it.
+	VisibleToParty *bool `json:"visibleToParty,omitempty"`
 }
 
 // CurrentUser defines model for CurrentUser.
@@ -1040,6 +1076,33 @@ type LevelUpRequest struct {
 // LevelUpRequestHpMode defines model for LevelUpRequest.HpMode.
 type LevelUpRequestHpMode string
 
+// Location A place on a campaign's map. Locations nest to an arbitrary depth
+// (capped at 10) — a region holds cities, a city holds districts.
+type Location struct {
+	CampaignId openapi_types.UUID `json:"campaignId"`
+
+	// Depth 0 for a root location, 1 for its children, and so on.
+	Depth       int    `json:"depth"`
+	Description string `json:"description"`
+
+	// HiddenByAncestor DM-only. True when a place above this one is still veiled, so this one stays off the players' map however it is set.
+	HiddenByAncestor *bool              `json:"hiddenByAncestor,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+	Name             string             `json:"name"`
+
+	// ParentId The place this one sits inside; null for a root.
+	ParentId *openapi_types.UUID `json:"parentId,omitempty"`
+
+	// QuestCount Notices hanging here that the caller can see.
+	QuestCount int `json:"questCount"`
+
+	// Visibility DM-only. Per-hero exceptions to visibleToParty.
+	Visibility *[]VisibilityOverride `json:"visibility,omitempty"`
+
+	// VisibleToParty DM-only. The party-wide veil on this place.
+	VisibleToParty *bool `json:"visibleToParty,omitempty"`
+}
+
 // MapDetail defines model for MapDetail.
 type MapDetail struct {
 	Map  CampaignMap `json:"map"`
@@ -1129,11 +1192,23 @@ type Quest struct {
 	Description string             `json:"description"`
 	Difficulty  QuestDifficulty    `json:"difficulty"`
 	Giver       *string            `json:"giver,omitempty"`
-	Id          openapi_types.UUID `json:"id"`
-	Location    *string            `json:"location,omitempty"`
-	Rewards     []QuestReward      `json:"rewards"`
-	Status      QuestStatus        `json:"status"`
-	Title       string             `json:"title"`
+
+	// HiddenByLocation DM-only. True when the place this notice hangs in (or one above it) is still veiled, so the notice stays off the players' board however it is set.
+	HiddenByLocation *bool              `json:"hiddenByLocation,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+
+	// Location Display name of the place this notice hangs in.
+	Location   *string             `json:"location,omitempty"`
+	LocationId *openapi_types.UUID `json:"locationId,omitempty"`
+	Rewards    []QuestReward       `json:"rewards"`
+	Status     QuestStatus         `json:"status"`
+	Title      string              `json:"title"`
+
+	// Visibility DM-only. Per-hero exceptions to visibleToParty.
+	Visibility *[]VisibilityOverride `json:"visibility,omitempty"`
+
+	// VisibleToParty DM-only. The party-wide veil on this notice.
+	VisibleToParty *bool `json:"visibleToParty,omitempty"`
 }
 
 // QuestClaim defines model for QuestClaim.
@@ -1263,6 +1338,20 @@ type SetPactRequest struct {
 	TreeId openapi_types.UUID `json:"treeId"`
 }
 
+// SetVisibilityRequest defines model for SetVisibilityRequest.
+type SetVisibilityRequest struct {
+	// CharacterId Required when scope is `character`; ignored otherwise.
+	CharacterId *openapi_types.UUID `json:"characterId,omitempty"`
+
+	// Scope Who a reveal or hide applies to. `party` sets the entity's party-wide
+	// veil and clears every per-hero exception — choosing the party is
+	// choosing everyone. `character` records an exception for one hero.
+	Scope VisibilityScope `json:"scope"`
+
+	// Visible True reveals, false hides.
+	Visible bool `json:"visible"`
+}
+
 // SkillEdge defines model for SkillEdge.
 type SkillEdge struct {
 	A openapi_types.UUID `json:"a"`
@@ -1379,6 +1468,15 @@ type UpdateEncounterRequest struct {
 	TurnIndex *int    `json:"turnIndex,omitempty"`
 }
 
+// UpdateLocationRequest defines model for UpdateLocationRequest.
+type UpdateLocationRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+
+	// ParentId Move the place under a new parent; null makes it a root. A place cannot be moved inside itself.
+	ParentId *openapi_types.UUID `json:"parentId,omitempty"`
+}
+
 // UpdateMapRequest defines model for UpdateMapRequest.
 type UpdateMapRequest struct {
 	// FogEnabled Omit to leave the fog as it is.
@@ -1392,10 +1490,18 @@ type UpdateQuestRequest struct {
 	Description *string         `json:"description,omitempty"`
 	Difficulty  QuestDifficulty `json:"difficulty"`
 	Giver       *string         `json:"giver,omitempty"`
-	Location    *string         `json:"location,omitempty"`
-	Rewards     *[]RewardInput  `json:"rewards,omitempty"`
-	Status      QuestStatus     `json:"status"`
-	Title       string          `json:"title"`
+
+	// Location Legacy freeform place name. Ignored when locationId is set.
+	Location *string `json:"location,omitempty"`
+
+	// LocationId The place this notice hangs in; null unpins it.
+	LocationId *openapi_types.UUID `json:"locationId,omitempty"`
+	Rewards    *[]RewardInput      `json:"rewards,omitempty"`
+	Status     QuestStatus         `json:"status"`
+	Title      string              `json:"title"`
+
+	// VisibleToParty Omit to leave the party-wide veil as it is.
+	VisibleToParty *bool `json:"visibleToParty,omitempty"`
 }
 
 // User defines model for User.
@@ -1416,6 +1522,18 @@ type User struct {
 	TwofaEnabled bool `json:"twofaEnabled"`
 }
 
+// VisibilityOverride A single hero's exception to the party-wide veil.
+type VisibilityOverride struct {
+	CharacterId   openapi_types.UUID `json:"characterId"`
+	CharacterName string             `json:"characterName"`
+	Visible       bool               `json:"visible"`
+}
+
+// VisibilityScope Who a reveal or hide applies to. `party` sets the entity's party-wide
+// veil and clears every per-hero exception — choosing the party is
+// choosing everyone. `character` records an exception for one hero.
+type VisibilityScope string
+
 // CampaignId defines model for CampaignId.
 type CampaignId = openapi_types.UUID
 
@@ -1430,6 +1548,9 @@ type ContentKind string
 
 // EncounterId defines model for EncounterId.
 type EncounterId = openapi_types.UUID
+
+// LocationId defines model for LocationId.
+type LocationId = openapi_types.UUID
 
 // MapId defines model for MapId.
 type MapId = openapi_types.UUID
@@ -1596,6 +1717,9 @@ type CreateEncounterJSONRequestBody = CreateEncounterRequest
 // AddChronicleNoteJSONRequestBody defines body for AddChronicleNote for application/json ContentType.
 type AddChronicleNoteJSONRequestBody AddChronicleNoteJSONBody
 
+// CreateLocationJSONRequestBody defines body for CreateLocation for application/json ContentType.
+type CreateLocationJSONRequestBody = CreateLocationRequest
+
 // CreateMapJSONRequestBody defines body for CreateMap for application/json ContentType.
 type CreateMapJSONRequestBody = CreateMapRequest
 
@@ -1662,6 +1786,12 @@ type UpdateEncounterJSONRequestBody = UpdateEncounterRequest
 // AddCombatantJSONRequestBody defines body for AddCombatant for application/json ContentType.
 type AddCombatantJSONRequestBody = AddCombatantRequest
 
+// UpdateLocationJSONRequestBody defines body for UpdateLocation for application/json ContentType.
+type UpdateLocationJSONRequestBody = UpdateLocationRequest
+
+// SetLocationVisibilityJSONRequestBody defines body for SetLocationVisibility for application/json ContentType.
+type SetLocationVisibilityJSONRequestBody = SetVisibilityRequest
+
 // UpdateMapJSONRequestBody defines body for UpdateMap for application/json ContentType.
 type UpdateMapJSONRequestBody = UpdateMapRequest
 
@@ -1685,6 +1815,9 @@ type UpdateMapPinJSONRequestBody = MapPinInput
 
 // UpdateQuestJSONRequestBody defines body for UpdateQuest for application/json ContentType.
 type UpdateQuestJSONRequestBody = UpdateQuestRequest
+
+// SetQuestVisibilityJSONRequestBody defines body for SetQuestVisibility for application/json ContentType.
+type SetQuestVisibilityJSONRequestBody = SetVisibilityRequest
 
 // UpdateRulesContentJSONRequestBody defines body for UpdateRulesContent for application/json ContentType.
 type UpdateRulesContentJSONRequestBody = RulesContentInput
@@ -1784,6 +1917,12 @@ type ServerInterface interface {
 	// Write an entry into the chronicle (any member; players post to player chat)
 	// (POST /campaigns/{campaignId}/events)
 	AddChronicleNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// The campaign's place tree (members only). The DM sees every place; players see only what is unveiled to them.
+	// (GET /campaigns/{campaignId}/locations)
+	ListLocations(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
+	// Chart a new place (DM only)
+	// (POST /campaigns/{campaignId}/locations)
+	CreateLocation(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
 	// The campaign atlas — every map, no image bytes (members)
 	// (GET /campaigns/{campaignId}/maps)
 	ListMaps(w http.ResponseWriter, r *http.Request, campaignId CampaignId)
@@ -1910,6 +2049,18 @@ type ServerInterface interface {
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// Erase a place and everything nested inside it (DM only). Notices hanging there are unpinned, not deleted.
+	// (DELETE /locations/{locationId})
+	DeleteLocation(w http.ResponseWriter, r *http.Request, locationId LocationId)
+	// Rename, redescribe, or move a place (DM only)
+	// (PATCH /locations/{locationId})
+	UpdateLocation(w http.ResponseWriter, r *http.Request, locationId LocationId)
+	// Reveal or veil a place, for the whole party or for one hero (DM only)
+	// (PUT /locations/{locationId}/visibility)
+	SetLocationVisibility(w http.ResponseWriter, r *http.Request, locationId LocationId)
+	// Drop one hero's exception so they follow the party again (DM only)
+	// (DELETE /locations/{locationId}/visibility/{characterId})
+	ClearLocationVisibilityOverride(w http.ResponseWriter, r *http.Request, locationId LocationId, characterId CharacterId)
 	// Strike a map and all its pins (DM only)
 	// (DELETE /maps/{mapId})
 	DeleteMap(w http.ResponseWriter, r *http.Request, mapId MapId)
@@ -1967,6 +2118,12 @@ type ServerInterface interface {
 	// Claim a quest (any campaign member)
 	// (POST /quests/{questId}/claim)
 	ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId)
+	// Reveal or veil a notice, for the whole party or for one hero (DM only)
+	// (PUT /quests/{questId}/visibility)
+	SetQuestVisibility(w http.ResponseWriter, r *http.Request, questId QuestId)
+	// Drop one hero's exception so they follow the party again (DM only)
+	// (DELETE /quests/{questId}/visibility/{characterId})
+	ClearQuestVisibilityOverride(w http.ResponseWriter, r *http.Request, questId QuestId, characterId CharacterId)
 	// Tear a batch out of the ledger — its area fogs over again (DM only)
 	// (DELETE /reveals/{batchId})
 	DeleteReveals(w http.ResponseWriter, r *http.Request, batchId openapi_types.UUID)
@@ -2171,6 +2328,18 @@ func (_ Unimplemented) ListEvents(w http.ResponseWriter, r *http.Request, campai
 // Write an entry into the chronicle (any member; players post to player chat)
 // (POST /campaigns/{campaignId}/events)
 func (_ Unimplemented) AddChronicleNote(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// The campaign's place tree (members only). The DM sees every place; players see only what is unveiled to them.
+// (GET /campaigns/{campaignId}/locations)
+func (_ Unimplemented) ListLocations(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Chart a new place (DM only)
+// (POST /campaigns/{campaignId}/locations)
+func (_ Unimplemented) CreateLocation(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -2426,6 +2595,30 @@ func (_ Unimplemented) GetHealth(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Erase a place and everything nested inside it (DM only). Notices hanging there are unpinned, not deleted.
+// (DELETE /locations/{locationId})
+func (_ Unimplemented) DeleteLocation(w http.ResponseWriter, r *http.Request, locationId LocationId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Rename, redescribe, or move a place (DM only)
+// (PATCH /locations/{locationId})
+func (_ Unimplemented) UpdateLocation(w http.ResponseWriter, r *http.Request, locationId LocationId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Reveal or veil a place, for the whole party or for one hero (DM only)
+// (PUT /locations/{locationId}/visibility)
+func (_ Unimplemented) SetLocationVisibility(w http.ResponseWriter, r *http.Request, locationId LocationId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Drop one hero's exception so they follow the party again (DM only)
+// (DELETE /locations/{locationId}/visibility/{characterId})
+func (_ Unimplemented) ClearLocationVisibilityOverride(w http.ResponseWriter, r *http.Request, locationId LocationId, characterId CharacterId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Strike a map and all its pins (DM only)
 // (DELETE /maps/{mapId})
 func (_ Unimplemented) DeleteMap(w http.ResponseWriter, r *http.Request, mapId MapId) {
@@ -2537,6 +2730,18 @@ func (_ Unimplemented) UnclaimQuest(w http.ResponseWriter, r *http.Request, ques
 // Claim a quest (any campaign member)
 // (POST /quests/{questId}/claim)
 func (_ Unimplemented) ClaimQuest(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Reveal or veil a notice, for the whole party or for one hero (DM only)
+// (PUT /quests/{questId}/visibility)
+func (_ Unimplemented) SetQuestVisibility(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Drop one hero's exception so they follow the party again (DM only)
+// (DELETE /quests/{questId}/visibility/{characterId})
+func (_ Unimplemented) ClearQuestVisibilityOverride(w http.ResponseWriter, r *http.Request, questId QuestId, characterId CharacterId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -3527,6 +3732,70 @@ func (siw *ServerInterfaceWrapper) AddChronicleNote(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddChronicleNote(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListLocations operation middleware
+func (siw *ServerInterfaceWrapper) ListLocations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListLocations(w, r, campaignId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateLocation operation middleware
+func (siw *ServerInterfaceWrapper) CreateLocation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "campaignId" -------------
+	var campaignId CampaignId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "campaignId", chi.URLParam(r, "campaignId"), &campaignId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "campaignId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateLocation(w, r, campaignId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4916,6 +5185,143 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteLocation operation middleware
+func (siw *ServerInterfaceWrapper) DeleteLocation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "locationId" -------------
+	var locationId LocationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locationId", chi.URLParam(r, "locationId"), &locationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locationId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteLocation(w, r, locationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateLocation operation middleware
+func (siw *ServerInterfaceWrapper) UpdateLocation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "locationId" -------------
+	var locationId LocationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locationId", chi.URLParam(r, "locationId"), &locationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locationId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateLocation(w, r, locationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetLocationVisibility operation middleware
+func (siw *ServerInterfaceWrapper) SetLocationVisibility(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "locationId" -------------
+	var locationId LocationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locationId", chi.URLParam(r, "locationId"), &locationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locationId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetLocationVisibility(w, r, locationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClearLocationVisibilityOverride operation middleware
+func (siw *ServerInterfaceWrapper) ClearLocationVisibilityOverride(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "locationId" -------------
+	var locationId LocationId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "locationId", chi.URLParam(r, "locationId"), &locationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locationId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "characterId" -------------
+	var characterId CharacterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "characterId", chi.URLParam(r, "characterId"), &characterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "characterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearLocationVisibilityOverride(w, r, locationId, characterId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeleteMap operation middleware
 func (siw *ServerInterfaceWrapper) DeleteMap(w http.ResponseWriter, r *http.Request) {
 
@@ -5455,6 +5861,79 @@ func (siw *ServerInterfaceWrapper) ClaimQuest(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ClaimQuest(w, r, questId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetQuestVisibility operation middleware
+func (siw *ServerInterfaceWrapper) SetQuestVisibility(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "questId" -------------
+	var questId QuestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "questId", chi.URLParam(r, "questId"), &questId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "questId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetQuestVisibility(w, r, questId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClearQuestVisibilityOverride operation middleware
+func (siw *ServerInterfaceWrapper) ClearQuestVisibilityOverride(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "questId" -------------
+	var questId QuestId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "questId", chi.URLParam(r, "questId"), &questId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "questId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "characterId" -------------
+	var characterId CharacterId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "characterId", chi.URLParam(r, "characterId"), &characterId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "characterId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionCookieScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearQuestVisibilityOverride(w, r, questId, characterId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6108,6 +6587,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/campaigns/{campaignId}/events", wrapper.AddChronicleNote)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/campaigns/{campaignId}/locations", wrapper.ListLocations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/campaigns/{campaignId}/locations", wrapper.CreateLocation)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/campaigns/{campaignId}/maps", wrapper.ListMaps)
 	})
 	r.Group(func(r chi.Router) {
@@ -6234,6 +6719,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/health", wrapper.GetHealth)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/locations/{locationId}", wrapper.DeleteLocation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/locations/{locationId}", wrapper.UpdateLocation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/locations/{locationId}/visibility", wrapper.SetLocationVisibility)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/locations/{locationId}/visibility/{characterId}", wrapper.ClearLocationVisibilityOverride)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/maps/{mapId}", wrapper.DeleteMap)
 	})
 	r.Group(func(r chi.Router) {
@@ -6289,6 +6786,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/quests/{questId}/claim", wrapper.ClaimQuest)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/quests/{questId}/visibility", wrapper.SetQuestVisibility)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/quests/{questId}/visibility/{characterId}", wrapper.ClearQuestVisibilityOverride)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/reveals/{batchId}", wrapper.DeleteReveals)
@@ -7888,6 +8391,121 @@ func (response AddChronicleNote401JSONResponse) VisitAddChronicleNoteResponse(w 
 type AddChronicleNote403JSONResponse struct{ ForbiddenJSONResponse }
 
 func (response AddChronicleNote403JSONResponse) VisitAddChronicleNoteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLocationsRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+}
+
+type ListLocationsResponseObject interface {
+	VisitListLocationsResponse(w http.ResponseWriter) error
+}
+
+type ListLocations200JSONResponse []Location
+
+func (response ListLocations200JSONResponse) VisitListLocationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLocations401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListLocations401JSONResponse) VisitListLocationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLocations403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListLocations403JSONResponse) VisitListLocationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLocationRequestObject struct {
+	CampaignId CampaignId `json:"campaignId"`
+	Body       *CreateLocationJSONRequestBody
+}
+
+type CreateLocationResponseObject interface {
+	VisitCreateLocationResponse(w http.ResponseWriter) error
+}
+
+type CreateLocation201JSONResponse Location
+
+func (response CreateLocation201JSONResponse) VisitCreateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLocation400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateLocation400JSONResponse) VisitCreateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLocation401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateLocation401JSONResponse) VisitCreateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLocation403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateLocation403JSONResponse) VisitCreateLocationResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -10708,6 +11326,287 @@ func (response GetHealth503JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	return err
 }
 
+type DeleteLocationRequestObject struct {
+	LocationId LocationId `json:"locationId"`
+}
+
+type DeleteLocationResponseObject interface {
+	VisitDeleteLocationResponse(w http.ResponseWriter) error
+}
+
+type DeleteLocation204Response struct {
+}
+
+func (response DeleteLocation204Response) VisitDeleteLocationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteLocation401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteLocation401JSONResponse) VisitDeleteLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteLocation403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteLocation403JSONResponse) VisitDeleteLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteLocation404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteLocation404JSONResponse) VisitDeleteLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocationRequestObject struct {
+	LocationId LocationId `json:"locationId"`
+	Body       *UpdateLocationJSONRequestBody
+}
+
+type UpdateLocationResponseObject interface {
+	VisitUpdateLocationResponse(w http.ResponseWriter) error
+}
+
+type UpdateLocation200JSONResponse Location
+
+func (response UpdateLocation200JSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocation400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response UpdateLocation400JSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocation401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response UpdateLocation401JSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocation403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateLocation403JSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateLocation404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateLocation404JSONResponse) VisitUpdateLocationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLocationVisibilityRequestObject struct {
+	LocationId LocationId `json:"locationId"`
+	Body       *SetLocationVisibilityJSONRequestBody
+}
+
+type SetLocationVisibilityResponseObject interface {
+	VisitSetLocationVisibilityResponse(w http.ResponseWriter) error
+}
+
+type SetLocationVisibility200JSONResponse Location
+
+func (response SetLocationVisibility200JSONResponse) VisitSetLocationVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLocationVisibility400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SetLocationVisibility400JSONResponse) VisitSetLocationVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLocationVisibility401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetLocationVisibility401JSONResponse) VisitSetLocationVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLocationVisibility403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetLocationVisibility403JSONResponse) VisitSetLocationVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLocationVisibility404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetLocationVisibility404JSONResponse) VisitSetLocationVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearLocationVisibilityOverrideRequestObject struct {
+	LocationId  LocationId  `json:"locationId"`
+	CharacterId CharacterId `json:"characterId"`
+}
+
+type ClearLocationVisibilityOverrideResponseObject interface {
+	VisitClearLocationVisibilityOverrideResponse(w http.ResponseWriter) error
+}
+
+type ClearLocationVisibilityOverride200JSONResponse Location
+
+func (response ClearLocationVisibilityOverride200JSONResponse) VisitClearLocationVisibilityOverrideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearLocationVisibilityOverride401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ClearLocationVisibilityOverride401JSONResponse) VisitClearLocationVisibilityOverrideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearLocationVisibilityOverride403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ClearLocationVisibilityOverride403JSONResponse) VisitClearLocationVisibilityOverrideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearLocationVisibilityOverride404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ClearLocationVisibilityOverride404JSONResponse) VisitClearLocationVisibilityOverrideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteMapRequestObject struct {
 	MapId MapId `json:"mapId"`
 }
@@ -11875,6 +12774,150 @@ func (response ClaimQuest404JSONResponse) VisitClaimQuestResponse(w http.Respons
 	return err
 }
 
+type SetQuestVisibilityRequestObject struct {
+	QuestId QuestId `json:"questId"`
+	Body    *SetQuestVisibilityJSONRequestBody
+}
+
+type SetQuestVisibilityResponseObject interface {
+	VisitSetQuestVisibilityResponse(w http.ResponseWriter) error
+}
+
+type SetQuestVisibility200JSONResponse Quest
+
+func (response SetQuestVisibility200JSONResponse) VisitSetQuestVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetQuestVisibility400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SetQuestVisibility400JSONResponse) VisitSetQuestVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetQuestVisibility401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SetQuestVisibility401JSONResponse) VisitSetQuestVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetQuestVisibility403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetQuestVisibility403JSONResponse) VisitSetQuestVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetQuestVisibility404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetQuestVisibility404JSONResponse) VisitSetQuestVisibilityResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearQuestVisibilityOverrideRequestObject struct {
+	QuestId     QuestId     `json:"questId"`
+	CharacterId CharacterId `json:"characterId"`
+}
+
+type ClearQuestVisibilityOverrideResponseObject interface {
+	VisitClearQuestVisibilityOverrideResponse(w http.ResponseWriter) error
+}
+
+type ClearQuestVisibilityOverride200JSONResponse Quest
+
+func (response ClearQuestVisibilityOverride200JSONResponse) VisitClearQuestVisibilityOverrideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearQuestVisibilityOverride401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ClearQuestVisibilityOverride401JSONResponse) VisitClearQuestVisibilityOverrideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearQuestVisibilityOverride403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ClearQuestVisibilityOverride403JSONResponse) VisitClearQuestVisibilityOverrideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearQuestVisibilityOverride404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ClearQuestVisibilityOverride404JSONResponse) VisitClearQuestVisibilityOverrideResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeleteRevealsRequestObject struct {
 	BatchId openapi_types.UUID `json:"batchId"`
 }
@@ -12805,6 +13848,12 @@ type StrictServerInterface interface {
 	// Write an entry into the chronicle (any member; players post to player chat)
 	// (POST /campaigns/{campaignId}/events)
 	AddChronicleNote(ctx context.Context, request AddChronicleNoteRequestObject) (AddChronicleNoteResponseObject, error)
+	// The campaign's place tree (members only). The DM sees every place; players see only what is unveiled to them.
+	// (GET /campaigns/{campaignId}/locations)
+	ListLocations(ctx context.Context, request ListLocationsRequestObject) (ListLocationsResponseObject, error)
+	// Chart a new place (DM only)
+	// (POST /campaigns/{campaignId}/locations)
+	CreateLocation(ctx context.Context, request CreateLocationRequestObject) (CreateLocationResponseObject, error)
 	// The campaign atlas — every map, no image bytes (members)
 	// (GET /campaigns/{campaignId}/maps)
 	ListMaps(ctx context.Context, request ListMapsRequestObject) (ListMapsResponseObject, error)
@@ -12931,6 +13980,18 @@ type StrictServerInterface interface {
 	// Liveness / readiness probe
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// Erase a place and everything nested inside it (DM only). Notices hanging there are unpinned, not deleted.
+	// (DELETE /locations/{locationId})
+	DeleteLocation(ctx context.Context, request DeleteLocationRequestObject) (DeleteLocationResponseObject, error)
+	// Rename, redescribe, or move a place (DM only)
+	// (PATCH /locations/{locationId})
+	UpdateLocation(ctx context.Context, request UpdateLocationRequestObject) (UpdateLocationResponseObject, error)
+	// Reveal or veil a place, for the whole party or for one hero (DM only)
+	// (PUT /locations/{locationId}/visibility)
+	SetLocationVisibility(ctx context.Context, request SetLocationVisibilityRequestObject) (SetLocationVisibilityResponseObject, error)
+	// Drop one hero's exception so they follow the party again (DM only)
+	// (DELETE /locations/{locationId}/visibility/{characterId})
+	ClearLocationVisibilityOverride(ctx context.Context, request ClearLocationVisibilityOverrideRequestObject) (ClearLocationVisibilityOverrideResponseObject, error)
 	// Strike a map and all its pins (DM only)
 	// (DELETE /maps/{mapId})
 	DeleteMap(ctx context.Context, request DeleteMapRequestObject) (DeleteMapResponseObject, error)
@@ -12988,6 +14049,12 @@ type StrictServerInterface interface {
 	// Claim a quest (any campaign member)
 	// (POST /quests/{questId}/claim)
 	ClaimQuest(ctx context.Context, request ClaimQuestRequestObject) (ClaimQuestResponseObject, error)
+	// Reveal or veil a notice, for the whole party or for one hero (DM only)
+	// (PUT /quests/{questId}/visibility)
+	SetQuestVisibility(ctx context.Context, request SetQuestVisibilityRequestObject) (SetQuestVisibilityResponseObject, error)
+	// Drop one hero's exception so they follow the party again (DM only)
+	// (DELETE /quests/{questId}/visibility/{characterId})
+	ClearQuestVisibilityOverride(ctx context.Context, request ClearQuestVisibilityOverrideRequestObject) (ClearQuestVisibilityOverrideResponseObject, error)
 	// Tear a batch out of the ledger — its area fogs over again (DM only)
 	// (DELETE /reveals/{batchId})
 	DeleteReveals(ctx context.Context, request DeleteRevealsRequestObject) (DeleteRevealsResponseObject, error)
@@ -13820,6 +14887,65 @@ func (sh *strictHandler) AddChronicleNote(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AddChronicleNoteResponseObject); ok {
 		if err := validResponse.VisitAddChronicleNoteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListLocations operation middleware
+func (sh *strictHandler) ListLocations(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request ListLocationsRequestObject
+
+	request.CampaignId = campaignId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListLocations(ctx, request.(ListLocationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListLocations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListLocationsResponseObject); ok {
+		if err := validResponse.VisitListLocationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateLocation operation middleware
+func (sh *strictHandler) CreateLocation(w http.ResponseWriter, r *http.Request, campaignId CampaignId) {
+	var request CreateLocationRequestObject
+
+	request.CampaignId = campaignId
+
+	var body CreateLocationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateLocation(ctx, request.(CreateLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateLocation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateLocationResponseObject); ok {
+		if err := validResponse.VisitCreateLocationResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -15083,6 +16209,125 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteLocation operation middleware
+func (sh *strictHandler) DeleteLocation(w http.ResponseWriter, r *http.Request, locationId LocationId) {
+	var request DeleteLocationRequestObject
+
+	request.LocationId = locationId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteLocation(ctx, request.(DeleteLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteLocation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteLocationResponseObject); ok {
+		if err := validResponse.VisitDeleteLocationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateLocation operation middleware
+func (sh *strictHandler) UpdateLocation(w http.ResponseWriter, r *http.Request, locationId LocationId) {
+	var request UpdateLocationRequestObject
+
+	request.LocationId = locationId
+
+	var body UpdateLocationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateLocation(ctx, request.(UpdateLocationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateLocation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateLocationResponseObject); ok {
+		if err := validResponse.VisitUpdateLocationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetLocationVisibility operation middleware
+func (sh *strictHandler) SetLocationVisibility(w http.ResponseWriter, r *http.Request, locationId LocationId) {
+	var request SetLocationVisibilityRequestObject
+
+	request.LocationId = locationId
+
+	var body SetLocationVisibilityJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetLocationVisibility(ctx, request.(SetLocationVisibilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetLocationVisibility")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetLocationVisibilityResponseObject); ok {
+		if err := validResponse.VisitSetLocationVisibilityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClearLocationVisibilityOverride operation middleware
+func (sh *strictHandler) ClearLocationVisibilityOverride(w http.ResponseWriter, r *http.Request, locationId LocationId, characterId CharacterId) {
+	var request ClearLocationVisibilityOverrideRequestObject
+
+	request.LocationId = locationId
+	request.CharacterId = characterId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearLocationVisibilityOverride(ctx, request.(ClearLocationVisibilityOverrideRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearLocationVisibilityOverride")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearLocationVisibilityOverrideResponseObject); ok {
+		if err := validResponse.VisitClearLocationVisibilityOverrideResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DeleteMap operation middleware
 func (sh *strictHandler) DeleteMap(w http.ResponseWriter, r *http.Request, mapId MapId) {
 	var request DeleteMapRequestObject
@@ -15623,6 +16868,66 @@ func (sh *strictHandler) ClaimQuest(w http.ResponseWriter, r *http.Request, ques
 	}
 }
 
+// SetQuestVisibility operation middleware
+func (sh *strictHandler) SetQuestVisibility(w http.ResponseWriter, r *http.Request, questId QuestId) {
+	var request SetQuestVisibilityRequestObject
+
+	request.QuestId = questId
+
+	var body SetQuestVisibilityJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetQuestVisibility(ctx, request.(SetQuestVisibilityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetQuestVisibility")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetQuestVisibilityResponseObject); ok {
+		if err := validResponse.VisitSetQuestVisibilityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClearQuestVisibilityOverride operation middleware
+func (sh *strictHandler) ClearQuestVisibilityOverride(w http.ResponseWriter, r *http.Request, questId QuestId, characterId CharacterId) {
+	var request ClearQuestVisibilityOverrideRequestObject
+
+	request.QuestId = questId
+	request.CharacterId = characterId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearQuestVisibilityOverride(ctx, request.(ClearQuestVisibilityOverrideRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearQuestVisibilityOverride")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearQuestVisibilityOverrideResponseObject); ok {
+		if err := validResponse.VisitClearQuestVisibilityOverrideResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // DeleteReveals operation middleware
 func (sh *strictHandler) DeleteReveals(w http.ResponseWriter, r *http.Request, batchId openapi_types.UUID) {
 	var request DeleteRevealsRequestObject
@@ -16052,230 +17357,252 @@ func (sh *strictHandler) CreateNode(w http.ResponseWriter, r *http.Request, tree
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"wQnL+ODbL9/+bwAAAP//",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

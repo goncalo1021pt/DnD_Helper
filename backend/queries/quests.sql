@@ -5,19 +5,21 @@ SELECT * FROM quests WHERE campaign_id = $1 ORDER BY created_at DESC;
 SELECT * FROM quests WHERE id = $1;
 
 -- name: CreateQuest :one
-INSERT INTO quests (campaign_id, title, description, giver, location, difficulty, status, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO quests (campaign_id, title, description, giver, location, location_id, visible_to_party, difficulty, status, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: UpdateQuest :one
 UPDATE quests
-SET title       = $2,
-    description = $3,
-    giver       = $4,
-    location    = $5,
-    difficulty  = $6,
-    status      = $7,
-    updated_at  = now()
+SET title            = $2,
+    description      = $3,
+    giver            = $4,
+    location         = $5,
+    location_id      = $6,
+    visible_to_party = $7,
+    difficulty       = $8,
+    status           = $9,
+    updated_at       = now()
 WHERE id = $1
 RETURNING *;
 
@@ -54,3 +56,31 @@ ON CONFLICT (quest_id, user_id) DO NOTHING;
 
 -- name: UnclaimQuest :exec
 DELETE FROM quest_claims WHERE quest_id = $1 AND user_id = $2;
+
+-- Visibility: a party-wide flag on the quest plus per-hero exceptions.
+
+-- name: SetQuestPartyVisibility :one
+UPDATE quests
+SET visible_to_party = $2,
+    updated_at       = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: SetQuestOverride :exec
+INSERT INTO quest_visibility (quest_id, character_id, visible)
+VALUES ($1, $2, $3)
+ON CONFLICT (quest_id, character_id)
+DO UPDATE SET visible = EXCLUDED.visible, updated_at = now();
+
+-- name: DeleteQuestOverride :exec
+DELETE FROM quest_visibility WHERE quest_id = $1 AND character_id = $2;
+
+-- name: ClearQuestOverrides :exec
+DELETE FROM quest_visibility WHERE quest_id = $1;
+
+-- name: ListQuestVisibilityByCampaign :many
+SELECT v.quest_id, v.character_id, v.visible, c.name AS character_name
+FROM quest_visibility v
+JOIN quests q ON q.id = v.quest_id
+JOIN characters c ON c.id = v.character_id
+WHERE q.campaign_id = $1;

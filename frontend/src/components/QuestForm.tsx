@@ -1,11 +1,12 @@
 import { useState } from "react";
 import type {
+  Location,
   QuestDifficulty,
   QuestStatus,
   RewardInput,
   RewardType,
 } from "../api/client";
-import { IconPlus, IconX } from "./ui/icons";
+import { IconEye, IconEyeOff, IconPlus, IconX } from "./ui/icons";
 
 const DIFFICULTIES: QuestDifficulty[] = ["trivial", "easy", "medium", "hard", "deadly"];
 const STATUSES: QuestStatus[] = ["available", "active", "completed", "failed"];
@@ -33,7 +34,11 @@ export interface QuestFormValues {
   title: string;
   description: string;
   giver: string;
+  /* Legacy freeform place, still offered to boards with no places charted. */
   location: string;
+  /* The charted place this notice hangs in; null means nowhere in particular. */
+  locationId: string | null;
+  visibleToParty: boolean;
   difficulty: QuestDifficulty;
   status: QuestStatus;
   rewards: RewardInput[];
@@ -44,6 +49,8 @@ export const emptyQuest: QuestFormValues = {
   description: "",
   giver: "",
   location: "",
+  locationId: null,
+  visibleToParty: true,
   difficulty: "medium",
   status: "available",
   rewards: [],
@@ -69,6 +76,7 @@ export default function QuestForm({
   mode,
   isPending,
   errorText,
+  locations,
   onSubmit,
   onCancel,
 }: {
@@ -76,6 +84,7 @@ export default function QuestForm({
   mode: "create" | "edit";
   isPending: boolean;
   errorText?: string;
+  locations: Location[];
   onSubmit: (values: QuestFormValues) => void;
   onCancel?: () => void;
 }) {
@@ -137,14 +146,32 @@ export default function QuestForm({
             onChange={(e) => set("giver", e.target.value)}
           />
         </Field>
-        <Field label="Where">
-          <input
-            className={input}
-            placeholder="The Prancing Pony, Bree"
-            value={v.location}
-            onChange={(e) => set("location", e.target.value)}
-          />
-        </Field>
+        {locations.length > 0 ? (
+          <Field label="Where">
+            <select
+              className={`${input} cursor-pointer`}
+              value={v.locationId ?? ""}
+              onChange={(e) => set("locationId", e.target.value || null)}
+            >
+              <option value="">— nowhere in particular —</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {"— ".repeat(l.depth)}
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Field label="Where">
+            <input
+              className={input}
+              placeholder="The Prancing Pony, Bree"
+              value={v.location}
+              onChange={(e) => set("location", e.target.value)}
+            />
+          </Field>
+        )}
         <Field label="Difficulty">
           <select
             className={`${input} cursor-pointer`}
@@ -174,6 +201,19 @@ export default function QuestForm({
           </Field>
         )}
       </div>
+
+      {/* Drafting: a notice can be written now and pinned up later. Per-hero
+          reveals live on the card itself, once the notice exists. */}
+      <button
+        type="button"
+        onClick={() => set("visibleToParty", !v.visibleToParty)}
+        className={`btn-base ${
+          v.visibleToParty ? "btn-wax" : "btn-ghost-ink"
+        } self-start px-3.5 py-2 text-[11px]`}
+      >
+        {v.visibleToParty ? <IconEye size={14} /> : <IconEyeOff size={14} />}
+        {v.visibleToParty ? "The party can see this" : "Drafted — hidden from the party"}
+      </button>
 
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">

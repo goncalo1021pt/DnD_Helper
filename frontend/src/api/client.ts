@@ -32,6 +32,16 @@ export type UpdateQuestInput =
   paths["/quests/{questId}"]["patch"]["requestBody"]["content"]["application/json"];
 export type RewardInput = NonNullable<CreateQuestInput["rewards"]>[number];
 
+export type Location =
+  paths["/campaigns/{campaignId}/locations"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type CreateLocationInput =
+  paths["/campaigns/{campaignId}/locations"]["post"]["requestBody"]["content"]["application/json"];
+export type UpdateLocationInput =
+  paths["/locations/{locationId}"]["patch"]["requestBody"]["content"]["application/json"];
+export type SetVisibilityInput =
+  paths["/locations/{locationId}/visibility"]["put"]["requestBody"]["content"]["application/json"];
+export type VisibilityOverride = NonNullable<Location["visibility"]>[number];
+
 export type Character =
   paths["/campaigns/{campaignId}/characters"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type CharacterInput =

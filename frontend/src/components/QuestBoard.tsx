@@ -1,23 +1,50 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import { useCreateQuest, useQuests } from "../hooks";
+import type { Location } from "../api/client";
+import { useCharacters, useCreateQuest, useLocations, useQuests } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
+import PlacesManager from "./PlacesManager";
 import QuestCard from "./QuestCard";
 import QuestForm, { emptyQuest } from "./QuestForm";
 import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconCheckSquare, IconFolder, IconPlus } from "./ui/icons";
+import { IconCheckSquare, IconFolder, IconMapPin, IconPlus } from "./ui/icons";
+
+/* Every place at or below the chosen one — picking a realm shows the notices in
+   its cities too, which is what "show me Portugal" ought to mean. */
+function locationAndDescendants(locations: Location[], rootId: string): Set<string> {
+  const ids = new Set([rootId]);
+  // Locations arrive parents-first, so one pass settles the whole subtree.
+  for (const l of locations) {
+    if (l.parentId && ids.has(l.parentId)) ids.add(l.id);
+  }
+  return ids;
+}
 
 export default function QuestBoard() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
   const { data: quests, isLoading } = useQuests(campaign.id);
+  const { data: locations } = useLocations(campaign.id);
+  const { data: characters } = useCharacters(campaign.id);
   const createQuest = useCreateQuest(campaign.id);
   const [posting, setPosting] = useState(false);
+  const [mapping, setMapping] = useState(false);
+  const [place, setPlace] = useState<string>("");
 
-  const availableCount = quests?.filter((q) => q.status === "available").length ?? 0;
-  const activeCount = quests?.filter((q) => q.status === "active").length ?? 0;
-  const myClaims = quests?.filter((q) => q.claimedByMe).length ?? 0;
+  const places = useMemo(() => locations ?? [], [locations]);
+
+  const shown = useMemo(() => {
+    if (!quests) return [];
+    if (!place) return quests;
+    if (place === "none") return quests.filter((q) => !q.locationId);
+    const within = locationAndDescendants(places, place);
+    return quests.filter((q) => q.locationId && within.has(q.locationId));
+  }, [quests, places, place]);
+
+  const availableCount = shown.filter((q) => q.status === "available").length;
+  const activeCount = shown.filter((q) => q.status === "active").length;
+  const myClaims = shown.filter((q) => q.claimedByMe).length;
 
   return (
     <div className="panel-hall px-5 pb-28 pt-8 sm:px-[30px] sm:pb-11">
@@ -38,34 +65,92 @@ export default function QuestBoard() {
           </span>
         </div>
 
-        {isDM ? (
-          <button
-            onClick={() => setPosting(true)}
-            className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
-          >
-            <IconPlus size={15} strokeWidth={2} />
-            Post a Quest
-          </button>
-        ) : (
-          <div className="chip-hall px-[15px] py-[9px]">
-            <span className="text-gold-hair">
-              <IconCheckSquare size={16} />
-            </span>
-            <span className="label-stamp text-[11px] font-semibold text-[#e6d5af]">
-              {myClaims} claimed by you
-            </span>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {isDM && (
+            <button
+              onClick={() => setMapping(true)}
+              className="btn-base btn-ghost-gold clip-octagon h-10 px-4 text-[13px]"
+            >
+              <IconMapPin size={15} strokeWidth={2} />
+              Places
+            </button>
+          )}
+          {isDM ? (
+            <button
+              onClick={() => setPosting(true)}
+              className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
+            >
+              <IconPlus size={15} strokeWidth={2} />
+              Post a Quest
+            </button>
+          ) : (
+            <div className="chip-hall px-[15px] py-[9px]">
+              <span className="text-gold-hair">
+                <IconCheckSquare size={16} />
+              </span>
+              <span className="label-stamp text-[11px] font-semibold text-[#e6d5af]">
+                {myClaims} claimed by you
+              </span>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* place filter — the board narrows to one corner of the map */}
+      {places.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2.5">
+          <span className="label-stamp text-[10px] tracking-[2px] text-gold-muted">
+            Where
+          </span>
+          <button
+            onClick={() => setPlace("")}
+            className={`btn-base clip-octagon px-3.5 py-2 text-[11px] ${
+              place === "" ? "btn-gold" : "btn-ghost-gold"
+            }`}
+          >
+            Everywhere
+          </button>
+          {places.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => setPlace(l.id)}
+              title={l.depth > 0 ? "Nested place" : undefined}
+              className={`btn-base clip-octagon px-3.5 py-2 text-[11px] ${
+                place === l.id ? "btn-gold" : "btn-ghost-gold"
+              }`}
+              style={{ opacity: 1 - Math.min(l.depth, 3) * 0.12 }}
+            >
+              <IconMapPin size={12} strokeWidth={2} />
+              {l.name}
+              <span className="opacity-70">{l.questCount}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => setPlace("none")}
+            className={`btn-base clip-octagon px-3.5 py-2 text-[11px] ${
+              place === "none" ? "btn-gold" : "btn-ghost-gold"
+            }`}
+          >
+            Unpinned
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="font-accent px-5 py-[70px] text-center text-base italic text-[#9c855e]">
           Unrolling the notices…
         </div>
-      ) : quests && quests.length > 0 ? (
+      ) : shown.length > 0 ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(312px,100%),1fr))] gap-x-[26px] gap-y-[34px]">
-          {quests.map((q) => (
-            <QuestCard key={q.id} quest={q} role={role} campaignId={campaign.id} />
+          {shown.map((q) => (
+            <QuestCard
+              key={q.id}
+              quest={q}
+              role={role}
+              campaignId={campaign.id}
+              locations={places}
+              characters={characters ?? []}
+            />
           ))}
         </div>
       ) : (
@@ -74,10 +159,10 @@ export default function QuestBoard() {
             <IconFolder size={46} strokeWidth={1.4} />
           </div>
           <div className="font-display text-2xl text-[#cdb582]">
-            No quests posted
+            {place ? "Nothing posted here" : "No quests posted"}
           </div>
           <div className="font-accent mt-2 text-base italic text-[#9c855e]">
-            — the board awaits. —
+            {place ? "— try another corner of the map. —" : "— the board awaits. —"}
           </div>
         </div>
       )}
@@ -93,6 +178,7 @@ export default function QuestBoard() {
           <QuestForm
             initial={emptyQuest}
             mode="create"
+            locations={places}
             isPending={createQuest.isPending}
             errorText={
               createQuest.isError
@@ -104,6 +190,17 @@ export default function QuestBoard() {
             onSubmit={(v) =>
               createQuest.mutate(v, { onSuccess: () => setPosting(false) })
             }
+          />
+        </ParchmentModal>
+      )}
+
+      {mapping && (
+        <ParchmentModal onClose={() => setMapping(false)} maxWidth="max-w-[640px]">
+          <PlacesManager
+            campaignId={campaign.id}
+            locations={places}
+            characters={characters ?? []}
+            onClose={() => setMapping(false)}
           />
         </ParchmentModal>
       )}
