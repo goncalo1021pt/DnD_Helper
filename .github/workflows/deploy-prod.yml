@@ -1,0 +1,234 @@
+# Deploy to PRODUCTION (dnd.fontao.net) — the same one-tap shape as
+# deploy-staging.yml, with the guardrails a live game deserves.
+#
+# It runs on a self-hosted runner inside the prod VM (label: production), so no
+# SSH and no VPN are needed — the box dials out to GitHub. Prod sits behind a
+# Cloudflare tunnel with no inbound ports, which is exactly why a GitHub-hosted
+# runner can't do this job.
+#
+# What it will deploy: `main`, or a `vX.Y.Z` release tag (docs/RELEASING.md).
+# Nothing else — an unreviewed feature branch must go to staging, not to the
+# people actually playing. Deploying an older tag is also how you roll back
+# deliberately after the fact.
+#
+# How to run it from a phone:
+#   GitHub app → this repo → Actions → "Deploy to production" → Run workflow →
+#   leave the ref box empty for main, or type a tag like v1.3.0 → Run.
+#   Then open https://dnd.fontao.net.
+#
+# Setup that makes this work: register a runner labelled `production` on the
+# prod VM — same script as staging, with the label overridden:
+#   scp scripts/homelab/setup-staging-runner.sh goncalo@<prod-vm>:~
+#   ssh goncalo@<prod-vm> 'RUNNER_LABEL=production ./setup-staging-runner.sh <TOKEN>'
+name: Deploy to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "main, or a release tag like v1.3.0 (blank = main)"
+        required: false
+        default: ""
+
+# Never cancel an in-flight prod deploy — a second dispatch waits its turn
+# rather than killing a `docker compose up --build` halfway through.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# Only the repo owner can ship to prod. workflow_dispatch already requires write
+# access and the runner only takes jobs from this repo; this actor guard is
+# defence-in-depth so nothing else (e.g. the claude bot's token) can reach the
+# live box.
+jobs:
+  deploy:
+    if: github.actor == github.repository_owner
+    runs-on: [self-hosted, production]
+    # GitHub creates this environment on first run. Add a required reviewer to
+    # it later (Settings → Environments → production) and every deploy will then
+    # pause for your approval — one tap from the mobile app.
+    environment:
+      name: production
+      url: https://dnd.fontao.net
+    steps:
+      # Deploy in the canonical clone on the box (persistent .env, pgdata
+      # volume, backups/) rather than the runner's throwaway workspace.
+      - name: Resolve and validate target ref
+        id: target
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          cd ~/DnD_Helper
+          git fetch --prune --tags --force origin
+
+          TARGET="${REF:-main}"
+          if [ "$TARGET" = "main" ]; then
+            SPEC="origin/main"
+          elif [[ "$TARGET" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.+].+)?$ ]]; then
+            if ! git rev-parse -q --verify "refs/tags/$TARGET^{commit}" >/dev/null; then
+              echo "::error::tag $TARGET does not exist on origin"
+              exit 1
+            fi
+            SPEC="refs/tags/$TARGET"
+          else
+            echo "::error::refusing to deploy '$TARGET' to production — only 'main' or a vX.Y.Z release tag"
+            exit 1
+          fi
+
+          SHA="$(git rev-parse "$SPEC")"
+          {
+            echo "ref=$TARGET"
+            echo "spec=$SPEC"
+            echo "sha=$SHA"
+          } >> "$GITHUB_OUTPUT"
+          echo "Target: $TARGET ($SPEC) → $SHA"
+
+      # The rollback anchor. Captured BEFORE anything moves, so a failed deploy
+      # can put the box back on the commit that was serving players a minute ago.
+      - name: Record the currently deployed commit
+        id: current
+        run: |
+          set -euo pipefail
+          cd ~/DnD_Helper
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Currently deployed: $(git log --oneline -1 "$SHA")"
+
+      # Migrations run automatically on app startup, so take a snapshot of the
+      # schema+data as it exists RIGHT NOW. The backup service only dumps once a
+      # day, which could be 23 hours stale by the time a migration eats something.
+      # Dumped from inside the backup container: it already has the PG* env and
+      # the root-owned ./backups mount.
+      - name: Snapshot the database before migrating
+        run: |
+          set -euo pipefail
+          cd ~/DnD_Helper
+          if ! docker compose --profile full ps --status running --services 2>/dev/null | grep -qx postgres; then
+            echo "::notice::postgres is not running — nothing to snapshot (first deploy?)"
+            exit 0
+          fi
+          STAMP="$(date +%F-%H%M%S)"
+          NAME="pre-deploy-${STAMP}-${{ steps.current.outputs.sha }}"
+          docker compose --profile full run --rm --no-deps --entrypoint sh backup -c "
+            set -e
+            pg_dump > /backups/${NAME}.sql
+            gzip -f /backups/${NAME}.sql
+            ls -1t /backups/pre-deploy-*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm
+          "
+          echo "Snapshot: backups/${NAME}.sql.gz"
+
+      # No `git clean` anywhere in this file — it would delete .env and backups/.
+      - name: Check out the target ref
+        id: checkout
+        run: |
+          set -euo pipefail
+          cd ~/DnD_Helper
+          if [ "${{ steps.target.outputs.ref }}" = "main" ]; then
+            git checkout -B main origin/main
+          else
+            git checkout --detach "${{ steps.target.outputs.spec }}"
+          fi
+          git reset --hard "${{ steps.target.outputs.sha }}"
+          git log --oneline -1
+
+      - name: Build & deploy (make deploy)
+        run: |
+          set -euo pipefail
+          cd ~/DnD_Helper
+          # COMPOSE_FILE in the prod .env pins the production override, so this
+          # is the full tunnelled stack: SPA -> embedded Go binary, migrations
+          # run on startup, cloudflared reconnects, backup service comes back.
+          # The old container keeps serving until the swap at the very end.
+          make deploy
+
+      - name: Wait for health
+        run: |
+          set -euo pipefail
+          cd ~/DnD_Helper
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+              echo "HEALTHY on the box"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::production did not become healthy in time"
+          docker compose --profile full logs --tail 50 app || true
+          exit 1
+
+      # The app is up locally; confirm the tunnel is actually serving the new
+      # build to the outside world. Soft-fail: a wobbly edge shouldn't trigger a
+      # rollback of a perfectly good deploy, but it belongs in the summary.
+      - name: Verify the public URL
+        id: public
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          cd ~/DnD_Helper
+          BASE_URL="$(grep -m1 '^BASE_URL=' .env | cut -d= -f2- | tr -d '\"')"
+          BASE_URL="${BASE_URL:-https://dnd.fontao.net}"
+          echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
+          for _ in $(seq 1 12); do
+            BODY="$(curl -sf --max-time 10 "$BASE_URL/api/auth/config" || true)"
+            VERSION="$(printf '%s' "$BODY" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)"
+            if [ -n "$VERSION" ]; then
+              echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+              echo "$BASE_URL is serving v$VERSION"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::warning::could not read a version from $BASE_URL/api/auth/config — check the tunnel"
+          exit 1
+
+      # Code goes back; the DATABASE DOES NOT. If the bad deploy carried a
+      # migration, restore the pre-deploy snapshot by hand (docs/DEPLOY.md).
+      - name: Roll back to the previous commit
+        if: failure() && steps.checkout.outcome == 'success' && steps.current.outputs.sha != steps.target.outputs.sha
+        run: |
+          set -euo pipefail
+          cd ~/DnD_Helper
+          echo "::warning::deploy failed — rolling back to ${{ steps.current.outputs.sha }}"
+          git checkout --detach "${{ steps.current.outputs.sha }}"
+          git reset --hard "${{ steps.current.outputs.sha }}"
+          make deploy
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
+              echo "ROLLED BACK — production is healthy on ${{ steps.current.outputs.sha }}"
+              {
+                echo "### ⏪ Rolled back"
+                echo ""
+                echo "The deploy of \`${{ steps.target.outputs.ref }}\` failed; production is back on \`${{ steps.current.outputs.sha }}\` and healthy."
+                echo ""
+                echo "**Migrations are not rolled back.** If the failed build ran one, restore the \`pre-deploy-*\` dump in \`backups/\` — see docs/DEPLOY.md."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::ROLLBACK FAILED — production is DOWN, ssh in now"
+          docker compose --profile full logs --tail 50 app || true
+          exit 1
+
+      - name: Summary
+        if: success()
+        run: |
+          set -euo pipefail
+          cd ~/DnD_Helper
+          {
+            echo "### 🚀 Deployed to production"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Ref | \`${{ steps.target.outputs.ref }}\` |"
+            echo "| Commit | \`$(git log --oneline -1)\` |"
+            echo "| Version | ${{ steps.public.outputs.version || 'unread — check the tunnel' }} |"
+            echo "| URL | ${{ steps.public.outputs.base_url }} |"
+            echo "| Previous | \`${{ steps.current.outputs.sha }}\` |"
+            echo ""
+            echo "Roll back by re-running this workflow with the previous release tag."
+          } >> "$GITHUB_STEP_SUMMARY"
