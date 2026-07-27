@@ -1,6 +1,16 @@
 // Package static serves the embedded single-page app. The real build output
 // (frontend/dist) is copied into this directory before `go build`; the
 // placeholder index.html keeps the embed valid during backend-only development.
+//
+// Vite emits two kinds of output: hashed bundles under dist/assets, and
+// everything in frontend/public copied verbatim to the dist ROOT. Root files
+// need naming individually in the embed directive below AND in both copy steps
+// (the `embed` target in the Makefile, and backend/Dockerfile) — miss one and
+// the file silently never reaches the binary, where the SPA fallback then
+// answers it with index.html instead of a 404. Adding a file to
+// frontend/public is therefore a four-place change; the tracked copy in this
+// directory is what keeps the embed resolvable before any frontend build has
+// run.
 package static
 
 import (
@@ -12,7 +22,7 @@ import (
 	"time"
 )
 
-//go:embed all:assets index.html
+//go:embed all:assets index.html favicon.svg
 var files embed.FS
 
 // Handler returns an http.Handler that serves embedded static assets and falls

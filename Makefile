@@ -38,6 +38,9 @@ embed: frontend ## Build the SPA and copy it into the Go embed directory
 	touch $(STATIC)/assets/.gitkeep
 	cp frontend/dist/index.html $(STATIC)/index.html
 	cp -r frontend/dist/assets/. $(STATIC)/assets/
+	# Files from frontend/public land in the dist ROOT, not dist/assets — they
+	# need copying by name, and naming in the go:embed directive in static.go.
+	cp frontend/dist/favicon.svg $(STATIC)/favicon.svg
 
 backend: ## Build the Go server binary (embeds whatever is in internal/static)
 	cd backend && go build -o ../bin/server ./cmd/server
