@@ -59,21 +59,32 @@ func (q *Queries) ClaimQuest(ctx context.Context, arg ClaimQuestParams) error {
 	return err
 }
 
+const clearQuestOverrides = `-- name: ClearQuestOverrides :exec
+DELETE FROM quest_visibility WHERE quest_id = $1
+`
+
+func (q *Queries) ClearQuestOverrides(ctx context.Context, questID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearQuestOverrides, questID)
+	return err
+}
+
 const createQuest = `-- name: CreateQuest :one
-INSERT INTO quests (campaign_id, title, description, giver, location, difficulty, status, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at
+INSERT INTO quests (campaign_id, title, description, giver, location, location_id, visible_to_party, difficulty, status, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party
 `
 
 type CreateQuestParams struct {
-	CampaignID  uuid.UUID       `json:"campaign_id"`
-	Title       string          `json:"title"`
-	Description string          `json:"description"`
-	Giver       *string         `json:"giver"`
-	Location    *string         `json:"location"`
-	Difficulty  QuestDifficulty `json:"difficulty"`
-	Status      QuestStatus     `json:"status"`
-	CreatedBy   uuid.UUID       `json:"created_by"`
+	CampaignID     uuid.UUID       `json:"campaign_id"`
+	Title          string          `json:"title"`
+	Description    string          `json:"description"`
+	Giver          *string         `json:"giver"`
+	Location       *string         `json:"location"`
+	LocationID     pgtype.UUID     `json:"location_id"`
+	VisibleToParty bool            `json:"visible_to_party"`
+	Difficulty     QuestDifficulty `json:"difficulty"`
+	Status         QuestStatus     `json:"status"`
+	CreatedBy      uuid.UUID       `json:"created_by"`
 }
 
 func (q *Queries) CreateQuest(ctx context.Context, arg CreateQuestParams) (Quest, error) {
@@ -83,6 +94,8 @@ func (q *Queries) CreateQuest(ctx context.Context, arg CreateQuestParams) (Quest
 		arg.Description,
 		arg.Giver,
 		arg.Location,
+		arg.LocationID,
+		arg.VisibleToParty,
 		arg.Difficulty,
 		arg.Status,
 		arg.CreatedBy,
@@ -100,6 +113,8 @@ func (q *Queries) CreateQuest(ctx context.Context, arg CreateQuestParams) (Quest
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LocationID,
+		&i.VisibleToParty,
 	)
 	return i, err
 }
@@ -113,6 +128,20 @@ func (q *Queries) DeleteQuest(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteQuestOverride = `-- name: DeleteQuestOverride :exec
+DELETE FROM quest_visibility WHERE quest_id = $1 AND character_id = $2
+`
+
+type DeleteQuestOverrideParams struct {
+	QuestID     uuid.UUID `json:"quest_id"`
+	CharacterID uuid.UUID `json:"character_id"`
+}
+
+func (q *Queries) DeleteQuestOverride(ctx context.Context, arg DeleteQuestOverrideParams) error {
+	_, err := q.db.Exec(ctx, deleteQuestOverride, arg.QuestID, arg.CharacterID)
+	return err
+}
+
 const deleteRewardsForQuest = `-- name: DeleteRewardsForQuest :exec
 DELETE FROM quest_rewards WHERE quest_id = $1
 `
@@ -123,7 +152,7 @@ func (q *Queries) DeleteRewardsForQuest(ctx context.Context, questID uuid.UUID) 
 }
 
 const getQuest = `-- name: GetQuest :one
-SELECT id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at FROM quests WHERE id = $1
+SELECT id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party FROM quests WHERE id = $1
 `
 
 func (q *Queries) GetQuest(ctx context.Context, id uuid.UUID) (Quest, error) {
@@ -141,6 +170,8 @@ func (q *Queries) GetQuest(ctx context.Context, id uuid.UUID) (Quest, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LocationID,
+		&i.VisibleToParty,
 	)
 	return i, err
 }
@@ -185,8 +216,48 @@ func (q *Queries) ListClaimsByCampaign(ctx context.Context, campaignID uuid.UUID
 	return items, nil
 }
 
+const listQuestVisibilityByCampaign = `-- name: ListQuestVisibilityByCampaign :many
+SELECT v.quest_id, v.character_id, v.visible, c.name AS character_name
+FROM quest_visibility v
+JOIN quests q ON q.id = v.quest_id
+JOIN characters c ON c.id = v.character_id
+WHERE q.campaign_id = $1
+`
+
+type ListQuestVisibilityByCampaignRow struct {
+	QuestID       uuid.UUID `json:"quest_id"`
+	CharacterID   uuid.UUID `json:"character_id"`
+	Visible       bool      `json:"visible"`
+	CharacterName string    `json:"character_name"`
+}
+
+func (q *Queries) ListQuestVisibilityByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListQuestVisibilityByCampaignRow, error) {
+	rows, err := q.db.Query(ctx, listQuestVisibilityByCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListQuestVisibilityByCampaignRow
+	for rows.Next() {
+		var i ListQuestVisibilityByCampaignRow
+		if err := rows.Scan(
+			&i.QuestID,
+			&i.CharacterID,
+			&i.Visible,
+			&i.CharacterName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listQuestsByCampaign = `-- name: ListQuestsByCampaign :many
-SELECT id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at FROM quests WHERE campaign_id = $1 ORDER BY created_at DESC
+SELECT id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party FROM quests WHERE campaign_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListQuestsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]Quest, error) {
@@ -210,6 +281,8 @@ func (q *Queries) ListQuestsByCampaign(ctx context.Context, campaignID uuid.UUID
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LocationID,
+			&i.VisibleToParty,
 		); err != nil {
 			return nil, err
 		}
@@ -283,6 +356,60 @@ func (q *Queries) ListRewardsForQuest(ctx context.Context, questID uuid.UUID) ([
 	return items, nil
 }
 
+const setQuestOverride = `-- name: SetQuestOverride :exec
+INSERT INTO quest_visibility (quest_id, character_id, visible)
+VALUES ($1, $2, $3)
+ON CONFLICT (quest_id, character_id)
+DO UPDATE SET visible = EXCLUDED.visible, updated_at = now()
+`
+
+type SetQuestOverrideParams struct {
+	QuestID     uuid.UUID `json:"quest_id"`
+	CharacterID uuid.UUID `json:"character_id"`
+	Visible     bool      `json:"visible"`
+}
+
+func (q *Queries) SetQuestOverride(ctx context.Context, arg SetQuestOverrideParams) error {
+	_, err := q.db.Exec(ctx, setQuestOverride, arg.QuestID, arg.CharacterID, arg.Visible)
+	return err
+}
+
+const setQuestPartyVisibility = `-- name: SetQuestPartyVisibility :one
+
+UPDATE quests
+SET visible_to_party = $2,
+    updated_at       = now()
+WHERE id = $1
+RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party
+`
+
+type SetQuestPartyVisibilityParams struct {
+	ID             uuid.UUID `json:"id"`
+	VisibleToParty bool      `json:"visible_to_party"`
+}
+
+// Visibility: a party-wide flag on the quest plus per-hero exceptions.
+func (q *Queries) SetQuestPartyVisibility(ctx context.Context, arg SetQuestPartyVisibilityParams) (Quest, error) {
+	row := q.db.QueryRow(ctx, setQuestPartyVisibility, arg.ID, arg.VisibleToParty)
+	var i Quest
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Title,
+		&i.Description,
+		&i.Giver,
+		&i.Location,
+		&i.Difficulty,
+		&i.Status,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LocationID,
+		&i.VisibleToParty,
+	)
+	return i, err
+}
+
 const unclaimQuest = `-- name: UnclaimQuest :exec
 DELETE FROM quest_claims WHERE quest_id = $1 AND user_id = $2
 `
@@ -299,25 +426,29 @@ func (q *Queries) UnclaimQuest(ctx context.Context, arg UnclaimQuestParams) erro
 
 const updateQuest = `-- name: UpdateQuest :one
 UPDATE quests
-SET title       = $2,
-    description = $3,
-    giver       = $4,
-    location    = $5,
-    difficulty  = $6,
-    status      = $7,
-    updated_at  = now()
+SET title            = $2,
+    description      = $3,
+    giver            = $4,
+    location         = $5,
+    location_id      = $6,
+    visible_to_party = $7,
+    difficulty       = $8,
+    status           = $9,
+    updated_at       = now()
 WHERE id = $1
-RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at
+RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party
 `
 
 type UpdateQuestParams struct {
-	ID          uuid.UUID       `json:"id"`
-	Title       string          `json:"title"`
-	Description string          `json:"description"`
-	Giver       *string         `json:"giver"`
-	Location    *string         `json:"location"`
-	Difficulty  QuestDifficulty `json:"difficulty"`
-	Status      QuestStatus     `json:"status"`
+	ID             uuid.UUID       `json:"id"`
+	Title          string          `json:"title"`
+	Description    string          `json:"description"`
+	Giver          *string         `json:"giver"`
+	Location       *string         `json:"location"`
+	LocationID     pgtype.UUID     `json:"location_id"`
+	VisibleToParty bool            `json:"visible_to_party"`
+	Difficulty     QuestDifficulty `json:"difficulty"`
+	Status         QuestStatus     `json:"status"`
 }
 
 func (q *Queries) UpdateQuest(ctx context.Context, arg UpdateQuestParams) (Quest, error) {
@@ -327,6 +458,8 @@ func (q *Queries) UpdateQuest(ctx context.Context, arg UpdateQuestParams) (Quest
 		arg.Description,
 		arg.Giver,
 		arg.Location,
+		arg.LocationID,
+		arg.VisibleToParty,
 		arg.Difficulty,
 		arg.Status,
 	)
@@ -343,6 +476,8 @@ func (q *Queries) UpdateQuest(ctx context.Context, arg UpdateQuestParams) (Quest
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LocationID,
+		&i.VisibleToParty,
 	)
 	return i, err
 }

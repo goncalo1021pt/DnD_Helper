@@ -977,6 +977,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The campaign's place tree (members only). The DM sees every place; players see only what is unveiled to them. */
+        get: operations["listLocations"];
+        put?: never;
+        /** Chart a new place (DM only) */
+        post: operations["createLocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{locationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Erase a place and everything nested inside it (DM only). Notices hanging there are unpinned, not deleted. */
+        delete: operations["deleteLocation"];
+        options?: never;
+        head?: never;
+        /** Rename, redescribe, or move a place (DM only) */
+        patch: operations["updateLocation"];
+        trace?: never;
+    };
+    "/locations/{locationId}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Reveal or veil a place, for the whole party or for one hero (DM only) */
+        put: operations["setLocationVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{locationId}/visibility/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop one hero's exception so they follow the party again (DM only) */
+        delete: operations["clearLocationVisibilityOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quests/{questId}/visibility/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop one hero's exception so they follow the party again (DM only) */
+        delete: operations["clearQuestVisibilityOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/quests/{questId}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Reveal or veil a notice, for the whole party or for one hero (DM only) */
+        put: operations["setQuestVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/quests/{questId}/claim": {
         parameters: {
             query?: never;
@@ -1523,7 +1641,16 @@ export interface components {
             title: string;
             description: string;
             giver?: string | null;
+            /** @description Display name of the place this notice hangs in. */
             location?: string | null;
+            /** Format: uuid */
+            locationId?: string | null;
+            /** @description DM-only. The party-wide veil on this notice. */
+            visibleToParty?: boolean;
+            /** @description DM-only. True when the place this notice hangs in (or one above it) is still veiled, so the notice stays off the players' board however it is set. */
+            hiddenByLocation?: boolean;
+            /** @description DM-only. Per-hero exceptions to visibleToParty. */
+            visibility?: components["schemas"]["VisibilityOverride"][];
             difficulty: components["schemas"]["QuestDifficulty"];
             status: components["schemas"]["QuestStatus"];
             /** Format: date-time */
@@ -2120,7 +2247,18 @@ export interface components {
             title: string;
             description?: string;
             giver?: string | null;
+            /** @description Legacy freeform place name, kept for boards that predate the location tree. Ignored when locationId is set. */
             location?: string | null;
+            /**
+             * Format: uuid
+             * @description The place this notice hangs in. Must belong to the same campaign.
+             */
+            locationId?: string | null;
+            /**
+             * @description Post it to the board straight away, or leave it drafted (false) until the DM reveals it.
+             * @default true
+             */
+            visibleToParty: boolean;
             difficulty?: components["schemas"]["QuestDifficulty"];
             rewards?: components["schemas"]["RewardInput"][];
         };
@@ -2128,10 +2266,89 @@ export interface components {
             title: string;
             description?: string;
             giver?: string | null;
+            /** @description Legacy freeform place name. Ignored when locationId is set. */
             location?: string | null;
+            /**
+             * Format: uuid
+             * @description The place this notice hangs in; null unpins it.
+             */
+            locationId?: string | null;
+            /** @description Omit to leave the party-wide veil as it is. */
+            visibleToParty?: boolean;
             difficulty: components["schemas"]["QuestDifficulty"];
             status: components["schemas"]["QuestStatus"];
             rewards?: components["schemas"]["RewardInput"][];
+        };
+        /**
+         * @description Who a reveal or hide applies to. `party` sets the entity's party-wide
+         *     veil and clears every per-hero exception — choosing the party is
+         *     choosing everyone. `character` records an exception for one hero.
+         * @enum {string}
+         */
+        VisibilityScope: "party" | "character";
+        /** @description A single hero's exception to the party-wide veil. */
+        VisibilityOverride: {
+            /** Format: uuid */
+            characterId: string;
+            characterName: string;
+            visible: boolean;
+        };
+        SetVisibilityRequest: {
+            scope: components["schemas"]["VisibilityScope"];
+            /**
+             * Format: uuid
+             * @description Required when scope is `character`; ignored otherwise.
+             */
+            characterId?: string | null;
+            /** @description True reveals, false hides. */
+            visible: boolean;
+        };
+        /**
+         * @description A place on a campaign's map. Locations nest to an arbitrary depth
+         *     (capped at 10) — a region holds cities, a city holds districts.
+         */
+        Location: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaignId: string;
+            /**
+             * Format: uuid
+             * @description The place this one sits inside; null for a root.
+             */
+            parentId?: string | null;
+            name: string;
+            description: string;
+            /** @description 0 for a root location, 1 for its children, and so on. */
+            depth: number;
+            /** @description Notices hanging here that the caller can see. */
+            questCount: number;
+            /** @description DM-only. The party-wide veil on this place. */
+            visibleToParty?: boolean;
+            /** @description DM-only. True when a place above this one is still veiled, so this one stays off the players' map however it is set. */
+            hiddenByAncestor?: boolean;
+            /** @description DM-only. Per-hero exceptions to visibleToParty. */
+            visibility?: components["schemas"]["VisibilityOverride"][];
+        };
+        CreateLocationRequest: {
+            name: string;
+            description?: string;
+            /** Format: uuid */
+            parentId?: string | null;
+            /**
+             * @description New places start veiled so the DM can draft a whole region first.
+             * @default false
+             */
+            visibleToParty: boolean;
+        };
+        UpdateLocationRequest: {
+            name: string;
+            description?: string;
+            /**
+             * Format: uuid
+             * @description Move the place under a new parent; null makes it a root. A place cannot be moved inside itself.
+             */
+            parentId?: string | null;
         };
     };
     responses: {
@@ -2184,6 +2401,7 @@ export interface components {
         EncounterId: string;
         CombatantId: string;
         UserId: string;
+        LocationId: string;
     };
     requestBodies: never;
     headers: never;
@@ -4092,6 +4310,224 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CharacterTreeState"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listLocations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Locations, parents before children */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLocationRequest"];
+            };
+        };
+        responses: {
+            /** @description Created location */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateLocationRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated location */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setLocationVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description The location after the veil moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearLocationVisibilityOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The location after the exception was dropped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearQuestVisibilityOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The quest after the exception was dropped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quest"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setQuestVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description The quest after the veil moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quest"];
                 };
             };
             400: components["responses"]["BadRequest"];

@@ -1,11 +1,20 @@
 import { useState } from "react";
-import type { Quest, QuestStatus, Role } from "../api/client";
-import { useClaimQuest, useDeleteQuest, useUpdateQuest } from "../hooks";
+import type { Character, Location, Quest, QuestStatus, Role } from "../api/client";
+import {
+  useClaimQuest,
+  useClearQuestOverride,
+  useDeleteQuest,
+  useSetQuestVisibility,
+  useUpdateQuest,
+} from "../hooks";
 import QuestForm, { type QuestFormValues } from "./QuestForm";
 import ParchmentModal from "./ui/ParchmentModal";
+import VisibilityControl from "./VisibilityControl";
 import {
   IconClaim,
   IconCoins,
+  IconEye,
+  IconEyeOff,
   IconFlag,
   IconGem,
   IconMapPin,
@@ -83,16 +92,28 @@ export default function QuestCard({
   quest,
   role,
   campaignId,
+  locations,
+  characters,
 }: {
   quest: Quest;
   role: Role;
   campaignId: string;
+  locations: Location[];
+  characters: Character[];
 }) {
   const isDM = role === "dm";
   const [editing, setEditing] = useState(false);
+  const [veiling, setVeiling] = useState(false);
   const claim = useClaimQuest(campaignId);
   const update = useUpdateQuest(campaignId);
   const del = useDeleteQuest(campaignId);
+  const setVisibility = useSetQuestVisibility(campaignId);
+  const clearOverride = useClearQuestOverride(campaignId);
+
+  /* DM-only visibility state; players never receive these fields. */
+  const revealed = quest.visibleToParty ?? false;
+  const darkByPlace = quest.hiddenByLocation ?? false;
+  const overrides = quest.visibility ?? [];
 
   const diff = DIFF[quest.difficulty] ?? DIFF.medium;
   const status = STATUS[quest.status] ?? STATUS.available;
@@ -112,6 +133,10 @@ export default function QuestCard({
         description: quest.description,
         giver: quest.giver,
         location: quest.location,
+        // The notice is replaced wholesale, so its place and veil must ride
+        // along or a status bump would quietly unpin and re-post it.
+        locationId: quest.locationId ?? null,
+        visibleToParty: revealed,
         difficulty: quest.difficulty,
         status: next,
         rewards: quest.rewards.map((r) => ({
@@ -128,6 +153,8 @@ export default function QuestCard({
     description: quest.description,
     giver: quest.giver ?? "",
     location: quest.location ?? "",
+    locationId: quest.locationId ?? null,
+    visibleToParty: revealed,
     difficulty: quest.difficulty,
     status: quest.status,
     rewards: quest.rewards.map((r) => ({
@@ -175,6 +202,34 @@ export default function QuestCard({
             {diff.label}
           </span>
         </div>
+
+        {/* veil state — only the DM is told a notice is being held back */}
+        {isDM && (!revealed || darkByPlace || overrides.length > 0) && (
+          <div className="mb-2.5 mr-14 flex flex-wrap items-center gap-1.5">
+            {!revealed && (
+              <span
+                className="label-stamp rounded-[2px] px-2 py-[3px] text-[9px] text-[#f6ead0]"
+                style={{ background: "rgba(90,72,44,.85)" }}
+              >
+                Draft
+              </span>
+            )}
+            {darkByPlace && (
+              <span
+                className="label-stamp rounded-[2px] px-2 py-[3px] text-[9px] text-[#f6ead0]"
+                style={{ background: "rgba(110,31,28,.75)" }}
+                title="The place this notice hangs in is veiled, so it stays dark whatever it is set to"
+              >
+                Dark by place
+              </span>
+            )}
+            {overrides.length > 0 && (
+              <span className="label-stamp text-[9px] text-ink-label">
+                {overrides.length} singled out
+              </span>
+            )}
+          </div>
+        )}
 
         {/* title */}
         <h3 className="font-display m-0 mb-2.5 mr-14 text-[21px] font-bold leading-[1.15] text-ink">
@@ -288,6 +343,28 @@ export default function QuestCard({
               <>
                 <span className="flex-1" />
                 <button
+                  onClick={() =>
+                    setVisibility.mutate({
+                      questId: quest.id,
+                      body: { scope: "party", visible: !revealed },
+                    })
+                  }
+                  disabled={setVisibility.isPending}
+                  title={revealed ? "Veil from the whole party" : "Reveal to the whole party"}
+                  className={`btn-base p-[9px] ${revealed ? "btn-ghost-ink" : "btn-wax"}`}
+                >
+                  {revealed ? <IconEye strokeWidth={1.8} /> : <IconEyeOff strokeWidth={1.8} />}
+                </button>
+                <button
+                  onClick={() => setVeiling((s) => !s)}
+                  title="Reveal hero by hero"
+                  className={`btn-base p-[9px] ${
+                    veiling || overrides.length > 0 ? "btn-wax" : "btn-ghost-ink"
+                  }`}
+                >
+                  <IconUsers strokeWidth={1.8} />
+                </button>
+                <button
                   onClick={() => setEditing(true)}
                   title="Edit"
                   className="btn-base btn-ghost-ink p-[9px]"
@@ -317,6 +394,22 @@ export default function QuestCard({
           </div>
         )}
 
+        {/* per-hero reveals, folded away until the DM asks for them */}
+        {isDM && veiling && (
+          <div className="mt-3 border-t border-[rgba(124,90,46,.3)] pt-3">
+            <VisibilityControl
+              visibleToParty={revealed}
+              overrides={overrides}
+              characters={characters}
+              isPending={setVisibility.isPending || clearOverride.isPending}
+              onChange={(body) => setVisibility.mutate({ questId: quest.id, body })}
+              onClearHero={(characterId) =>
+                clearOverride.mutate({ questId: quest.id, characterId })
+              }
+            />
+          </div>
+        )}
+
         {/* aged veil for done states */}
         {isDim && (
           <div
@@ -339,6 +432,7 @@ export default function QuestCard({
           </h3>
           <QuestForm
             initial={editInitial}
+            locations={locations}
             mode="edit"
             isPending={update.isPending}
             errorText={

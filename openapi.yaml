@@ -1650,6 +1650,186 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /campaigns/{campaignId}/locations:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listLocations
+      summary: The campaign's place tree (members only). The DM sees every place; players see only what is unveiled to them.
+      responses:
+        "200":
+          description: Locations, parents before children
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Location"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createLocation
+      summary: Chart a new place (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLocationRequest"
+      responses:
+        "201":
+          description: Created location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /locations/{locationId}:
+    parameters:
+      - $ref: "#/components/parameters/LocationId"
+    patch:
+      operationId: updateLocation
+      summary: Rename, redescribe, or move a place (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLocationRequest"
+      responses:
+        "200":
+          description: Updated location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteLocation
+      summary: Erase a place and everything nested inside it (DM only). Notices hanging there are unpinned, not deleted.
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /locations/{locationId}/visibility:
+    parameters:
+      - $ref: "#/components/parameters/LocationId"
+    put:
+      operationId: setLocationVisibility
+      summary: Reveal or veil a place, for the whole party or for one hero (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetVisibilityRequest"
+      responses:
+        "200":
+          description: The location after the veil moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /locations/{locationId}/visibility/{characterId}:
+    parameters:
+      - $ref: "#/components/parameters/LocationId"
+      - $ref: "#/components/parameters/CharacterId"
+    delete:
+      operationId: clearLocationVisibilityOverride
+      summary: Drop one hero's exception so they follow the party again (DM only)
+      responses:
+        "200":
+          description: The location after the exception was dropped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /quests/{questId}/visibility/{characterId}:
+    parameters:
+      - $ref: "#/components/parameters/QuestId"
+      - $ref: "#/components/parameters/CharacterId"
+    delete:
+      operationId: clearQuestVisibilityOverride
+      summary: Drop one hero's exception so they follow the party again (DM only)
+      responses:
+        "200":
+          description: The quest after the exception was dropped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /quests/{questId}/visibility:
+    parameters:
+      - $ref: "#/components/parameters/QuestId"
+    put:
+      operationId: setQuestVisibility
+      summary: Reveal or veil a notice, for the whole party or for one hero (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetVisibilityRequest"
+      responses:
+        "200":
+          description: The quest after the veil moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quest"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /quests/{questId}/claim:
     parameters:
       - $ref: "#/components/parameters/QuestId"
@@ -2443,6 +2623,13 @@ components:
       schema:
         type: string
         format: uuid
+    LocationId:
+      name: locationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   responses:
     Unauthorized:
@@ -2745,6 +2932,22 @@ components:
         location:
           type: string
           nullable: true
+          description: Display name of the place this notice hangs in.
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+        visibleToParty:
+          type: boolean
+          description: DM-only. The party-wide veil on this notice.
+        hiddenByLocation:
+          type: boolean
+          description: DM-only. True when the place this notice hangs in (or one above it) is still veiled, so the notice stays off the players' board however it is set.
+        visibility:
+          type: array
+          description: DM-only. Per-hero exceptions to visibleToParty.
+          items:
+            $ref: "#/components/schemas/VisibilityOverride"
         difficulty:
           $ref: "#/components/schemas/QuestDifficulty"
         status:
@@ -3934,6 +4137,16 @@ components:
         location:
           type: string
           nullable: true
+          description: Legacy freeform place name, kept for boards that predate the location tree. Ignored when locationId is set.
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The place this notice hangs in. Must belong to the same campaign.
+        visibleToParty:
+          type: boolean
+          default: true
+          description: Post it to the board straight away, or leave it drafted (false) until the DM reveals it.
         difficulty:
           $ref: "#/components/schemas/QuestDifficulty"
         rewards:
@@ -3957,6 +4170,15 @@ components:
         location:
           type: string
           nullable: true
+          description: Legacy freeform place name. Ignored when locationId is set.
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The place this notice hangs in; null unpins it.
+        visibleToParty:
+          type: boolean
+          description: Omit to leave the party-wide veil as it is.
         difficulty:
           $ref: "#/components/schemas/QuestDifficulty"
         status:
@@ -3965,6 +4187,117 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RewardInput"
+
+    VisibilityScope:
+      type: string
+      enum: [party, character]
+      description: |
+        Who a reveal or hide applies to. `party` sets the entity's party-wide
+        veil and clears every per-hero exception — choosing the party is
+        choosing everyone. `character` records an exception for one hero.
+
+    VisibilityOverride:
+      type: object
+      required: [characterId, characterName, visible]
+      description: A single hero's exception to the party-wide veil.
+      properties:
+        characterId:
+          type: string
+          format: uuid
+        characterName:
+          type: string
+        visible:
+          type: boolean
+
+    SetVisibilityRequest:
+      type: object
+      required: [scope, visible]
+      properties:
+        scope:
+          $ref: "#/components/schemas/VisibilityScope"
+        characterId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Required when scope is `character`; ignored otherwise.
+        visible:
+          type: boolean
+          description: True reveals, false hides.
+
+    Location:
+      type: object
+      required: [id, campaignId, name, description, depth, questCount]
+      description: |
+        A place on a campaign's map. Locations nest to an arbitrary depth
+        (capped at 10) — a region holds cities, a city holds districts.
+      properties:
+        id:
+          type: string
+          format: uuid
+        campaignId:
+          type: string
+          format: uuid
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The place this one sits inside; null for a root.
+        name:
+          type: string
+        description:
+          type: string
+        depth:
+          type: integer
+          description: 0 for a root location, 1 for its children, and so on.
+        questCount:
+          type: integer
+          description: Notices hanging here that the caller can see.
+        visibleToParty:
+          type: boolean
+          description: DM-only. The party-wide veil on this place.
+        hiddenByAncestor:
+          type: boolean
+          description: DM-only. True when a place above this one is still veiled, so this one stays off the players' map however it is set.
+        visibility:
+          type: array
+          description: DM-only. Per-hero exceptions to visibleToParty.
+          items:
+            $ref: "#/components/schemas/VisibilityOverride"
+
+    CreateLocationRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        visibleToParty:
+          type: boolean
+          default: false
+          description: New places start veiled so the DM can draft a whole region first.
+
+    UpdateLocationRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Move the place under a new parent; null makes it a root. A place cannot be moved inside itself.
 
 security:
   - sessionCookie: []

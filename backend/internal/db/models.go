@@ -569,6 +569,24 @@ type KnowledgePoolMember struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
+type Location struct {
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	ParentID       pgtype.UUID        `json:"parent_id"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	VisibleToParty bool               `json:"visible_to_party"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LocationVisibility struct {
+	LocationID  uuid.UUID          `json:"location_id"`
+	CharacterID uuid.UUID          `json:"character_id"`
+	Visible     bool               `json:"visible"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Map struct {
 	ID          uuid.UUID          `json:"id"`
 	CampaignID  uuid.UUID          `json:"campaign_id"`
@@ -602,17 +620,19 @@ type Membership struct {
 }
 
 type Quest struct {
-	ID          uuid.UUID          `json:"id"`
-	CampaignID  uuid.UUID          `json:"campaign_id"`
-	Title       string             `json:"title"`
-	Description string             `json:"description"`
-	Giver       *string            `json:"giver"`
-	Location    *string            `json:"location"`
-	Difficulty  QuestDifficulty    `json:"difficulty"`
-	Status      QuestStatus        `json:"status"`
-	CreatedBy   uuid.UUID          `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	Title          string             `json:"title"`
+	Description    string             `json:"description"`
+	Giver          *string            `json:"giver"`
+	Location       *string            `json:"location"`
+	Difficulty     QuestDifficulty    `json:"difficulty"`
+	Status         QuestStatus        `json:"status"`
+	CreatedBy      uuid.UUID          `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	LocationID     pgtype.UUID        `json:"location_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
 }
 
 type QuestClaim struct {
@@ -627,6 +647,13 @@ type QuestReward struct {
 	Type    RewardType `json:"type"`
 	Label   string     `json:"label"`
 	Value   *string    `json:"value"`
+}
+
+type QuestVisibility struct {
+	QuestID     uuid.UUID          `json:"quest_id"`
+	CharacterID uuid.UUID          `json:"character_id"`
+	Visible     bool               `json:"visible"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type RevealBatch struct {
