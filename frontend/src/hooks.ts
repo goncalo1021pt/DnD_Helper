@@ -337,7 +337,12 @@ export function useUpdateCharacter(campaignId: string) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      // HP edits here can mirror into the campaign's running encounter (see
+      // syncCombatantHP server-side) — refresh whichever encounter views are open.
+      qc.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === "string" && q.queryKey[0].startsWith("encounter") });
+    },
   });
 }
 
@@ -1406,6 +1411,29 @@ export function useUpdateEncounter(campaignId: string) {
   });
 }
 
+/**
+ * Stand down every running encounter in the campaign at once — the DM's way out
+ * when several fights are open and a hero is stuck in one of them.
+ */
+export function useStandDownEncounters(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/encounters/stand-down", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+      return data;
+    },
+    // This touches every encounter, not one, so the per-encounter detail caches
+    // all have to go — any of them may have just lost its party.
+    onSuccess: () => {
+      invalidateEncounters(qc, campaignId);
+      qc.invalidateQueries({ queryKey: ["encounter"] });
+    },
+  });
+}
+
 export function useDeleteEncounter(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -1462,7 +1490,12 @@ export function useUpdateCombatant(campaignId: string, encounterId: string) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => invalidateEncounters(qc, campaignId, encounterId),
+    onSuccess: () => {
+      invalidateEncounters(qc, campaignId, encounterId);
+      // A PC's HP here can mirror onto its character (see syncCharacterHP
+      // server-side) — refresh the Party roster too.
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+    },
   });
 }
 
@@ -1472,6 +1505,20 @@ export function useDeleteCombatant(campaignId: string, encounterId: string) {
     mutationFn: async (combatantId: string) => {
       const { error } = await api.DELETE("/combatants/{combatantId}", {
         params: { path: { combatantId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateEncounters(qc, campaignId, encounterId),
+  });
+}
+
+/* Clear a whole mob in one call — twelve skeletons shouldn't be twelve taps. */
+export function useDeleteCombatantGroup(campaignId: string, encounterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (groupId: string) => {
+      const { error } = await api.DELETE("/encounters/{encounterId}/combatant-groups/{groupId}", {
+        params: { path: { encounterId, groupId } },
       });
       if (error) throw error;
     },

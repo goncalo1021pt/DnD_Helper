@@ -2080,7 +2080,7 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listEncounters
-      summary: The DM's encounter library — drafts, the active one, and past ones (DM only)
+      summary: The DM's encounter library — every prepared fight, running or not (DM only)
       responses:
         "200":
           description: Encounters, newest first
@@ -2096,7 +2096,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createEncounter
-      summary: Prepare a new (draft) encounter (DM only)
+      summary: Prepare a new (inactive) encounter (DM only)
       requestBody:
         required: true
         content:
@@ -2122,7 +2122,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: getActiveEncounter
-      summary: The running encounter (members) — redacted for players. 204 when none is active.
+      summary: >-
+        The running encounter this member is in — the fight their hero stands in
+        for a player, the most recently triggered one for the DM. Redacted for
+        players. 204 when none applies.
       responses:
         "200":
           description: The active encounter and its combatants
@@ -2131,7 +2134,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/EncounterDetail"
         "204":
-          description: No encounter is running
+          description: No encounter is running for this member
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /campaigns/{campaignId}/encounters/stand-down:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: standDownEncounters
+      summary: >-
+        Stand down every running encounter at once, releasing every summoned
+        hero (DM only). The way out when several fights are open and a player is
+        stuck in one of them.
+      responses:
+        "200":
+          description: The encounters that were stood down
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Encounter"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -2207,11 +2233,15 @@ paths:
               $ref: "#/components/schemas/AddCombatantRequest"
       responses:
         "201":
-          description: The new combatant
+          description: >-
+            The combatants added — one element for a lone addition, or every
+            member of the group when count > 1.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Combatant"
+                type: array
+                items:
+                  $ref: "#/components/schemas/Combatant"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -2271,6 +2301,31 @@ paths:
     delete:
       operationId: deleteCombatant
       summary: Remove a combatant (DM only)
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /encounters/{encounterId}/combatant-groups/{groupId}:
+    parameters:
+      - $ref: "#/components/parameters/EncounterId"
+      - name: groupId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: deleteCombatantGroup
+      summary: Remove a whole mob at once (DM only)
+      description: >-
+        Deletes every combatant sharing this groupId. Removing one dead skeleton
+        is still a plain combatant delete; this is for clearing the entire unit.
       responses:
         "204":
           description: Deleted
@@ -3306,7 +3361,7 @@ components:
           type: string
         status:
           type: string
-          description: "draft | active | ended (plain string, validated server-side)."
+          description: "inactive | active (plain string, validated server-side)."
         round:
           type: integer
         turnIndex:
@@ -3378,6 +3433,14 @@ components:
           description: For a player, whether this is their own PC (they may roll its initiative and see its HP).
         sortOrder:
           type: integer
+        groupId:
+          type: string
+          format: uuid
+          nullable: true
+          description: >-
+            Set when this combatant is one of a mob added together. Everything
+            sharing a groupId is consecutive in the list and acts on a single
+            turn; the tracker collapses the run into one entry.
 
     EncounterDetail:
       type: object
@@ -3406,7 +3469,10 @@ components:
           minLength: 1
         status:
           type: string
-          description: "draft | active | ended. Setting active triggers it (and ends any other running one)."
+          description: >-
+            inactive | active. Setting active triggers the fight; several may
+            run at once. Setting inactive stands it down — the party is released
+            and initiative is cleared, while prepared monsters stay.
         round:
           type: integer
           minimum: 1
@@ -3440,6 +3506,16 @@ components:
           type: integer
         hidden:
           type: boolean
+        count:
+          type: integer
+          minimum: 1
+          maximum: 12
+          description: >-
+            How many to add; omitted means 1. Above 1 they arrive as one GROUP — a single
+            initiative, a single turn, numbered labels ("Skeleton 1"…) — while
+            each keeps its own HP. Add one at a time instead if you want
+            genuinely independent monsters. Ignored for kind=pc; a character
+            can only be seated once.
 
     UpdateCombatantRequest:
       type: object

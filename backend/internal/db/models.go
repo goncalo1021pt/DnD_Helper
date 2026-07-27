@@ -553,6 +553,7 @@ type EncounterCombatant struct {
 	Hidden      bool               `json:"hidden"`
 	SortOrder   int32              `json:"sort_order"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	GroupID     pgtype.UUID        `json:"group_id"`
 }
 
 type KnowledgePool struct {
