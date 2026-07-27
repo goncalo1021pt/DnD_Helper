@@ -15,9 +15,9 @@ import (
 const addCombatant = `-- name: AddCombatant :one
 INSERT INTO encounter_combatants (
     encounter_id, kind, content_id, character_id, label, player_label,
-    init_mod, hp_current, hp_max, ac, hidden, sort_order
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at
+    init_mod, hp_current, hp_max, ac, hidden, sort_order, group_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id
 `
 
 type AddCombatantParams struct {
@@ -33,6 +33,7 @@ type AddCombatantParams struct {
 	Ac          int32       `json:"ac"`
 	Hidden      bool        `json:"hidden"`
 	SortOrder   int32       `json:"sort_order"`
+	GroupID     pgtype.UUID `json:"group_id"`
 }
 
 func (q *Queries) AddCombatant(ctx context.Context, arg AddCombatantParams) (EncounterCombatant, error) {
@@ -49,6 +50,7 @@ func (q *Queries) AddCombatant(ctx context.Context, arg AddCombatantParams) (Enc
 		arg.Ac,
 		arg.Hidden,
 		arg.SortOrder,
+		arg.GroupID,
 	)
 	var i EncounterCombatant
 	err := row.Scan(
@@ -67,8 +69,31 @@ func (q *Queries) AddCombatant(ctx context.Context, arg AddCombatantParams) (Enc
 		&i.Hidden,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.GroupID,
 	)
 	return i, err
+}
+
+const clearEncounterInitiative = `-- name: ClearEncounterInitiative :exec
+UPDATE encounter_combatants SET initiative = NULL WHERE encounter_id = $1
+`
+
+// Initiative belongs to a running fight and nothing else. It must not survive
+// into the builder, where a stale order would look like a rolled one.
+func (q *Queries) ClearEncounterInitiative(ctx context.Context, encounterID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearEncounterInitiative, encounterID)
+	return err
+}
+
+const clearEncounterParty = `-- name: ClearEncounterParty :exec
+DELETE FROM encounter_combatants WHERE encounter_id = $1 AND kind = 'pc'
+`
+
+// Standing down releases the heroes. Monsters stay, so the encounter is still a
+// prepared fight the DM can trigger again; the party is summoned fresh each run.
+func (q *Queries) ClearEncounterParty(ctx context.Context, encounterID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearEncounterParty, encounterID)
+	return err
 }
 
 const createEncounter = `-- name: CreateEncounter :one
@@ -109,6 +134,24 @@ func (q *Queries) DeleteCombatant(ctx context.Context, id uuid.UUID) (int64, err
 	return result.RowsAffected(), nil
 }
 
+const deleteCombatantGroup = `-- name: DeleteCombatantGroup :execrows
+DELETE FROM encounter_combatants WHERE encounter_id = $1 AND group_id = $2
+`
+
+type DeleteCombatantGroupParams struct {
+	EncounterID uuid.UUID   `json:"encounter_id"`
+	GroupID     pgtype.UUID `json:"group_id"`
+}
+
+// Remove a whole mob at once.
+func (q *Queries) DeleteCombatantGroup(ctx context.Context, arg DeleteCombatantGroupParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteCombatantGroup, arg.EncounterID, arg.GroupID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteEncounter = `-- name: DeleteEncounter :execrows
 DELETE FROM encounters WHERE id = $1
 `
@@ -121,28 +164,26 @@ func (q *Queries) DeleteEncounter(ctx context.Context, id uuid.UUID) (int64, err
 	return result.RowsAffected(), nil
 }
 
-const endOtherActiveEncounters = `-- name: EndOtherActiveEncounters :exec
-UPDATE encounters SET status = 'ended'
-WHERE campaign_id = $1 AND status = 'active' AND id <> $2
+const getActiveEncounterForUser = `-- name: GetActiveEncounterForUser :one
+SELECT DISTINCT ON (e.id) e.id, e.campaign_id, e.name, e.status, e.round, e.turn_index, e.created_at
+FROM encounters e
+JOIN encounter_combatants c ON c.encounter_id = e.id
+JOIN characters ch ON ch.id = c.character_id
+WHERE e.campaign_id = $1 AND e.status = 'active' AND ch.owner_user_id = $2
+ORDER BY e.id, e.created_at DESC
+LIMIT 1
 `
 
-type EndOtherActiveEncountersParams struct {
-	CampaignID uuid.UUID `json:"campaign_id"`
-	ID         uuid.UUID `json:"id"`
+type GetActiveEncounterForUserParams struct {
+	CampaignID  uuid.UUID `json:"campaign_id"`
+	OwnerUserID uuid.UUID `json:"owner_user_id"`
 }
 
-// Only one encounter runs at a time: end any other active one before triggering.
-func (q *Queries) EndOtherActiveEncounters(ctx context.Context, arg EndOtherActiveEncountersParams) error {
-	_, err := q.db.Exec(ctx, endOtherActiveEncounters, arg.CampaignID, arg.ID)
-	return err
-}
-
-const getActiveEncounter = `-- name: GetActiveEncounter :one
-SELECT id, campaign_id, name, status, round, turn_index, created_at FROM encounters WHERE campaign_id = $1 AND status = 'active'
-`
-
-func (q *Queries) GetActiveEncounter(ctx context.Context, campaignID uuid.UUID) (Encounter, error) {
-	row := q.db.QueryRow(ctx, getActiveEncounter, campaignID)
+// The running fight this player's hero is standing in. A player only ever
+// watches their own battle — the other half of a split party is not their
+// business — so the join runs through their own characters.
+func (q *Queries) GetActiveEncounterForUser(ctx context.Context, arg GetActiveEncounterForUserParams) (Encounter, error) {
+	row := q.db.QueryRow(ctx, getActiveEncounterForUser, arg.CampaignID, arg.OwnerUserID)
 	var i Encounter
 	err := row.Scan(
 		&i.ID,
@@ -157,7 +198,7 @@ func (q *Queries) GetActiveEncounter(ctx context.Context, campaignID uuid.UUID) 
 }
 
 const getCombatant = `-- name: GetCombatant :one
-SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, e.campaign_id, e.status AS encounter_status
+SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, c.group_id, e.campaign_id, e.status AS encounter_status
 FROM encounter_combatants c
 JOIN encounters e ON e.id = c.encounter_id
 WHERE c.id = $1
@@ -179,6 +220,7 @@ type GetCombatantRow struct {
 	Hidden          bool               `json:"hidden"`
 	SortOrder       int32              `json:"sort_order"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	GroupID         pgtype.UUID        `json:"group_id"`
 	CampaignID      uuid.UUID          `json:"campaign_id"`
 	EncounterStatus string             `json:"encounter_status"`
 }
@@ -203,6 +245,7 @@ func (q *Queries) GetCombatant(ctx context.Context, id uuid.UUID) (GetCombatantR
 		&i.Hidden,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.GroupID,
 		&i.CampaignID,
 		&i.EncounterStatus,
 	)
@@ -228,14 +271,100 @@ func (q *Queries) GetEncounter(ctx context.Context, id uuid.UUID) (Encounter, er
 	return i, err
 }
 
+const listActiveCombatantsForCharacter = `-- name: ListActiveCombatantsForCharacter :many
+SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, c.group_id FROM encounter_combatants c
+JOIN encounters e ON e.id = c.encounter_id
+WHERE c.character_id = $1 AND e.status = 'active'
+`
+
+// Every live combatant row for one hero. Used to mirror HP into whichever fight
+// they're in, and to refuse seating them in a second one.
+func (q *Queries) ListActiveCombatantsForCharacter(ctx context.Context, characterID pgtype.UUID) ([]EncounterCombatant, error) {
+	rows, err := q.db.Query(ctx, listActiveCombatantsForCharacter, characterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EncounterCombatant
+	for rows.Next() {
+		var i EncounterCombatant
+		if err := rows.Scan(
+			&i.ID,
+			&i.EncounterID,
+			&i.Kind,
+			&i.ContentID,
+			&i.CharacterID,
+			&i.Label,
+			&i.PlayerLabel,
+			&i.InitMod,
+			&i.Initiative,
+			&i.HpCurrent,
+			&i.HpMax,
+			&i.Ac,
+			&i.Hidden,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.GroupID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActiveEncounters = `-- name: ListActiveEncounters :many
+SELECT id, campaign_id, name, status, round, turn_index, created_at FROM encounters
+WHERE campaign_id = $1 AND status = 'active'
+ORDER BY created_at DESC
+`
+
+// Every fight currently running in a campaign. More than one is normal: a party
+// that splits is two encounters at once.
+func (q *Queries) ListActiveEncounters(ctx context.Context, campaignID uuid.UUID) ([]Encounter, error) {
+	rows, err := q.db.Query(ctx, listActiveEncounters, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Encounter
+	for rows.Next() {
+		var i Encounter
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.Name,
+			&i.Status,
+			&i.Round,
+			&i.TurnIndex,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCombatants = `-- name: ListCombatants :many
-SELECT id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at FROM encounter_combatants
+SELECT id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id FROM encounter_combatants
 WHERE encounter_id = $1
-ORDER BY (initiative IS NULL), initiative DESC, init_mod DESC, sort_order, created_at
+ORDER BY (initiative IS NULL), initiative DESC, init_mod DESC,
+         COALESCE(group_id, id), sort_order, created_at
 `
 
 // Initiative order: highest initiative first, unrolled (NULL) last, then by
-// init modifier and add order to break ties.
+// init modifier and add order to break ties. Members of a group always land
+// side by side (they share an initiative and a group_id, and coalescing to the
+// row's own id keeps loners sorting exactly as they did before) — the tracker
+// collapses each run of them into a single entry, so they must never interleave
+// with another combatant that happened to roll the same number.
 func (q *Queries) ListCombatants(ctx context.Context, encounterID uuid.UUID) ([]EncounterCombatant, error) {
 	rows, err := q.db.Query(ctx, listCombatants, encounterID)
 	if err != nil {
@@ -261,6 +390,7 @@ func (q *Queries) ListCombatants(ctx context.Context, encounterID uuid.UUID) ([]
 			&i.Hidden,
 			&i.SortOrder,
 			&i.CreatedAt,
+			&i.GroupID,
 		); err != nil {
 			return nil, err
 		}
@@ -348,7 +478,7 @@ func (q *Queries) RenameEncounter(ctx context.Context, arg RenameEncounterParams
 }
 
 const setCombatantInitiative = `-- name: SetCombatantInitiative :one
-UPDATE encounter_combatants SET initiative = $2 WHERE id = $1 RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at
+UPDATE encounter_combatants SET initiative = $2 WHERE id = $1 RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id
 `
 
 type SetCombatantInitiativeParams struct {
@@ -375,6 +505,7 @@ func (q *Queries) SetCombatantInitiative(ctx context.Context, arg SetCombatantIn
 		&i.Hidden,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.GroupID,
 	)
 	return i, err
 }
@@ -403,12 +534,66 @@ func (q *Queries) SetEncounterStatus(ctx context.Context, arg SetEncounterStatus
 	return i, err
 }
 
+const setGroupInitiative = `-- name: SetGroupInitiative :exec
+UPDATE encounter_combatants SET initiative = $2
+WHERE encounter_id = $1 AND group_id = $3
+`
+
+type SetGroupInitiativeParams struct {
+	EncounterID uuid.UUID   `json:"encounter_id"`
+	Initiative  *int32      `json:"initiative"`
+	GroupID     pgtype.UUID `json:"group_id"`
+}
+
+// A group acts as one creature, so its members share a single roll.
+func (q *Queries) SetGroupInitiative(ctx context.Context, arg SetGroupInitiativeParams) error {
+	_, err := q.db.Exec(ctx, setGroupInitiative, arg.EncounterID, arg.Initiative, arg.GroupID)
+	return err
+}
+
+const standDownEncounters = `-- name: StandDownEncounters :many
+UPDATE encounters SET status = 'inactive', round = 1, turn_index = 0
+WHERE campaign_id = $1 AND status = 'active'
+RETURNING id, campaign_id, name, status, round, turn_index, created_at
+`
+
+// Send every running fight in a campaign back to inactive at once. The DM's
+// panic button: with several fights open, hunting down which one still holds a
+// player is exactly the chore this avoids.
+func (q *Queries) StandDownEncounters(ctx context.Context, campaignID uuid.UUID) ([]Encounter, error) {
+	rows, err := q.db.Query(ctx, standDownEncounters, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Encounter
+	for rows.Next() {
+		var i Encounter
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.Name,
+			&i.Status,
+			&i.Round,
+			&i.TurnIndex,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateCombatant = `-- name: UpdateCombatant :one
 UPDATE encounter_combatants
 SET label = $2, player_label = $3, initiative = $4, hp_current = $5,
     hp_max = $6, ac = $7, hidden = $8
 WHERE id = $1
-RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at
+RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id
 `
 
 type UpdateCombatantParams struct {
@@ -450,6 +635,7 @@ func (q *Queries) UpdateCombatant(ctx context.Context, arg UpdateCombatantParams
 		&i.Hidden,
 		&i.SortOrder,
 		&i.CreatedAt,
+		&i.GroupID,
 	)
 	return i, err
 }

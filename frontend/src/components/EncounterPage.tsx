@@ -18,12 +18,14 @@ import {
   useCharacters,
   useCreateEncounter,
   useDeleteCombatant,
+  useDeleteCombatantGroup,
   useDeleteEncounter,
   useEncounter,
   useEncounters,
   useRollCombatant,
   useRollInitiative,
   useRules,
+  useStandDownEncounters,
   useUpdateCombatant,
   useUpdateEncounter,
 } from "../hooks";
@@ -35,6 +37,11 @@ const HP_STATE_TONE: Record<string, string> = {
   bloodied: "#c99a3f",
   down: "#8b2520",
 };
+
+// The damage box always falls back to 1 rather than emptying. A DM chipping a
+// creature down clicks − repeatedly; resetting to blank disabled the button and
+// forced a retype between every single point.
+const HP_STEP = "1";
 
 // Button intents on the DARK encounter page. The design system's btn-ghost-*
 // classes are for parchment (dark ink text) — on dark they look disabled, so we
@@ -80,16 +87,21 @@ function CombatantRow({
   active,
   campaignId,
   encounterId,
+  showInitiative = true,
 }: {
   c: Combatant;
   active: boolean;
   campaignId: string;
   encounterId: string;
+  /* Initiative is a property of a fight in progress, not of a prepared one —
+     the builder hides it entirely rather than showing an order that means
+     nothing yet. */
+  showInitiative?: boolean;
 }) {
   const update = useUpdateCombatant(campaignId, encounterId);
   const roll = useRollCombatant(campaignId, encounterId);
   const del = useDeleteCombatant(campaignId, encounterId);
-  const [dmg, setDmg] = useState("");
+  const [dmg, setDmg] = useState(HP_STEP);
   const [initDraft, setInitDraft] = useState(c.initiative?.toString() ?? "");
   // Resync the typed initiative when it changes elsewhere (a roll, a re-roll).
   useEffect(() => setInitDraft(c.initiative?.toString() ?? ""), [c.initiative]);
@@ -107,7 +119,7 @@ function CombatantRow({
     if (!n) return;
     const next = Math.max(0, Math.min((c.hpMax ?? 0), (c.hpCurrent ?? 0) + sign * n));
     update.mutate({ combatantId: c.id, body: { hpCurrent: next } });
-    setDmg("");
+    setDmg(HP_STEP);
   }
 
   return (
@@ -118,25 +130,27 @@ function CombatantRow({
         boxShadow: active ? "inset 0 0 0 1px rgba(224,169,78,.5)" : "inset 0 0 0 1px rgba(201,162,39,.16)",
       }}
     >
-      {/* initiative — type it, or roll the die */}
-      <div className="flex flex-none items-center gap-1">
-        <input
-          value={initDraft}
-          onChange={(e) => setInitDraft(e.target.value.replace(/[^\d-]/g, ""))}
-          onBlur={commitInit}
-          onKeyDown={(e) => e.key === "Enter" && commitInit()}
-          placeholder="—"
-          title="Type an initiative"
-          className="input-hall h-9 w-11 text-center font-heading text-[15px] font-bold tabular-nums"
-        />
-        <button
-          onClick={() => roll.mutate(c.id)}
-          title="Roll d20 + modifier"
-          className="btn-base btn-wax h-9 w-8 text-[13px]"
-        >
-          🎲
-        </button>
-      </div>
+      {/* initiative — type it, or roll the die. Running fights only. */}
+      {showInitiative && (
+        <div className="flex flex-none items-center gap-1">
+          <input
+            value={initDraft}
+            onChange={(e) => setInitDraft(e.target.value.replace(/[^\d-]/g, ""))}
+            onBlur={commitInit}
+            onKeyDown={(e) => e.key === "Enter" && commitInit()}
+            placeholder="—"
+            title="Type an initiative"
+            className="input-hall h-9 w-11 text-center font-heading text-[15px] font-bold tabular-nums"
+          />
+          <button
+            onClick={() => roll.mutate(c.id)}
+            title="Roll d20 + modifier"
+            className="btn-base btn-wax h-9 w-8 text-[13px]"
+          >
+            🎲
+          </button>
+        </div>
+      )}
 
       {/* name + hidden + facts */}
       <div className="min-w-[130px] flex-1">
@@ -183,6 +197,218 @@ function CombatantRow({
       <button onClick={() => del.mutate(c.id)} title="Remove from encounter" className="btn-base flex-none p-1.5" style={RED_BTN}>
         <IconTrash size={12} />
       </button>
+    </div>
+  );
+}
+
+/* An entry in the initiative order: either a lone combatant or a whole mob
+   taking a single turn. The server already returns members of a group
+   consecutively, so folding is just a walk down the list. */
+type Entry = { key: string; groupId: string | null; members: Combatant[] };
+
+function toEntries(combatants: Combatant[]): Entry[] {
+  const entries: Entry[] = [];
+  for (const c of combatants) {
+    const last = entries[entries.length - 1];
+    if (c.groupId && last && last.groupId === c.groupId) {
+      last.members.push(c);
+      continue;
+    }
+    entries.push({ key: c.groupId ?? c.id, groupId: c.groupId ?? null, members: [c] });
+  }
+  return entries;
+}
+
+/* "Skeleton 4" → "Skeleton". Members are numbered on the way in, so the mob's
+   shared name is any member's label without its ordinal. */
+const mobName = (label: string) => label.replace(/\s+\d+$/, "");
+
+/* A mob: monsters added together in one go. They share an initiative and act on
+   one turn, so the tracker shows a SINGLE line — that's the whole point, five
+   skeletons shouldn't be five things to scroll past. Expand it to damage them
+   individually, because each still keeps its own HP. */
+function GroupRow({
+  members,
+  active,
+  campaignId,
+  encounterId,
+  editable,
+  showInitiative = true,
+}: {
+  members: Combatant[];
+  active: boolean;
+  campaignId: string;
+  encounterId: string;
+  editable: boolean;
+  showInitiative?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const update = useUpdateCombatant(campaignId, encounterId);
+  const roll = useRollCombatant(campaignId, encounterId);
+  const delGroup = useDeleteCombatantGroup(campaignId, encounterId);
+  const lead = members[0];
+  const [initDraft, setInitDraft] = useState(lead.initiative?.toString() ?? "");
+  useEffect(() => setInitDraft(lead.initiative?.toString() ?? ""), [lead.initiative]);
+
+  // One roll, one initiative: the server spreads either to every member, so
+  // acting on the lead is enough.
+  function commitInit() {
+    const v = initDraft.trim();
+    if (v === "") return;
+    const n = parseInt(v, 10);
+    if (Number.isNaN(n) || n === lead.initiative) return;
+    update.mutate({ combatantId: lead.id, body: { initiative: n } });
+  }
+
+  const standing = members.filter((m) => (m.hpCurrent ?? 0) > 0).length;
+  const hpNow = members.reduce((t, m) => t + (m.hpCurrent ?? 0), 0);
+  const hpTop = members.reduce((t, m) => t + (m.hpMax ?? 0), 0);
+  const state = standing === 0 ? "down" : hpNow * 2 <= hpTop ? "bloodied" : "healthy";
+  const anyHidden = members.some((m) => m.hidden);
+
+  // Reveal/hide the mob as a unit. The monster picker adds hidden, so without
+  // this a grouped mob could never be shown to the party at all. If any member
+  // is hidden the click reveals everything; otherwise it hides everything.
+  function revealToggle() {
+    const next = !anyHidden;
+    for (const m of members) {
+      if (m.hidden !== next) update.mutate({ combatantId: m.id, body: { hidden: next } });
+    }
+  }
+
+  return (
+    <div
+      className="rounded-[3px]"
+      style={{
+        background: active ? "rgba(224,169,78,.1)" : "rgba(0,0,0,.14)",
+        boxShadow: active ? "inset 0 0 0 1px rgba(224,169,78,.5)" : "inset 0 0 0 1px rgba(201,162,39,.16)",
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-2 px-2.5 py-2">
+        {showInitiative && (
+          <div className="flex flex-none items-center gap-1">
+            <input
+              value={initDraft}
+              onChange={(e) => setInitDraft(e.target.value.replace(/[^\d-]/g, ""))}
+              onBlur={commitInit}
+              onKeyDown={(e) => e.key === "Enter" && commitInit()}
+              placeholder="—"
+              disabled={!editable}
+              title="Initiative for the whole group"
+              className="input-hall h-9 w-11 text-center font-heading text-[15px] font-bold tabular-nums"
+            />
+            {editable && (
+              <button onClick={() => roll.mutate(lead.id)} title="Roll once for the group" className="btn-base btn-wax h-9 w-8 text-[13px]">
+                🎲
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="min-w-[130px] flex-1">
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setOpen((v) => !v)} className="flex min-w-0 items-center gap-1.5 text-left">
+              <span className="flex-none text-[10px] text-gold-muted" style={{ transform: open ? "rotate(90deg)" : "none" }}>▶</span>
+              <span className="font-heading truncate text-[13.5px] font-semibold text-cream">{mobName(lead.name)}</span>
+              <span className="label-stamp flex-none text-[9px] tracking-[1px] text-ember-bright">×{members.length}</span>
+            </button>
+            {editable && (
+              <button
+                onClick={revealToggle}
+                title={anyHidden ? "Hidden from players — click to reveal the group" : "Visible to players — click to hide the group"}
+                className="flex-none"
+                style={{ color: anyHidden ? "#9a86b8" : "#8fb15f" }}
+              >
+                {anyHidden ? <IconEyeOff size={14} /> : <IconEye size={14} />}
+              </button>
+            )}
+          </div>
+          <div className="label-stamp mt-0.5 pl-[15px] text-[8.5px] tracking-[1px] text-gold-muted">
+            {standing} standing · AC {lead.ac} · {lead.initMod >= 0 ? "+" : ""}{lead.initMod} init
+            {editable && <span className="ml-1.5">{anyHidden ? "· hidden" : "· shown"}</span>}
+          </div>
+        </div>
+
+        <span className="font-heading w-16 text-right text-[13px] font-bold tabular-nums" style={{ color: HP_STATE_TONE[state] }}>
+          {editable ? `${hpNow}/${hpTop}` : ""}
+        </span>
+        {!editable && <HpStatePill state={state} />}
+
+        {editable && (
+          <button onClick={() => lead.groupId && delGroup.mutate(lead.groupId)} title="Remove the whole group" className="btn-base flex-none p-1.5" style={RED_BTN}>
+            <IconTrash size={12} />
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="flex flex-col gap-1 px-2.5 pb-2 pl-6">
+          {members.map((m) => (
+            <GroupMemberRow key={m.id} c={m} campaignId={campaignId} encounterId={encounterId} editable={editable} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* One skeleton inside the mob. No initiative control — the group owns that;
+   this is where its own HP lives. */
+function GroupMemberRow({
+  c,
+  campaignId,
+  encounterId,
+  editable,
+}: {
+  c: Combatant;
+  campaignId: string;
+  encounterId: string;
+  editable: boolean;
+}) {
+  const update = useUpdateCombatant(campaignId, encounterId);
+  const del = useDeleteCombatant(campaignId, encounterId);
+  const [dmg, setDmg] = useState(HP_STEP);
+
+  function applyHp(sign: number) {
+    const n = parseInt(dmg, 10);
+    if (!n) return;
+    const next = Math.max(0, Math.min(c.hpMax ?? 0, (c.hpCurrent ?? 0) + sign * n));
+    update.mutate({ combatantId: c.id, body: { hpCurrent: next } });
+    setDmg(HP_STEP);
+  }
+
+  const downed = (c.hpCurrent ?? 0) <= 0;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-[3px] px-2 py-1.5"
+      style={{ background: "rgba(0,0,0,.2)", opacity: downed ? 0.5 : 1 }}
+    >
+      <span className="font-heading min-w-[110px] flex-1 truncate text-[12px] text-cream">
+        {c.name}
+        {downed && <span className="label-stamp ml-1.5 text-[8px] tracking-[1px]" style={{ color: HP_STATE_TONE.down }}>down</span>}
+      </span>
+      {editable ? (
+        <>
+          <span className="font-heading w-14 text-right text-[12px] font-bold tabular-nums" style={{ color: HP_STATE_TONE[c.hpState] }}>
+            {c.hpCurrent}/{c.hpMax}
+          </span>
+          <input
+            value={dmg}
+            onChange={(e) => setDmg(e.target.value.replace(/\D/g, ""))}
+            onKeyDown={(e) => e.key === "Enter" && applyHp(-1)}
+            placeholder="0"
+            title="Amount to damage or heal"
+            className="input-hall h-7 w-11 text-center text-[11px]"
+          />
+          <button onClick={() => applyHp(-1)} disabled={!dmg} title="Damage" className="btn-base h-7 w-7 text-[13px] font-bold disabled:opacity-40" style={RED_BTN}>−</button>
+          <button onClick={() => applyHp(1)} disabled={!dmg} title="Heal" className="btn-base h-7 w-7 text-[13px] font-bold disabled:opacity-40" style={GREEN_BTN}>+</button>
+          <button onClick={() => del.mutate(c.id)} title="Remove just this one" className="btn-base flex-none p-1" style={RED_BTN}>
+            <IconTrash size={11} />
+          </button>
+        </>
+      ) : (
+        <HpStatePill state={c.hpState} />
+      )}
     </div>
   );
 }
@@ -242,8 +468,11 @@ function MonsterSearch({ campaignId, encounterId }: { campaignId: string; encoun
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
+  // One call with a count: the server makes them a single mob (one initiative,
+  // one turn, numbered names). Firing N separate adds is what used to leave
+  // five unrelated skeletons scattered through the order.
   function addMonster(id: string, name: string) {
-    for (let i = 0; i < count; i++) add.mutate({ kind: "monster", contentId: id, hidden: true });
+    add.mutate({ kind: "monster", contentId: id, hidden: true, count });
     setQ(name);
     setOpen(false);
   }
@@ -375,8 +604,9 @@ function MonsterRow({ m, add }: { m: RulesContent; add: ReturnType<typeof useAdd
   const [count, setCount] = useState(1);
   const d = m.data as { type?: string; size?: string };
 
+  // Count > 1 arrives as one mob; add singly if you want independent monsters.
   function addIt() {
-    for (let i = 0; i < count; i++) add.mutate({ kind: "monster", contentId: m.id, hidden: true });
+    add.mutate({ kind: "monster", contentId: m.id, hidden: true, count });
   }
 
   return (
@@ -416,12 +646,25 @@ function MonsterRow({ m, add }: { m: RulesContent; add: ReturnType<typeof useAdd
   );
 }
 
-function AddCombatant({ campaignId, encounterId, monster = true }: { campaignId: string; encounterId: string; monster?: boolean }) {
+function AddCombatant({
+  campaignId,
+  encounterId,
+  monster = true,
+  party = true,
+  existingCharacterIds = [],
+}: {
+  campaignId: string;
+  encounterId: string;
+  monster?: boolean;
+  party?: boolean;
+  existingCharacterIds?: string[];
+}) {
   const add = useAddCombatant(campaignId, encounterId);
   const { data: chars } = useCharacters(campaignId);
-  const [kind, setKind] = useState<"monster" | "pc" | "custom">(monster ? "monster" : "pc");
+  const [kind, setKind] = useState<"monster" | "pc" | "custom">(monster ? "monster" : party ? "pc" : "custom");
   const [pcPick, setPcPick] = useState("");
   const [custom, setCustom] = useState({ label: "", hpMax: "", ac: "", initMod: "" });
+  const availableChars = (chars ?? []).filter((c) => !existingCharacterIds.includes(c.id));
 
   function addIt() {
     if (kind === "pc" && pcPick) {
@@ -439,25 +682,47 @@ function AddCombatant({ campaignId, encounterId, monster = true }: { campaignId:
     }
   }
 
+  // Summon every party member not already in the fight, in one go — as
+  // distinct from picking one hero at a time above.
+  function summonParty() {
+    availableChars.forEach((c) => add.mutate({ kind: "pc", characterId: c.id }));
+  }
+
   return (
     <div className="chip-hall flex flex-wrap items-center gap-2 px-3 py-2.5">
+      {/* A summon can now be refused — a hero already fighting in another
+          encounter is not free to join this one — so the reason has to reach
+          the DM, or the button just looks broken. */}
+      {add.isError && (
+        <p className="font-body m-0 w-full text-[12px] italic text-[#d68a72]">
+          {(add.error as { error?: string } | null)?.error ?? "That one would not join the fight."}
+        </p>
+      )}
       <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="input-hall h-9 w-28 text-[12px]">
         {monster && <option value="monster">Monster</option>}
-        <option value="pc">Party</option>
+        {party && <option value="pc">Party</option>}
         <option value="custom">Custom</option>
       </select>
 
       {monster && kind === "monster" && <MonsterSearch campaignId={campaignId} encounterId={encounterId} />}
-      {kind === "pc" && (
+      {party && kind === "pc" && (
         <>
           <select value={pcPick} onChange={(e) => setPcPick(e.target.value)} className="input-hall h-9 min-w-[160px] flex-1 text-[12px]">
             <option value="">Choose a hero…</option>
-            {(chars ?? []).map((c) => (
+            {availableChars.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
           <button onClick={addIt} disabled={!pcPick || add.isPending} className="btn-base btn-gold clip-octagon h-9 px-4 text-[12px]">
-            <IconPlus size={13} /> Add
+            <IconPlus size={13} /> Summon member
+          </button>
+          <button
+            onClick={summonParty}
+            disabled={availableChars.length === 0 || add.isPending}
+            title="Add every party member not already in the fight, all at once"
+            className="btn-base btn-wax h-9 px-4 text-[12px] disabled:opacity-40"
+          >
+            <IconPlus size={13} /> Summon party
           </button>
         </>
       )}
@@ -493,13 +758,29 @@ function ActiveTracker({ campaign, detail }: { campaign: CampaignContext["campai
   const update = useUpdateEncounter(campaign.id);
   const rollAll = useRollInitiative(campaign.id, enc.id);
 
+  // Turns advance one ENTRY at a time, and a mob is a single entry — otherwise
+  // a pack of eight skeletons would eat eight presses of "Next turn". The
+  // stored turnIndex still points at a row, so we translate: find the entry
+  // holding the current row, move one entry, then land on that entry's first
+  // member.
+  const entries = useMemo(() => toEntries(combatants), [combatants]);
+  const starts = useMemo(() => {
+    const out: number[] = [];
+    let i = 0;
+    for (const e of entries) { out.push(i); i += e.members.length; }
+    return out;
+  }, [entries]);
+
   function step(dir: 1 | -1) {
-    if (combatants.length === 0) return;
-    let turn = enc.turnIndex + dir;
+    if (entries.length === 0) return;
+    // The last start at or before turnIndex is the entry currently acting.
+    let cur = 0;
+    for (let i = 0; i < starts.length; i++) if (starts[i] <= enc.turnIndex) cur = i;
+    let next = cur + dir;
     let round = enc.round;
-    if (turn >= combatants.length) { turn = 0; round += 1; }
-    if (turn < 0) { turn = combatants.length - 1; round = Math.max(1, round - 1); }
-    update.mutate({ encounterId: enc.id, body: { turnIndex: turn, round } });
+    if (next >= entries.length) { next = 0; round += 1; }
+    if (next < 0) { next = entries.length - 1; round = Math.max(1, round - 1); }
+    update.mutate({ encounterId: enc.id, body: { turnIndex: starts[next], round } });
   }
 
   return (
@@ -523,27 +804,42 @@ function ActiveTracker({ campaign, detail }: { campaign: CampaignContext["campai
         </button>
         <button onClick={() => step(1)} className="btn-base btn-wax h-9 px-4 text-[12px]">Next turn ›</button>
         <button
-          onClick={() => update.mutate({ encounterId: enc.id, body: { status: "ended" } })}
-          title="End the encounter"
+          onClick={() => update.mutate({ encounterId: enc.id, body: { status: "inactive" } })}
+          title="Stand the fight down — releases the party and clears initiative; the monsters stay prepared"
           className="btn-base h-9 px-3 text-[12px]"
           style={RED_BTN}
         >
-          End
+          Stand down
         </button>
       </div>
 
-      <AddCombatant campaignId={campaign.id} encounterId={enc.id} />
+      <AddCombatant
+        campaignId={campaign.id}
+        encounterId={enc.id}
+        existingCharacterIds={combatants.filter((c) => c.kind === "pc" && c.characterId).map((c) => c.characterId as string)}
+      />
 
       <div className="mt-3 flex flex-col gap-1.5">
-        {combatants.map((c) => (
-          <CombatantRow
-            key={c.id}
-            c={c}
-            active={c.current}
-            campaignId={campaign.id}
-            encounterId={enc.id}
-          />
-        ))}
+        {entries.map((e) =>
+          e.members.length > 1 ? (
+            <GroupRow
+              key={e.key}
+              members={e.members}
+              active={e.members.some((m) => m.current)}
+              campaignId={campaign.id}
+              encounterId={enc.id}
+              editable
+            />
+          ) : (
+            <CombatantRow
+              key={e.key}
+              c={e.members[0]}
+              active={e.members[0].current}
+              campaignId={campaign.id}
+              encounterId={enc.id}
+            />
+          ),
+        )}
       </div>
     </div>
   );
@@ -555,7 +851,6 @@ function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign
   const enc = detail.encounter;
   const combatants = detail.combatants;
   const update = useUpdateEncounter(campaign.id);
-  const rollAll = useRollInitiative(campaign.id, enc.id);
   const canTrigger = combatants.length > 0;
 
   return (
@@ -576,15 +871,10 @@ function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign
             {combatants.length} joined
           </div>
         </div>
+        {/* No initiative here — not the input on each row, not a "roll all".
+            An order rolled before the fight exists is one the DM has to
+            remember not to trust; it belongs to the tracker alone. */}
         <div className="mb-3 flex flex-wrap gap-2">
-          <button
-            onClick={() => rollAll.mutate()}
-            disabled={!canTrigger}
-            title="Roll d20 + modifier for everyone"
-            className="btn-base btn-wax h-9 px-3 text-[12px] disabled:opacity-40"
-          >
-            🎲 Roll all
-          </button>
           <button
             onClick={() => update.mutate({ encounterId: enc.id, body: { status: "active" } })}
             disabled={!canTrigger}
@@ -595,17 +885,21 @@ function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign
           </button>
         </div>
 
-        <AddCombatant campaignId={campaign.id} encounterId={enc.id} monster={false} />
+        <AddCombatant campaignId={campaign.id} encounterId={enc.id} monster={false} party={false} />
 
         <div className="mt-3 flex flex-col gap-1.5">
           {combatants.length === 0 ? (
             <div className="font-accent py-6 text-center text-[13px] italic text-cream-muted">
-              Empty so far — pick monsters from the Den, or add your party.
+              Empty so far — pick monsters from the Den, or add a custom foe. Your party joins once you trigger the fight.
             </div>
           ) : (
-            combatants.map((c) => (
-              <CombatantRow key={c.id} c={c} active={false} campaignId={campaign.id} encounterId={enc.id} />
-            ))
+            toEntries(combatants).map((e) =>
+              e.members.length > 1 ? (
+                <GroupRow key={e.key} members={e.members} active={false} campaignId={campaign.id} encounterId={enc.id} editable showInitiative={false} />
+              ) : (
+                <CombatantRow key={e.key} c={e.members[0]} active={false} campaignId={campaign.id} encounterId={enc.id} showInitiative={false} />
+              ),
+            )
           )}
         </div>
       </div>
@@ -617,11 +911,15 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
   const { data: list } = useEncounters(campaign.id, true);
   const create = useCreateEncounter(campaign.id);
   const del = useDeleteEncounter(campaign.id);
+  const standDownAll = useStandDownEncounters(campaign.id);
   const [openId, setOpenId] = useState<string | null>(null);
   const [name, setName] = useState("");
 
-  // Default to whichever is running.
-  const activeId = useMemo(() => (list ?? []).find((e) => e.status === "active")?.id ?? null, [list]);
+  // Several fights can run at once — a split party is two encounters — so this
+  // is a count, not a lookup. The library still opens on a running one by
+  // default when there's exactly one obvious candidate.
+  const running = useMemo(() => (list ?? []).filter((e) => e.status === "active"), [list]);
+  const activeId = running[0]?.id ?? null;
   const selectedId = openId ?? activeId;
   const { data: detail } = useEncounter(selectedId ?? undefined);
 
@@ -658,6 +956,30 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
           <IconPlus size={14} /> Prepare
         </button>
       </div>
+
+      {/* Until encounters can be grouped, a DM juggling several open fights has
+          no quick way to find which one still holds a player. This releases
+          every one of them at once. */}
+      {running.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
+            {running.length} fight{running.length === 1 ? "" : "s"} running
+          </span>
+          <button
+            onClick={() => {
+              if (confirm(`Stand down ${running.length} running encounter${running.length === 1 ? "" : "s"}? Every summoned hero is released and initiative is cleared.`)) {
+                standDownAll.mutate();
+              }
+            }}
+            disabled={standDownAll.isPending}
+            title="End every running encounter and release every summoned hero"
+            className="btn-base h-9 px-4 text-[12px] disabled:opacity-40"
+            style={RED_BTN}
+          >
+            ⏹ Stand down all
+          </button>
+        </div>
+      )}
 
       {(list ?? []).length === 0 ? (
         <div className="font-accent px-5 py-[50px] text-center text-base italic text-[#9c855e]">
@@ -713,34 +1035,48 @@ function PlayerEncounter({ campaignId }: { campaignId: string }) {
         <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">Round {enc.round}</span>
       </div>
       <div className="flex max-w-[560px] flex-col gap-1.5">
-        {detail.combatants.map((c) => (
-          <div
-            key={c.id}
-            className="flex items-center gap-3 rounded-[3px] px-3 py-2"
-            style={{
-              background: c.current ? "rgba(224,169,78,.12)" : "rgba(0,0,0,.14)",
-              boxShadow: c.current ? "inset 0 0 0 1px rgba(224,169,78,.5)" : "inset 0 0 0 1px rgba(201,162,39,.16)",
-            }}
-          >
-            <TurnMark active={c.current}>{c.initiative ?? "—"}</TurnMark>
-            <span className="font-heading flex-1 truncate text-[13.5px] font-semibold text-cream">
-              {c.name}
-              {c.isMine && <span className="label-stamp ml-2 text-[8px] tracking-[1px] text-ember-bright">you</span>}
-            </span>
-            {c.isMine && c.hpCurrent != null ? (
-              <span className="font-heading text-[13px] font-bold tabular-nums" style={{ color: HP_STATE_TONE[c.hpState] }}>
-                {c.hpCurrent}/{c.hpMax}
+        {/* Mobs read as one line for players too — the party sees "Skeleton ×5"
+            acting at once, not five entries. PCs are never grouped, so the
+            "you"/roll affordances below always fall on a lone combatant. */}
+        {toEntries(detail.combatants).map((e) => {
+          const c = e.members[0];
+          const mob = e.members.length > 1;
+          // Worst state in the pack, so "bloodied" shows while any of them is.
+          const state = mob
+            ? e.members.some((m) => m.hpState === "healthy")
+              ? e.members.some((m) => m.hpState !== "healthy") ? "bloodied" : "healthy"
+              : e.members.every((m) => m.hpState === "down") ? "down" : "bloodied"
+            : c.hpState;
+          return (
+            <div
+              key={e.key}
+              className="flex items-center gap-3 rounded-[3px] px-3 py-2"
+              style={{
+                background: c.current ? "rgba(224,169,78,.12)" : "rgba(0,0,0,.14)",
+                boxShadow: c.current ? "inset 0 0 0 1px rgba(224,169,78,.5)" : "inset 0 0 0 1px rgba(201,162,39,.16)",
+              }}
+            >
+              <TurnMark active={c.current}>{c.initiative ?? "—"}</TurnMark>
+              <span className="font-heading flex-1 truncate text-[13.5px] font-semibold text-cream">
+                {mob ? mobName(c.name) : c.name}
+                {mob && <span className="label-stamp ml-1.5 text-[9px] tracking-[1px] text-ember-bright">×{e.members.length}</span>}
+                {c.isMine && <span className="label-stamp ml-2 text-[8px] tracking-[1px] text-ember-bright">you</span>}
               </span>
-            ) : (
-              <HpStatePill state={c.hpState} />
-            )}
-            {c.isMine && c.initiative == null && (
-              <button onClick={() => roll.mutate(c.id)} className="btn-base btn-wax h-7 px-2.5 text-[10px]">
-                🎲 Roll
-              </button>
-            )}
-          </div>
-        ))}
+              {!mob && c.isMine && c.hpCurrent != null ? (
+                <span className="font-heading text-[13px] font-bold tabular-nums" style={{ color: HP_STATE_TONE[c.hpState] }}>
+                  {c.hpCurrent}/{c.hpMax}
+                </span>
+              ) : (
+                <HpStatePill state={state} />
+              )}
+              {!mob && c.isMine && c.initiative == null && (
+                <button onClick={() => roll.mutate(c.id)} className="btn-base btn-wax h-7 px-2.5 text-[10px]">
+                  🎲 Roll
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
