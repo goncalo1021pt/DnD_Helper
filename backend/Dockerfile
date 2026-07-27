@@ -16,8 +16,11 @@ WORKDIR /app/backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend ./
-# Embed the freshly built SPA.
+# Embed the freshly built SPA. Anything from frontend/public lands in the dist
+# ROOT rather than dist/assets, so it needs copying by name here as well as
+# naming in the go:embed directive in internal/static/static.go.
 COPY --from=frontend /app/frontend/dist/index.html ./internal/static/index.html
+COPY --from=frontend /app/frontend/dist/favicon.svg ./internal/static/favicon.svg
 COPY --from=frontend /app/frontend/dist/assets/ ./internal/static/assets/
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /server ./cmd/server
 
