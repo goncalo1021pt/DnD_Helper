@@ -146,11 +146,10 @@ func (s *Server) UpdateCharacter(ctx context.Context, request api.UpdateCharacte
 	if err != nil {
 		return nil, err
 	}
-	// Mirror HP forward into the campaign's running encounter, if this hero is
-	// seated in it — see syncCombatantHP.
-	if campaignID, seated := seatedCampaign(updated); seated &&
-		(character.HpCurrent != updated.HpCurrent || character.HpMax != updated.HpMax) {
-		if err := s.syncCombatantHP(ctx, campaignID, updated); err != nil {
+	// Mirror HP forward into whichever running encounter this hero is fighting
+	// in — see syncCombatantHP.
+	if character.HpCurrent != updated.HpCurrent || character.HpMax != updated.HpMax {
+		if err := s.syncCombatantHP(ctx, updated); err != nil {
 			return nil, err
 		}
 	}

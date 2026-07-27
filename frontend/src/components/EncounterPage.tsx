@@ -25,6 +25,7 @@ import {
   useRollCombatant,
   useRollInitiative,
   useRules,
+  useStandDownEncounters,
   useUpdateCombatant,
   useUpdateEncounter,
 } from "../hooks";
@@ -36,6 +37,11 @@ const HP_STATE_TONE: Record<string, string> = {
   bloodied: "#c99a3f",
   down: "#8b2520",
 };
+
+// The damage box always falls back to 1 rather than emptying. A DM chipping a
+// creature down clicks − repeatedly; resetting to blank disabled the button and
+// forced a retype between every single point.
+const HP_STEP = "1";
 
 // Button intents on the DARK encounter page. The design system's btn-ghost-*
 // classes are for parchment (dark ink text) — on dark they look disabled, so we
@@ -81,16 +87,21 @@ function CombatantRow({
   active,
   campaignId,
   encounterId,
+  showInitiative = true,
 }: {
   c: Combatant;
   active: boolean;
   campaignId: string;
   encounterId: string;
+  /* Initiative is a property of a fight in progress, not of a prepared one —
+     the builder hides it entirely rather than showing an order that means
+     nothing yet. */
+  showInitiative?: boolean;
 }) {
   const update = useUpdateCombatant(campaignId, encounterId);
   const roll = useRollCombatant(campaignId, encounterId);
   const del = useDeleteCombatant(campaignId, encounterId);
-  const [dmg, setDmg] = useState("");
+  const [dmg, setDmg] = useState(HP_STEP);
   const [initDraft, setInitDraft] = useState(c.initiative?.toString() ?? "");
   // Resync the typed initiative when it changes elsewhere (a roll, a re-roll).
   useEffect(() => setInitDraft(c.initiative?.toString() ?? ""), [c.initiative]);
@@ -108,7 +119,7 @@ function CombatantRow({
     if (!n) return;
     const next = Math.max(0, Math.min((c.hpMax ?? 0), (c.hpCurrent ?? 0) + sign * n));
     update.mutate({ combatantId: c.id, body: { hpCurrent: next } });
-    setDmg("");
+    setDmg(HP_STEP);
   }
 
   return (
@@ -119,25 +130,27 @@ function CombatantRow({
         boxShadow: active ? "inset 0 0 0 1px rgba(224,169,78,.5)" : "inset 0 0 0 1px rgba(201,162,39,.16)",
       }}
     >
-      {/* initiative — type it, or roll the die */}
-      <div className="flex flex-none items-center gap-1">
-        <input
-          value={initDraft}
-          onChange={(e) => setInitDraft(e.target.value.replace(/[^\d-]/g, ""))}
-          onBlur={commitInit}
-          onKeyDown={(e) => e.key === "Enter" && commitInit()}
-          placeholder="—"
-          title="Type an initiative"
-          className="input-hall h-9 w-11 text-center font-heading text-[15px] font-bold tabular-nums"
-        />
-        <button
-          onClick={() => roll.mutate(c.id)}
-          title="Roll d20 + modifier"
-          className="btn-base btn-wax h-9 w-8 text-[13px]"
-        >
-          🎲
-        </button>
-      </div>
+      {/* initiative — type it, or roll the die. Running fights only. */}
+      {showInitiative && (
+        <div className="flex flex-none items-center gap-1">
+          <input
+            value={initDraft}
+            onChange={(e) => setInitDraft(e.target.value.replace(/[^\d-]/g, ""))}
+            onBlur={commitInit}
+            onKeyDown={(e) => e.key === "Enter" && commitInit()}
+            placeholder="—"
+            title="Type an initiative"
+            className="input-hall h-9 w-11 text-center font-heading text-[15px] font-bold tabular-nums"
+          />
+          <button
+            onClick={() => roll.mutate(c.id)}
+            title="Roll d20 + modifier"
+            className="btn-base btn-wax h-9 w-8 text-[13px]"
+          >
+            🎲
+          </button>
+        </div>
+      )}
 
       {/* name + hidden + facts */}
       <div className="min-w-[130px] flex-1">
@@ -220,12 +233,14 @@ function GroupRow({
   campaignId,
   encounterId,
   editable,
+  showInitiative = true,
 }: {
   members: Combatant[];
   active: boolean;
   campaignId: string;
   encounterId: string;
   editable: boolean;
+  showInitiative?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const update = useUpdateCombatant(campaignId, encounterId);
@@ -270,23 +285,25 @@ function GroupRow({
       }}
     >
       <div className="flex flex-wrap items-center gap-2 px-2.5 py-2">
-        <div className="flex flex-none items-center gap-1">
-          <input
-            value={initDraft}
-            onChange={(e) => setInitDraft(e.target.value.replace(/[^\d-]/g, ""))}
-            onBlur={commitInit}
-            onKeyDown={(e) => e.key === "Enter" && commitInit()}
-            placeholder="—"
-            disabled={!editable}
-            title="Initiative for the whole group"
-            className="input-hall h-9 w-11 text-center font-heading text-[15px] font-bold tabular-nums"
-          />
-          {editable && (
-            <button onClick={() => roll.mutate(lead.id)} title="Roll once for the group" className="btn-base btn-wax h-9 w-8 text-[13px]">
-              🎲
-            </button>
-          )}
-        </div>
+        {showInitiative && (
+          <div className="flex flex-none items-center gap-1">
+            <input
+              value={initDraft}
+              onChange={(e) => setInitDraft(e.target.value.replace(/[^\d-]/g, ""))}
+              onBlur={commitInit}
+              onKeyDown={(e) => e.key === "Enter" && commitInit()}
+              placeholder="—"
+              disabled={!editable}
+              title="Initiative for the whole group"
+              className="input-hall h-9 w-11 text-center font-heading text-[15px] font-bold tabular-nums"
+            />
+            {editable && (
+              <button onClick={() => roll.mutate(lead.id)} title="Roll once for the group" className="btn-base btn-wax h-9 w-8 text-[13px]">
+                🎲
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="min-w-[130px] flex-1">
           <div className="flex items-center gap-1.5">
@@ -350,14 +367,14 @@ function GroupMemberRow({
 }) {
   const update = useUpdateCombatant(campaignId, encounterId);
   const del = useDeleteCombatant(campaignId, encounterId);
-  const [dmg, setDmg] = useState("");
+  const [dmg, setDmg] = useState(HP_STEP);
 
   function applyHp(sign: number) {
     const n = parseInt(dmg, 10);
     if (!n) return;
     const next = Math.max(0, Math.min(c.hpMax ?? 0, (c.hpCurrent ?? 0) + sign * n));
     update.mutate({ combatantId: c.id, body: { hpCurrent: next } });
-    setDmg("");
+    setDmg(HP_STEP);
   }
 
   const downed = (c.hpCurrent ?? 0) <= 0;
@@ -673,6 +690,14 @@ function AddCombatant({
 
   return (
     <div className="chip-hall flex flex-wrap items-center gap-2 px-3 py-2.5">
+      {/* A summon can now be refused — a hero already fighting in another
+          encounter is not free to join this one — so the reason has to reach
+          the DM, or the button just looks broken. */}
+      {add.isError && (
+        <p className="font-body m-0 w-full text-[12px] italic text-[#d68a72]">
+          {(add.error as { error?: string } | null)?.error ?? "That one would not join the fight."}
+        </p>
+      )}
       <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="input-hall h-9 w-28 text-[12px]">
         {monster && <option value="monster">Monster</option>}
         {party && <option value="pc">Party</option>}
@@ -779,12 +804,12 @@ function ActiveTracker({ campaign, detail }: { campaign: CampaignContext["campai
         </button>
         <button onClick={() => step(1)} className="btn-base btn-wax h-9 px-4 text-[12px]">Next turn ›</button>
         <button
-          onClick={() => update.mutate({ encounterId: enc.id, body: { status: "ended" } })}
-          title="End the encounter"
+          onClick={() => update.mutate({ encounterId: enc.id, body: { status: "inactive" } })}
+          title="Stand the fight down — releases the party and clears initiative; the monsters stay prepared"
           className="btn-base h-9 px-3 text-[12px]"
           style={RED_BTN}
         >
-          End
+          Stand down
         </button>
       </div>
 
@@ -826,7 +851,6 @@ function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign
   const enc = detail.encounter;
   const combatants = detail.combatants;
   const update = useUpdateEncounter(campaign.id);
-  const rollAll = useRollInitiative(campaign.id, enc.id);
   const canTrigger = combatants.length > 0;
 
   return (
@@ -847,15 +871,10 @@ function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign
             {combatants.length} joined
           </div>
         </div>
+        {/* No initiative here — not the input on each row, not a "roll all".
+            An order rolled before the fight exists is one the DM has to
+            remember not to trust; it belongs to the tracker alone. */}
         <div className="mb-3 flex flex-wrap gap-2">
-          <button
-            onClick={() => rollAll.mutate()}
-            disabled={!canTrigger}
-            title="Roll d20 + modifier for everyone"
-            className="btn-base btn-wax h-9 px-3 text-[12px] disabled:opacity-40"
-          >
-            🎲 Roll all
-          </button>
           <button
             onClick={() => update.mutate({ encounterId: enc.id, body: { status: "active" } })}
             disabled={!canTrigger}
@@ -876,9 +895,9 @@ function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign
           ) : (
             toEntries(combatants).map((e) =>
               e.members.length > 1 ? (
-                <GroupRow key={e.key} members={e.members} active={false} campaignId={campaign.id} encounterId={enc.id} editable />
+                <GroupRow key={e.key} members={e.members} active={false} campaignId={campaign.id} encounterId={enc.id} editable showInitiative={false} />
               ) : (
-                <CombatantRow key={e.key} c={e.members[0]} active={false} campaignId={campaign.id} encounterId={enc.id} />
+                <CombatantRow key={e.key} c={e.members[0]} active={false} campaignId={campaign.id} encounterId={enc.id} showInitiative={false} />
               ),
             )
           )}
@@ -892,11 +911,15 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
   const { data: list } = useEncounters(campaign.id, true);
   const create = useCreateEncounter(campaign.id);
   const del = useDeleteEncounter(campaign.id);
+  const standDownAll = useStandDownEncounters(campaign.id);
   const [openId, setOpenId] = useState<string | null>(null);
   const [name, setName] = useState("");
 
-  // Default to whichever is running.
-  const activeId = useMemo(() => (list ?? []).find((e) => e.status === "active")?.id ?? null, [list]);
+  // Several fights can run at once — a split party is two encounters — so this
+  // is a count, not a lookup. The library still opens on a running one by
+  // default when there's exactly one obvious candidate.
+  const running = useMemo(() => (list ?? []).filter((e) => e.status === "active"), [list]);
+  const activeId = running[0]?.id ?? null;
   const selectedId = openId ?? activeId;
   const { data: detail } = useEncounter(selectedId ?? undefined);
 
@@ -933,6 +956,30 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
           <IconPlus size={14} /> Prepare
         </button>
       </div>
+
+      {/* Until encounters can be grouped, a DM juggling several open fights has
+          no quick way to find which one still holds a player. This releases
+          every one of them at once. */}
+      {running.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
+            {running.length} fight{running.length === 1 ? "" : "s"} running
+          </span>
+          <button
+            onClick={() => {
+              if (confirm(`Stand down ${running.length} running encounter${running.length === 1 ? "" : "s"}? Every summoned hero is released and initiative is cleared.`)) {
+                standDownAll.mutate();
+              }
+            }}
+            disabled={standDownAll.isPending}
+            title="End every running encounter and release every summoned hero"
+            className="btn-base h-9 px-4 text-[12px] disabled:opacity-40"
+            style={RED_BTN}
+          >
+            ⏹ Stand down all
+          </button>
+        </div>
+      )}
 
       {(list ?? []).length === 0 ? (
         <div className="font-accent px-5 py-[50px] text-center text-base italic text-[#9c855e]">

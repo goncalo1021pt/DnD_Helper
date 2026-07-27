@@ -16,8 +16,31 @@ ORDER BY e.created_at DESC;
 -- name: GetEncounter :one
 SELECT * FROM encounters WHERE id = $1;
 
--- name: GetActiveEncounter :one
-SELECT * FROM encounters WHERE campaign_id = $1 AND status = 'active';
+-- name: ListActiveEncounters :many
+-- Every fight currently running in a campaign. More than one is normal: a party
+-- that splits is two encounters at once.
+SELECT * FROM encounters
+WHERE campaign_id = $1 AND status = 'active'
+ORDER BY created_at DESC;
+
+-- name: GetActiveEncounterForUser :one
+-- The running fight this player's hero is standing in. A player only ever
+-- watches their own battle — the other half of a split party is not their
+-- business — so the join runs through their own characters.
+SELECT DISTINCT ON (e.id) e.*
+FROM encounters e
+JOIN encounter_combatants c ON c.encounter_id = e.id
+JOIN characters ch ON ch.id = c.character_id
+WHERE e.campaign_id = $1 AND e.status = 'active' AND ch.owner_user_id = $2
+ORDER BY e.id, e.created_at DESC
+LIMIT 1;
+
+-- name: ListActiveCombatantsForCharacter :many
+-- Every live combatant row for one hero. Used to mirror HP into whichever fight
+-- they're in, and to refuse seating them in a second one.
+SELECT c.* FROM encounter_combatants c
+JOIN encounters e ON e.id = c.encounter_id
+WHERE c.character_id = $1 AND e.status = 'active';
 
 -- name: SetEncounterStatus :one
 UPDATE encounters SET status = $2 WHERE id = $1 RETURNING *;
@@ -25,10 +48,23 @@ UPDATE encounters SET status = $2 WHERE id = $1 RETURNING *;
 -- name: UpdateEncounterProgress :one
 UPDATE encounters SET round = $2, turn_index = $3 WHERE id = $1 RETURNING *;
 
--- name: EndOtherActiveEncounters :exec
--- Only one encounter runs at a time: end any other active one before triggering.
-UPDATE encounters SET status = 'ended'
-WHERE campaign_id = $1 AND status = 'active' AND id <> $2;
+-- name: StandDownEncounters :many
+-- Send every running fight in a campaign back to inactive at once. The DM's
+-- panic button: with several fights open, hunting down which one still holds a
+-- player is exactly the chore this avoids.
+UPDATE encounters SET status = 'inactive', round = 1, turn_index = 0
+WHERE campaign_id = $1 AND status = 'active'
+RETURNING *;
+
+-- name: ClearEncounterParty :exec
+-- Standing down releases the heroes. Monsters stay, so the encounter is still a
+-- prepared fight the DM can trigger again; the party is summoned fresh each run.
+DELETE FROM encounter_combatants WHERE encounter_id = $1 AND kind = 'pc';
+
+-- name: ClearEncounterInitiative :exec
+-- Initiative belongs to a running fight and nothing else. It must not survive
+-- into the builder, where a stale order would look like a rolled one.
+UPDATE encounter_combatants SET initiative = NULL WHERE encounter_id = $1;
 
 -- name: DeleteEncounter :execrows
 DELETE FROM encounters WHERE id = $1;

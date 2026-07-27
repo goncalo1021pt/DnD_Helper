@@ -1411,6 +1411,29 @@ export function useUpdateEncounter(campaignId: string) {
   });
 }
 
+/**
+ * Stand down every running encounter in the campaign at once — the DM's way out
+ * when several fights are open and a hero is stuck in one of them.
+ */
+export function useStandDownEncounters(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/encounters/stand-down", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+      return data;
+    },
+    // This touches every encounter, not one, so the per-encounter detail caches
+    // all have to go — any of them may have just lost its party.
+    onSuccess: () => {
+      invalidateEncounters(qc, campaignId);
+      qc.invalidateQueries({ queryKey: ["encounter"] });
+    },
+  });
+}
+
 export function useDeleteEncounter(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({

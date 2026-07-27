@@ -1207,10 +1207,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** The DM's encounter library — drafts, the active one, and past ones (DM only) */
+        /** The DM's encounter library — every prepared fight, running or not (DM only) */
         get: operations["listEncounters"];
         put?: never;
-        /** Prepare a new (draft) encounter (DM only) */
+        /** Prepare a new (inactive) encounter (DM only) */
         post: operations["createEncounter"];
         delete?: never;
         options?: never;
@@ -1227,10 +1227,29 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** The running encounter (members) — redacted for players. 204 when none is active. */
+        /** The running encounter this member is in — the fight their hero stands in for a player, the most recently triggered one for the DM. Redacted for players. 204 when none applies. */
         get: operations["getActiveEncounter"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/encounters/stand-down": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stand down every running encounter at once, releasing every summoned hero (DM only). The way out when several fights are open and a player is stuck in one of them. */
+        post: operations["standDownEncounters"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1829,7 +1848,7 @@ export interface components {
             /** Format: uuid */
             campaignId: string;
             name: string;
-            /** @description draft | active | ended (plain string, validated server-side). */
+            /** @description inactive | active (plain string, validated server-side). */
             status: string;
             round: number;
             /** @description Index into the initiative order whose turn it is. */
@@ -1890,7 +1909,7 @@ export interface components {
         };
         UpdateEncounterRequest: {
             name?: string;
-            /** @description draft | active | ended. Setting active triggers it (and ends any other running one). */
+            /** @description inactive | active. Setting active triggers the fight; several may run at once. Setting inactive stands it down — the party is released and initiative is cleared, while prepared monsters stay. */
             status?: string;
             round?: number;
             turnIndex?: number;
@@ -4662,12 +4681,36 @@ export interface operations {
                     "application/json": components["schemas"]["EncounterDetail"];
                 };
             };
-            /** @description No encounter is running */
+            /** @description No encounter is running for this member */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    standDownEncounters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The encounters that were stood down */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Encounter"][];
+                };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
