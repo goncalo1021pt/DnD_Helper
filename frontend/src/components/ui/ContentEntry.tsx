@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { RulesContent, RulesKind } from "../../api/client";
+import { originStamp } from "../../lib/content";
 import SpellEntry, { Blocks } from "./SpellEntry";
 
 /**
@@ -27,10 +28,11 @@ export const FEAT_CATEGORY_LABEL: Record<string, string> = {
 const STANDALONE_FEAT_CATEGORY = new Set(["fighting-style", "invocation", "metamagic"]);
 
 function SourceStamp({ entry }: { entry: RulesContent }) {
-  if (entry.source !== "homebrew") return null;
+  const stamp = originStamp(entry);
+  if (!stamp) return null;
   return (
     <span className="label-stamp ml-2 text-[8px] tracking-[1px] text-[#8b2520]">
-      Homebrew{entry.creatorName ? ` · ${entry.creatorName}` : ""}
+      {stamp}
     </span>
   );
 }

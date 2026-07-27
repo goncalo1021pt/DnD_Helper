@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -28,6 +29,32 @@ var packKinds = map[string]db.ContentKind{
 	"spell":      db.ContentKindSpell,
 	"item":       db.ContentKindItem,
 	"monster":    db.ContentKindMonster,
+}
+
+// packBook is the source stamp an import carries: the pack's own book, trimmed
+// and bounded, applied only to entries that do not name their own.
+func packBook(book *string) string {
+	if book == nil {
+		return ""
+	}
+	b := strings.TrimSpace(*book)
+	if len([]rune(b)) > 80 {
+		b = string([]rune(b)[:80])
+	}
+	return b
+}
+
+// stampBook records where an entry came from, so the Forge and the Archives
+// can say so instead of calling every import a flat "Homebrew". An entry that
+// names its own book keeps it — a pack of packs stays truthful.
+func stampBook(data map[string]interface{}, book string) {
+	if book == "" {
+		return
+	}
+	if own, ok := data["book"].(string); ok && strings.TrimSpace(own) != "" {
+		return
+	}
+	data["book"] = book
 }
 
 // ImportContentPack upserts every entry as the caller's homebrew, keyed by
@@ -58,6 +85,8 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 		}{Kind: kind, Name: name, Status: api.ImportReportResultsStatusFailed, Error: &msg})
 	}
 
+	book := packBook(request.Body.Book)
+
 	for _, entry := range request.Body.Entries {
 		kind, ok := packKinds[string(entry.Kind)]
 		name := entry.Name
@@ -73,6 +102,7 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 		if dataMap == nil {
 			dataMap = map[string]interface{}{}
 		}
+		stampBook(dataMap, book)
 		if msg := validateContentData(kind, dataMap); msg != "" {
 			fail(string(kind), name, msg)
 			continue
@@ -138,9 +168,14 @@ func (s *Server) ExportContentPack(ctx context.Context, _ api.ExportContentPackR
 			Data:    data,
 		})
 	}
+	// An empty book, spelled out rather than omitted: a personal collection
+	// spans every book its owner ever imported, and each entry already carries
+	// its own. Its presence tells an importer not to stamp one of its own.
+	mixed := ""
 	return api.ExportContentPack200JSONResponse(struct {
+		Book    *string         `json:"book,omitempty"`
 		Entries []api.PackEntry `json:"entries"`
-	}{Entries: entries}), nil
+	}{Book: &mixed, Entries: entries}), nil
 }
 
 // SetCodexStatusBulk applies one DM verdict to many entries at once.

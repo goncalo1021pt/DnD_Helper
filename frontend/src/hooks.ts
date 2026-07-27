@@ -865,9 +865,11 @@ export function useSetProgression(campaignId: string) {
 export function useImportPack() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (entries: unknown[]) => {
+    // book stamps every entry that doesn't name its own source, so imported
+    // content reads as its pack rather than a flat "Homebrew".
+    mutationFn: async (pack: { entries: unknown[]; book?: string }) => {
       const { data, error } = await api.POST("/rules/import", {
-        body: { entries: entries as never },
+        body: { entries: pack.entries as never, book: pack.book || undefined },
       });
       if (error) throw error;
       return data;

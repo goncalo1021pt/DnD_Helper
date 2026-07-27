@@ -588,6 +588,13 @@ paths:
               type: object
               required: [entries]
               properties:
+                book:
+                  type: string
+                  maxLength: 80
+                  description: |
+                    Where this pack came from. Stamped onto every entry that
+                    does not name its own data.book, so imported content reads
+                    as its source everywhere instead of a flat "Homebrew".
                 entries:
                   type: array
                   minItems: 1
@@ -619,6 +626,12 @@ paths:
                 type: object
                 required: [entries]
                 properties:
+                  book:
+                    type: string
+                    description: |
+                      Always empty on export: a collection spans many books and
+                      each entry already carries its own data.book. Its presence
+                      tells an importer not to stamp a source of its own.
                   entries:
                     type: array
                     items:

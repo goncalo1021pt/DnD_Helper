@@ -152,11 +152,15 @@ landed. Merged to `main`:
   Background → Species → Abilities → Spells → Gear → Name), account-level heroes
   seated into campaigns, level-ups, spell-slot tracking, inventory + AC/attack
   math, and a solo hero-sheet page. The Dice Tower rides along wherever you roll
-  (forge, sheet, and above modals for HP rolls on level-up).
+  (forge, sheet, and above modals for HP rolls on level-up). Every option step
+  is sifted by search, source book, and the table whose codex the hero must
+  satisfy (#92) — a homebrew-only campaign offers exactly its own classes.
 - **Content pipeline**: content-as-data (class / species / background /
   subclass / feat / spell / item / monster), the Scribe's Desk editor, the
   per-campaign **codex** (propose / enable / ban) with **strict seating**,
-  private **pack import/export**, the SRD 5.2.1 seed, per-book source labels,
+  private **pack import/export** (a pack names its book, or takes the file's
+  name, and every entry that doesn't already know its source is stamped with
+  it), the SRD 5.2.1 seed, per-book source labels wherever content is listed,
   and collapse of the same official entry imported by several users.
 - **The Monster Den + Bestiary** (#23 onward): a DM-only monster library (SRD +
   homebrew, hunting-tool filters, pack import, source labels) and the party's

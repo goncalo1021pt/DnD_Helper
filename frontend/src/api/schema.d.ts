@@ -3112,6 +3112,12 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * @description Where this pack came from. Stamped onto every entry that
+                     *     does not name its own data.book, so imported content reads
+                     *     as its source everywhere instead of a flat "Homebrew".
+                     */
+                    book?: string;
                     entries: components["schemas"]["PackEntry"][];
                 };
             };
@@ -3146,6 +3152,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /**
+                         * @description Always empty on export: a collection spans many books and
+                         *     each entry already carries its own data.book. Its presence
+                         *     tells an importer not to stamp a source of its own.
+                         */
+                        book?: string;
                         entries: components["schemas"]["PackEntry"][];
                     };
                 };

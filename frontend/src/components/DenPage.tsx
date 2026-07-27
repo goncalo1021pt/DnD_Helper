@@ -12,9 +12,10 @@ import {
   baseTypeOf,
   CR_BANDS,
   MONSTER_SORTS,
-  sourceLabel,
   type MonsterSort,
 } from "../lib/monsters";
+import { sourceLabel, sourceOptions } from "../lib/content";
+import { parsePackFile } from "../lib/pack";
 
 /**
  * The Monster Den: the DM's private menagerie. SRD monsters plus the DM's own
@@ -50,16 +51,7 @@ export default function DenPage() {
   }, [monsters]);
 
   // Sources present, SRD first and Homebrew last, books alphabetical between.
-  const sourceOptions = useMemo(() => {
-    const present = new Set((monsters ?? []).map(sourceLabel));
-    return [...present].sort((a, b) => {
-      if (a === "SRD") return -1;
-      if (b === "SRD") return 1;
-      if (a === "Homebrew") return 1;
-      if (b === "Homebrew") return -1;
-      return a.localeCompare(b);
-    });
-  }, [monsters]);
+  const sources = useMemo(() => sourceOptions(monsters), [monsters]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -83,28 +75,19 @@ export default function DenPage() {
       });
   }, [monsters, search, band, type, source, sort]);
 
-  function onPackFile(file: File) {
+  async function onPackFile(file: File) {
     setPackError("");
-    file.text().then((text) => {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        setPackError("That file is not valid JSON.");
-        return;
-      }
-      const entries = (parsed as { entries?: unknown[] })?.entries;
-      if (!Array.isArray(entries) || entries.length === 0) {
-        setPackError('No entries in that pack — expected { "entries": [...] }.');
-        return;
-      }
-      importPack.mutate(entries, {
-        onSuccess: (report) => setPackReport(report),
-        onError: (e) =>
-          setPackError(
-            (e as { error?: string } | null)?.error ?? "The crate would not open.",
-          ),
-      });
+    const parsed = await parsePackFile(file);
+    if ("error" in parsed) {
+      setPackError(parsed.error);
+      return;
+    }
+    importPack.mutate(parsed, {
+      onSuccess: (report) => setPackReport(report),
+      onError: (e) =>
+        setPackError(
+          (e as { error?: string } | null)?.error ?? "The crate would not open.",
+        ),
     });
   }
 
@@ -191,14 +174,14 @@ export default function DenPage() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        {sourceOptions.length > 1 && (
+        {sources.length > 1 && (
           <select
             value={source}
             onChange={(e) => setSource(e.target.value)}
             className="input-hall w-[170px]"
           >
             <option value="">All sources</option>
-            {sourceOptions.map((s) => (
+            {sources.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>

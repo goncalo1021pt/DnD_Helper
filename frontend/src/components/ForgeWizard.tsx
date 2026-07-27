@@ -1,7 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { AbilityScores, RulesContent } from "../api/client";
-import { useForgeCharacter, useRules } from "../hooks";
+import { useCampaigns, useCodex, useForgeCharacter, useRules } from "../hooks";
+import {
+  codexLegality,
+  legalityReason,
+  originStamp,
+  sourceLabel,
+  sourceOptions,
+} from "../lib/content";
 import { castingFor, spellOnClassList, type CasterData } from "../lib/spellcasting";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import FloatingDiceTray from "./ui/DiceTray";
@@ -33,6 +40,14 @@ type BonusMode = "2/1" | "1/1/1";
 const BASE_STEPS = ["Class", "Background", "Species", "Abilities", "Name"] as const;
 type StepName = (typeof BASE_STEPS)[number] | "Spells" | "Gear";
 
+// What the option steps are browsing, for the sieve's placeholder and tally.
+const STEP_NOUN: Partial<Record<StepName, string>> = {
+  Class: "classes",
+  Background: "backgrounds",
+  Species: "species",
+  Spells: "spells",
+};
+
 interface GearOption {
   label: string;
   items?: Array<{ name: string; qty?: number }>;
@@ -45,16 +60,18 @@ function gearLine(o: GearOption) {
   return parts.join(", ");
 }
 
-// A loud, unmissable notice for skill/background collisions — the old warning
-// was tiny italic text buried on the final step, so testers never understood it.
-function SkillAlert({
+// A loud, unmissable notice for anything the forge needs to say out loud —
+// skill/background collisions, picks a table's codex won't admit. The old
+// warning was tiny italic text buried on the final step, so testers never
+// understood it.
+function ForgeAlert({
   text,
   tone = "error",
-  onBackToClass,
+  action,
 }: {
   text: string;
   tone?: "error" | "info";
-  onBackToClass?: () => void;
+  action?: { label: string; onClick: () => void };
 }) {
   const c =
     tone === "error"
@@ -71,16 +88,16 @@ function SkillAlert({
       </span>
       <span>
         {text}
-        {onBackToClass && (
+        {action && (
           <>
             {" "}
             <button
               type="button"
-              onClick={onBackToClass}
+              onClick={action.onClick}
               className="cursor-pointer border-none bg-transparent p-0 font-semibold underline"
               style={{ color: c.link }}
             >
-              ← Back to Class
+              {action.label}
             </button>
           </>
         )}
@@ -110,14 +127,15 @@ function OptionCard({
           : undefined
       }
     >
-      <div className="font-display text-[16px] font-bold text-ink">
-        {entry.name}
-        {entry.source === "homebrew" && (
-          <span className="label-stamp ml-2 text-[8.5px] tracking-[1px] text-ink-label">
-            Homebrew{entry.creatorName ? ` · ${entry.creatorName}` : ""}
-          </span>
-        )}
-      </div>
+      <div className="font-display text-[16px] font-bold text-ink">{entry.name}</div>
+      {/* Imported content names the book it came in with, not a flat
+          "Homebrew" — a pack's Blood Hunter reads as its own source. Book
+          names run long, so the stamp gets its own line. */}
+      {entry.source === "homebrew" && (
+        <div className="label-stamp mt-0.5 text-[8.5px] tracking-[1px] text-[#8b2520]">
+          {originStamp(entry)}
+        </div>
+      )}
       <div className="label-stamp mt-0.5 text-[9px] tracking-[1px] text-ink-label">
         {facts}
       </div>
@@ -125,6 +143,93 @@ function OptionCard({
         {entry.summary}
       </p>
     </button>
+  );
+}
+
+/**
+ * The sieve above every option grid: free-text search, the source the entry
+ * came from (SRD, an imported book, plain homebrew), and the table whose codex
+ * the hero must satisfy. The table choice is deliberately not cleared by
+ * "Clear filters" — it is a decision about the hero, not a way to squint at
+ * the list.
+ */
+function OptionFilters({
+  noun,
+  search,
+  onSearch,
+  source,
+  onSource,
+  sources,
+  tableId,
+  onTable,
+  tables,
+  shown,
+  total,
+}: {
+  noun: string;
+  search: string;
+  onSearch: (v: string) => void;
+  source: string;
+  onSource: (v: string) => void;
+  sources: string[];
+  tableId: string;
+  onTable: (v: string) => void;
+  tables: Array<{ id: string; name: string }>;
+  shown: number;
+  total: number;
+}) {
+  const sifting = search !== "" || source !== "";
+  return (
+    <div className="mb-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder={`Search ${noun}…`}
+          className="input-hall min-w-0 flex-1 basis-[200px] sm:max-w-[260px]"
+        />
+        {sources.length > 1 && (
+          <select
+            value={source}
+            onChange={(e) => onSource(e.target.value)}
+            className="input-hall w-[180px]"
+            title="Where the option came from"
+          >
+            <option value="">All sources</option>
+            {sources.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        )}
+        {tables.length > 0 && (
+          <select
+            value={tableId}
+            onChange={(e) => onTable(e.target.value)}
+            className="input-hall w-[200px]"
+            title="Show only what a table's codex admits"
+          >
+            <option value="">Legal anywhere</option>
+            {tables.map((t) => (
+              <option key={t.id} value={t.id}>Legal at {t.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+      <div className="label-stamp mt-2 text-[10px] tracking-[1.5px] text-gold-muted">
+        {shown} of {total} {noun}
+        {sifting && (
+          <button
+            onClick={() => {
+              onSearch("");
+              onSource("");
+            }}
+            className="ml-2 cursor-pointer border-none bg-transparent p-0 text-[10px] tracking-[1.5px] text-ember-bright underline"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -154,6 +259,22 @@ export default function ForgeWizard() {
   // Skills a background just took back from the class picks — drives a precise,
   // named warning ("Soldier grants Athletics…") instead of a vague one.
   const [retracted, setRetracted] = useState<string[]>([]);
+  // Option sieve: search + source reset per step, the table carries through.
+  const [search, setSearch] = useState("");
+  const [source, setSource] = useState("");
+  const [tableId, setTableId] = useState("");
+
+  // Tables the hero could be seated at, and the codex of the chosen one. A
+  // campaign that banned the SRD classes and admitted only its own homebrew
+  // will offer exactly those here.
+  const { data: memberships } = useCampaigns();
+  const tables = useMemo(
+    () => (memberships ?? []).map((m) => ({ id: m.campaign.id, name: m.campaign.name })),
+    [memberships],
+  );
+  const { data: codex } = useCodex(tableId || undefined);
+  const legalityOf = useMemo(() => codexLegality(codex), [codex]);
+  const table = tables.find((t) => t.id === tableId);
 
   const chosenClass = classes?.find((c) => c.id === classId);
   const chosenBackground = backgrounds?.find((b) => b.id === backgroundId);
@@ -232,6 +353,79 @@ export default function ForgeWizard() {
   steps.push("Name");
   const safeStep = Math.min(step, steps.length - 1);
   const current = steps[safeStep];
+
+  // Each step is its own shelf: a search for classes means nothing on species.
+  useEffect(() => {
+    setSearch("");
+    setSource("");
+  }, [current]);
+
+  // The list the step is actually browsing, before the sieve.
+  const pool: RulesContent[] =
+    current === "Class"
+      ? (classes ?? [])
+      : current === "Background"
+        ? (backgrounds ?? [])
+        : current === "Species"
+          ? (species ?? [])
+          : current === "Spells"
+            ? classSpells
+            : [];
+  const sources = useMemo(() => sourceOptions(pool), [pool]);
+
+  /**
+   * Search + source + the table's codex, in that order. Anything already
+   * chosen survives the sieve: a filter should never make the hero's own pick
+   * vanish from under them (the codex warning below explains it instead).
+   */
+  function sift(list: RulesContent[], chosen: (e: RulesContent) => boolean) {
+    const q = search.trim().toLowerCase();
+    return list.filter((e) => {
+      if (chosen(e)) return true;
+      if (tableId && legalityOf(e) !== "legal") return false;
+      if (source && sourceLabel(e) !== source) return false;
+      if (!q) return true;
+      return (
+        e.name.toLowerCase().includes(q) ||
+        e.summary.toLowerCase().includes(q) ||
+        sourceLabel(e).toLowerCase().includes(q)
+      );
+    });
+  }
+
+  const shownClasses = sift(classes ?? [], (e) => e.id === classId);
+  const shownBackgrounds = sift(backgrounds ?? [], (e) => e.id === backgroundId);
+  const shownSpecies = sift(species ?? [], (e) => e.id === speciesId);
+  const shownSpells = sift(classSpells, (e) => spellIds.includes(e.id));
+  const shownCount =
+    current === "Class"
+      ? shownClasses.length
+      : current === "Background"
+        ? shownBackgrounds.length
+        : current === "Species"
+          ? shownSpecies.length
+          : shownSpells.length;
+
+  // Picks the chosen table won't admit — the hero can still be forged, but the
+  // seat would bounce, so say so plainly and name the reason.
+  const codexBlocked = tableId
+    ? [
+        chosenClass,
+        chosenBackground,
+        chosenSpecies,
+        ...spellIds.map((id) => classSpells.find((s) => s.id === id)),
+      ]
+        .filter((e): e is RulesContent => !!e)
+        .filter((e) => legalityOf(e) !== "legal")
+    : [];
+  const codexAlert =
+    codexBlocked.length > 0 && table
+      ? `${codexBlocked
+          .map((e) => `${e.name} (${legalityReason(legalityOf(e))})`)
+          .join(", ")} — the DM of ${table.name} must admit ${
+          codexBlocked.length === 1 ? "it" : "them"
+        } before this hero can take that seat.`
+      : "";
 
   // Picking a background can retract an earlier class-skill pick (it now grants
   // that skill), so the last step re-checks everything, not just the name.
@@ -403,10 +597,45 @@ export default function ForgeWizard() {
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.8fr)_minmax(280px,1fr)]">
         {/* step content */}
         <div>
+          {/* One sieve over every option step — a library with three imported
+              packs in it is otherwise a wall of cards. */}
+          {(current === "Class" ||
+            current === "Background" ||
+            current === "Species" ||
+            current === "Spells") && (
+            <>
+              <OptionFilters
+                noun={STEP_NOUN[current] ?? "options"}
+                search={search}
+                onSearch={setSearch}
+                source={source}
+                onSource={setSource}
+                sources={sources}
+                tableId={tableId}
+                onTable={setTableId}
+                tables={tables}
+                shown={shownCount}
+                total={pool.length}
+              />
+              {codexAlert && (
+                <div className="mb-4">
+                  <ForgeAlert text={codexAlert} tone="info" />
+                </div>
+              )}
+              {shownCount === 0 && (
+                <div className="font-accent px-5 py-[50px] text-center text-base italic text-[#9c855e]">
+                  {table && !search && !source
+                    ? `${table.name} has admitted no ${STEP_NOUN[current] ?? "options"} you may take — ask the DM to open the codex.`
+                    : "Nothing on this shelf answers that call."}
+                </div>
+              )}
+            </>
+          )}
+
           {current === "Class" && (
             <>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {(classes ?? []).map((c) => {
+                {shownClasses.map((c) => {
                   const d = c.data as {
                     hitDie?: number;
                     saves?: string[];
@@ -462,7 +691,7 @@ export default function ForgeWizard() {
                       );
                     })}
                   </div>
-                  {skillIssue?.tone === "error" && <SkillAlert text={skillIssue.text} />}
+                  {skillIssue?.tone === "error" && <ForgeAlert text={skillIssue.text} />}
                 </div>
               )}
             </>
@@ -471,7 +700,7 @@ export default function ForgeWizard() {
           {current === "Background" && (
             <>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {(backgrounds ?? []).map((b) => {
+              {shownBackgrounds.map((b) => {
                 const d = b.data as { abilityScores?: string[]; feat?: string; skills?: string[] };
                 return (
                   <OptionCard
@@ -494,14 +723,18 @@ export default function ForgeWizard() {
               })}
             </div>
             {skillIssue && (
-              <SkillAlert text={skillIssue.text} tone={skillIssue.tone} onBackToClass={() => setStep(0)} />
+              <ForgeAlert
+                text={skillIssue.text}
+                tone={skillIssue.tone}
+                action={{ label: "← Back to Class", onClick: () => setStep(0) }}
+              />
             )}
             </>
           )}
 
           {current === "Species" && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {(species ?? []).map((s) => {
+              {shownSpecies.map((s) => {
                 const d = s.data as { size?: string; speed?: number };
                 return (
                   <OptionCard
@@ -680,7 +913,7 @@ export default function ForgeWizard() {
                       {lvl === 0 ? "Cantrips" : "Level 1"}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {classSpells
+                      {shownSpells
                         .filter((s) => (s.data as { level?: number }).level === lvl)
                         .map((s) => {
                           const active = spellIds.includes(s.id);
@@ -701,6 +934,7 @@ export default function ForgeWizard() {
                                       : [...prev, s.id],
                                 )
                               }
+                              title={s.source === "homebrew" ? sourceLabel(s) : undefined}
                               className={`label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px] ${
                                 !active && atCap ? "opacity-45" : ""
                               }`}
@@ -781,8 +1015,13 @@ export default function ForgeWizard() {
                 />
               </label>
               {skillIssue && (
-                <SkillAlert text={skillIssue.text} tone={skillIssue.tone} onBackToClass={() => setStep(0)} />
+                <ForgeAlert
+                  text={skillIssue.text}
+                  tone={skillIssue.tone}
+                  action={{ label: "← Back to Class", onClick: () => setStep(0) }}
+                />
               )}
+              {codexAlert && <ForgeAlert text={codexAlert} tone="info" />}
               {forge.isError && (
                 <p className="font-body mt-3 text-sm italic text-[#8b2520]">
                   {(forge.error as { error?: string } | null)?.error ??
@@ -912,6 +1151,15 @@ export default function ForgeWizard() {
           <div className="font-accent mt-3 text-[11.5px] italic text-cream-muted">
             Level 1 · forged into My Heroes, ready to seat at a table.
           </div>
+          {table && (
+            <div className="label-stamp mt-2 text-[9px] tracking-[1.5px] text-gold-muted">
+              Built for {table.name}
+              {codexBlocked.length > 0 &&
+                ` · ${codexBlocked.length} pick${codexBlocked.length === 1 ? "" : "s"} still need${
+                  codexBlocked.length === 1 ? "s" : ""
+                } the DM`}
+            </div>
+          )}
         </div>
       </div>
 

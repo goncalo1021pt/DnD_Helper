@@ -7,6 +7,7 @@ import {
   useRules,
   useUpdateRules,
 } from "../hooks";
+import { sourceLabel } from "../lib/content";
 import { exportHomebrewPack, parsePackFile } from "../lib/pack";
 import ParchmentModal from "./ui/ParchmentModal";
 import ContentEntry, { FEAT_CATEGORY_LABEL } from "./ui/ContentEntry";
@@ -79,8 +80,7 @@ function cardTagline(kind: RulesKind, e: RulesContent): string {
       else parts.push("Gear");
       break;
   }
-  if (str("book")) parts.push(str("book"));
-  return parts.filter(Boolean).join(" · ");
+  return parts.filter(Boolean).join(" · "); // the source book rides in the stamp
 }
 
 export default function ArchivesPage() {
@@ -219,7 +219,7 @@ export default function ArchivesPage() {
       setPackError(parsed.error);
       return;
     }
-    importPack.mutate(parsed.entries, {
+    importPack.mutate(parsed, {
       onSuccess: (report) => setPackReport(report),
       onError: (e) =>
         setPackError(
@@ -381,7 +381,7 @@ export default function ArchivesPage() {
                       {kind === "spell" && <SpellFlags spell={e} />}
                       {e.source === "homebrew" && (
                         <span className="label-stamp ml-1.5 text-[8px] tracking-[1px] text-ink-label">
-                          Homebrew
+                          {sourceLabel(e)}
                         </span>
                       )}
                     </div>
