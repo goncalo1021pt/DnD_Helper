@@ -1,6 +1,6 @@
 /** Download the caller's whole homebrew collection as a pack file. */
 export function exportHomebrewPack() {
-  fetch("/api/content/pack", { credentials: "include" })
+  fetch("/api/rules/export", { credentials: "include" })
     .then((r) => r.json())
     .then((pack) => {
       const url = URL.createObjectURL(
@@ -14,10 +14,21 @@ export function exportHomebrewPack() {
     });
 }
 
-/** Parse a pack file into its entries, or explain why it wouldn't open. */
+/** The pack's own name for itself, else the file it arrived in — "Xanathars
+ * Guide.json" imports as "Xanathars Guide". A pack that spells out an empty
+ * book (our own exports do) means "these entries already know their sources",
+ * so nothing is stamped over them. */
+export function packBookOf(file: File, parsed: unknown): string {
+  const declared = (parsed as { book?: unknown })?.book;
+  if (typeof declared === "string") return declared.trim().slice(0, 80);
+  return file.name.replace(/\.json$/i, "").trim().slice(0, 80);
+}
+
+/** Parse a pack file into its entries and its source book, or explain why it
+ * wouldn't open. */
 export async function parsePackFile(
   file: File,
-): Promise<{ entries: unknown[] } | { error: string }> {
+): Promise<{ entries: unknown[]; book: string } | { error: string }> {
   const text = await file.text();
   let parsed: unknown;
   try {
@@ -29,5 +40,5 @@ export async function parsePackFile(
   if (!Array.isArray(entries) || entries.length === 0) {
     return { error: 'No entries in that pack — expected { "entries": [...] }.' };
   }
-  return { entries };
+  return { entries, book: packBookOf(file, parsed) };
 }

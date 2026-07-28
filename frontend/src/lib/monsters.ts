@@ -33,14 +33,6 @@ export function baseTypeOf(type: string): string {
   return type;
 }
 
-/** How a monster's origin reads: SRD, its source book (carried by a pack), or
- * the DM's own hand-scribed Homebrew. */
-export function sourceLabel(m: RulesContent): string {
-  if (m.source === "srd") return "SRD";
-  const book = (m.data as { book?: string }).book;
-  return book && book.trim() ? book : "Homebrew";
-}
-
 /** A monster's numeric CR for sorting/filtering (0 if unknown). */
 export function crValueOf(m: RulesContent): number {
   return (m.data as { crValue?: number }).crValue ?? 0;

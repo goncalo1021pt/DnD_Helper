@@ -8,9 +8,9 @@ import {
   crLabel,
   crValueOf,
   MONSTER_SORTS,
-  sourceLabel,
   type MonsterSort,
 } from "../lib/monsters";
+import { sourceLabel } from "../lib/content";
 import ContentEntry from "./ui/ContentEntry";
 import {
   useActiveEncounter,

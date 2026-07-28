@@ -133,7 +133,7 @@ export default function ProfilePage() {
       setPackError(parsed.error);
       return;
     }
-    importPack.mutate(parsed.entries, {
+    importPack.mutate(parsed, {
       onSuccess: (report) => setPackReport(report),
       onError: (e) =>
         setPackError((e as { error?: string } | null)?.error ?? "The crate would not open."),
