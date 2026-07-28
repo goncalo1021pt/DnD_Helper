@@ -39,8 +39,11 @@ func hpState(cur, max int32) string {
 	}
 }
 
-func encounterFromRow(e db.Encounter, count int) api.Encounter {
-	return api.Encounter{
+// encounterFromRow shapes one library entry. locationName is the display name
+// of the place it is filed under, looked up by the caller (the list query joins
+// it; single-encounter paths resolve it) — nil when it is filed nowhere.
+func encounterFromRow(e db.Encounter, count int, locationName *string) api.Encounter {
+	out := api.Encounter{
 		Id:             e.ID,
 		CampaignId:     e.CampaignID,
 		Name:           e.Name,
@@ -48,8 +51,50 @@ func encounterFromRow(e db.Encounter, count int) api.Encounter {
 		Round:          int(e.Round),
 		TurnIndex:      int(e.TurnIndex),
 		CombatantCount: count,
+		Tag:            e.Tag,
+		LocationName:   locationName,
 		CreatedAt:      e.CreatedAt.Time,
 	}
+	if e.LocationID.Valid {
+		id := uuid.UUID(e.LocationID.Bytes)
+		out.LocationId = &id
+	}
+	return out
+}
+
+// The library's two filing axes are optional and hand-typed, so both get the
+// same treatment everywhere: trimmed, length-capped, and rejected loudly rather
+// than silently truncated.
+const (
+	maxFilingTag    = 60
+	errUnknownPlace = "that place is not on this campaign's map"
+)
+
+// filingTag normalises a session tag, returning the reason it was refused.
+func filingTag(tag *string) (string, string) {
+	if tag == nil {
+		return "", ""
+	}
+	t := strings.TrimSpace(*tag)
+	if len([]rune(t)) > maxFilingTag {
+		return "", fmt.Sprintf("a filing tag is at most %d characters", maxFilingTag)
+	}
+	return t, ""
+}
+
+// locationNameFor resolves the display name of the place an encounter is filed
+// under. Deleting a place unfiles its encounters (ON DELETE SET NULL), so a
+// dangling id is not a state that reaches here.
+func (s *Server) locationNameFor(ctx context.Context, id pgtype.UUID) *string {
+	if !id.Valid {
+		return nil
+	}
+	loc, err := s.queries.GetLocation(ctx, uuid.UUID(id.Bytes))
+	if err != nil {
+		return nil
+	}
+	name := loc.Name
+	return &name
 }
 
 func combatantForDM(c db.EncounterCombatant, current bool) api.Combatant {
@@ -187,7 +232,10 @@ func (s *Server) assembleDetail(ctx context.Context, enc db.Encounter, isDM bool
 		mine := c.Kind == "pc" && c.CharacterID.Valid && ownerByChar[uuid.UUID(c.CharacterID.Bytes)] == viewer
 		out = append(out, combatantForPlayer(c, mine, current))
 	}
-	return api.EncounterDetail{Encounter: encounterFromRow(enc, len(combatants)), Combatants: out}, nil
+	return api.EncounterDetail{
+		Encounter:  encounterFromRow(enc, len(combatants), s.locationNameFor(ctx, enc.LocationID)),
+		Combatants: out,
+	}, nil
 }
 
 // --- encounter CRUD --------------------------------------------------------
@@ -212,7 +260,8 @@ func (s *Server) ListEncounters(ctx context.Context, request api.ListEncountersR
 		out = append(out, encounterFromRow(db.Encounter{
 			ID: r.ID, CampaignID: r.CampaignID, Name: r.Name, Status: r.Status,
 			Round: r.Round, TurnIndex: r.TurnIndex, CreatedAt: r.CreatedAt,
-		}, int(r.CombatantCount)))
+			Tag: r.Tag, LocationID: r.LocationID,
+		}, int(r.CombatantCount), r.LocationName))
 	}
 	return api.ListEncounters200JSONResponse(out), nil
 }
@@ -232,11 +281,26 @@ func (s *Server) CreateEncounter(ctx context.Context, request api.CreateEncounte
 	if name == "" {
 		return api.CreateEncounter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "the encounter needs a name"}}, nil
 	}
-	enc, err := s.queries.CreateEncounter(ctx, db.CreateEncounterParams{CampaignID: request.CampaignId, Name: name})
+	// A fight may be filed as it is prepared — under the session it belongs to,
+	// the place it happens in, or neither.
+	tag, msg := filingTag(request.Body.Tag)
+	if msg != "" {
+		return api.CreateEncounter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: msg}}, nil
+	}
+	locID, locName, err := s.resolveCampaignLocation(ctx, request.CampaignId, request.Body.LocationId)
 	if err != nil {
 		return nil, err
 	}
-	return api.CreateEncounter201JSONResponse(encounterFromRow(enc, 0)), nil
+	if request.Body.LocationId != nil && !locID.Valid {
+		return api.CreateEncounter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errUnknownPlace}}, nil
+	}
+	enc, err := s.queries.CreateEncounter(ctx, db.CreateEncounterParams{
+		CampaignID: request.CampaignId, Name: name, Tag: tag, LocationID: locID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return api.CreateEncounter201JSONResponse(encounterFromRow(enc, 0, locName)), nil
 }
 
 // GetActiveEncounter returns the running encounter this member belongs to,
@@ -467,9 +531,60 @@ func (s *Server) StandDownEncounters(ctx context.Context, request api.StandDownE
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, encounterFromRow(stood, len(count)))
+		out = append(out, encounterFromRow(stood, len(count), s.locationNameFor(ctx, stood.LocationID)))
 	}
 	return api.StandDownEncounters200JSONResponse(out), nil
+}
+
+// FileEncounter says where a prepared fight belongs: under a session tag, in a
+// place, both, or neither.
+//
+// This is a PUT and not part of the tracker's PATCH on purpose. The filing has
+// to be clearable, and an absent field in a patch cannot be told apart from a
+// null one — a DM triggering a fight would silently unpin it from its place.
+// Sending the whole filing every time keeps "move it" and "unfile it" the same
+// call.
+func (s *Server) FileEncounter(ctx context.Context, request api.FileEncounterRequestObject) (api.FileEncounterResponseObject, error) {
+	enc, err := s.requireEncounterDM(ctx, request.EncounterId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.FileEncounter404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.FileEncounter401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.FileEncounter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	badRequest := func(msg string) (api.FileEncounterResponseObject, error) {
+		return api.FileEncounter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: msg}}, nil
+	}
+	if request.Body == nil {
+		return badRequest("a filing is required")
+	}
+	tag, msg := filingTag(request.Body.Tag)
+	if msg != "" {
+		return badRequest(msg)
+	}
+	locID, locName, err := s.resolveCampaignLocation(ctx, enc.CampaignID, request.Body.LocationId)
+	if err != nil {
+		return nil, err
+	}
+	if request.Body.LocationId != nil && !locID.Valid {
+		return badRequest(errUnknownPlace)
+	}
+
+	filed, err := s.queries.FileEncounter(ctx, db.FileEncounterParams{ID: enc.ID, Tag: tag, LocationID: locID})
+	if err != nil {
+		return nil, err
+	}
+	combatants, err := s.queries.ListCombatants(ctx, filed.ID)
+	if err != nil {
+		return nil, err
+	}
+	return api.FileEncounter200JSONResponse(encounterFromRow(filed, len(combatants), locName)), nil
 }
 
 // DeleteEncounter discards an encounter and its combatants.

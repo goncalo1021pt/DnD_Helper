@@ -1509,15 +1509,34 @@ function invalidateEncounters(qc: ReturnType<typeof useQueryClient>, campaignId:
 export function useCreateEncounter(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (name: string) => {
+    // A fight can be filed as it's prepared — under a session, a place, or
+    // neither; the library groups on whichever the DM used.
+    mutationFn: async (vars: { name: string; tag?: string; locationId?: string | null }) => {
       const { data, error } = await api.POST("/campaigns/{campaignId}/encounters", {
         params: { path: { campaignId } },
-        body: { name },
+        body: { name: vars.name, tag: vars.tag, locationId: vars.locationId ?? undefined },
       });
       if (error) throw error;
       return data;
     },
     onSuccess: () => invalidateEncounters(qc, campaignId),
+  });
+}
+
+/** Refile a prepared encounter. The body replaces the whole filing, so this is
+ * also how a fight is unpinned from a place or stripped of its tag. */
+export function useFileEncounter(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { encounterId: string; tag: string; locationId: string | null }) => {
+      const { data, error } = await api.PUT("/encounters/{encounterId}/filing", {
+        params: { path: { encounterId: vars.encounterId } },
+        body: { tag: vars.tag, locationId: vars.locationId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_d, v) => invalidateEncounters(qc, campaignId, v.encounterId),
   });
 }
 

@@ -33,10 +33,11 @@ func nameOr(name, fallback *string) *string {
 	return fallback
 }
 
-// resolveQuestLocation validates that a requested location belongs to the
+// resolveCampaignLocation validates that a requested location belongs to the
 // campaign and returns the column value plus its display name. A nil request
-// unpins the notice; an unknown id comes back invalid for the caller to reject.
-func (s *Server) resolveQuestLocation(ctx context.Context, campaignID uuid.UUID, locationID *uuid.UUID) (pgtype.UUID, *string, error) {
+// pins the thing nowhere; an unknown id comes back invalid for the caller to
+// reject. Quests hang off the place tree, and so do prepared encounters.
+func (s *Server) resolveCampaignLocation(ctx context.Context, campaignID uuid.UUID, locationID *uuid.UUID) (pgtype.UUID, *string, error) {
 	if locationID == nil {
 		return pgtype.UUID{}, nil, nil
 	}

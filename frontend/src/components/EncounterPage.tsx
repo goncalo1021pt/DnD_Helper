@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import type { Combatant, EncounterDetail, RulesContent } from "../api/client";
+import type { Combatant, Encounter, EncounterDetail, Location, RulesContent } from "../api/client";
 import {
   BASE_TYPES,
   baseTypeOf,
@@ -22,6 +22,8 @@ import {
   useDeleteEncounter,
   useEncounter,
   useEncounters,
+  useFileEncounter,
+  useLocations,
   useRollCombatant,
   useRollInitiative,
   useRules,
@@ -907,13 +909,146 @@ function BuildLayout({ campaign, detail }: { campaign: CampaignContext["campaign
   );
 }
 
+/* ═══ Filing: how the library is kept in order ═════════════════════════════ */
+
+type GroupMode = "tag" | "place" | "none";
+
+const GROUP_MODES: Array<[GroupMode, string]> = [
+  ["tag", "Group by session"],
+  ["place", "Group by place"],
+  ["none", "No grouping"],
+];
+
+const UNFILED: Record<GroupMode, string> = {
+  tag: "Unfiled",
+  place: "Nowhere in particular",
+  none: "",
+};
+
+/**
+ * Slice the library into labelled shelves. Encounters keep their newest-first
+ * order inside a shelf; the shelves themselves sort naturally, so "Session 2"
+ * lands before "Session 10", and whatever is unfiled sits at the bottom rather
+ * than going missing.
+ */
+function shelve(list: Encounter[], mode: GroupMode): Array<[string, Encounter[]]> {
+  if (mode === "none") return list.length > 0 ? [["", list]] : [];
+  const shelves = new Map<string, Encounter[]>();
+  for (const e of list) {
+    const key = (mode === "tag" ? e.tag : (e.locationName ?? "")).trim();
+    shelves.set(key, [...(shelves.get(key) ?? []), e]);
+  }
+  return [...shelves.entries()]
+    .sort(([a], [b]) => {
+      if (a === "") return 1;
+      if (b === "") return -1;
+      return a.localeCompare(b, undefined, { numeric: true });
+    })
+    .map(([key, group]) => [key || UNFILED[mode], group] as [string, Encounter[]]);
+}
+
+/** The place tree as a picker — the same indented list the quest board uses. */
+function PlaceSelect({
+  locations,
+  value,
+  onChange,
+  className,
+}: {
+  locations: Location[];
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`input-hall cursor-pointer ${className ?? ""}`}
+      title="The place this fight is prepared for"
+    >
+      <option value="">— nowhere in particular —</option>
+      {locations.map((l) => (
+        <option key={l.id} value={l.id}>
+          {"— ".repeat(l.depth)}
+          {l.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** Where an open fight belongs, editable in place. It saves as you go — a
+ * filing is a note to self, not a form to submit. */
+function FilingBar({ campaignId, enc }: { campaignId: string; enc: Encounter }) {
+  const { data: locations } = useLocations(campaignId);
+  const file = useFileEncounter(campaignId);
+  const [tag, setTag] = useState(enc.tag);
+  useEffect(() => setTag(enc.tag), [enc.id, enc.tag]);
+
+  const save = (nextTag: string, locationId: string | null) =>
+    file.mutate({ encounterId: enc.id, tag: nextTag.trim(), locationId });
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">Filed under</span>
+      <input
+        value={tag}
+        maxLength={60}
+        onChange={(e) => setTag(e.target.value)}
+        onBlur={() => { if (tag.trim() !== enc.tag) save(tag, enc.locationId ?? null); }}
+        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        placeholder="Session or act…"
+        className="input-hall w-[190px]"
+      />
+      {(locations ?? []).length > 0 && (
+        <PlaceSelect
+          locations={locations ?? []}
+          value={enc.locationId ?? ""}
+          onChange={(v) => save(tag, v || null)}
+          className="w-[210px]"
+        />
+      )}
+    </div>
+  );
+}
+
 function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
   const { data: list } = useEncounters(campaign.id, true);
+  const { data: locations } = useLocations(campaign.id);
   const create = useCreateEncounter(campaign.id);
   const del = useDeleteEncounter(campaign.id);
   const standDownAll = useStandDownEncounters(campaign.id);
   const [openId, setOpenId] = useState<string | null>(null);
   const [name, setName] = useState("");
+  // Filing for the next fight prepared. Deliberately sticky: a DM laying out a
+  // night's worth of combats types the session once, not once per encounter.
+  const [tag, setTag] = useState("");
+  const [placeId, setPlaceId] = useState("");
+  const [search, setSearch] = useState("");
+  const [groupBy, setGroupBy] = useState<GroupMode>("tag");
+  const places = useMemo(() => locations ?? [], [locations]);
+
+  function prepare() {
+    if (!name.trim()) return;
+    create.mutate(
+      { name: name.trim(), tag: tag.trim() || undefined, locationId: placeId || null },
+      { onSuccess: (enc) => { setName(""); if (enc) setOpenId(enc.id); } },
+    );
+  }
+
+  // Search runs over the whole filing, not just the name: "vallaki" finds the
+  // fights prepared there even when the DM never put it in a title.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return list ?? [];
+    return (list ?? []).filter(
+      (e) =>
+        e.name.toLowerCase().includes(q) ||
+        e.tag.toLowerCase().includes(q) ||
+        (e.locationName ?? "").toLowerCase().includes(q),
+    );
+  }, [list, search]);
+  const shelves = useMemo(() => shelve(filtered, groupBy), [filtered, groupBy]);
 
   // Several fights can run at once — a split party is two encounters — so this
   // is a count, not a lookup. The library still opens on a running one by
@@ -933,6 +1068,7 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
           <h3 className="font-display m-0 text-[22px] font-black text-[#e7d3a6]">{detail.encounter.name}</h3>
           <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">{detail.encounter.status}</span>
         </div>
+        <FilingBar campaignId={campaign.id} enc={detail.encounter} />
         <EncounterRunner campaign={campaign} detail={detail} />
       </div>
     );
@@ -944,12 +1080,24 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && name.trim()) { create.mutate(name.trim(), { onSuccess: (enc) => { setName(""); setOpenId(enc.id); } }); } }}
+          onKeyDown={(e) => { if (e.key === "Enter") prepare(); }}
           placeholder="Prepare a new encounter — name it…"
-          className="input-hall min-w-0 flex-1"
+          className="input-hall min-w-0 flex-1 basis-[220px]"
         />
+        <input
+          value={tag}
+          maxLength={60}
+          onChange={(e) => setTag(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") prepare(); }}
+          placeholder="Session or act…"
+          title="Files it in the library — reused for the next one you prepare"
+          className="input-hall w-[170px]"
+        />
+        {places.length > 0 && (
+          <PlaceSelect locations={places} value={placeId} onChange={setPlaceId} className="w-[190px]" />
+        )}
         <button
-          onClick={() => name.trim() && create.mutate(name.trim(), { onSuccess: (enc) => { setName(""); setOpenId(enc.id); } })}
+          onClick={prepare}
           disabled={!name.trim() || create.isPending}
           className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
         >
@@ -957,9 +1105,8 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
         </button>
       </div>
 
-      {/* Until encounters can be grouped, a DM juggling several open fights has
-          no quick way to find which one still holds a player. This releases
-          every one of them at once. */}
+      {/* Even with the library shelved, hunting down which of several running
+          fights still holds a player is a chore. This releases them all. */}
       {running.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
@@ -986,26 +1133,82 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
           No encounters yet — prepare one above, then trigger it at the table.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(list ?? []).map((e) => (
-            <div key={e.id} className="parchment flex items-center justify-between px-4 py-3">
-              <button onClick={() => setOpenId(e.id)} className="min-w-0 flex-1 text-left">
-                <div className="font-display truncate text-[15px] font-bold text-ink">{e.name}</div>
-                <div className="label-stamp mt-0.5 text-[9px] tracking-[1px] text-ink-label">
-                  {e.combatantCount} combatant{e.combatantCount === 1 ? "" : "s"} · {e.status}
-                </div>
+        <>
+          {/* A campaign that runs long turns this library into a scroll, so it
+              is searchable and shelved by whichever axis the DM files on. */}
+          <div className="mb-2 flex flex-wrap items-center gap-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, session, or place…"
+              className="input-hall min-w-0 flex-1 basis-[220px] sm:max-w-[300px]"
+            />
+            <select
+              value={groupBy}
+              onChange={(e) => setGroupBy(e.target.value as GroupMode)}
+              className="input-hall w-[180px] cursor-pointer"
+            >
+              {GROUP_MODES.map(([mode, label]) => (
+                <option key={mode} value={mode}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="label-stamp mb-4 text-[10px] tracking-[1.5px] text-gold-muted">
+            {filtered.length} of {(list ?? []).length} encounters
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="ml-2 cursor-pointer border-none bg-transparent p-0 text-[10px] tracking-[1.5px] text-ember-bright underline"
+              >
+                Clear search
               </button>
-              <div className="flex flex-none items-center gap-2">
-                {e.status === "active" && (
-                  <span className="h-2 w-2 rounded-full bg-[#8fb15f]" style={{ boxShadow: "0 0 8px #8fb15f" }} title="Running" />
-                )}
-                <button onClick={() => { if (confirm(`Discard "${e.name}"?`)) del.mutate(e.id); }} className="btn-base btn-ghost-red p-1.5" title="Discard">
-                  <IconTrash size={12} />
-                </button>
-              </div>
+            )}
+          </div>
+
+          {shelves.length === 0 ? (
+            <div className="font-accent px-5 py-[50px] text-center text-base italic text-[#9c855e]">
+              No encounter answers that call.
             </div>
-          ))}
-        </div>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {shelves.map(([label, group]) => (
+                <section key={label || "all"}>
+                  {label && (
+                    <div className="label-stamp mb-2.5 text-[10px] tracking-[2.5px] text-gold-muted">
+                      {label} · {group.length}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {group.map((e) => {
+                      // The shelf already names the axis it grouped on; the card
+                      // shows the other one, so nothing is said twice.
+                      const aside = groupBy === "tag" ? e.locationName : groupBy === "place" ? e.tag : [e.tag, e.locationName].filter(Boolean).join(" · ");
+                      return (
+                        <div key={e.id} className="parchment flex items-center justify-between px-4 py-3">
+                          <button onClick={() => setOpenId(e.id)} className="min-w-0 flex-1 text-left">
+                            <div className="font-display truncate text-[15px] font-bold text-ink">{e.name}</div>
+                            <div className="label-stamp mt-0.5 text-[9px] tracking-[1px] text-ink-label">
+                              {e.combatantCount} combatant{e.combatantCount === 1 ? "" : "s"} · {e.status}
+                              {aside ? ` · ${aside}` : ""}
+                            </div>
+                          </button>
+                          <div className="flex flex-none items-center gap-2">
+                            {e.status === "active" && (
+                              <span className="h-2 w-2 rounded-full bg-[#8fb15f]" style={{ boxShadow: "0 0 8px #8fb15f" }} title="Running" />
+                            )}
+                            <button onClick={() => { if (confirm(`Discard "${e.name}"?`)) del.mutate(e.id); }} className="btn-base btn-ghost-red p-1.5" title="Discard">
+                              <IconTrash size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

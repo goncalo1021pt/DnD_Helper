@@ -1395,6 +1395,28 @@ export interface paths {
         patch: operations["updateEncounter"];
         trace?: never;
     };
+    "/encounters/{encounterId}/filing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * File an encounter under a session tag and/or a place (DM only)
+         * @description Replaces the encounter's filing wholesale, so one call can move it, unpin it, or clear its tag. The library groups on these two fields.
+         */
+        put: operations["fileEncounter"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/encounters/{encounterId}/combatants": {
         parameters: {
             query?: never;
@@ -1975,6 +1997,15 @@ export interface components {
             /** Format: uuid */
             campaignId: string;
             name: string;
+            /** @description Free-text filing for the library — a session, an act, a chapter. Empty when the encounter is unfiled. */
+            tag: string;
+            /**
+             * Format: uuid
+             * @description The place this fight is prepared for; null when it belongs nowhere in particular.
+             */
+            locationId?: string | null;
+            /** @description Display name of that place, so the library needs no second lookup. */
+            locationName?: string | null;
             /** @description inactive | active (plain string, validated server-side). */
             status: string;
             round: number;
@@ -2033,6 +2064,19 @@ export interface components {
         };
         CreateEncounterRequest: {
             name: string;
+            /** @description File it under a session or an act as you prepare it. */
+            tag?: string;
+            /**
+             * Format: uuid
+             * @description The place it is prepared for. Must belong to the same campaign.
+             */
+            locationId?: string | null;
+        };
+        /** @description The filing an encounter should carry, in full. This is a replacement, not a patch: an omitted tag clears the tag, an omitted or null locationId unpins the place. */
+        FileEncounterRequest: {
+            tag?: string;
+            /** Format: uuid */
+            locationId?: string | null;
         };
         UpdateEncounterRequest: {
             name?: string;
@@ -5234,6 +5278,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EncounterDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    fileEncounter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                encounterId: components["parameters"]["EncounterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileEncounterRequest"];
+            };
+        };
+        responses: {
+            /** @description The refiled encounter */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Encounter"];
                 };
             };
             400: components["responses"]["BadRequest"];

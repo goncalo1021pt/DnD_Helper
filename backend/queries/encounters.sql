@@ -1,17 +1,23 @@
 -- name: CreateEncounter :one
-INSERT INTO encounters (campaign_id, name)
-VALUES ($1, $2)
+INSERT INTO encounters (campaign_id, name, tag, location_id)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: ListEncounters :many
 -- The DM's library: every encounter of a campaign, newest first, each with its
--- combatant count.
-SELECT e.*, count(c.id) AS combatant_count
+-- combatant count and the name of the place it is filed under.
+SELECT e.*, count(c.id) AS combatant_count, l.name AS location_name
 FROM encounters e
 LEFT JOIN encounter_combatants c ON c.encounter_id = e.id
+LEFT JOIN locations l ON l.id = e.location_id
 WHERE e.campaign_id = $1
-GROUP BY e.id
+GROUP BY e.id, l.name
 ORDER BY e.created_at DESC;
+
+-- name: FileEncounter :one
+-- Where an encounter belongs: a session tag, a place, both, or neither. Full
+-- replacement — the caller sends the filing it wants, not a patch of it.
+UPDATE encounters SET tag = $2, location_id = $3 WHERE id = $1 RETURNING *;
 
 -- name: GetEncounter :one
 SELECT * FROM encounters WHERE id = $1;
