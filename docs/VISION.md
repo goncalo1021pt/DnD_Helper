@@ -162,6 +162,9 @@ landed. Merged to `main`:
   name, and every entry that doesn't already know its source is stamped with
   it), the SRD 5.2.1 seed, per-book source labels wherever content is listed,
   and collapse of the same official entry imported by several users.
+- **Encounters** (#35, #69, #91): a prepared library the DM triggers at the
+  table, plus filing — each fight carries a free-text session tag and a place
+  from the location tree, and the library is searchable and shelved by either.
 - **The Monster Den + Bestiary** (#23 onward): a DM-only monster library (SRD +
   homebrew, hunting-tool filters, pack import, source labels) and the party's
   **Bestiary** field-journal with DM-granted sectional reveals.

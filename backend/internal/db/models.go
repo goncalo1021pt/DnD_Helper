@@ -535,6 +535,8 @@ type Encounter struct {
 	Round      int32              `json:"round"`
 	TurnIndex  int32              `json:"turn_index"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Tag        string             `json:"tag"`
+	LocationID pgtype.UUID        `json:"location_id"`
 }
 
 type EncounterCombatant struct {

@@ -110,7 +110,7 @@ func (s *Server) CreateQuest(ctx context.Context, request api.CreateQuestRequest
 		}}, nil
 	}
 
-	locationID, locationName, err := s.resolveQuestLocation(ctx, campaignID, body.LocationId)
+	locationID, locationName, err := s.resolveCampaignLocation(ctx, campaignID, body.LocationId)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (s *Server) UpdateQuest(ctx context.Context, request api.UpdateQuestRequest
 		}}, nil
 	}
 
-	locationID, locationName, err := s.resolveQuestLocation(ctx, quest.CampaignID, body.LocationId)
+	locationID, locationName, err := s.resolveCampaignLocation(ctx, quest.CampaignID, body.LocationId)
 	if err != nil {
 		return nil, err
 	}
