@@ -61,6 +61,10 @@ test: ## Run the WHOLE app locally in containers at http://localhost:8080 (no tu
 	@echo "  ▶ Quest Board running at http://localhost:8080  (dev login enabled)"
 	@echo "    logs: make logs S=app   ·   stop: make down   ·   e2e: make e2e"
 
+# Runs `npm run e2e`, not `playwright test` directly, so this is the SAME command
+# CI runs — typecheck first, then the specs. Playwright transpiles without
+# typechecking, so calling it directly lets type errors in the specs through
+# locally and fail in CI instead.
 e2e: ## Run the Playwright smoke suite against a running app (start it with 'make test')
 	@curl -sf $(E2E_BASE_URL)/api/health >/dev/null || { \
 		echo "No app at $(E2E_BASE_URL) — start one first: make test"; exit 1; }
@@ -69,7 +73,7 @@ e2e: ## Run the Playwright smoke suite against a running app (start it with 'mak
 		-v "$(CURDIR)/frontend":/app -w /app \
 		-e E2E_BASE_URL=$(E2E_BASE_URL) \
 		mcr.microsoft.com/playwright:$(PLAYWRIGHT_VERSION)-noble \
-		npx playwright test $(ARGS)
+		npm run e2e -- $(ARGS)
 
 prod: ## Build & start the full PRODUCTION stack (app + postgres + cloudflared)
 	docker compose --profile full up -d --build

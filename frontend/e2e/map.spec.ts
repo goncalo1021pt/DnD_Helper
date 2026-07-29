@@ -103,8 +103,8 @@ test("the fog is composited server-side: a player never receives hidden pixels",
 
   // --- the DM sees the whole map, fog or no fog ---------------------------
   await dmPage.goto(`/questboard/campaigns/${campaignId}/map`);
-  expect(isRed(await samplePixel(dmPage, mapId, 0.25, 0.5)), "DM should see the red half").toBe(true);
-  expect(isBlue(await samplePixel(dmPage, mapId, 0.75, 0.5)), "DM should see the blue half").toBe(true);
+  expect(isRed(await samplePixel(dmPage, mapId, 0.25, 0.5, "dm")), "DM should see the red half").toBe(true);
+  expect(isBlue(await samplePixel(dmPage, mapId, 0.75, 0.5, "dm")), "DM should see the blue half").toBe(true);
 
   // --- the player, before any reveal, sees nothing ------------------------
   const playerCtx = await browser.newContext();
