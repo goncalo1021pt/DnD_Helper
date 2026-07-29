@@ -5,7 +5,6 @@ import { useCampaigns, useCodex, useForgeCharacter, useRules } from "../hooks";
 import {
   codexLegality,
   legalityReason,
-  originStamp,
   sourceLabel,
   sourceOptions,
 } from "../lib/content";
@@ -13,7 +12,6 @@ import { castingFor, spellOnClassList, type CasterData } from "../lib/spellcasti
 import {
   ALL_SKILLS,
   choiceCount,
-  choiceOptions,
   grantedFeats,
   grantedSkills,
   picksComplete,
@@ -24,368 +22,30 @@ import {
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import FloatingDiceTray from "./ui/DiceTray";
 import SpellHover from "./ui/SpellHover";
-import { Blocks } from "./ui/SpellEntry";
+import ForgeAlert from "./forge/ForgeAlert";
+import OptionCard from "./forge/OptionCard";
+import OptionFilters from "./forge/OptionFilters";
+import SpeciesTraits from "./forge/SpeciesTraits";
+import SpeciesChoicePicker from "./forge/SpeciesChoicePicker";
+import {
+  ABILITIES,
+  POINT_BUY_BUDGET,
+  POINT_COST,
+  STANDARD_ARRAY,
+  STEP_NOUN,
+  gearLine,
+  type AbilityKey,
+  type BonusMode,
+  type GearOption,
+  type Method,
+  type StepName,
+} from "./forge/constants";
 
 /**
  * The Forge: the 2024 creation flow at level 1.
  * Class (+skills) → Background (+bonuses) → Species → Abilities → Name.
  * Everything is driven by the rules content — no hardcoded classes.
  */
-
-type AbilityKey = keyof AbilityScores;
-const ABILITIES: Array<[AbilityKey, string]> = [
-  ["str", "Strength"],
-  ["dex", "Dexterity"],
-  ["con", "Constitution"],
-  ["int", "Intelligence"],
-  ["wis", "Wisdom"],
-  ["cha", "Charisma"],
-];
-
-const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
-const POINT_BUY_BUDGET = 27;
-const POINT_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
-
-type Method = "array" | "points" | "manual";
-type BonusMode = "2/1" | "1/1/1";
-
-const BASE_STEPS = ["Class", "Background", "Species", "Abilities", "Name"] as const;
-type StepName = (typeof BASE_STEPS)[number] | "Spells" | "Gear";
-
-// What the option steps are browsing, for the sieve's placeholder and tally.
-const STEP_NOUN: Partial<Record<StepName, string>> = {
-  Class: "classes",
-  Background: "backgrounds",
-  Species: "species",
-  Spells: "spells",
-};
-
-interface GearOption {
-  label: string;
-  items?: Array<{ name: string; qty?: number }>;
-  gold?: number;
-}
-
-function gearLine(o: GearOption) {
-  const parts = (o.items ?? []).map((i) => (i.qty && i.qty > 1 ? `${i.qty}× ${i.name}` : i.name));
-  if (o.gold) parts.push(`${o.gold} GP`);
-  return parts.join(", ");
-}
-
-// A loud, unmissable notice for anything the forge needs to say out loud —
-// skill/background collisions, picks a table's codex won't admit. The old
-// warning was tiny italic text buried on the final step, so testers never
-// understood it.
-function ForgeAlert({
-  text,
-  tone = "error",
-  action,
-}: {
-  text: string;
-  tone?: "error" | "info";
-  action?: { label: string; onClick: () => void };
-}) {
-  const c =
-    tone === "error"
-      ? { bg: "rgba(139,37,32,.14)", ring: "rgba(139,37,32,.6)", mark: "#e0725f", body: "#eccbb9", link: "#f0b48f" }
-      : { bg: "rgba(154,112,58,.14)", ring: "rgba(201,162,39,.5)", mark: "#d9b25a", body: "#e4d3ad", link: "#e7c169" };
-  return (
-    <div
-      role="alert"
-      className="font-body mt-3 flex items-start gap-2.5 rounded-[3px] px-3.5 py-2.5 text-[13px] leading-snug"
-      style={{ background: c.bg, boxShadow: `inset 0 0 0 1px ${c.ring}`, color: c.body }}
-    >
-      <span aria-hidden className="font-display mt-[-1px] text-[16px] font-black leading-none" style={{ color: c.mark }}>
-        {tone === "error" ? "!" : "i"}
-      </span>
-      <span>
-        {text}
-        {action && (
-          <>
-            {" "}
-            <button
-              type="button"
-              onClick={action.onClick}
-              className="cursor-pointer border-none bg-transparent p-0 font-semibold underline"
-              style={{ color: c.link }}
-            >
-              {action.label}
-            </button>
-          </>
-        )}
-      </span>
-    </div>
-  );
-}
-
-function OptionCard({
-  entry,
-  selected,
-  onPick,
-  facts,
-  tags,
-}: {
-  entry: RulesContent;
-  selected: boolean;
-  onPick: () => void;
-  facts: string;
-  /** What the option gives you, named on the card instead of only after picking. */
-  tags?: string[];
-}) {
-  return (
-    <button
-      onClick={onPick}
-      className="parchment cursor-pointer px-4 pb-3.5 pt-3 text-left transition hover:-translate-y-0.5"
-      style={
-        selected
-          ? { boxShadow: "0 0 0 2.5px #8b2520, 0 14px 26px rgba(0,0,0,.5)" }
-          : undefined
-      }
-    >
-      <div className="font-display text-[16px] font-bold text-ink">{entry.name}</div>
-      {/* Imported content names the book it came in with, not a flat
-          "Homebrew" — a pack's Blood Hunter reads as its own source. Book
-          names run long, so the stamp gets its own line. */}
-      {entry.source === "homebrew" && (
-        <div className="label-stamp mt-0.5 text-[8.5px] tracking-[1px] text-[#8b2520]">
-          {originStamp(entry)}
-        </div>
-      )}
-      <div className="label-stamp mt-0.5 text-[9px] tracking-[1px] text-ink-label">
-        {facts}
-      </div>
-      <p className="font-body m-0 mt-1.5 text-[12.5px] italic leading-snug text-ink-body">
-        {entry.summary}
-      </p>
-      {tags && tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {tags.map((t) => (
-            <span
-              key={t}
-              className="label-stamp rounded-[2px] px-1.5 py-0.5 text-[8.5px] tracking-[.5px] text-ink-label"
-              style={{ background: "rgba(120,86,42,.14)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.3)" }}
-            >
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-    </button>
-  );
-}
-
-/**
- * The sieve above every option grid: free-text search, the source the entry
- * came from (SRD, an imported book, plain homebrew), and the table whose codex
- * the hero must satisfy. The table choice is deliberately not cleared by
- * "Clear filters" — it is a decision about the hero, not a way to squint at
- * the list.
- */
-function OptionFilters({
-  noun,
-  search,
-  onSearch,
-  source,
-  onSource,
-  sources,
-  tableId,
-  onTable,
-  tables,
-  shown,
-  total,
-}: {
-  noun: string;
-  search: string;
-  onSearch: (v: string) => void;
-  source: string;
-  onSource: (v: string) => void;
-  sources: string[];
-  tableId: string;
-  onTable: (v: string) => void;
-  tables: Array<{ id: string; name: string }>;
-  shown: number;
-  total: number;
-}) {
-  const sifting = search !== "" || source !== "";
-  return (
-    <div className="mb-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder={`Search ${noun}…`}
-          className="input-hall min-w-0 flex-1 basis-[200px] sm:max-w-[260px]"
-        />
-        {sources.length > 1 && (
-          <select
-            value={source}
-            onChange={(e) => onSource(e.target.value)}
-            className="input-hall w-[180px]"
-            title="Where the option came from"
-          >
-            <option value="">All sources</option>
-            {sources.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-        )}
-        {tables.length > 0 && (
-          <select
-            value={tableId}
-            onChange={(e) => onTable(e.target.value)}
-            className="input-hall w-[200px]"
-            title="Show only what a table's codex admits"
-          >
-            <option value="">Legal anywhere</option>
-            {tables.map((t) => (
-              <option key={t.id} value={t.id}>Legal at {t.name}</option>
-            ))}
-          </select>
-        )}
-      </div>
-      <div className="label-stamp mt-2 text-[10px] tracking-[1.5px] text-gold-muted">
-        {shown} of {total} {noun}
-        {sifting && (
-          <button
-            onClick={() => {
-              onSearch("");
-              onSource("");
-            }}
-            className="ml-2 cursor-pointer border-none bg-transparent p-0 text-[10px] tracking-[1.5px] text-ember-bright underline"
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// The species' traits in full. They used to surface as a comma-joined list of
-// names on the summary rail, which told a player nothing about what picking
-// Goliath actually does for them.
-function SpeciesTraits({ data }: { data: SpeciesData }) {
-  const traits = data.traits ?? [];
-  if (traits.length === 0 && !data.description) return null;
-  return (
-    <div>
-      <div className="label-stamp mb-2 text-[10px] tracking-[2px] text-gold-muted">Traits</div>
-      <div className="parchment px-4 py-3.5">
-        {data.description && (
-          <p className="font-body m-0 mb-3 text-[12.5px] italic leading-relaxed text-ink-body">
-            {data.description}
-          </p>
-        )}
-        <div className="flex flex-col gap-2.5">
-          {traits.map((t) => (
-            <div key={t.name} className="text-[12.5px] leading-relaxed text-ink-body">
-              <strong className="font-heading text-ink">{t.name}.</strong>{" "}
-              {t.summary && <Blocks text={t.summary} />}
-            </div>
-          ))}
-        </div>
-        {data.sizeNote && (
-          <div className="mt-3 text-[11.5px] italic text-ink-body">Size: {data.sizeNote}</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// One species choice as a row of chips — a lineage, a free proficiency, an
-// Origin feat. The chosen option's rules text unfolds underneath so a player
-// can read what Rock Gnome means before committing to it.
-function SpeciesChoicePicker({
-  choice,
-  picked,
-  onToggle,
-  featPool,
-  blocked,
-}: {
-  choice: SpeciesChoice;
-  picked: string[];
-  onToggle: (option: string) => void;
-  featPool: string[];
-  /** Option name -> why it can't be taken (already granted elsewhere). */
-  blocked?: Map<string, string>;
-}) {
-  const want = choiceCount(choice);
-  const options = choiceOptions(choice, { feats: featPool });
-  const remaining = want - picked.length;
-  // Only unfold the rules panel for picks that actually have rules to read —
-  // an ability pick ("Intelligence") would otherwise render an empty box.
-  const chosen = options.filter(
-    (o) => picked.includes(o.name) && (o.summary || (o.spells ?? []).length > 0),
-  );
-
-  return (
-    <div>
-      <div className="label-stamp mb-1.5 text-[10px] tracking-[2px] text-gold-muted">
-        {choice.name} — choose {want}
-        {want > 1 && ` (${picked.length}/${want})`}
-        {remaining > 0 && (
-          <span className="ml-2 text-ember-bright">
-            {remaining} still to pick
-          </span>
-        )}
-      </div>
-      {choice.summary && (
-        <p className="font-body m-0 mb-2 text-[12px] italic leading-snug text-cream-soft">
-          {choice.summary}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {options.map((o) => {
-          const active = picked.includes(o.name);
-          const why = blocked?.get(o.name);
-          const disabled = !!why && !active;
-          return (
-            <button
-              key={o.name}
-              type="button"
-              onClick={() => !disabled && onToggle(o.name)}
-              disabled={disabled}
-              title={why}
-              className={`label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px] ${
-                disabled ? "cursor-default line-through opacity-50" : ""
-              }`}
-              style={{
-                background: active ? "linear-gradient(180deg,#8b2520,#5e1611)" : "rgba(16,9,5,.4)",
-                color: active ? "#f3d9c0" : "#cdba93",
-                boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(201,162,39,.3)"}`,
-              }}
-            >
-              {o.name}
-            </button>
-          );
-        })}
-        {options.length === 0 && (
-          <span className="font-body text-[12px] italic text-cream-soft">
-            No options are available — check that the pack providing them is imported.
-          </span>
-        )}
-      </div>
-      {chosen.length > 0 && (
-        <div className="parchment mt-2.5 px-4 py-3">
-          {chosen.map((o) => (
-            <div key={o.name} className="text-[12.5px] leading-relaxed text-ink-body">
-              <strong className="font-heading text-ink">{o.name}.</strong>{" "}
-              {o.summary && <Blocks text={o.summary} />}
-              {(o.spells ?? []).length > 0 && (
-                <div className="mt-1 text-[11.5px] italic">
-                  Later:{" "}
-                  {(o.spells ?? [])
-                    .map((sp) => `${sp.name} at level ${sp.level}`)
-                    .join(", ")}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function ForgeWizard() {
   const navigate = useNavigate();
