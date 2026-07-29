@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ImportReport, RulesContent } from "../api/client";
+import PackWarnings from "./ui/PackWarnings";
 import { useCreateRules, useImportPack, useRules } from "../hooks";
 import { ContentForm, KIND_DEFAULTS } from "./ContentForm";
 import ContentEntry from "./ui/ContentEntry";
@@ -306,6 +307,7 @@ export default function DenPage() {
                 ))}
             </div>
           )}
+          <PackWarnings report={packReport} />
           <div className="flex justify-end">
             <button
               onClick={() => setPackReport(null)}

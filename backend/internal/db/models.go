@@ -486,6 +486,7 @@ type Character struct {
 	Xp             int32              `json:"xp"`
 	PendingLevels  int16              `json:"pending_levels"`
 	TableBorn      bool               `json:"table_born"`
+	SpeciesChoices []byte             `json:"species_choices"`
 }
 
 type CharacterItem struct {

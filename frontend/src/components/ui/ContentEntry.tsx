@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { RulesContent, RulesKind } from "../../api/client";
 import { originStamp } from "../../lib/content";
+import type { SpeciesChoice } from "../../lib/species";
 import SpellEntry, { Blocks } from "./SpellEntry";
 
 /**
@@ -104,6 +105,62 @@ function FeatureList({ features, label }: { features: Feature[]; label: string }
   );
 }
 
+// The picks a species asks for at creation, with each option's rules text.
+// Without this the Archives showed "Choose a lineage" and never said what the
+// lineages were.
+function hasRules(options: NonNullable<SpeciesChoice["options"]>): boolean {
+  return options.some((o) => o.summary || (o.spells ?? []).length > 0);
+}
+
+function SpeciesChoices({ choices }: { choices: SpeciesChoice[] }) {
+  if (choices.length === 0) return null;
+  return (
+    <div className="mt-3 flex flex-col gap-3">
+      {choices.map((c) => {
+        const options = c.options ?? [];
+        const openPick =
+          options.length === 0
+            ? c.type === "feat"
+              ? c.from === "origin"
+                ? "any Origin feat"
+                : "any feat"
+              : `any ${c.type}`
+            : null;
+        return (
+          <div key={c.id}>
+            <div className="label-stamp mb-1 text-[8.5px] tracking-[1px] text-ink-label">
+              {c.name} — choose {Math.max(1, c.choose ?? 1)}
+            </div>
+            {c.summary && <div className="mb-1 text-[12px] text-ink-body">{c.summary}</div>}
+            {openPick && <div className="text-[12px] italic text-ink-body">Pick {openPick}.</div>}
+            {/* Options with no rules of their own (an ability, a size) read
+                better as one line than as a stack of bare names. */}
+            {options.length > 0 && !hasRules(options) && (
+              <div className="text-[12px] text-ink-body">{options.map((o) => o.name).join(", ")}</div>
+            )}
+            {options.length > 0 && hasRules(options) && (
+              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[12px] leading-relaxed text-ink-body">
+                {options.map((o) => (
+                  <li key={o.name}>
+                    <strong className="font-heading text-ink">{o.name}.</strong>{" "}
+                    {o.summary && <Blocks text={o.summary} />}
+                    {(o.spells ?? []).length > 0 && (
+                      <span className="italic">
+                        {" "}
+                        Later: {(o.spells ?? []).map((s) => `${s.name} (level ${s.level})`).join(", ")}.
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function AbilityBlock({ abilities }: { abilities: Record<string, number> }) {
   const order = ["str", "dex", "con", "int", "wis", "cha"];
   if (!order.some((k) => abilities[k] != null)) return null;
@@ -178,18 +235,21 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
   }
 
   if (kind === "species") {
+    const choices = Array.isArray(d.choices) ? (d.choices as SpeciesChoice[]) : [];
     return (
       <div className="text-[13px]">
         <Header entry={entry} tagline={entry.summary} />
         <Facts
           rows={[
-            ["Size", str("size")],
+            ["Type", str("creatureType")],
+            ["Size", str("sizeNote") ?? str("size")],
             ["Speed", d.speed ? `${String(d.speed)} ft` : undefined],
             ["Source", book],
           ]}
         />
-        <FeatureList features={feats("traits")} label="Traits" />
         <Description text={str("description")} />
+        <FeatureList features={feats("traits")} label="Traits" />
+        <SpeciesChoices choices={choices} />
       </div>
     );
   }

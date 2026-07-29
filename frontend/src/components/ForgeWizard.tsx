@@ -10,9 +10,21 @@ import {
   sourceOptions,
 } from "../lib/content";
 import { castingFor, spellOnClassList, type CasterData } from "../lib/spellcasting";
+import {
+  ALL_SKILLS,
+  choiceCount,
+  choiceOptions,
+  grantedFeats,
+  grantedSkills,
+  picksComplete,
+  type SpeciesChoice,
+  type SpeciesData,
+  type SpeciesPicks,
+} from "../lib/species";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import FloatingDiceTray from "./ui/DiceTray";
 import SpellHover from "./ui/SpellHover";
+import { Blocks } from "./ui/SpellEntry";
 
 /**
  * The Forge: the 2024 creation flow at level 1.
@@ -111,11 +123,14 @@ function OptionCard({
   selected,
   onPick,
   facts,
+  tags,
 }: {
   entry: RulesContent;
   selected: boolean;
   onPick: () => void;
   facts: string;
+  /** What the option gives you, named on the card instead of only after picking. */
+  tags?: string[];
 }) {
   return (
     <button
@@ -142,6 +157,19 @@ function OptionCard({
       <p className="font-body m-0 mt-1.5 text-[12.5px] italic leading-snug text-ink-body">
         {entry.summary}
       </p>
+      {tags && tags.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {tags.map((t) => (
+            <span
+              key={t}
+              className="label-stamp rounded-[2px] px-1.5 py-0.5 text-[8.5px] tracking-[.5px] text-ink-label"
+              style={{ background: "rgba(120,86,42,.14)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.3)" }}
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
     </button>
   );
 }
@@ -233,6 +261,132 @@ function OptionFilters({
   );
 }
 
+// The species' traits in full. They used to surface as a comma-joined list of
+// names on the summary rail, which told a player nothing about what picking
+// Goliath actually does for them.
+function SpeciesTraits({ data }: { data: SpeciesData }) {
+  const traits = data.traits ?? [];
+  if (traits.length === 0 && !data.description) return null;
+  return (
+    <div>
+      <div className="label-stamp mb-2 text-[10px] tracking-[2px] text-gold-muted">Traits</div>
+      <div className="parchment px-4 py-3.5">
+        {data.description && (
+          <p className="font-body m-0 mb-3 text-[12.5px] italic leading-relaxed text-ink-body">
+            {data.description}
+          </p>
+        )}
+        <div className="flex flex-col gap-2.5">
+          {traits.map((t) => (
+            <div key={t.name} className="text-[12.5px] leading-relaxed text-ink-body">
+              <strong className="font-heading text-ink">{t.name}.</strong>{" "}
+              {t.summary && <Blocks text={t.summary} />}
+            </div>
+          ))}
+        </div>
+        {data.sizeNote && (
+          <div className="mt-3 text-[11.5px] italic text-ink-body">Size: {data.sizeNote}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// One species choice as a row of chips — a lineage, a free proficiency, an
+// Origin feat. The chosen option's rules text unfolds underneath so a player
+// can read what Rock Gnome means before committing to it.
+function SpeciesChoicePicker({
+  choice,
+  picked,
+  onToggle,
+  featPool,
+  blocked,
+}: {
+  choice: SpeciesChoice;
+  picked: string[];
+  onToggle: (option: string) => void;
+  featPool: string[];
+  /** Option name -> why it can't be taken (already granted elsewhere). */
+  blocked?: Map<string, string>;
+}) {
+  const want = choiceCount(choice);
+  const options = choiceOptions(choice, { feats: featPool });
+  const remaining = want - picked.length;
+  // Only unfold the rules panel for picks that actually have rules to read —
+  // an ability pick ("Intelligence") would otherwise render an empty box.
+  const chosen = options.filter(
+    (o) => picked.includes(o.name) && (o.summary || (o.spells ?? []).length > 0),
+  );
+
+  return (
+    <div>
+      <div className="label-stamp mb-1.5 text-[10px] tracking-[2px] text-gold-muted">
+        {choice.name} — choose {want}
+        {want > 1 && ` (${picked.length}/${want})`}
+        {remaining > 0 && (
+          <span className="ml-2 text-ember-bright">
+            {remaining} still to pick
+          </span>
+        )}
+      </div>
+      {choice.summary && (
+        <p className="font-body m-0 mb-2 text-[12px] italic leading-snug text-cream-soft">
+          {choice.summary}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {options.map((o) => {
+          const active = picked.includes(o.name);
+          const why = blocked?.get(o.name);
+          const disabled = !!why && !active;
+          return (
+            <button
+              key={o.name}
+              type="button"
+              onClick={() => !disabled && onToggle(o.name)}
+              disabled={disabled}
+              title={why}
+              className={`label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px] ${
+                disabled ? "cursor-default line-through opacity-50" : ""
+              }`}
+              style={{
+                background: active ? "linear-gradient(180deg,#8b2520,#5e1611)" : "rgba(16,9,5,.4)",
+                color: active ? "#f3d9c0" : "#cdba93",
+                boxShadow: `inset 0 0 0 1px ${active ? "#3f0f0e" : "rgba(201,162,39,.3)"}`,
+              }}
+            >
+              {o.name}
+            </button>
+          );
+        })}
+        {options.length === 0 && (
+          <span className="font-body text-[12px] italic text-cream-soft">
+            No options are available — check that the pack providing them is imported.
+          </span>
+        )}
+      </div>
+      {chosen.length > 0 && (
+        <div className="parchment mt-2.5 px-4 py-3">
+          {chosen.map((o) => (
+            <div key={o.name} className="text-[12.5px] leading-relaxed text-ink-body">
+              <strong className="font-heading text-ink">{o.name}.</strong>{" "}
+              {o.summary && <Blocks text={o.summary} />}
+              {(o.spells ?? []).length > 0 && (
+                <div className="mt-1 text-[11.5px] italic">
+                  Later:{" "}
+                  {(o.spells ?? [])
+                    .map((sp) => `${sp.name} at level ${sp.level}`)
+                    .join(", ")}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ForgeWizard() {
   const navigate = useNavigate();
   const { data: classes } = useRules("class");
@@ -247,6 +401,9 @@ export default function ForgeWizard() {
   const [spellIds, setSpellIds] = useState<string[]>([]);
   const [backgroundId, setBackgroundId] = useState<string>("");
   const [speciesId, setSpeciesId] = useState<string>("");
+  // Species picks keyed by choice id — a lineage, a free proficiency, an
+  // Origin feat. Cleared whenever the species changes.
+  const [speciesPicks, setSpeciesPicks] = useState<SpeciesPicks>({});
   const [method, setMethod] = useState<Method>("array");
   // 0 = unassigned (standard array only); point buy / manual start at 8.
   const [base, setBase] = useState<Record<AbilityKey, number>>({
@@ -286,16 +443,13 @@ export default function ForgeWizard() {
   const bgData = chosenBackground?.data as
     | { abilityScores?: string[]; feat?: string; skills?: string[]; tool?: string; equipment?: string }
     | undefined;
-  const spData = chosenSpecies?.data as
-    | { size?: string; speed?: number; traits?: Array<{ name: string; summary: string }> }
-    | undefined;
+  const spData = chosenSpecies?.data as SpeciesData | undefined;
+  const speciesChoices = spData?.choices ?? [];
 
   const skillChoose = classData?.skillChoices?.choose ?? 0;
   const skillFrom = classData?.skillChoices?.from ?? [];
   const wildcardSkills = skillFrom.length === 1 && skillFrom[0] === "*";
-  const skillOptions = wildcardSkills
-    ? ["Acrobatics", "Animal Handling", "Arcana", "Athletics", "Deception", "History", "Insight", "Intimidation", "Investigation", "Medicine", "Nature", "Perception", "Performance", "Persuasion", "Religion", "Sleight of Hand", "Stealth", "Survival"]
-    : skillFrom;
+  const skillOptions = wildcardSkills ? [...ALL_SKILLS] : skillFrom;
   const bgSkills = bgData?.skills ?? [];
   const bgAbilities = (bgData?.abilityScores ?? []).map((a) => a.toLowerCase()) as AbilityKey[];
 
@@ -332,6 +486,16 @@ export default function ForgeWizard() {
   // Casters pick spells in an extra step before naming.
   const casting = castingFor(chosenClass?.data as CasterData | undefined);
   const { data: allSpells } = useRules("spell");
+  // Species that hand out a free Origin feat (a Human's Versatile) pick from
+  // the live feat library, so an imported pack's feats show up too.
+  const { data: allFeats } = useRules("feat");
+  const originFeatNames = useMemo(
+    () =>
+      (allFeats ?? [])
+        .filter((f) => (f.data as { category?: string }).category === "origin")
+        .map((f) => f.name),
+    [allFeats],
+  );
   const classSpells = useMemo(
     () => (allSpells ?? []).filter((s) => spellOnClassList(s, chosenClass)),
     [allSpells, chosenClass],
@@ -459,12 +623,19 @@ export default function ForgeWizard() {
     return { tone: "info", text: `You still need to choose ${skillsRemaining} class skill${skillsRemaining === 1 ? "" : "s"}.` };
   })();
   const gearValid = gearOptions.length === 0 || gear !== "";
+  // A half-answered species is not a legal hero: a Gnome without a lineage is
+  // missing two cantrips. Every choice the species offers must be made.
+  const speciesValid = !!speciesId && picksComplete(spData, speciesPicks);
+  // Proficiencies the species hands out, folded into the sheet alongside the
+  // background's grants and the class picks.
+  const speciesSkills = grantedSkills(spData, speciesPicks);
+  const speciesFeats = grantedFeats(spData, speciesPicks);
   const allValid =
-    skillsValid && !!backgroundId && !!speciesId && abilitiesValid && spellsValid && gearValid;
+    skillsValid && !!backgroundId && speciesValid && abilitiesValid && spellsValid && gearValid;
   const validity: Record<StepName, boolean> = {
     Class: skillsValid,
     Background: !!backgroundId,
-    Species: !!speciesId,
+    Species: speciesValid,
     Abilities: abilitiesValid,
     Spells: spellsValid,
     Gear: gearValid,
@@ -486,6 +657,21 @@ export default function ForgeWizard() {
         }
       }
       return next;
+    });
+  }
+
+  // Species picks toggle like the skill chips: clicking a chosen option clears
+  // it, and a full single-pick choice swaps rather than refusing the click.
+  function toggleSpeciesPick(choice: SpeciesChoice, option: string) {
+    const want = choiceCount(choice);
+    setSpeciesPicks((prev) => {
+      const current = prev[choice.id] ?? [];
+      if (current.includes(option)) {
+        return { ...prev, [choice.id]: current.filter((o) => o !== option) };
+      }
+      if (want === 1) return { ...prev, [choice.id]: [option] };
+      if (current.length >= want) return prev;
+      return { ...prev, [choice.id]: [...current, option] };
     });
   }
 
@@ -539,6 +725,7 @@ export default function ForgeWizard() {
         skills,
         spells: casting ? spellIds : undefined,
         gear: gearOptions.length > 0 ? gear : undefined,
+        speciesChoices: speciesChoices.length > 0 ? speciesPicks : undefined,
       },
       { onSuccess: () => navigate("/questboard/profile") },
     );
@@ -733,20 +920,58 @@ export default function ForgeWizard() {
           )}
 
           {current === "Species" && (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {shownSpecies.map((s) => {
-                const d = s.data as { size?: string; speed?: number };
-                return (
-                  <OptionCard
-                    key={s.id}
-                    entry={s}
-                    selected={s.id === speciesId}
-                    onPick={() => setSpeciesId(s.id)}
-                    facts={`${d.size ?? "?"} · ${d.speed ?? "?"} ft`}
-                  />
-                );
-              })}
-            </div>
+            <>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {shownSpecies.map((s) => {
+                  const d = s.data as SpeciesData;
+                  const facts = [d.size ?? "?", `${d.speed ?? "?"} ft`, d.creatureType]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return (
+                    <OptionCard
+                      key={s.id}
+                      entry={s}
+                      selected={s.id === speciesId}
+                      onPick={() => {
+                        if (s.id !== speciesId) setSpeciesPicks({});
+                        setSpeciesId(s.id);
+                      }}
+                      facts={facts}
+                      tags={(d.traits ?? []).map((t) => t.name)}
+                    />
+                  );
+                })}
+              </div>
+
+              {chosenSpecies && spData && (
+                <div className="mt-5 flex flex-col gap-5">
+                  <SpeciesTraits data={spData} />
+                  {speciesChoices.map((choice) => (
+                    <SpeciesChoicePicker
+                      key={choice.id}
+                      choice={choice}
+                      picked={speciesPicks[choice.id] ?? []}
+                      onToggle={(option) => toggleSpeciesPick(choice, option)}
+                      featPool={originFeatNames}
+                      // A species can't hand you a skill the background or your
+                      // class picks already gave you.
+                      blocked={
+                        choice.type === "skill"
+                          ? new Map(
+                              [...bgSkills, ...skills].map((sk) => [
+                                sk,
+                                bgSkills.includes(sk)
+                                  ? `Granted by ${chosenBackground?.name ?? "your background"}`
+                                  : `Already one of your ${chosenClass?.name ?? "class"} picks`,
+                              ]),
+                            )
+                          : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
 
           {current === "Abilities" && (
@@ -1103,10 +1328,26 @@ export default function ForgeWizard() {
                 {(spData.traits ?? []).map((t) => t.name).join(", ")}
               </div>
             )}
-            {skills.length > 0 && (
+            {speciesChoices.length > 0 && (
+              <div>
+                <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">
+                  {chosenSpecies?.name} ·{" "}
+                </span>
+                {speciesChoices
+                  .map((c) => (speciesPicks[c.id] ?? []).join(" + ") || `${c.name}?`)
+                  .join(", ")}
+              </div>
+            )}
+            {skills.length + speciesSkills.length > 0 && (
               <div>
                 <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">Skills · </span>
-                {[...bgSkills, ...skills].join(", ")}
+                {[...bgSkills, ...skills, ...speciesSkills].join(", ")}
+              </div>
+            )}
+            {(bgData?.feat || speciesFeats.length > 0) && (
+              <div>
+                <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">Feats · </span>
+                {[bgData?.feat, ...speciesFeats].filter(Boolean).join(", ")}
               </div>
             )}
             {casting && spellIds.length > 0 && (

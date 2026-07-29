@@ -1,11 +1,11 @@
 package http
 
 import (
-	"regexp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -87,6 +87,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 		}
 		if speed, ok := getNum(data, "speed"); !ok || speed < 5 || speed > 120 {
 			return "species data needs a speed in feet (5-120)"
+		}
+		if msg := validateSpeciesChoices(data); msg != "" {
+			return msg
 		}
 	case db.ContentKindBackground:
 		abilities, ok := getStrSlice(data, "abilityScores")

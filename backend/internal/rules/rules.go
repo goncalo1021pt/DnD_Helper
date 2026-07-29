@@ -16,6 +16,12 @@ import (
 //go:embed srd/*.json
 var srdFiles embed.FS
 
+// SRDFile returns a raw seed file (e.g. "srd/species.json"), so tests can hold
+// the shipped data to the same rules the API enforces on homebrew.
+func SRDFile(name string) ([]byte, error) {
+	return srdFiles.ReadFile(name)
+}
+
 type entry struct {
 	Name    string          `json:"name"`
 	Summary string          `json:"summary"`

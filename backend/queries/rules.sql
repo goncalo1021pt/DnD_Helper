@@ -77,6 +77,10 @@ ON CONFLICT (kind, name, created_by) WHERE source = 'homebrew' DO UPDATE
 SET summary = EXCLUDED.summary, data = EXCLUDED.data, updated_at = now()
 RETURNING *, (xmax = 0) AS created;
 
+-- name: ListSRDNames :many
+-- Every SRD entry's kind and name, for spotting pack entries that shadow one.
+SELECT kind, name FROM rules_content WHERE source = 'srd';
+
 -- name: ListOwnHomebrew :many
 SELECT * FROM rules_content
 WHERE source = 'homebrew' AND created_by = $1

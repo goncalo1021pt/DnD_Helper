@@ -25,3 +25,15 @@ the Creative Commons Attribution 4.0 International License
 (https://creativecommons.org/licenses/by/4.0/legalcode). The Markdown
 conversion consulted was github.com/downfallx/dnd-5e-srd-markdown (same
 license).
+
+## Full-text species entries
+
+Species traits in `srd/species.json` likewise reproduce the rules text of
+SRD 5.2 rather than summarizing it, including the lineage tables (Draconic
+Ancestors, Elven Lineages, Gnomish Lineage, Giant Ancestry, Fiendish
+Legacies) that earlier revisions collapsed into a single line. Same
+CC-BY-4.0 licence and attribution as above.
+
+Aasimar is a Player's Handbook species, not an SRD one, and is deliberately
+absent here — it lives in a private content pack like every other non-SRD
+transcription.

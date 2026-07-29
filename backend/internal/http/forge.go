@@ -41,6 +41,7 @@ type classRules struct {
 type backgroundRules struct {
 	Skills    []string `json:"skills"`
 	Equipment string   `json:"equipment"`
+	Feat      string   `json:"feat"`
 }
 
 type gearItem struct {
@@ -119,6 +120,32 @@ func (s *Server) fetchVisibleContent(ctx context.Context, id uuid.UUID, kind db.
 		}
 	}
 	return row, nil
+}
+
+// originFeats maps lowercased name -> canonical name for every Origin feat the
+// caller can see. Species that hand out a free Origin feat (Human's Versatile)
+// pick by name, so the name has to be checked against the live library.
+func (s *Server) originFeats(ctx context.Context, uid uuid.UUID) (map[string]string, error) {
+	rows, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
+		Kind:      db.ContentKindFeat,
+		CreatedBy: pgUUID(uid),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for _, row := range rows {
+		var fr struct {
+			Category string `json:"category"`
+		}
+		if err := json.Unmarshal(row.Data, &fr); err != nil {
+			continue
+		}
+		if strings.EqualFold(fr.Category, "origin") {
+			out[strings.ToLower(row.Name)] = row.Name
+		}
+	}
+	return out, nil
 }
 
 // fetchContent loads a rules entry and enforces its kind.
@@ -228,6 +255,56 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 	// Full proficiency list = background grants + class choices.
 	skills := append(append([]string{}, br.Skills...), body.Skills...)
 
+	// Species choices — a lineage, a free proficiency, an Origin feat. Picks
+	// are matched against what this species actually offers, and whatever they
+	// grant joins the sheet instead of staying decorative prose.
+	var sr speciesRules
+	if err := json.Unmarshal(species.Data, &sr); err != nil {
+		return nil, fmt.Errorf("malformed species data for %s: %w", species.Name, err)
+	}
+	picks := map[string][]string{}
+	if body.SpeciesChoices != nil {
+		picks = *body.SpeciesChoices
+	}
+	taken := map[string]bool{}
+	for _, sk := range skills {
+		taken[sk] = true
+	}
+	resolved, msg := resolveSpeciesChoices(sr, species.Name, picks, taken)
+	if msg != "" {
+		return badRequest(msg)
+	}
+	skills = append(skills, resolved.Skills...)
+
+	// The background's Origin feat is the hero's first — recording it is what
+	// lets a species feat pick (a Human's Versatile) reject a duplicate.
+	feats := []string{}
+	if f := strings.TrimSpace(br.Feat); f != "" {
+		feats = append(feats, f)
+	}
+	if len(resolved.Feats) > 0 {
+		origin, err := s.originFeats(ctx, uid)
+		if err != nil {
+			return nil, err
+		}
+		for _, pick := range resolved.Feats {
+			canon, ok := origin[strings.ToLower(pick)]
+			if !ok {
+				return badRequest(pick + " is not an Origin feat")
+			}
+			for _, have := range feats {
+				if strings.EqualFold(have, canon) {
+					return badRequest(canon + " is already granted by " + background.Name + " — choose another")
+				}
+			}
+			feats = append(feats, canon)
+		}
+	}
+	speciesChoices, err := json.Marshal(resolved.Stored)
+	if err != nil {
+		return nil, err
+	}
+
 	// Starting equipment: an option label from the class's data. Optional so
 	// classes without gear data (older homebrew) still forge.
 	var chosenGear *gearOption
@@ -264,22 +341,24 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 
 	s16 := func(v int) *int16 { x := int16(v); return &x }
 	hero, err := s.queries.ForgeCharacter(ctx, db.ForgeCharacterParams{
-		OwnerUserID:  uid,
-		Name:         name,
-		Class:        species.Name + " " + class.Name,
-		Level:        1,
-		HpCurrent:    int32(hpMax),
-		HpMax:        int32(hpMax),
-		Strength:     s16(body.Abilities.Str),
-		Dexterity:    s16(body.Abilities.Dex),
-		Constitution: s16(body.Abilities.Con),
-		Intelligence: s16(body.Abilities.Int),
-		Wisdom:       s16(body.Abilities.Wis),
-		Charisma:     s16(body.Abilities.Cha),
-		Skills:       skills,
-		ClassID:      pgUUID(class.ID),
-		SpeciesID:    pgUUID(species.ID),
-		BackgroundID: pgUUID(background.ID),
+		OwnerUserID:    uid,
+		Name:           name,
+		Class:          species.Name + " " + class.Name,
+		Level:          1,
+		HpCurrent:      int32(hpMax),
+		HpMax:          int32(hpMax),
+		Strength:       s16(body.Abilities.Str),
+		Dexterity:      s16(body.Abilities.Dex),
+		Constitution:   s16(body.Abilities.Con),
+		Intelligence:   s16(body.Abilities.Int),
+		Wisdom:         s16(body.Abilities.Wis),
+		Charisma:       s16(body.Abilities.Cha),
+		Skills:         skills,
+		ClassID:        pgUUID(class.ID),
+		SpeciesID:      pgUUID(species.ID),
+		BackgroundID:   pgUUID(background.ID),
+		Feats:          feats,
+		SpeciesChoices: speciesChoices,
 	})
 	if err != nil {
 		return nil, err

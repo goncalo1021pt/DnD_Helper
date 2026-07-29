@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -55,9 +56,10 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			Strength: row.Strength, Dexterity: row.Dexterity, Constitution: row.Constitution,
 			Intelligence: row.Intelligence, Wisdom: row.Wisdom, Charisma: row.Charisma,
 			Skills: row.Skills, ClassID: row.ClassID, SpeciesID: row.SpeciesID,
-			BackgroundID: row.BackgroundID,
-			SubclassID:   row.SubclassID,
-			Feats:        row.Feats,
+			BackgroundID:   row.BackgroundID,
+			SubclassID:     row.SubclassID,
+			Feats:          row.Feats,
+			SpeciesChoices: row.SpeciesChoices,
 			SpellSlotsUsed: row.SpellSlotsUsed,
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
@@ -307,17 +309,27 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 		if feats == nil {
 			feats = []string{}
 		}
+		// Species picks are stored as raw JSON; a hero forged before the
+		// column existed simply has none.
+		var speciesChoices *api.SpeciesChoices
+		if len(c.SpeciesChoices) > 0 {
+			var picks api.SpeciesChoices
+			if err := json.Unmarshal(c.SpeciesChoices, &picks); err == nil && len(picks) > 0 {
+				speciesChoices = &picks
+			}
+		}
 		sheet = &api.CharacterSheet{
 			Abilities: api.AbilityScores{
 				Str: int(*c.Strength), Dex: int(*c.Dexterity), Con: int(*c.Constitution),
 				Int: int(*c.Intelligence), Wis: int(*c.Wisdom), Cha: int(*c.Charisma),
 			},
-			Skills:       skills,
-			Feats:        &feats,
-			ClassId:      uuidPtr(c.ClassID),
-			SpeciesId:    uuidPtr(c.SpeciesID),
-			BackgroundId: uuidPtr(c.BackgroundID),
-			SubclassId:   uuidPtr(c.SubclassID),
+			Skills:         skills,
+			Feats:          &feats,
+			ClassId:        uuidPtr(c.ClassID),
+			SpeciesId:      uuidPtr(c.SpeciesID),
+			BackgroundId:   uuidPtr(c.BackgroundID),
+			SubclassId:     uuidPtr(c.SubclassID),
+			SpeciesChoices: speciesChoices,
 		}
 	}
 	xp := int(c.Xp)
@@ -326,17 +338,17 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 		Sheet:         sheet,
 		Xp:            &xp,
 		PendingLevels: &pending,
-		Id:          c.ID,
-		CampaignId:  campaignID,
-		OwnerUserId: c.OwnerUserID,
-		OwnerName:   ownerName,
-		Name:        c.Name,
-		Class:       c.Class,
-		Level:       int(c.Level),
-		HpCurrent:   int(c.HpCurrent),
-		HpMax:       int(c.HpMax),
-		CreatedAt:   c.CreatedAt.Time,
-		Mine:        c.OwnerUserID == viewer,
-		TableBorn:   c.TableBorn,
+		Id:            c.ID,
+		CampaignId:    campaignID,
+		OwnerUserId:   c.OwnerUserID,
+		OwnerName:     ownerName,
+		Name:          c.Name,
+		Class:         c.Class,
+		Level:         int(c.Level),
+		HpCurrent:     int(c.HpCurrent),
+		HpMax:         int(c.HpMax),
+		CreatedAt:     c.CreatedAt.Time,
+		Mine:          c.OwnerUserID == viewer,
+		TableBorn:     c.TableBorn,
 	}
 }
