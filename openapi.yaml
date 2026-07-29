@@ -815,6 +815,38 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /characters/{characterId}/spells/swap:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    post:
+      operationId: swapCharacterSpells
+      summary: >-
+        Change prepared spells on a Long Rest (owner only). Allowed only for
+        classes whose spellChanges rule says long-rest, and only as far as that
+        rule permits — a Cleric re-prepares freely, a Paladin swaps one, a Bard
+        cannot do it at all (its swap comes at level-up).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpellSwapRequest"
+      responses:
+        "200":
+          description: The hero with its new list of spells
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /campaigns/{campaignId}/events:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -3258,6 +3290,30 @@ components:
           type: object
           additionalProperties: true
 
+    SpellSwap:
+      type: object
+      description: One spell traded for another; both must be the same kind (cantrip for cantrip).
+      required: [replace, with]
+      properties:
+        replace:
+          type: string
+          format: uuid
+          description: A spell the hero currently knows.
+        with:
+          type: string
+          format: uuid
+          description: Its replacement, legal for the class and the hero's level.
+
+    SpellSwapRequest:
+      type: object
+      required: [swaps]
+      properties:
+        swaps:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/SpellSwap"
+
     LevelUpRequest:
       type: object
       required: [hpMode]
@@ -3284,6 +3340,13 @@ components:
             type: string
             format: uuid
           description: New spell picks gained with this level (casters only).
+        spellSwaps:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpellSwap"
+          description: >-
+            Spells traded on gaining this level, for classes whose spellChanges
+            rule says level-up (Bard, Sorcerer, Warlock).
         asi:
           type: object
           description: Ability increases at an ASI level; total of 2 points, each +1 or +2.

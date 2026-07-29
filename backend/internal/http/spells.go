@@ -20,9 +20,65 @@ import (
 // data.spellList lets a class (e.g. homebrew Artificer) claim spells by name
 // when the spells' own classes arrays don't know about it.
 type castingRules struct {
-	Spellcaster  string         `json:"spellcaster"`
-	Spellcasting *rules.Casting `json:"spellcasting"`
-	SpellList    []string       `json:"spellList"`
+	Spellcaster  string            `json:"spellcaster"`
+	Spellcasting *rules.Casting    `json:"spellcasting"`
+	SpellList    []string          `json:"spellList"`
+	SpellChanges *spellChangeRules `json:"spellChanges"`
+}
+
+/*
+When a caster may trade one spell for another, and how many. The 2024 rules
+split the field: a Cleric re-prepares its whole list on a Long Rest, a Paladin
+swaps one, and a Bard cannot do it at all until it gains a level. Only the
+Wizard may trade a cantrip on a Long Rest.
+
+The class entries carry this as data because prose can't gate a swap.
+*/
+type spellChangeRule struct {
+	// "long-rest" or "level-up".
+	When string `json:"when"`
+	// A number, or the string "any" for an unlimited re-prepare.
+	Count json.RawMessage `json:"count"`
+}
+
+type spellChangeRules struct {
+	Prepared *spellChangeRule `json:"prepared"`
+	Cantrips *spellChangeRule `json:"cantrips"`
+}
+
+// unlimitedSwaps is the allowance for a class that re-prepares its whole list.
+const unlimitedSwaps = -1
+
+// allowance returns how many swaps this rule permits on the given trigger.
+// Zero means none — either the rule is absent or it fires on the other trigger.
+func (r *spellChangeRule) allowance(trigger string) int {
+	if r == nil || r.When != trigger {
+		return 0
+	}
+	if len(r.Count) == 0 {
+		return 1
+	}
+	var n int
+	if err := json.Unmarshal(r.Count, &n); err == nil {
+		return n
+	}
+	var word string
+	if err := json.Unmarshal(r.Count, &word); err == nil && strings.EqualFold(word, "any") {
+		return unlimitedSwaps
+	}
+	return 0
+}
+
+// spellChangesFor reads a class's rule. A caster whose data predates the field
+// — homebrew, an imported pack — falls back to the commonest 2024 shape:
+// re-prepare freely on a Long Rest, no cantrip swapping.
+func spellChangesFor(cr castingRules) spellChangeRules {
+	if cr.SpellChanges != nil {
+		return *cr.SpellChanges
+	}
+	return spellChangeRules{
+		Prepared: &spellChangeRule{When: "long-rest", Count: json.RawMessage(`"any"`)},
+	}
 }
 
 // parseCasting reads a class's casting kind and pick tables (with fallbacks).
@@ -134,6 +190,161 @@ func (s *Server) validateSpellPicks(
 		return fmt.Sprintf("%s prepares at most %d spells at level %d", class.Name, maxP, atLevel), nil, nil
 	}
 	return "", newIDs, nil
+}
+
+// swapResult is a validated set of trades, split into what leaves the hero's
+// list and what joins it.
+type swapResult struct {
+	Out []uuid.UUID
+	In  []uuid.UUID
+}
+
+// validateSpellSwaps checks a set of one-for-one spell trades against the
+// class's spellChanges rule for the given trigger ("long-rest" or "level-up").
+//
+// A swap keeps the list the same size, so the cantrip/prepared caps can't be
+// broken by one; what has to hold is that the class may trade at all on this
+// trigger, that it isn't trading more than its allowance, that the hero really
+// knows what it's giving up, and that a cantrip is only ever traded for
+// another cantrip.
+func (s *Server) validateSpellSwaps(
+	ctx context.Context,
+	uid uuid.UUID,
+	class db.RulesContent,
+	atLevel int,
+	existing []db.ListCharacterSpellsRow,
+	swaps []api.SpellSwap,
+	trigger string,
+) (string, swapResult, error) {
+	var out swapResult
+	if len(swaps) == 0 {
+		return "", out, nil
+	}
+	kind, _, isCaster := parseCasting(class.Data)
+	if !isCaster {
+		return class.Name + " does not cast spells", out, nil
+	}
+	var cr castingRules
+	_ = json.Unmarshal(class.Data, &cr)
+	changes := spellChangesFor(cr)
+
+	if atLevel < 1 {
+		atLevel = 1
+	}
+	if atLevel > 20 {
+		atLevel = 20
+	}
+
+	// What the hero currently knows, and whether each is a cantrip.
+	known := map[uuid.UUID]bool{}
+	isCantrip := map[uuid.UUID]bool{}
+	name := map[uuid.UUID]string{}
+	for _, row := range existing {
+		var d spellData
+		_ = json.Unmarshal(row.Data, &d)
+		known[row.ID] = true
+		isCantrip[row.ID] = d.Level == 0
+		name[row.ID] = row.Name
+	}
+
+	maxSpellLevel := rules.MaxSpellLevel(kind, atLevel)
+	usedOut := map[uuid.UUID]bool{}
+	usedIn := map[uuid.UUID]bool{}
+	cantripSwaps, preparedSwaps := 0, 0
+
+	for _, sw := range swaps {
+		outID, inID := uuid.UUID(sw.Replace), uuid.UUID(sw.With)
+		if outID == inID {
+			return "a spell can't be swapped for itself", out, nil
+		}
+		if !known[outID] {
+			return "that hero doesn't know the spell being replaced", out, nil
+		}
+		if usedOut[outID] {
+			return name[outID] + " is being replaced twice", out, nil
+		}
+		if usedIn[inID] {
+			return "the same spell was chosen twice as a replacement", out, nil
+		}
+		if known[inID] && !usedOut[inID] {
+			return "that hero already knows the replacement spell", out, nil
+		}
+		usedOut[outID], usedIn[inID] = true, true
+
+		row, err := s.fetchVisibleContent(ctx, inID, db.ContentKindSpell, uid)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return "unknown spell", out, nil
+			}
+			return "that choice is not a spell", out, nil
+		}
+		var d spellData
+		if err := json.Unmarshal(row.Data, &d); err != nil {
+			return row.Name + " has malformed spell data", out, nil
+		}
+		onList := false
+		for _, c := range d.Classes {
+			if strings.EqualFold(c, class.Name) {
+				onList = true
+				break
+			}
+		}
+		for _, n := range cr.SpellList {
+			if onList {
+				break
+			}
+			onList = strings.EqualFold(n, row.Name)
+		}
+		if !onList {
+			return fmt.Sprintf("%s is not on the %s spell list", row.Name, class.Name), out, nil
+		}
+		if d.Level > maxSpellLevel {
+			return fmt.Sprintf("%s is level %d — beyond a level-%d %s's slots", row.Name, d.Level, atLevel, class.Name), out, nil
+		}
+		// A cantrip and a prepared spell are different currencies.
+		if isCantrip[outID] != (d.Level == 0) {
+			if isCantrip[outID] {
+				return fmt.Sprintf("%s is a cantrip — it can only be traded for another cantrip", name[outID]), out, nil
+			}
+			return fmt.Sprintf("%s is a cantrip — it can't replace a prepared spell", row.Name), out, nil
+		}
+		if d.Level == 0 {
+			cantripSwaps++
+		} else {
+			preparedSwaps++
+		}
+		out.Out = append(out.Out, outID)
+		out.In = append(out.In, inID)
+	}
+
+	occasion := "a Long Rest"
+	if trigger == "level-up" {
+		occasion = "gaining a level"
+	}
+	check := func(count int, rule *spellChangeRule, one, many string) string {
+		if count == 0 {
+			return ""
+		}
+		allowed := rule.allowance(trigger)
+		if allowed == 0 {
+			return fmt.Sprintf("%s can't change its %s on %s", class.Name, many, occasion)
+		}
+		if allowed != unlimitedSwaps && count > allowed {
+			noun := many
+			if allowed == 1 {
+				noun = one
+			}
+			return fmt.Sprintf("%s may change %d %s on %s, not %d", class.Name, allowed, noun, occasion, count)
+		}
+		return ""
+	}
+	if msg := check(cantripSwaps, changes.Cantrips, "cantrip", "cantrips"); msg != "" {
+		return msg, swapResult{}, nil
+	}
+	if msg := check(preparedSwaps, changes.Prepared, "prepared spell", "prepared spells"); msg != "" {
+		return msg, swapResult{}, nil
+	}
+	return "", out, nil
 }
 
 // spellSlotsFor derives the caster block for a Character payload: the casting

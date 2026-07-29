@@ -8,6 +8,7 @@ import {
   useDeleteItem,
   useRules,
   useSetSpellSlots,
+  useSwapSpells,
   useUpdateItem,
 } from "../hooks";
 import { levelUpHold } from "../lib/progression";
@@ -16,6 +17,7 @@ import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import SpellEntry, { Blocks, SpellFlags } from "./ui/SpellEntry";
 import ContentEntry from "./ui/ContentEntry";
+import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
 
 type EquipSlot = "armor" | "mainhand" | "offhand";
 const SLOT_LABEL: Record<EquipSlot, string> = {
@@ -119,11 +121,14 @@ export default function HeroSheetPage() {
   const { data: classes } = useRules("class");
   const { data: subclasses } = useRules("subclass");
   const { data: itemLibrary } = useRules("item");
+  const { data: spellLibrary } = useRules("spell");
   const setSlots = useSetSpellSlots(heroId ?? "");
+  const swapSpells = useSwapSpells(heroId ?? "");
   const addItem = useAddItem(heroId ?? "");
   const updateItem = useUpdateItem(heroId ?? "");
   const deleteItem = useDeleteItem(heroId ?? "");
   const [levelling, setLevelling] = useState(false);
+  const [swapping, setSwapping] = useState(false);
   const [reading, setReading] = useState<RulesContent | null>(null);
   const [addChoice, setAddChoice] = useState("");
   const [freeText, setFreeText] = useState("");
@@ -390,7 +395,24 @@ export default function HeroSheetPage() {
             {/* spells */}
             {tab === "sheet" && (slots.length > 0 || spellsByLevel.length > 0) && (
               <section>
-                <SectionLabel>Spells</SectionLabel>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <SectionLabel>Spells</SectionLabel>
+                  {/* Half the 2024 casters re-prepare on a Long Rest; the rest
+                      wait for a level, and their swap rides with the level-up. */}
+                  {canEdit && canSwapOn(klass, "long-rest") && (detail?.spells ?? []).length > 0 && (
+                    <button
+                      onClick={() => setSwapping(true)}
+                      className="label-stamp mb-2.5 cursor-pointer rounded-[2px] border-none px-2.5 py-1 text-[9px] tracking-[1px]"
+                      style={{
+                        background: "rgba(16,9,5,.4)",
+                        color: "#cdba93",
+                        boxShadow: "inset 0 0 0 1px rgba(201,162,39,.3)",
+                      }}
+                    >
+                      Long Rest — change spells
+                    </button>
+                  )}
+                </div>
                 <div className="parchment px-4 py-4">
                   {slots.length > 0 && (
                     <div className="mb-3 flex flex-col gap-1.5">
@@ -736,6 +758,26 @@ export default function HeroSheetPage() {
 
       {levelling && (
         <LevelUpModal character={character} onClose={() => setLevelling(false)} />
+      )}
+      {swapping && (
+        <SpellSwapModal
+          klass={klass}
+          known={detail?.spells ?? []}
+          library={spellLibrary ?? []}
+          characterLevel={character.level}
+          trigger="long-rest"
+          busy={swapSpells.isPending}
+          error={(swapSpells.error as { error?: string } | null)?.error}
+          onClose={() => {
+            swapSpells.reset();
+            setSwapping(false);
+          }}
+          onConfirm={(swaps) =>
+            swapSpells.mutate(swaps, {
+              onSuccess: () => setSwapping(false),
+            })
+          }
+        />
       )}
       <FloatingDiceTray />
     </div>

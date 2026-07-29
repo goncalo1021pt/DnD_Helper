@@ -609,6 +609,30 @@ export function useSetSpellSlots(characterId: string) {
   });
 }
 
+/**
+ * Trade prepared spells after a Long Rest. The server is the authority on
+ * whether this hero's class may do it at all and how many — see the class
+ * data's spellChanges rule.
+ */
+export function useSwapSpells(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (swaps: Array<{ replace: string; with: string }>) => {
+      const { data, error } = await api.POST("/characters/{characterId}/spells/swap", {
+        params: { path: { characterId } },
+        body: { swaps },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["character-detail", characterId] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+    },
+  });
+}
+
 export function useAddItem(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
