@@ -12,12 +12,15 @@ thing it protects.
 ## The e2e suite
 
 Issue #105. It exists to be the safety net under the frontend refactor
-(#107, #108): `hooks.ts` is 1,900 lines, `ForgeWizard.tsx` 1,400, and
-`EncounterPage.tsx` 1,300, and nobody splits files that size without one.
+(#107, #108), and it has already earned that: `hooks.ts` (1,906 lines) became
+`hooks/` in #107, and `ForgeWizard.tsx` went 1,411 → 951 across #121 and #123,
+each verified by this suite rather than by hope. `EncounterPage.tsx` (1,313)
+and `MapPage.tsx` (1,201) are still to come.
 
 It drives the **real stack** — Go binary, embedded SPA, Postgres — not a mocked
 frontend. A test that mocks the API cannot tell you that splitting `hooks.ts`
-broke the wiring between the two, which is the entire risk being covered.
+broke the wiring between the two, which was the entire risk being covered —
+and is still the risk for every file left on that list.
 
 ### Running it
 
@@ -42,10 +45,14 @@ producing a screenful of timeouts.
 | `forge.spec.ts` | a background that eats a class skill pick is explained, and blocks the forge | the #56 conflict rules |
 | `encounter.spec.ts` | prepare from the Den → trigger → initiative tracker | `EncounterPage.tsx`, `DenPage.tsx` |
 | `auth.spec.ts` | register → unverified nudge; the emailed link; 2FA enrolled then demanded at the door | the front door |
+| `map.spec.ts` | the fog holds pixel-for-pixel; DM-only pins never reach a player; sub-maps; a stranger gets 403/401 | `MapPage.tsx`, the fog compositor, the hand-rolled image route |
 
-Not covered yet, deliberately: the map and fog (canvas — needs image
-assertions), the DM Menu, skill trees, the codex. Add them as the refactor
-reaches those files.
+Not covered yet: the DM Menu, skill trees, the codex, and the character-sheet
+exporter (`lib/sheet/` — see #125, which wants unit tests rather than a browser
+journey). Add them as the refactor reaches those files.
+
+The map *is* covered, as of #122 — and it is the model for anything else where
+the guarantee is about what the server sent rather than what the DOM shows.
 
 ### Two rules that keep it from getting brittle
 

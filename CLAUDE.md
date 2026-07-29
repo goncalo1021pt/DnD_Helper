@@ -74,7 +74,7 @@ Same origin serves API + SPA (Vite proxy in dev, `embed.FS` in prod), so session
 
 ### Frontend (`frontend/src/`)
 
-All server state goes through TanStack Query hooks in `hooks.ts` (queries + mutations that invalidate related keys). `api/client.ts` exports the single typed client and type aliases derived from the OpenAPI schema — new endpoint types flow in automatically after `make generate`. A 401 from `/me` is an expected state (login gate), not an error.
+All server state goes through TanStack Query hooks in `hooks/`, one module per domain (`quests.ts`, `encounters.ts`, `maps.ts`, …) re-exported from `hooks/index.ts` — so `from "../hooks"` resolves to the barrel and either import style works. Queries live beside the mutations that invalidate their keys. `api/client.ts` exports the single typed client and type aliases derived from the OpenAPI schema — new endpoint types flow in automatically after `make generate`. A 401 from `/me` is an expected state (login gate), not an error.
 
 ### The character-sheet exporter (`frontend/src/lib/sheet/`)
 
@@ -97,7 +97,7 @@ Details in `docs/PRINTING.md`.
 1. Add the path/schema to `openapi.yaml`
 2. `make generate`
 3. Implement the new method on `Server` in `backend/internal/http` (compile fails until you do)
-4. Add a hook in `frontend/src/hooks.ts` using the freshly typed client
+4. Add a hook to the matching domain module in `frontend/src/hooks/` using the freshly typed client
 
 ## Conventions
 
