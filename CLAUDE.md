@@ -28,11 +28,20 @@ make test                       # NOT unit tests: runs the whole app in containe
 make prod                       # full production stack (app + postgres + cloudflared)
 make logs S=app                 # follow a service's logs (app|postgres|cloudflared)
 
-# Go unit tests (a small suite exists: auth crypto/password, http fog/encounter/tls)
+# Go unit tests (auth crypto/password, species/spells, visibility/veils, fog, encounter, packs)
 cd backend && go test ./...
+
+# End-to-end (Playwright, in Docker — no Node needed on the host)
+make test && make e2e           # start the app, then drive it
+make e2e ARGS=forge             # one spec
 ```
 
-Beware: `make test` starts the containerized app for manual testing — it is not a test runner.
+Beware: `make test` starts the containerized app for manual testing — it is not a test runner. `make e2e` is.
+
+Testing layers, and how to add to them, live in `docs/TESTING.md`. Two things
+that bite: run e2e against a server with **no `RESEND_API_KEY`** (otherwise every
+run fires real Resend calls), and keep `PLAYWRIGHT_VERSION` in the Makefile
+identical to the exact-pinned `@playwright/test` in `frontend/package.json`.
 
 ## Architecture
 

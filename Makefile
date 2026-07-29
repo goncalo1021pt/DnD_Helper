@@ -4,10 +4,16 @@
 GOBIN := $(shell go env GOPATH)/bin
 STATIC := backend/internal/static
 
-.PHONY: help generate gen-backend gen-frontend frontend embed backend build run test prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
+# The Playwright image tag MUST match the @playwright/test version pinned in
+# frontend/package.json — the library refuses to drive browsers it did not ship
+# with. Bump both together.
+PLAYWRIGHT_VERSION := v1.62.0
+E2E_BASE_URL ?= http://localhost:8080
+
+.PHONY: help generate gen-backend gen-frontend frontend embed backend build run test e2e prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
 
 # Codegen tools are PINNED so `make generate` is reproducible and the CI drift
@@ -53,7 +59,17 @@ test: ## Run the WHOLE app locally in containers at http://localhost:8080 (no tu
 		docker compose --profile full up -d --build postgres app
 	@echo ""
 	@echo "  ▶ Quest Board running at http://localhost:8080  (dev login enabled)"
-	@echo "    logs: make logs S=app   ·   stop: make down"
+	@echo "    logs: make logs S=app   ·   stop: make down   ·   e2e: make e2e"
+
+e2e: ## Run the Playwright smoke suite against a running app (start it with 'make test')
+	@curl -sf $(E2E_BASE_URL)/api/health >/dev/null || { \
+		echo "No app at $(E2E_BASE_URL) — start one first: make test"; exit 1; }
+	@echo "▶ Playwright against $(E2E_BASE_URL)"
+	docker run --rm --network host \
+		-v "$(CURDIR)/frontend":/app -w /app \
+		-e E2E_BASE_URL=$(E2E_BASE_URL) \
+		mcr.microsoft.com/playwright:$(PLAYWRIGHT_VERSION)-noble \
+		npx playwright test $(ARGS)
 
 prod: ## Build & start the full PRODUCTION stack (app + postgres + cloudflared)
 	docker compose --profile full up -d --build
