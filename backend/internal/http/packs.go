@@ -18,6 +18,14 @@ import (
 Content packs: batch import/export of a user's private homebrew. This is how
 non-SRD book transcriptions travel between instances without ever entering
 the public repo — transcribe once, export, import anywhere.
+
+Packs are additive. An entry is created or updated by (kind, name), never
+merged into an existing one, so the way to give an existing class more options
+is to ship the things that already point at a class by name — a subclass
+(data.class), a feat, a spell (data.classes) — not a second copy of the class
+itself. A pack entry that reuses an SRD name imports fine but shadows it:
+the library then lists both, and the codex rules on them separately. That is
+what the report's warnings are for.
 */
 
 var packKinds = map[string]db.ContentKind{
@@ -75,6 +83,19 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 		Status api.ImportReportResultsStatus `json:"status"`
 	}{}}
 
+	// SRD names by kind, so an entry that shadows one can be called out. A
+	// lookup failure just means no warnings — never a failed import.
+	srdNames := map[db.ContentKind]map[string]bool{}
+	if rows, err := s.queries.ListSRDNames(ctx); err == nil {
+		for _, row := range rows {
+			if srdNames[row.Kind] == nil {
+				srdNames[row.Kind] = map[string]bool{}
+			}
+			srdNames[row.Kind][strings.ToLower(row.Name)] = true
+		}
+	}
+	var warnings []string
+
 	fail := func(kind, name, msg string) {
 		report.Failed++
 		report.Results = append(report.Results, struct {
@@ -127,6 +148,11 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 			fail(string(kind), name, fmt.Sprintf("storage refused the entry: %v", err))
 			continue
 		}
+		if srdNames[kind][strings.ToLower(name)] {
+			warnings = append(warnings, fmt.Sprintf(
+				"%s %q shadows the SRD entry of the same name — both will be listed. Packs add content; to extend an existing %s, ship a subclass, feat or spell that names it instead of a second copy.",
+				kind, name, kind))
+		}
 		status := api.ImportReportResultsStatusUpdated
 		if row.Created {
 			status = api.ImportReportResultsStatusCreated
@@ -140,6 +166,9 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 			Name   string                        `json:"name"`
 			Status api.ImportReportResultsStatus `json:"status"`
 		}{Kind: string(kind), Name: name, Status: status})
+	}
+	if len(warnings) > 0 {
+		report.Warnings = &warnings
 	}
 	return api.ImportContentPack200JSONResponse(report), nil
 }

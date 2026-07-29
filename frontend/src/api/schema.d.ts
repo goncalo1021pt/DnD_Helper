@@ -1726,10 +1726,16 @@ export interface components {
             /** Format: uuid */
             subclassId?: string | null;
             feats?: string[];
+            /** @description The species picks made at creation, keyed by choice id. */
+            speciesChoices?: components["schemas"]["SpeciesChoices"];
             /** @description Present on casters (STR…CHA). */
             spellcastingAbility?: string;
             /** @description Present on casters — max and used per spell level. */
             spellSlots?: components["schemas"]["SpellSlot"][];
+        };
+        /** @description Species picks keyed by the choice id declared in the species entry's data, each holding the chosen option names. */
+        SpeciesChoices: {
+            [key: string]: string[];
         };
         SpellSlot: {
             level: number;
@@ -1760,6 +1766,8 @@ export interface components {
             spells?: string[];
             /** @description Starting-equipment option label (A/B/C) from the class's startingEquipment data. The server stocks the inventory: listed items (linked to armory content where names match), gold as a Gold Pieces row, plus the background's equipment items. */
             gear?: string;
+            /** @description One entry per choice the species offers, keyed by choice id — an Elf's lineage, a Gnome's Forest-or-Rock, a Human's free skill and Origin feat. Every offered choice must be answered. */
+            speciesChoices?: components["schemas"]["SpeciesChoices"];
         };
         CharacterInput: {
             name: string;
@@ -2187,6 +2195,8 @@ export interface components {
                 status: "created" | "updated" | "failed";
                 error?: string;
             }[];
+            /** @description Non-fatal notes about the import — chiefly entries whose name shadows an SRD entry of the same kind. Packs are meant to be additive (new classes, subclasses, feats, spells), so a shadowing entry usually means a book's extra class features were pasted onto a copy of the base class; the import still succeeds, but the library will now show both. */
+            warnings?: string[];
         };
         ChronicleEvent: {
             /** Format: uuid */

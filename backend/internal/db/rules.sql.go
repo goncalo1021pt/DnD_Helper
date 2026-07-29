@@ -391,6 +391,36 @@ func (q *Queries) ListOwnHomebrew(ctx context.Context, createdBy pgtype.UUID) ([
 	return items, nil
 }
 
+const listSRDNames = `-- name: ListSRDNames :many
+SELECT kind, name FROM rules_content WHERE source = 'srd'
+`
+
+type ListSRDNamesRow struct {
+	Kind ContentKind `json:"kind"`
+	Name string      `json:"name"`
+}
+
+// Every SRD entry's kind and name, for spotting pack entries that shadow one.
+func (q *Queries) ListSRDNames(ctx context.Context) ([]ListSRDNamesRow, error) {
+	rows, err := q.db.Query(ctx, listSRDNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSRDNamesRow
+	for rows.Next() {
+		var i ListSRDNamesRow
+		if err := rows.Scan(&i.Kind, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pruneSRDContent = `-- name: PruneSRDContent :exec
 DELETE FROM rules_content
 WHERE kind = $1 AND source = 'srd' AND NOT (name = ANY($2::text[]))

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { ImportReport, RulesContent, RulesKind } from "../api/client";
+import PackWarnings from "./ui/PackWarnings";
 import {
   useCreateRules,
   useDeleteRules,
@@ -461,6 +462,7 @@ export default function ArchivesPage() {
                 ))}
             </div>
           )}
+          <PackWarnings report={packReport} />
           <div className="flex justify-end">
             <button
               onClick={() => setPackReport(null)}

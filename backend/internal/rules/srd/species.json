@@ -3,122 +3,498 @@
     "name": "Dragonborn",
     "summary": "Draconic blood given mortal form — scaled, proud, and carrying an ancestor's breath.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Medium",
+      "sizeNote": "about 5-7 feet tall",
       "speed": 30,
+      "book": "SRD 5.2",
+      "description": "Dragonborn look like wingless, bipedal dragons — scaly, bright-eyed, and thick-boned with horns on their heads — and their coloration and other features are reminiscent of their draconic ancestors.",
       "traits": [
-        { "name": "Draconic Ancestry", "summary": "Choose a dragon ancestor; it sets your breath weapon and resistance damage type." },
-        { "name": "Breath Weapon", "summary": "Replace one attack with a 15-ft cone or 30-ft line exhalation (DEX save, 1d10 of your ancestry's damage, scaling by level). Uses per long rest scale with proficiency." },
-        { "name": "Damage Resistance", "summary": "Resistance to your ancestry's damage type." },
-        { "name": "Darkvision", "summary": "See in dim light within 60 ft as if bright." },
-        { "name": "Draconic Flight", "summary": "At level 5, sprout spectral wings for 10 minutes (1/long rest) and gain a fly speed equal to your speed." }
+        {
+          "name": "Draconic Ancestry",
+          "summary": "Your lineage stems from a dragon progenitor. Choose the kind of dragon from the Draconic Ancestors table. Your choice affects your Breath Weapon and Damage Resistance traits as well as your appearance.",
+          "choice": "ancestry"
+        },
+        {
+          "name": "Breath Weapon",
+          "summary": "When you take the Attack action on your turn, you can replace one of your attacks with an exhalation of magical energy in either a 15-foot Cone or a 30-foot Line that is 5 feet wide (choose the shape each time). Each creature in that area must make a Dexterity saving throw (DC 8 plus your Constitution modifier and Proficiency Bonus). On a failed save, a creature takes 1d10 damage of the type determined by your Draconic Ancestry trait. On a successful save, a creature takes half as much damage. This damage increases by 1d10 when you reach character levels 5 (2d10), 11 (3d10), and 17 (4d10).\n\nYou can use this Breath Weapon a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest."
+        },
+        {
+          "name": "Damage Resistance",
+          "summary": "You have Resistance to the damage type determined by your Draconic Ancestry trait."
+        },
+        {
+          "name": "Darkvision",
+          "summary": "You have Darkvision with a range of 60 feet."
+        },
+        {
+          "name": "Draconic Flight",
+          "summary": "When you reach character level 5, you can channel draconic magic to give yourself temporary flight. As a Bonus Action, you sprout spectral wings on your back that last for 10 minutes or until you retract the wings (no action required) or have the Incapacitated condition. During that time, you have a Fly Speed equal to your Speed. Your wings appear to be made of the same energy as your Breath Weapon. Once you use this trait, you can't use it again until you finish a Long Rest."
+        }
+      ],
+      "choices": [
+        {
+          "id": "ancestry",
+          "name": "Draconic Ancestry",
+          "type": "lineage",
+          "choose": 1,
+          "summary": "Choose the dragon your lineage stems from. It sets the damage type of your Breath Weapon and Damage Resistance.",
+          "options": [
+            { "name": "Black", "summary": "Acid damage." },
+            { "name": "Blue", "summary": "Lightning damage." },
+            { "name": "Brass", "summary": "Fire damage." },
+            { "name": "Bronze", "summary": "Lightning damage." },
+            { "name": "Copper", "summary": "Acid damage." },
+            { "name": "Gold", "summary": "Fire damage." },
+            { "name": "Green", "summary": "Poison damage." },
+            { "name": "Red", "summary": "Fire damage." },
+            { "name": "Silver", "summary": "Cold damage." },
+            { "name": "White", "summary": "Cold damage." }
+          ]
+        }
       ]
     }
   },
   {
     "name": "Dwarf",
-    "summary": "Stone-born and stubborn, dwarves endure what would break lesser folk.",
+    "summary": "Raised from the earth by a god of the forge — resilient as the mountains they carved.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Medium",
+      "sizeNote": "about 4-5 feet tall",
       "speed": 30,
+      "book": "SRD 5.2",
+      "description": "Dwarves were raised from the earth in the elder days by a deity of the forge, who gave them an affinity for stone and metal and for living underground. The god also made them resilient like the mountains, with a life span of about 350 years. Squat and often bearded, the original dwarves carved cities and strongholds into mountainsides and under the earth.",
       "traits": [
-        { "name": "Darkvision", "summary": "See in dim light within 120 ft as if bright." },
-        { "name": "Dwarven Resilience", "summary": "Resistance to poison damage; advantage on saves against the poisoned condition." },
-        { "name": "Dwarven Toughness", "summary": "+1 hit point per level." },
-        { "name": "Stonecunning", "summary": "As a bonus action, gain tremorsense 60 ft for 10 minutes while on stone (uses scale with proficiency)." }
+        {
+          "name": "Darkvision",
+          "summary": "You have Darkvision with a range of 120 feet."
+        },
+        {
+          "name": "Dwarven Resilience",
+          "summary": "You have Resistance to Poison damage. You also have Advantage on saving throws you make to avoid or end the Poisoned condition."
+        },
+        {
+          "name": "Dwarven Toughness",
+          "summary": "Your Hit Point maximum increases by 1, and it increases by 1 again whenever you gain a level."
+        },
+        {
+          "name": "Stonecunning",
+          "summary": "As a Bonus Action, you gain Tremorsense with a range of 60 feet for 10 minutes. You must be on a stone surface or touching a stone surface to use this Tremorsense. The stone can be natural or worked.\n\nYou can use this Bonus Action a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest."
+        }
       ]
     }
   },
   {
     "name": "Elf",
-    "summary": "Long-lived and fey-touched, elves walk between the mortal world and older ones.",
+    "summary": "Fey-touched and long-lived — a lineage that carries its own quiet magic.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Medium",
+      "sizeNote": "about 5-6 feet tall",
       "speed": 30,
+      "book": "SRD 5.2",
+      "description": "Elves are a magical people of otherworldly grace, living in places of ethereal beauty. They love nature and magic, art and artistry, music and poetry. Created by the god Corellon, the first elves could change their forms at will, and they dwelt in the Feywild.",
       "traits": [
-        { "name": "Darkvision", "summary": "See in dim light within 60 ft as if bright." },
-        { "name": "Elven Lineage", "summary": "Choose a lineage (Drow, High, or Wood); it grants a cantrip and later spells, plus lineage benefits." },
-        { "name": "Fey Ancestry", "summary": "Advantage on saves against the charmed condition." },
-        { "name": "Keen Senses", "summary": "Proficiency in Insight, Perception, or Survival." },
-        { "name": "Trance", "summary": "You don't sleep; a 4-hour trance gives the benefit of a long rest." }
+        {
+          "name": "Darkvision",
+          "summary": "You have Darkvision with a range of 60 feet."
+        },
+        {
+          "name": "Elven Lineage",
+          "summary": "You are part of a lineage that grants you supernatural abilities. Choose a lineage from the Elven Lineages table. You gain the level 1 benefit of that lineage.\n\nWhen you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.\n\nIntelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with this trait (choose the ability when you select the lineage).",
+          "choice": "lineage"
+        },
+        {
+          "name": "Fey Ancestry",
+          "summary": "You have Advantage on saving throws you make to avoid or end the Charmed condition."
+        },
+        {
+          "name": "Keen Senses",
+          "summary": "You have proficiency in the Insight, Perception, or Survival skill.",
+          "choice": "keen-senses"
+        },
+        {
+          "name": "Trance",
+          "summary": "You don't need to sleep, and magic can't put you to sleep. You can finish a Long Rest in 4 hours if you spend those hours in a trancelike meditation, during which you retain consciousness."
+        }
+      ],
+      "choices": [
+        {
+          "id": "lineage",
+          "name": "Elven Lineage",
+          "type": "lineage",
+          "choose": 1,
+          "summary": "Choose the lineage your supernatural abilities descend from. It grants a level 1 benefit now and a prepared spell at character levels 3 and 5.",
+          "options": [
+            {
+              "name": "Drow",
+              "summary": "The range of your Darkvision increases to 120 feet. You also know the Dancing Lights cantrip.",
+              "spells": [
+                { "level": 3, "name": "Faerie Fire" },
+                { "level": 5, "name": "Darkness" }
+              ]
+            },
+            {
+              "name": "High Elf",
+              "summary": "You know the Prestidigitation cantrip. Whenever you finish a Long Rest, you can replace that cantrip with a different cantrip from the Wizard spell list.",
+              "spells": [
+                { "level": 3, "name": "Detect Magic" },
+                { "level": 5, "name": "Misty Step" }
+              ]
+            },
+            {
+              "name": "Wood Elf",
+              "summary": "Your Speed increases to 35 feet. You also know the Druidcraft cantrip.",
+              "spells": [
+                { "level": 3, "name": "Longstrider" },
+                { "level": 5, "name": "Pass without Trace" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "lineage-ability",
+          "name": "Lineage Spellcasting Ability",
+          "type": "ability",
+          "choose": 1,
+          "summary": "Intelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with your Elven Lineage.",
+          "options": [
+            { "name": "Intelligence" },
+            { "name": "Wisdom" },
+            { "name": "Charisma" }
+          ]
+        },
+        {
+          "id": "keen-senses",
+          "name": "Keen Senses",
+          "type": "skill",
+          "choose": 1,
+          "summary": "You have proficiency in the Insight, Perception, or Survival skill.",
+          "options": [
+            { "name": "Insight" },
+            { "name": "Perception" },
+            { "name": "Survival" }
+          ]
+        }
       ]
     }
   },
   {
     "name": "Gnome",
-    "summary": "Small, quick-minded and quicker-fingered, gnomes treat the world as a puzzle half-solved.",
+    "summary": "Small, secretive, and clever — magical folk made by gods of invention and illusion.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Small",
+      "sizeNote": "about 3-4 feet tall",
       "speed": 30,
+      "book": "SRD 5.2",
+      "description": "Gnomes are magical folk created by gods of invention, illusions, and life underground. The earliest gnomes were seldom seen by other folk due to their secretive nature and their propensity for living in forests and burrows. What they lacked in size, they made up for in cleverness. Gnomes are petite folk with big eyes and pointed ears, who live around 425 years.",
       "traits": [
-        { "name": "Darkvision", "summary": "See in dim light within 60 ft as if bright." },
-        { "name": "Gnomish Cunning", "summary": "Advantage on Intelligence, Wisdom, and Charisma saving throws." },
-        { "name": "Gnomish Lineage", "summary": "Choose Forest (minor illusion + speak with small beasts) or Rock (prestidigitation + tinkering clockwork devices)." }
+        {
+          "name": "Darkvision",
+          "summary": "You have Darkvision with a range of 60 feet."
+        },
+        {
+          "name": "Gnomish Cunning",
+          "summary": "You have Advantage on Intelligence, Wisdom, and Charisma saving throws."
+        },
+        {
+          "name": "Gnomish Lineage",
+          "summary": "You are part of a lineage that grants you supernatural abilities. Choose one of the following options; whichever one you choose, Intelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with this trait (choose the ability when you select the lineage).",
+          "choice": "lineage"
+        }
+      ],
+      "choices": [
+        {
+          "id": "lineage",
+          "name": "Gnomish Lineage",
+          "type": "lineage",
+          "choose": 1,
+          "summary": "Choose the lineage your supernatural abilities descend from.",
+          "options": [
+            {
+              "name": "Forest Gnome",
+              "summary": "You know the Minor Illusion cantrip. You also always have the Speak with Animals spell prepared. You can cast it without a spell slot a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest. You can also use any spell slots you have to cast the spell."
+            },
+            {
+              "name": "Rock Gnome",
+              "summary": "You know the Mending and Prestidigitation cantrips. In addition, you can spend 10 minutes casting Prestidigitation to create a Tiny clockwork device (AC 5, 1 HP), such as a toy, fire starter, or music box. When you create the device, you determine its function by choosing one effect from Prestidigitation; the device produces that effect whenever you or another creature takes a Bonus Action to activate it with a touch. If the chosen effect has options within it, you choose one of those options for the device when you create it. For example, if you choose the spell's ignite-extinguish effect, you determine whether the device ignites or extinguishes fire; the device doesn't do both. You can have three such devices in existence at a time, and each falls apart 8 hours after its creation or when you dismantle it with a touch as a Utilize action."
+            }
+          ]
+        },
+        {
+          "id": "lineage-ability",
+          "name": "Lineage Spellcasting Ability",
+          "type": "ability",
+          "choose": 1,
+          "summary": "Intelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with your Gnomish Lineage.",
+          "options": [
+            { "name": "Intelligence" },
+            { "name": "Wisdom" },
+            { "name": "Charisma" }
+          ]
+        }
       ]
     }
   },
   {
     "name": "Goliath",
-    "summary": "Descendants of giants — tall as doorframes, strong as arguments.",
+    "summary": "Distant kin of giants, carrying one of their forebears' supernatural favors.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Medium",
+      "sizeNote": "about 7-8 feet tall",
       "speed": 35,
+      "book": "SRD 5.2",
+      "description": "Towering over most folk, goliaths are distant descendants of giants. Each goliath bears the favors of the first giants — favors that manifest in various supernatural boons, including the ability to quickly grow and temporarily approach the height of goliaths' gigantic kin. Goliaths have physical characteristics reminiscent of the giants in their family lines.",
       "traits": [
-        { "name": "Giant Ancestry", "summary": "Choose a giant lineage granting a supernatural boon (e.g. Stone's Endurance: reduce damage by 1d12 + CON as a reaction)." },
-        { "name": "Large Form", "summary": "At level 5, become Large for 10 minutes (1/long rest): advantage on Strength checks, +10 ft speed." },
-        { "name": "Powerful Build", "summary": "Advantage on saves against grappled; count as one size larger for carrying." }
+        {
+          "name": "Giant Ancestry",
+          "summary": "You are descended from Giants. Choose one of the benefits on the Giant Ancestry table — a supernatural boon from your ancestry. You can use the chosen benefit a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest.",
+          "choice": "ancestry"
+        },
+        {
+          "name": "Large Form",
+          "summary": "Starting at character level 5, you can change your size to Large as a Bonus Action if you're in a big enough space. This transformation lasts for 10 minutes or until you end it (no action required). For that duration, you have Advantage on Strength checks, and your Speed increases by 10 feet. Once you use this trait, you can't use it again until you finish a Long Rest."
+        },
+        {
+          "name": "Powerful Build",
+          "summary": "You have Advantage on any saving throw you make to end the Grappled condition. You also count as one size larger when determining your carrying capacity."
+        }
+      ],
+      "choices": [
+        {
+          "id": "ancestry",
+          "name": "Giant Ancestry",
+          "type": "lineage",
+          "choose": 1,
+          "summary": "Choose the giant boon your ancestry grants. You can use it a number of times equal to your Proficiency Bonus per Long Rest.",
+          "options": [
+            {
+              "name": "Cloud's Jaunt",
+              "summary": "_Cloud Giant._ As a Bonus Action, you magically teleport up to 30 feet to an unoccupied space you can see."
+            },
+            {
+              "name": "Fire's Burn",
+              "summary": "_Fire Giant._ When you hit a target with an attack roll and deal damage to it, you can also deal 1d10 Fire damage to that target."
+            },
+            {
+              "name": "Frost's Chill",
+              "summary": "_Frost Giant._ When you hit a target with an attack roll and deal damage to it, you can also deal 1d6 Cold damage to that target and reduce its Speed by 10 feet until the start of your next turn."
+            },
+            {
+              "name": "Hill's Tumble",
+              "summary": "_Hill Giant._ When you hit a Large or smaller creature with an attack roll and deal damage to it, you can give that target the Prone condition."
+            },
+            {
+              "name": "Stone's Endurance",
+              "summary": "_Stone Giant._ When you take damage, you can take a Reaction to roll 1d12. Add your Constitution modifier to the number rolled and reduce the damage by that total."
+            },
+            {
+              "name": "Storm's Thunder",
+              "summary": "_Storm Giant._ When you take damage from a creature within 60 feet of you, you can take a Reaction to deal 1d8 Thunder damage to that creature."
+            }
+          ]
+        }
       ]
     }
   },
   {
     "name": "Halfling",
-    "summary": "Small folk with outsized luck and the good sense to stay out from underfoot.",
+    "summary": "Small, brave, and improbably lucky — the storied luck of the halflings, in person.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Small",
+      "sizeNote": "about 2-3 feet tall",
       "speed": 30,
+      "book": "SRD 5.2",
+      "description": "Cherished and guided by gods who value life, home, and hearth, halflings gravitate toward bucolic havens where family and community help shape their lives. Many halflings possess a brave and adventurous spirit that leads them on journeys of discovery. Their size — similar to that of a human child — helps them pass through crowds unnoticed and slip through tight spaces. Halflings live about 150 years.",
       "traits": [
-        { "name": "Brave", "summary": "Advantage on saves against the frightened condition." },
-        { "name": "Halfling Nimbleness", "summary": "Move through the space of any larger creature." },
-        { "name": "Luck", "summary": "Reroll any natural 1 on a d20 test; keep the new roll." },
-        { "name": "Naturally Stealthy", "summary": "Hide even when obscured only by a larger creature." }
+        {
+          "name": "Brave",
+          "summary": "You have Advantage on saving throws you make to avoid or end the Frightened condition."
+        },
+        {
+          "name": "Halfling Nimbleness",
+          "summary": "You can move through the space of any creature that is a size larger than you, but you can't stop in the same space."
+        },
+        {
+          "name": "Luck",
+          "summary": "When you roll a 1 on the d20 of a D20 Test, you can reroll the die, and you must use the new roll."
+        },
+        {
+          "name": "Naturally Stealthy",
+          "summary": "You can take the Hide action even when you are obscured only by a creature that is at least one size larger than you."
+        }
       ]
     }
   },
   {
     "name": "Human",
-    "summary": "Everywhere, adaptable, and annoyingly good at everything they set their minds to.",
+    "summary": "Ambitious, resourceful, and everywhere — shaped by choice rather than inheritance.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Medium or Small",
+      "sizeNote": "Medium (about 4-7 feet tall) or Small (about 2-4 feet tall), chosen when you select this species",
       "speed": 30,
+      "book": "SRD 5.2",
+      "description": "Found throughout the multiverse, humans are as varied as they are numerous, and they endeavor to achieve as much as they can in the years they are given. Their ambition and resourcefulness are commended, respected, and feared on many worlds.",
       "traits": [
-        { "name": "Resourceful", "summary": "Gain Heroic Inspiration after each long rest." },
-        { "name": "Skillful", "summary": "Proficiency in one skill of your choice." },
-        { "name": "Versatile", "summary": "An Origin feat of your choice." }
+        {
+          "name": "Resourceful",
+          "summary": "You gain Heroic Inspiration whenever you finish a Long Rest."
+        },
+        {
+          "name": "Skillful",
+          "summary": "You gain proficiency in one skill of your choice.",
+          "choice": "skillful"
+        },
+        {
+          "name": "Versatile",
+          "summary": "You gain an Origin feat of your choice. Skilled is recommended.",
+          "choice": "versatile"
+        }
+      ],
+      "choices": [
+        {
+          "id": "size",
+          "name": "Size",
+          "type": "size",
+          "choose": 1,
+          "summary": "Choose your size when you select this species.",
+          "options": [
+            { "name": "Medium", "summary": "About 4-7 feet tall." },
+            { "name": "Small", "summary": "About 2-4 feet tall." }
+          ]
+        },
+        {
+          "id": "skillful",
+          "name": "Skillful",
+          "type": "skill",
+          "choose": 1,
+          "from": "*",
+          "summary": "You gain proficiency in one skill of your choice."
+        },
+        {
+          "id": "versatile",
+          "name": "Versatile",
+          "type": "feat",
+          "choose": 1,
+          "from": "origin",
+          "summary": "You gain an Origin feat of your choice. Skilled is recommended."
+        }
       ]
     }
   },
   {
     "name": "Orc",
-    "summary": "Broad-shouldered and relentless, orcs meet the world head-on and rarely blink first.",
+    "summary": "Gruumsh's gifts made flesh — endurance, determination, and eyes for the dark.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Medium",
+      "sizeNote": "about 6-7 feet tall",
       "speed": 30,
+      "book": "SRD 5.2",
+      "description": "Orcs trace their creation to Gruumsh, a powerful god who roamed the wide open spaces of the Material Plane and equipped his children with gifts to help them wander great plains, vast caverns, and churning seas. Orcs are, on average, tall and broad, with gray skin, sharply pointed ears, and prominent lower canines that resemble small tusks.",
       "traits": [
-        { "name": "Adrenaline Rush", "summary": "Dash as a bonus action and gain temporary hit points equal to your proficiency bonus (uses scale with proficiency)." },
-        { "name": "Darkvision", "summary": "See in dim light within 120 ft as if bright." },
-        { "name": "Relentless Endurance", "summary": "Once per long rest, drop to 1 hit point instead of 0." }
+        {
+          "name": "Adrenaline Rush",
+          "summary": "You can take the Dash action as a Bonus Action. When you do so, you gain a number of Temporary Hit Points equal to your Proficiency Bonus.\n\nYou can use this trait a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Short or Long Rest."
+        },
+        {
+          "name": "Darkvision",
+          "summary": "You have Darkvision with a range of 120 feet."
+        },
+        {
+          "name": "Relentless Endurance",
+          "summary": "When you are reduced to 0 Hit Points but not killed outright, you can drop to 1 Hit Point instead. Once you use this trait, you can't do so again until you finish a Long Rest."
+        }
       ]
     }
   },
   {
     "name": "Tiefling",
-    "summary": "A fiendish thread in the bloodline — horns, an otherworldly poise, and inherited fire.",
+    "summary": "Blood-linked to the Lower Planes — a legacy that promises power and judges nothing.",
     "data": {
+      "creatureType": "Humanoid",
       "size": "Medium or Small",
+      "sizeNote": "Medium (about 4-7 feet tall) or Small (about 3-4 feet tall), chosen when you select this species",
       "speed": 30,
+      "book": "SRD 5.2",
+      "description": "Tieflings are either born in the Lower Planes or have fiendish ancestors who originated there. A tiefling is linked by blood to a devil, a demon, or some other Fiend. This connection to the Lower Planes is the tiefling's fiendish legacy, which comes with the promise of power yet has no effect on the tiefling's moral outlook.",
       "traits": [
-        { "name": "Darkvision", "summary": "See in dim light within 60 ft as if bright." },
-        { "name": "Fiendish Legacy", "summary": "Choose Abyssal, Chthonic, or Infernal: each grants a resistance, a cantrip, and later spells." },
-        { "name": "Otherworldly Presence", "summary": "You know the thaumaturgy cantrip." }
+        {
+          "name": "Darkvision",
+          "summary": "You have Darkvision with a range of 60 feet."
+        },
+        {
+          "name": "Fiendish Legacy",
+          "summary": "You are the recipient of a legacy that grants you supernatural abilities. Choose a legacy from the Fiendish Legacies table. You gain the level 1 benefit of the chosen legacy.\n\nWhen you reach character levels 3 and 5, you learn a higher-level spell, as shown on the table. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have of the appropriate level.\n\nIntelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with this trait (choose the ability when you select the legacy).",
+          "choice": "legacy"
+        },
+        {
+          "name": "Otherworldly Presence",
+          "summary": "You know the Thaumaturgy cantrip. When you cast it with this trait, the spell uses the same spellcasting ability you use for your Fiendish Legacy trait."
+        }
+      ],
+      "choices": [
+        {
+          "id": "size",
+          "name": "Size",
+          "type": "size",
+          "choose": 1,
+          "summary": "Choose your size when you select this species.",
+          "options": [
+            { "name": "Medium", "summary": "About 4-7 feet tall." },
+            { "name": "Small", "summary": "About 3-4 feet tall." }
+          ]
+        },
+        {
+          "id": "legacy",
+          "name": "Fiendish Legacy",
+          "type": "lineage",
+          "choose": 1,
+          "summary": "Choose the fiendish legacy in your blood. It grants a level 1 benefit now and a prepared spell at character levels 3 and 5.",
+          "options": [
+            {
+              "name": "Abyssal",
+              "summary": "You have Resistance to Poison damage. You also know the Poison Spray cantrip.",
+              "spells": [
+                { "level": 3, "name": "Ray of Sickness" },
+                { "level": 5, "name": "Hold Person" }
+              ]
+            },
+            {
+              "name": "Chthonic",
+              "summary": "You have Resistance to Necrotic damage. You also know the Chill Touch cantrip.",
+              "spells": [
+                { "level": 3, "name": "False Life" },
+                { "level": 5, "name": "Ray of Enfeeblement" }
+              ]
+            },
+            {
+              "name": "Infernal",
+              "summary": "You have Resistance to Fire damage. You also know the Fire Bolt cantrip.",
+              "spells": [
+                { "level": 3, "name": "Hellish Rebuke" },
+                { "level": 5, "name": "Darkness" }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "legacy-ability",
+          "name": "Legacy Spellcasting Ability",
+          "type": "ability",
+          "choose": 1,
+          "summary": "Intelligence, Wisdom, or Charisma is your spellcasting ability for the spells you cast with your Fiendish Legacy and Otherworldly Presence.",
+          "options": [
+            { "name": "Intelligence" },
+            { "name": "Wisdom" },
+            { "name": "Charisma" }
+          ]
+        }
       ]
     }
   }

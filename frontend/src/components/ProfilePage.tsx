@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { HomebrewBookRow, ImportReport } from "../api/client";
+import PackWarnings from "./ui/PackWarnings";
 import {
   useCurrentUser,
   useHomebrewBooks,
@@ -432,6 +433,7 @@ export default function ProfilePage() {
                 ))}
             </div>
           )}
+          <PackWarnings report={packReport} />
           <div className="flex justify-end">
             <button
               onClick={() => setPackReport(null)}
