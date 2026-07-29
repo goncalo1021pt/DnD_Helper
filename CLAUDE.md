@@ -76,6 +76,22 @@ Same origin serves API + SPA (Vite proxy in dev, `embed.FS` in prod), so session
 
 All server state goes through TanStack Query hooks in `hooks.ts` (queries + mutations that invalidate related keys). `api/client.ts` exports the single typed client and type aliases derived from the OpenAPI schema — new endpoint types flow in automatically after `make generate`. A 401 from `/me` is an expected state (login gate), not an error.
 
+### The character-sheet exporter (`frontend/src/lib/sheet/`)
+
+The one feature that deliberately sits outside the contract-first pattern: it is
+pure client work, with no endpoint and no server involvement. One **Print**
+button on the hero sheet draws a hero onto the official 2024 sheet — bundled at
+`frontend/src/assets/dnd-2024-character-sheet.pdf`, and declared in `NOTICE`
+since it is Wizards' artwork rather than SRD content — and opens the print
+dialog. `print.ts` is the entry point and the only thing outside it should call;
+it reaches `render.ts` through `import()` and the sheet through `fetch()`, which
+keeps pdf-lib and 1.5 MB of PDF off the page load. Never import `render.ts`
+eagerly. The coordinates in `layout2024.ts` are *measured* off the real sheet
+(603 × 774pt, two pages) by scanning for its ruled lines and proficiency
+circles — re-measure that way rather than nudging if a printing moves things.
+Adding a box means a position in `layout2024.ts` and a value in `values.ts`.
+Details in `docs/PRINTING.md`.
+
 ### Adding an endpoint
 
 1. Add the path/schema to `openapi.yaml`

@@ -11,6 +11,19 @@ Specifically, the seed data files under backend/internal/rules/srd/ (classes,
 subclasses, species, backgrounds, feats, spells, items, monsters, and related
 reference tables) are derived from the SRD 5.2.1.
 
+This work also bundles the official D&D 2024 character sheet, as published by
+Wizards of the Coast for free download, at
+
+    frontend/src/assets/dnd-2024-character-sheet.pdf
+
+It is used unmodified, as the background the "Print" button writes a hero onto.
+That sheet is NOT part of the SRD and is NOT CC-BY-4.0: it remains
+"TM & (c) 2024 Wizards of the Coast LLC. Illustrations by Richard Whitters",
+as printed on the sheet itself. It is included here for the convenience of
+self-hosting operators; anyone redistributing this software should satisfy
+themselves that they are content to redistribute it too, and may simply delete
+the file and supply their own sheet at that path instead.
+
 No other Wizards of the Coast content is included in this repository. Content
 imported at runtime by an operator (homebrew or otherwise) is that operator's
 responsibility and never ships with this software.

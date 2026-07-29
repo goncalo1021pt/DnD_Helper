@@ -314,3 +314,11 @@ export const IconPaw = (p: IconProps) => (
     <path d="M12 12c-2.6 0-4.5 1.9-4.5 4 0 1.6 1.3 2.5 3 2.5 .7 0 1-.3 1.5-.3s.8.3 1.5.3c1.7 0 3-.9 3-2.5 0-2.1-1.9-4-4.5-4z" />
   </Icon>
 );
+
+export const IconPrinter = (p: IconProps) => (
+  <Icon {...p}>
+    <polyline points="6 9 6 2 18 2 18 9" />
+    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+    <rect x="6" y="14" width="12" height="8" rx="1" />
+  </Icon>
+);

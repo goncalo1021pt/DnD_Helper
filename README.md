@@ -18,6 +18,10 @@ login.
 - **Character builder** — forge heroes from classes, subclasses, species,
   backgrounds and feats; level them up; two custom skill-tree systems; a hero
   sheet page. Your imported content is a per-account library.
+- **Print to the real sheet** — one button on a hero's page prints them onto the
+  **official 2024 character sheet**, which ships with the app, at coordinates
+  measured off it. Assembled entirely in the browser. See
+  [docs/PRINTING.md](docs/PRINTING.md).
 - **Maps & fog of war** — upload battle maps, nest sub-maps, drop pins, and reveal
   the world through **knowledge pools**. Fog is composited **server-side**, so
   players never receive the pixels they haven't uncovered.
@@ -112,8 +116,11 @@ Never hand-edit generated files (`api.gen.go`, `schema.d.ts`, `*.sql.go`,
 The application code is licensed under the **MIT License** (see
 [`LICENSE`](./LICENSE)). Baseline game content is the **SRD 5.2.1**, used under
 [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) (© Wizards of the
-Coast) — the required attribution lives in [`NOTICE`](./NOTICE). Any non-SRD
-material is the operator's own homebrew, kept out of this repository.
+Coast) — the required attribution lives in [`NOTICE`](./NOTICE). The official
+2024 character sheet, which Wizards publishes for free download, is bundled for
+the printing feature; it is **not** SRD content and stays © Wizards of the Coast
+— see [`NOTICE`](./NOTICE). Any other non-SRD material is the operator's own
+homebrew, kept out of this repository.
 
 Found a security issue? See [`SECURITY.md`](./SECURITY.md) — please report
 privately, not via public issues.
