@@ -8,6 +8,7 @@ import {
   useCreateCharacter,
   useDeleteCharacter,
   useMyCharacters,
+  useRevealCharacter,
   useSeatCharacter,
   useSetPact,
   useTrees,
@@ -126,17 +127,108 @@ function SlotPips({ character, canEdit }: { character: Character; canEdit: boole
   );
 }
 
+/*
+ * A hero behind the table's veil: a name, the player behind it, and nothing
+ * else. The card is deliberately quiet — no medallion level, no HP bar, no
+ * link to a sheet the server would refuse anyway.
+ */
+function VeiledCard({ character }: { character: Character }) {
+  return (
+    <div className="parchment px-[22px] pb-5 pt-[18px]" style={{ opacity: 0.92 }}>
+      <div className="flex items-center gap-3.5">
+        <div
+          className="font-heading flex h-[50px] w-[50px] flex-none items-center justify-center rounded-[3px] text-[19px] font-bold text-[#f3e6c8]"
+          style={{
+            background: "linear-gradient(160deg,#4a3a2a,#241a12)",
+            boxShadow: "inset 0 0 0 1.5px rgba(201,162,39,.35), 0 3px 6px rgba(0,0,0,.35)",
+          }}
+          title="Veiled"
+        >
+          ?
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-display block truncate text-[17px] font-bold leading-tight text-ink">
+            {character.name}
+          </div>
+          <div className="truncate text-[12.5px] text-ink-body">
+            <span className="font-accent italic text-ink-label">
+              played by {character.ownerName}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="mt-3.5 rounded-[2px] px-3 py-2.5"
+        style={{ background: "rgba(60,40,20,.10)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.28)" }}
+      >
+        <div className="label-stamp text-[9px] tracking-[1.5px] text-ink-label">
+          ◈ Veiled
+        </div>
+        <div className="font-accent mt-1 text-[12.5px] italic leading-snug text-ink-body">
+          Their sheet is the DM's to show — you know them by name alone.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/*
+ * The veil, from the side that can see through it. The DM gets the lantern —
+ * show this hero to the party, or put them alone in the light — and everyone
+ * else gets a note saying where their own hero stands.
+ */
+function VeilRow({
+  character,
+  isDM,
+  campaignId,
+}: {
+  character: Character;
+  isDM: boolean;
+  campaignId: string;
+}) {
+  const reveal = useRevealCharacter(campaignId);
+  const shown = character.revealed ?? false;
+
+  if (!isDM) {
+    return (
+      <div className="label-stamp mt-3 text-[8.5px] leading-relaxed tracking-[1.5px] text-ink-label">
+        {shown
+          ? "◈ the DM has shown this sheet to the party"
+          : "◈ veiled — the party sees only the name"}
+      </div>
+    );
+  }
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <span className="label-stamp flex-1 text-[8.5px] tracking-[1.5px] text-ink-label">
+        {shown ? "◈ in the light" : "◈ veiled from the party"}
+      </span>
+      <button
+        onClick={() => reveal.mutate({ characterId: character.id, revealed: !shown })}
+        disabled={reveal.isPending}
+        title={shown ? "Veil this hero from the party again" : "Show this hero's sheet to the party"}
+        className="btn-base btn-ghost-ink h-8 px-3 text-[10px]"
+      >
+        {shown ? "Veil" : "Reveal"}
+      </button>
+    </div>
+  );
+}
+
 function CharacterCard({
   character,
   canEdit,
   isDM,
   campaignId,
+  veiled,
   progression,
 }: {
   character: Character;
   canEdit: boolean;
   isDM: boolean;
   campaignId: string;
+  veiled: boolean;
   progression: string;
 }) {
   const [editing, setEditing] = useState(false);
@@ -280,6 +372,10 @@ function CharacterCard({
       )}
 
       <PactRow character={character} isDM={isDM} campaignId={campaignId} />
+
+      {veiled && (
+        <VeilRow character={character} isDM={isDM} campaignId={campaignId} />
+      )}
 
       {/* actions */}
       {canEdit && (
@@ -446,6 +542,23 @@ export default function PartyRoster() {
               {characters.length} adventurer{characters.length === 1 ? "" : "s"}
             </span>
           )}
+          {campaign.hiddenSheets && (
+            <span
+              className="label-stamp rounded-[2px] px-2 py-1 text-[9px] tracking-[1.5px]"
+              style={{
+                color: "#e0c68f",
+                background: "rgba(201,162,39,.14)",
+                border: "1px solid rgba(201,162,39,.35)",
+              }}
+              title={
+                isDM
+                  ? "You drew the veil — players see only names, except the heroes you reveal"
+                  : "The DM drew a veil over the sheets — you read only your own"
+              }
+            >
+              ◈ sheets veiled
+            </span>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
@@ -475,16 +588,21 @@ export default function PartyRoster() {
         </div>
       ) : characters && characters.length > 0 ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-6">
-          {characters.map((c) => (
-            <CharacterCard
-              key={c.id}
-              character={c}
-              canEdit={c.mine || isDM}
-              isDM={isDM}
-              campaignId={campaign.id}
-              progression={campaign.progression ?? "milestone"}
-            />
-          ))}
+          {characters.map((c) =>
+            c.concealed ? (
+              <VeiledCard key={c.id} character={c} />
+            ) : (
+              <CharacterCard
+                key={c.id}
+                character={c}
+                canEdit={c.mine || isDM}
+                isDM={isDM}
+                campaignId={campaign.id}
+                veiled={campaign.hiddenSheets ?? false}
+                progression={campaign.progression ?? "milestone"}
+              />
+            ),
+          )}
         </div>
       ) : (
         <div className="px-5 py-[70px] text-center">

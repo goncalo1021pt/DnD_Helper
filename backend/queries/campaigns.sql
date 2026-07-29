@@ -45,6 +45,10 @@ UPDATE campaigns SET progression = $2 WHERE id = $1 RETURNING *;
 -- name: SetMaxLevel :one
 UPDATE campaigns SET max_level = $2 WHERE id = $1 RETURNING *;
 
+-- name: SetHiddenSheets :one
+-- Draw or lift the veil over the table's character sheets.
+UPDATE campaigns SET hidden_sheets = $2 WHERE id = $1 RETURNING *;
+
 -- name: DeleteCampaign :exec
 -- Everything scoped to the campaign cascades: memberships, quests, skill
 -- trees, codex rulings, chronicle events, bestiary notes, maps, encounters,

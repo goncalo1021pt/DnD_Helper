@@ -47,9 +47,17 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 	if err != nil {
 		return nil, err
 	}
+	// The roster is the one place every player looks at every hero, so it is
+	// where the veil does most of its work: concealed heroes come back as a
+	// name and nothing else.
+	veil, err := s.loadSheetVeil(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	isDM := member.Role == db.MembershipRoleDm
 	out := make([]api.Character, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toAPICharacterWithClass(db.Character{
+		character := toAPICharacterWithClass(db.Character{
 			ID: row.ID, CampaignID: row.CampaignID, OwnerUserID: row.OwnerUserID,
 			Name: row.Name, Class: row.Class, Level: row.Level,
 			HpCurrent: row.HpCurrent, HpMax: row.HpMax, CreatedAt: row.CreatedAt,
@@ -64,7 +72,13 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
 			TableBorn:      row.TableBorn,
-		}, row.OwnerName, member.UserID, row.ClassData))
+		}, row.OwnerName, member.UserID, row.ClassData)
+		if veil.concealsFrom(row.ID, row.OwnerUserID, member.UserID, isDM) {
+			character = conceal(character)
+		}
+		revealed := veil.revealed[row.ID]
+		character.Revealed = &revealed
+		out = append(out, character)
 	}
 	return api.ListCharacters200JSONResponse(out), nil
 }

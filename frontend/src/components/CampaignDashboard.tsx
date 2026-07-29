@@ -136,6 +136,32 @@ function PartyRow({
   const color = hpColor(character.hpCurrent, character.hpMax);
   const pct = character.hpMax > 0 ? (character.hpCurrent / character.hpMax) * 100 : 0;
 
+  // Behind the table's veil there is nothing to show but the name.
+  if (character.concealed) {
+    return (
+      <div className="chip-hall w-full gap-3 px-3 py-2.5">
+        <div
+          className="font-heading flex h-[38px] w-[38px] flex-none items-center justify-center rounded-[3px] text-[15px] font-bold text-[#f3e6c8]"
+          style={{
+            background: "linear-gradient(160deg,#4a3a2a,#241a12)",
+            boxShadow: "inset 0 0 0 1.5px rgba(201,162,39,.35)",
+          }}
+          title="Veiled"
+        >
+          ?
+        </div>
+        <div className="min-w-0 flex-1">
+          <span className="font-heading block truncate text-[13px] font-semibold text-cream">
+            {character.name}
+          </span>
+          <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">
+            veiled — played by {character.ownerName}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   function adjustHp(delta: number) {
     const next = Math.min(Math.max(character.hpCurrent + delta, 0), character.hpMax);
     if (next === character.hpCurrent) return;

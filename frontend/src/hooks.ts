@@ -485,6 +485,32 @@ export function useDeleteCharacter(campaignId: string) {
   });
 }
 
+// DM only — lift or drop the veil on one hero.
+export function useRevealCharacter(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      characterId,
+      revealed,
+    }: {
+      characterId: string;
+      revealed: boolean;
+    }) => {
+      const { data, error } = await api.PUT("/characters/{characterId}/reveal", {
+        params: { path: { characterId } },
+        body: { revealed },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["character-detail"] });
+      qc.invalidateQueries({ queryKey: ["character-tree"] });
+    },
+  });
+}
+
 // --- My Heroes (account-level characters) ---
 
 export function useMyCharacters() {
@@ -846,6 +872,26 @@ export function useMySeatRequests() {
       const { data, error } = await api.GET("/me/seat-requests");
       if (error) throw error;
       return data ?? [];
+    },
+  });
+}
+
+// DM only — draw or lift the veil over the table's sheets.
+export function useSetHiddenSheets(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/hidden-sheets", {
+        params: { path: { campaignId } },
+        body: { enabled },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
     },
   });
 }

@@ -136,3 +136,16 @@ WHERE campaign_id = $1 AND pending_levels > 0;
 UPDATE characters
 SET pending_levels = pending_levels - 1, updated_at = now()
 WHERE id = $1 AND pending_levels > 0;
+
+-- name: ListCharacterReveals :many
+-- The heroes standing in the light at this table — their sheets are open to
+-- the party even while the veil is drawn.
+SELECT character_id FROM character_reveals WHERE campaign_id = $1;
+
+-- name: RevealCharacter :exec
+INSERT INTO character_reveals (campaign_id, character_id)
+VALUES ($1, $2)
+ON CONFLICT (campaign_id, character_id) DO NOTHING;
+
+-- name: ConcealCharacter :exec
+DELETE FROM character_reveals WHERE campaign_id = $1 AND character_id = $2;
