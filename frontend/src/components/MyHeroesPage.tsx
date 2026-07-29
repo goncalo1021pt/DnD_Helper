@@ -279,13 +279,18 @@ function HeroCard({
             </button>
           )
         )}
-        <button
-          onClick={() => setEditing(true)}
-          title="Edit"
-          className="btn-base btn-ghost-ink p-[9px]"
-        >
-          <IconPencil strokeWidth={1.8} />
-        </button>
+        {/* Only the freeform heroes of this shelf are amendable. A forged hero
+            carries a sheet: their name, class and level are the wizard's and
+            the level-up's, and the server refuses to rewrite them here. */}
+        {!character.sheet && (
+          <button
+            onClick={() => setEditing(true)}
+            title="Amend the hero"
+            className="btn-base btn-ghost-ink p-[9px]"
+          >
+            <IconPencil strokeWidth={1.8} />
+          </button>
+        )}
         <button
           onClick={() => {
             if (confirm(`Strike "${character.name}" from your heroes?`))
@@ -311,7 +316,7 @@ function HeroCard({
         <LevelUpModal character={character} onClose={() => setLevelling(false)} />
       )}
 
-      {editing && (
+      {editing && !character.sheet && (
         <ParchmentModal onClose={() => setEditing(false)} maxWidth="max-w-[480px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
             My Heroes

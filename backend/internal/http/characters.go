@@ -151,6 +151,10 @@ func (s *Server) UpdateCharacter(ctx context.Context, request api.UpdateCharacte
 		return api.UpdateCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errMsg}}, nil
 	}
 
+	if refusal := amendRefusal(character, in, member.Role); refusal != "" {
+		return api.UpdateCharacter403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Error: refusal}}, nil
+	}
+
 	updated, err := s.queries.UpdateCharacter(ctx, db.UpdateCharacterParams{
 		ID:        characterID,
 		Name:      in.name,
@@ -237,6 +241,52 @@ func (s *Server) requireCharacterEditor(ctx context.Context, character db.Charac
 		return member, errForbidden
 	}
 	return member, nil
+}
+
+/*
+Who may rewrite a hero, and which parts.
+
+Three kinds of hero share this one endpoint, and for a while they shared its
+permissions too — the roster's Amend form was written for quick-added heroes
+and never re-gated when the Forge arrived, so a player could re-class a
+wizard-built hero from the party screen.
+
+  - Forged (a class_id, set only by the Forge wizard): name, class and level
+    are the wizard's and the level-up's. Nobody rewrites them here — not the
+    player, not the DM.
+  - Table-born (quick-added onto a roster): the DM's own scribble, so the DM
+    may amend it and the player who plays it may not.
+  - Account quick-adds (My Heroes' freeform form): the owner's scratch entry,
+    with no sheet to contradict. Unchanged — theirs to amend.
+
+HP is nobody's identity and stays live for all three, which is what the ±
+buttons on the roster actually send.
+*/
+
+// forged reports whether a hero came out of the Forge wizard. It is the only
+// path that records a class_id.
+func forged(c db.Character) bool { return c.ClassID.Valid }
+
+// identityChanged reports whether an update rewrites who a hero is, as opposed
+// to how they are faring.
+func identityChanged(c db.Character, in characterInput) bool {
+	return in.name != c.Name || in.class != c.Class || in.level != c.Level
+}
+
+// amendRefusal returns the reason an update must be refused, or "" to allow it.
+// role is the caller's membership role at the hero's table, empty when the hero
+// sits at no table.
+func amendRefusal(c db.Character, in characterInput, role db.MembershipRole) string {
+	if !identityChanged(c, in) {
+		return ""
+	}
+	switch {
+	case forged(c):
+		return "a forged hero's name, class and level are set in the Forge and at level-up — the roster only tracks their HP"
+	case c.TableBorn && role != db.MembershipRoleDm:
+		return "only the DM may amend a hero born of the table"
+	}
+	return ""
 }
 
 type characterInput struct {
