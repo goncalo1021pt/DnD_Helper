@@ -18,6 +18,7 @@ import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import SpellEntry, { Blocks, SpellFlags } from "./ui/SpellEntry";
 import ContentEntry from "./ui/ContentEntry";
 import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
+import SheetExportModal from "./SheetExportModal";
 
 type EquipSlot = "armor" | "mainhand" | "offhand";
 const SLOT_LABEL: Record<EquipSlot, string> = {
@@ -80,6 +81,7 @@ import {
   IconArmor,
   IconCoin,
   IconPlus,
+  IconPrinter,
   IconSack,
   IconShieldItem,
   IconSword,
@@ -129,6 +131,7 @@ export default function HeroSheetPage() {
   const deleteItem = useDeleteItem(heroId ?? "");
   const [levelling, setLevelling] = useState(false);
   const [swapping, setSwapping] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [reading, setReading] = useState<RulesContent | null>(null);
   const [addChoice, setAddChoice] = useState("");
   const [freeText, setFreeText] = useState("");
@@ -257,6 +260,13 @@ export default function HeroSheetPage() {
           <span className="label-stamp text-[10px] tracking-[1px]" style={{ color: hpc }}>
             HP {character.hpCurrent}/{character.hpMax}
           </span>
+          <button
+            onClick={() => setPrinting(true)}
+            title="Print this hero onto a character sheet"
+            className="btn-base btn-ghost-ink h-10 px-3 text-[10px]"
+          >
+            <IconPrinter size={14} strokeWidth={1.8} />
+          </button>
           {canEdit && sheet && character.level < 20 && (
             hold ? (
               <span
@@ -757,6 +767,8 @@ export default function HeroSheetPage() {
           )}
         </ParchmentModal>
       )}
+
+      {printing && <SheetExportModal detail={detail} onClose={() => setPrinting(false)} />}
 
       {levelling && (
         <LevelUpModal character={character} onClose={() => setLevelling(false)} />

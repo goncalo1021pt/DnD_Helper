@@ -76,6 +76,19 @@ Same origin serves API + SPA (Vite proxy in dev, `embed.FS` in prod), so session
 
 All server state goes through TanStack Query hooks in `hooks.ts` (queries + mutations that invalidate related keys). `api/client.ts` exports the single typed client and type aliases derived from the OpenAPI schema — new endpoint types flow in automatically after `make generate`. A 401 from `/me` is an expected state (login gate), not an error.
 
+### The character-sheet exporter (`frontend/src/lib/sheet/`)
+
+The one feature that deliberately sits outside the contract-first pattern: it is
+pure client work, with no endpoint and no server involvement. Printing a hero
+onto the official 2024 sheet needs the user's own copy of that sheet — which we
+must not ship or store, since it is Wizards' artwork — so the PDF is assembled
+in the browser with `pdf-lib` and neither the sheet nor the hero is posted
+anywhere. `fields.ts` is the seam: the field catalogue that `values.ts` fills,
+`layout2024.ts` positions, and `acroform.ts` matches against a fillable PDF's
+own field names. `render.ts` and `acroform.ts` are reached only through
+`import()` so pdf-lib stays out of the main bundle — never import them eagerly.
+Details in `docs/PRINTING.md`.
+
 ### Adding an endpoint
 
 1. Add the path/schema to `openapi.yaml`
