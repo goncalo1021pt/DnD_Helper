@@ -1,13 +1,15 @@
 # Continuous integration for Quest Board.
 #
 # Runs on every PR into main (and on pushes to main, to keep the branch green).
-# Three independent jobs, matching docs/VISION.md "Post-v1 roadmap" item #1:
+# Four independent jobs, matching docs/VISION.md "Post-v1 roadmap" item #1:
 #   backend   — go vet + go build + go test
 #   frontend  — tsc typecheck + vite build
 #   codegen   — `make generate` produces no diff (spec/SQL and generated code in sync)
+#   e2e       — Playwright drives the real stack (issue #105)
 #
-# CD stays manual on purpose: the deploy target sits behind a VPN, and a
-# self-hosted runner on a public repo would let fork PRs execute on the VM.
+# CD is NOT here: deploys run from deploy-staging.yml / deploy-prod.yml on
+# self-hosted runners inside the target VMs, so the box dials out to GitHub
+# rather than GitHub reaching into a VPN. See docs/RELEASING.md.
 name: CI
 
 on:
@@ -58,6 +60,77 @@ jobs:
       - run: npm ci
       # `npm run build` is `tsc && vite build` — the tsc step is the type check.
       - run: npm run build
+
+  e2e:
+    name: E2E · Playwright smoke suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: questboard
+          POSTGRES_PASSWORD: questboard
+          POSTGRES_DB: questboard
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U questboard"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://questboard:questboard@localhost:5432/questboard?sslmode=disable
+      SESSION_KEY: ci-only-session-key-not-a-secret-000000000=
+      APP_ENV: development
+      BASE_URL: http://localhost:8080
+      # No RESEND_API_KEY on purpose: the server falls back to logMailer and
+      # prints what it would have sent, which is how the verification-link test
+      # follows the link. With a real key this suite would email strangers.
+      E2E_SERVER_LOG: ${{ github.workspace }}/server.log
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+
+      # The suite drives the real binary with the SPA embedded, exactly as
+      # production serves it — same origin, same routing fallback.
+      - name: Build the app
+        run: make build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Start the server
+        run: |
+          ./bin/server > "$E2E_SERVER_LOG" 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/api/health && break
+            sleep 1
+          done
+
+      - name: Run the smoke suite
+        run: npm run e2e
+        working-directory: frontend
+
+      - name: Upload the report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+            server.log
+          retention-days: 7
 
   codegen:
     name: Codegen · make generate is in sync

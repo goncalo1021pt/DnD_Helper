@@ -1,0 +1,18 @@
+{
+  "//": "The app's tsconfig only includes src/, so the e2e specs would never be typechecked and would quietly rot. They also run in Node, not the browser, so they need their own lib and types rather than the DOM-flavoured app config.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}

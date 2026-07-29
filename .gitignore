@@ -38,3 +38,10 @@ npm-debug.log*
 /backups/
 
 .claude/settings.local.json
+
+# Playwright (issue #105) — reports and traces are per-run artifacts.
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/blob-report/
+/frontend/.cache/
+/server.log
