@@ -83,11 +83,14 @@ pure client work, with no endpoint and no server involvement. Printing a hero
 onto the official 2024 sheet needs the user's own copy of that sheet — which we
 must not ship or store, since it is Wizards' artwork — so the PDF is assembled
 in the browser with `pdf-lib` and neither the sheet nor the hero is posted
-anywhere. `fields.ts` is the seam: the field catalogue that `values.ts` fills,
+anywhere (`store.ts` keeps the user's copy in IndexedDB so they pick it once).
+`fields.ts` is the seam: the field catalogue that `values.ts` fills,
 `layout2024.ts` positions, and `acroform.ts` matches against a fillable PDF's
-own field names. `render.ts` and `acroform.ts` are reached only through
-`import()` so pdf-lib stays out of the main bundle — never import them eagerly.
-Details in `docs/PRINTING.md`.
+own field names. The coordinates in `layout2024.ts` are *measured* off the real
+sheet (603 × 774pt, two pages), not eyeballed — re-measure by scanning rather
+than nudging if a future printing moves things. `render.ts` and `acroform.ts`
+are reached only through `import()` so pdf-lib stays out of the main bundle —
+never import them eagerly. Details in `docs/PRINTING.md`.
 
 ### Adding an endpoint
 

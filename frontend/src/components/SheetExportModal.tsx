@@ -11,6 +11,7 @@ import {
   type SheetLayout,
 } from "../lib/sheet/layout2024";
 import { loadPrefs, savePrefs, type SheetPrefs } from "../lib/sheet/prefs";
+import { clearSheetFiles, loadSheetFiles, saveSheetFiles } from "../lib/sheet/store";
 import { buildSheetValues } from "../lib/sheet/values";
 import ParchmentModal from "./ui/ParchmentModal";
 import SheetCalibrator from "./ui/SheetCalibrator";
@@ -36,9 +37,9 @@ import SheetCalibrator from "./ui/SheetCalibrator";
 type Mode = "fill" | "over" | "ink";
 
 const MODES: Array<{ id: Mode; title: string; blurb: string }> = [
-  { id: "fill", title: "Fill my sheet", blurb: "A fillable PDF — written into its own boxes." },
-  { id: "over", title: "Print over my sheet", blurb: "Your page images or PDF, with the ink on top." },
+  { id: "over", title: "Print over my sheet", blurb: "Your copy of the 2024 sheet, with the ink on top." },
   { id: "ink", title: "Ink only", blurb: "Just the writing, to print onto a sheet you have." },
+  { id: "fill", title: "Fill my sheet", blurb: "A fillable PDF — written into its own boxes." },
 ];
 
 interface PageImage {
@@ -83,7 +84,7 @@ export default function SheetExportModal({
   const { data: backgrounds } = useRules("background");
 
   const [prefs, setPrefs] = useState<SheetPrefs>(() => loadPrefs());
-  const [mode, setMode] = useState<Mode>("ink");
+  const [mode, setMode] = useState<Mode>("over");
   const [pages, setPages] = useState<number[]>(() => layoutPages());
   const [guides, setGuides] = useState(false);
   const [pdfBackdrop, setPdfBackdrop] = useState<{ bytes: Uint8Array; name: string } | null>(null);
@@ -92,6 +93,7 @@ export default function SheetExportModal({
   const [formBytes, setFormBytes] = useState<Uint8Array | null>(null);
   const [map, setMap] = useState<FieldMap>({});
   const [showMapper, setShowMapper] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [calibrating, setCalibrating] = useState<number | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -118,6 +120,37 @@ export default function SheetExportModal({
     () => () => Object.values(imagesRef.current).forEach((i) => URL.revokeObjectURL(i.url)),
     [],
   );
+
+  // The sheet you supplied last time is still on this device — pick it up so
+  // the dialog opens ready to print rather than asking for the file again.
+  useEffect(() => {
+    let live = true;
+    loadSheetFiles().then((files) => {
+      if (!live || files.length === 0) return;
+      const pdf = files.find((f) => /pdf/i.test(f.mime));
+      if (pdf) {
+        setPdfBackdrop({ bytes: pdf.bytes, name: pdf.name });
+        return;
+      }
+      setImages(
+        Object.fromEntries(
+          files
+            .filter((f) => f.page !== undefined)
+            .map((f) => [
+              f.page!,
+              {
+                bytes: f.bytes,
+                mime: f.mime,
+                url: URL.createObjectURL(new Blob([f.bytes as BlobPart], { type: f.mime })),
+              },
+            ]),
+        ),
+      );
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const availablePages = mode === "fill" && form ? Array.from({ length: form.pageCount }, (_, i) => i + 1) : layoutPages();
 
@@ -216,7 +249,10 @@ export default function SheetExportModal({
     const list = Array.from(files);
     const pdf = list.find((f) => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
     if (pdf) {
-      setPdfBackdrop({ bytes: await readFile(pdf), name: pdf.name });
+      const bytes = await readFile(pdf);
+      setPdfBackdrop({ bytes, name: pdf.name });
+      setImages({});
+      void saveSheetFiles([{ bytes, name: pdf.name, mime: "application/pdf" }]);
       return;
     }
     // Images land on the sheet pages we know about, in the order they were given.
@@ -234,6 +270,21 @@ export default function SheetExportModal({
     }
     setPdfBackdrop(null);
     setImages(next);
+    void saveSheetFiles(
+      Object.entries(next).map(([page, i]) => ({
+        bytes: i.bytes,
+        name: `page ${page}`,
+        mime: i.mime,
+        page: Number(page),
+      })),
+    );
+  }
+
+  function forgetSheet() {
+    Object.values(images).forEach((i) => URL.revokeObjectURL(i.url));
+    setPdfBackdrop(null);
+    setImages({});
+    void clearSheetFiles();
   }
 
   function setCal(patch: Partial<SheetPrefs["calibration"]>) {
@@ -321,8 +372,21 @@ export default function SheetExportModal({
                 >
                   {fieldGroups().map((g) => (
                     <div key={g.group} className="mb-2">
-                      <Label>{g.group}</Label>
-                      {g.fields.map((def) => (
+                      {/* One group open at a time: the catalogue runs to a few
+                          hundred boxes, and rendering every select at once is
+                          a lot of DOM for a panel nobody reads end to end. */}
+                      <button
+                        onClick={() => setOpenGroup(openGroup === g.group ? null : g.group)}
+                        className="label-stamp flex w-full cursor-pointer items-center justify-between border-none bg-transparent px-0 py-1 text-[9px] tracking-[2px] text-ink-label"
+                      >
+                        <span>{g.group}</span>
+                        <span className="text-ink-body">
+                          {g.fields.filter((d) => map[d.id]).length}/{g.fields.length}
+                          {openGroup === g.group ? " ▾" : " ▸"}
+                        </span>
+                      </button>
+                      {openGroup === g.group &&
+                        g.fields.map((def) => (
                         <div key={def.id} className="mb-1 flex items-center gap-2">
                           <span className="w-[140px] flex-none truncate text-[11px] text-ink-body">
                             {def.label}
@@ -349,8 +413,8 @@ export default function SheetExportModal({
                                 </option>
                               ))}
                           </select>
-                        </div>
-                      ))}
+                          </div>
+                        ))}
                     </div>
                   ))}
                 </div>
@@ -370,11 +434,19 @@ export default function SheetExportModal({
               />
               <p className="mt-1.5 text-[11px] leading-snug text-ink-body">
                 {pdfBackdrop
-                  ? `Using ${pdfBackdrop.name}. Page images unlock the drag-to-align tool.`
+                  ? `Using ${pdfBackdrop.name} — kept on this device, so you need not pick it again. Page images unlock the drag-to-align tool.`
                   : calibratable.length
-                    ? `Images set for page ${calibratable.join(" and ")}.`
-                    : "Pick one image per page, front page first."}
+                    ? `Images kept for page ${calibratable.join(" and ")}.`
+                    : "The official 2024 sheet as you downloaded it, or one image per page."}
               </p>
+              {(pdfBackdrop || calibratable.length > 0) && (
+                <button
+                  onClick={forgetSheet}
+                  className="btn-base btn-ghost-ink mt-1.5 px-3 py-1 text-[10px]"
+                >
+                  Forget this sheet
+                </button>
+              )}
               {calibratable.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {calibratable.map((p) => (

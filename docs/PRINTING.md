@@ -22,12 +22,34 @@ homebrew, a scan, a translation. The exporter does not care whose it is.
 
 Pick the one that matches the file you have.
 
-### Fill my sheet — best results
+### Print over my sheet — the usual path
 
-You have the **fillable** PDF (the one with typable boxes). Hand it over and the
-exporter writes into the sheet's own form fields, then flattens the result so it
-prints as ink. Nothing is positioned by guesswork, so it comes out looking
-typed.
+You have the sheet as Wizards ships it. Hand over the PDF (or page images) and
+the exporter lays it down as a backdrop and writes on top, giving you a single
+file to print.
+
+The sheet you pick is **kept in this browser**, so you choose the file once and
+every hero you print afterwards finds it already there. *Forget this sheet*
+clears it. It is stored locally and never uploaded.
+
+Page images, rather than the PDF, additionally unlock the drag-to-align tool
+described below.
+
+### Ink only — for paper you have already printed
+
+No backdrop at all: just the writing, on blank pages. Print the official sheet
+first, put it back in the paper tray, and run the ink over it.
+
+Pages you leave unticked still come out **blank rather than skipped**, so the
+stack stays in step with the sheet.
+
+### Fill my sheet — for a fillable copy
+
+Note that the sheet Wizards publishes for download is *flat*: it has no form
+fields, and this mode will tell you so and send you back to the one above. This
+path is for a genuinely fillable PDF — a homebrew sheet, a translation, or a
+fillable edition — where the exporter can write into the sheet's own form fields
+and flatten the result.
 
 The only guesswork is *which* box is which. The exporter matches its field names
 against the sheet's — "Strength Save" against `ST Strength`, "Attack 1 Damage"
@@ -37,33 +59,20 @@ Press **Check the matching** to see every pairing and re-point anything wrong.
 Corrections are saved against a fingerprint of that sheet's field names, so you
 fix a sheet once and every hero you print on it afterwards inherits the fix.
 
-### Print over my sheet — one file, one pass
-
-You have the sheet as **page images** (PNG/JPEG) or as a non-fillable PDF. The
-exporter lays it down as a backdrop and writes on top, giving you a single file
-to print. This is the path to use if your printer will not reliably take paper
-twice.
-
-Page images unlock the aligner — see below.
-
-### Ink only — for paper you have already printed
-
-No backdrop at all: just the writing, on blank pages. Print the official sheet
-first, put it back in the paper tray, and run the ink over it.
-
-Pages you leave unticked still come out **blank rather than skipped**, so the
-stack stays in step with the sheet. Asking for pages 1 and 3 gives you three
-sheets, the middle one empty — otherwise page 3's writing would land on page 2.
-
 ## Getting the alignment right
 
-The coordinates that ship with Quest Board are a careful reconstruction, not a
-measurement taken off Wizards' file. Expect to spend five minutes lining them up
-the first time. You will never spend them again — everything below is saved in
-your browser.
+The coordinates that ship with Quest Board are **measured off the official
+sheet**, not guessed: the ruled write-on lines and the proficiency circles were
+found by scanning the page, and the panels were measured against a coordinate
+grid laid over it. On the sheet as Wizards ships it, the ink should land right
+without you touching anything.
 
-**The aligner.** In *Print over my sheet*, give the exporter page images and an
-**Align page** button appears. It lays the boxes over your sheet at true
+What no map can predict is your printer. Most shift the page a little and some
+shrink it, and that shows up the moment you print onto pre-printed paper. The
+tools below are for that, and everything they save stays in your browser.
+
+**The aligner.** In *Print over my sheet*, give the exporter page images (rather
+than the PDF) and an **Align page** button appears. It lays the boxes over your sheet at true
 proportion, with your hero's actual values inside them, and you drag them into
 place: pull a corner to resize, or select a box and walk it with the arrow keys
 (hold shift for five points a step). Filter by section so you are looking at six
@@ -80,19 +89,27 @@ rather than as print. Black is there if you want the typed look.
 
 ## What lands where
 
-Everything the hero sheet knows: name, class, subclass, species, background,
-level, XP and player; the six abilities with their modifiers; saving throws and
-all eighteen skills with proficiency ticks; AC, initiative, speed, size,
-proficiency bonus and passive Perception; hit points and hit dice; equipped
-weapons as attack rows, with damage cantrips filling the rows below them; class
-and subclass features to your level, species traits and feats; armor training,
-weapon and tool proficiencies; the pack and your gold; and on the spell page the
-casting ability, modifier, save DC and attack bonus, cantrips, and every known
-spell filed under its level with the slot counts.
+**Page 1.** Name, background, class, species, subclass, level and XP. The six
+abilities, each with its modifier in the ring and its score in the tab. Saving
+throws and all eighteen skills, filed under the ability that governs them, with
+the proficiency circles ticked. Armor class — and the shield diamond, when you
+have one equipped. Initiative, speed, size, proficiency bonus and passive
+Perception. Current and maximum hit points, and your hit dice. Equipped weapons
+across the Weapons & Damage Cantrips table, with damage cantrips filling the
+rows below them. Class and subclass features to your level, split down the
+panel's two columns the way the sheet rules it. Species traits and feats. Armor
+training diamonds, weapon proficiencies and tools.
+
+**Page 2.** Spellcasting ability, modifier, save DC and attack bonus; the slot
+totals for every level you have them. Then the Cantrips & Prepared Spells table,
+thirty rows of it: each spell's level, name, casting time and range, its
+Concentration and Ritual diamonds ticked from the rules text, and its school in
+the notes. Your equipment and your gold.
 
 Boxes the app does not model — temporary hit points, hit dice spent, death
-saves, languages, the coins that are not gold — are left empty for you to fill
-in at the table, which is where they belong.
+saves, appearance, backstory, languages, magic-item attunement, and the coins
+that are not gold — are left empty for you to fill in at the table, which is
+where they belong.
 
 ## For contributors
 
@@ -102,10 +119,11 @@ The exporter lives in `frontend/src/lib/sheet/`:
 | --- | --- |
 | `fields.ts` | the field catalogue — every box, named once, with the aliases the matcher uses |
 | `values.ts` | pure: a hero and the rules it points at, in, a value per field id, out |
-| `layout2024.ts` | where each box sits, in points from the top-left of a Letter page |
+| `layout2024.ts` | where each box sits, in points from the top-left of the sheet's 603 x 774 page |
 | `render.ts` | the pdf-lib pass: ink, backdrops, calibration, guides |
 | `acroform.ts` | reading, auto-matching and filling a fillable PDF |
 | `prefs.ts` | what the browser remembers: calibration, box nudges, field maps |
+| `store.ts` | the sheet file itself, kept in IndexedDB so it is picked once |
 
 Adding a box means adding it to `fields.ts` (so the matcher and the UI see it),
 `layout2024.ts` (so it has a position) and `values.ts` (so it has a value).
@@ -114,7 +132,13 @@ Adding a box means adding it to `fields.ts` (so the matcher and the UI see it),
 `acroform.ts` are reached through `import()`, which keeps ~430 kB out of the
 main bundle. Keep it that way: never import either module eagerly.
 
-If you tune the layout against a real sheet and get it dead on, that alignment
-is worth sharing. The saved overrides live under
-`questboard.sheet-export.v1` in `localStorage`; folding them into the defaults
-in `layout2024.ts` improves the first-run experience for everyone.
+The layout was measured by scanning a render of the sheet: light grey rules
+(values around 200-230 on a 254 background, one or two points thick with clean
+space above and below) are the write-on lines, and the small dark rings at a
+fixed x are the proficiency circles. If a future printing of the sheet moves
+things, that is the way to re-measure it rather than nudging by eye.
+
+If you tune the layout further and get it dead on, that alignment is worth
+sharing. The saved overrides live under `questboard.sheet-export.v1` in
+`localStorage`; folding them into the defaults in `layout2024.ts` improves the
+first run for everyone.

@@ -18,11 +18,11 @@ login.
 - **Character builder** — forge heroes from classes, subclasses, species,
   backgrounds and feats; level them up; two custom skill-tree systems; a hero
   sheet page. Your imported content is a per-account library.
-- **Print to the real sheet** — export a hero onto the official 2024 character
-  sheet: fill your own copy's form boxes, print the ink over your own scan, or
-  print ink alone onto paper you have already run through. Entirely in the
-  browser, with a drag-to-align tool for your printer. See
-  [docs/PRINTING.md](docs/PRINTING.md).
+- **Print to the real sheet** — export a hero onto the **official 2024 character
+  sheet**, at coordinates measured off the real thing: hand it your own copy and
+  get back a page ready for the table, or print the ink alone onto paper you have
+  already run through. Entirely in the browser, with a drag-to-align tool for
+  your printer. See [docs/PRINTING.md](docs/PRINTING.md).
 - **Maps & fog of war** — upload battle maps, nest sub-maps, drop pins, and reveal
   the world through **knowledge pools**. Fog is composited **server-side**, so
   players never receive the pixels they haven't uncovered.

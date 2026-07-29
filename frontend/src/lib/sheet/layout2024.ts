@@ -1,23 +1,27 @@
-import { ATTACK_ROWS, SKILLS, skillKey, ABILITIES } from "./fields";
+import { ABILITIES, ATTACK_ROWS, SKILLS_BY_ABILITY, SPELL_ROWS, skillKey } from "./fields";
 
 /**
- * Where the ink goes on the 2024 sheet.
+ * Where the ink goes on the official 2024 character sheet.
  *
- * Coordinates are points on US Letter (612 × 792) measured from the *top*
- * left, because that is how a person reads a page and how the calibrator
- * reports a drag; the renderer flips to PDF's bottom-left origin on the way
- * out. Nothing of Wizards' sheet is reproduced here — these are only the
- * positions our text lands on when it is printed over a copy the user
- * already has.
+ * These are measurements, not guesses. Every number below was read off the
+ * sheet Wizards publishes: the ruled write-on lines and the proficiency
+ * circles were found by scanning the page, and the panels were measured
+ * against a coordinate grid laid over it. The sheet's own page box is
+ * 603 × 774 points — a little under US Letter — and that is the frame these
+ * coordinates live in; the renderer rescales if you feed it a backdrop of a
+ * different size.
  *
- * The numbers below are a starting alignment. Printers drift, and different
- * releases of the sheet shift a box or two, so every position can be nudged
- * and dragged in the exporter and the result saved per browser — see
- * `prefs.ts`. A tuned map exported from the calibrator can be pasted back
- * over `LAYOUT_2024` to become the new default for everyone.
+ * Coordinates are points from the *top* left, because that is how a person
+ * reads a page and how the calibrator reports a drag; the renderer flips to
+ * PDF's bottom-left origin on the way out. Nothing of Wizards' artwork is
+ * reproduced here — these are only the positions our text lands on when it is
+ * printed over a copy the user already has.
+ *
+ * Printers still drift, so every position can be nudged and dragged in the
+ * exporter and the result saved per browser — see `prefs.ts`.
  */
 
-export const PAGE = { width: 612, height: 792 } as const;
+export const PAGE = { width: 603, height: 774 } as const;
 
 export type Align = "left" | "center" | "right";
 
@@ -49,98 +53,179 @@ function box(
   return { page, x, y, w, h, ...extra };
 }
 
-const centred = { align: "center" as Align };
+const mid = { align: "center" as Align };
 
-const layout: SheetLayout = {
-  // — the header band —
-  charName: box(1, 30, 38, 206, 24, { size: 15 }),
-  class: box(1, 250, 32, 100, 16),
-  background: box(1, 360, 32, 110, 16),
-  playerName: box(1, 480, 32, 100, 16),
-  species: box(1, 250, 64, 100, 16),
-  subclass: box(1, 360, 64, 110, 16),
-  level: box(1, 480, 64, 40, 16, centred),
-  xp: box(1, 528, 64, 54, 16, centred),
-
-  // — core stats, the middle column's top block —
-  armorClass: box(1, 262, 116, 48, 26, { size: 14, ...centred }),
-  initiative: box(1, 316, 116, 48, 26, { size: 14, ...centred }),
-  speed: box(1, 370, 116, 56, 26, { size: 12, ...centred }),
-  size: box(1, 262, 158, 60, 16, centred),
-  profBonus: box(1, 330, 158, 44, 16, centred),
-  heroicInspiration: box(1, 392, 158, 12, 12),
-
-  // — hit points —
-  hpCurrent: box(1, 262, 206, 52, 22, { size: 13, ...centred }),
-  hpTemp: box(1, 320, 206, 52, 22, { size: 13, ...centred }),
-  hpMax: box(1, 378, 206, 48, 22, { size: 13, ...centred }),
-  hitDiceMax: box(1, 262, 248, 52, 16, centred),
-  hitDiceSpent: box(1, 320, 248, 52, 16, centred),
-
-  // — passive perception sits at the foot of the skills column —
-  passivePerception: box(1, 118, 528, 40, 16, centred),
-
-  // — the lower half —
-  classFeatures: box(1, 264, 418, 320, 74, { para: true, size: 8 }),
-  speciesTraits: box(1, 264, 498, 320, 52, { para: true, size: 8 }),
-  feats: box(1, 264, 556, 320, 34, { para: true, size: 8 }),
-  armorTraining: box(1, 30, 598, 220, 26, { para: true, size: 8 }),
-  weaponProfs: box(1, 30, 632, 220, 26, { para: true, size: 8 }),
-  toolProfs: box(1, 30, 666, 220, 26, { para: true, size: 8 }),
-  equipment: box(1, 264, 598, 320, 92, { para: true, size: 8 }),
-  coinCP: box(1, 264, 706, 44, 16, centred),
-  coinSP: box(1, 326, 706, 44, 16, centred),
-  coinEP: box(1, 388, 706, 44, 16, centred),
-  coinGP: box(1, 450, 706, 44, 16, centred),
-  coinPP: box(1, 512, 706, 44, 16, centred),
-
-  // — the spell page —
-  spellAbility: box(3, 60, 108, 100, 18, centred),
-  spellMod: box(3, 180, 108, 60, 18, centred),
-  spellSaveDC: box(3, 260, 108, 60, 18, centred),
-  spellAtkBonus: box(3, 340, 108, 70, 18, centred),
-  cantrips: box(3, 40, 158, 250, 80, { para: true, size: 9 }),
-};
-
-// The six ability blocks down the left edge: a big modifier over a small score.
-ABILITIES.forEach((a, i) => {
-  const top = 116 + i * 74;
-  layout[`${a}Mod`] = box(1, 26, top, 74, 28, { size: 17, ...centred });
-  layout[`${a}Score`] = box(1, 40, top + 34, 46, 14, { size: 10, ...centred });
-});
-
-// Saving throws: a proficiency pip and a modifier, six rows deep.
-ABILITIES.forEach((a, i) => {
-  const top = 134 + i * 15;
-  layout[`${a}SaveProf`] = box(1, 118, top + 2, 9, 9);
-  layout[`${a}Save`] = box(1, 132, top, 26, 13, { size: 9, align: "right" });
-});
-
-// Skills: the same two boxes, eighteen rows deep.
-SKILLS.forEach(({ name }, i) => {
-  const k = skillKey(name);
-  const top = 256 + i * 15;
-  layout[`${k}Prof`] = box(1, 118, top + 2, 9, 9);
-  layout[k] = box(1, 132, top, 26, 13, { size: 9, align: "right" });
-});
-
-// Weapons and damage cantrips, a wide table across the lower middle.
-for (let n = 1; n <= ATTACK_ROWS; n++) {
-  const top = 298 + (n - 1) * 19;
-  layout[`atk${n}Name`] = box(1, 264, top, 120, 14, { size: 9 });
-  layout[`atk${n}Bonus`] = box(1, 388, top, 34, 14, { size: 9, ...centred });
-  layout[`atk${n}Damage`] = box(1, 426, top, 78, 14, { size: 9 });
-  layout[`atk${n}Notes`] = box(1, 508, top, 78, 14, { size: 8 });
+/**
+ * A value written on one of the sheet's ruled lines: the box sits just above
+ * the rule so the text rests on it the way handwriting would.
+ */
+function onRule(page: number, x: number, ruleY: number, w: number, extra: Partial<FieldBox> = {}) {
+  return box(page, x, ruleY - 13, w, 13, extra);
 }
 
-// Nine spell-slot blocks, five down the left of the page and four down the right.
+/** A diamond or circle to tick. The sheet's are 6.5–8pt across. */
+function tick(page: number, cx: number, cy: number, size = 7) {
+  return box(page, cx - size / 2, cy - size / 2, size, size);
+}
+
+const layout: SheetLayout = {
+  // ── page 1, the header band ──────────────────────────────────────────────
+  charName: onRule(1, 25, 29.8, 225, { size: 15 }),
+  background: onRule(1, 25, 51.0, 117),
+  class: onRule(1, 149, 51.0, 97),
+  species: onRule(1, 25, 72.8, 117),
+  subclass: onRule(1, 149, 72.8, 106),
+  level: onRule(1, 259, 46.2, 30, { ...mid, size: 13 }),
+  xp: onRule(1, 257, 67.8, 38, { ...mid, size: 9 }),
+
+  // Armour class sits inside the shield; the little diamond below it is the
+  // sheet's "am I carrying a shield" tick.
+  armorClass: box(1, 315, 32, 47, 28, { size: 20, ...mid }),
+  shield: tick(1, 340, 76, 8),
+
+  // Hit points: a tall CURRENT on the left, TEMP over MAX on the right.
+  hpCurrent: onRule(1, 383, 71, 45, { size: 15, ...mid }),
+  hpTemp: box(1, 437, 28, 44, 20, { size: 12, ...mid }),
+  hpMax: onRule(1, 437, 71, 44, { size: 12, ...mid }),
+  hitDiceSpent: box(1, 494, 28, 40, 20, { size: 11, ...mid }),
+  hitDiceMax: onRule(1, 493, 71, 38, { size: 11, ...mid }),
+
+  // ── the four titled boxes under the banner ───────────────────────────────
+  // Each has its title underlined, and the value is written in the open area
+  // below that rule.
+  initiative: box(1, 226.5, 130, 72, 19, { size: 14, ...mid }),
+  speed: box(1, 318, 130, 78, 19, { size: 13, ...mid }),
+  size: box(1, 415.5, 130, 72, 19, { size: 12, ...mid }),
+  passivePerception: box(1, 507, 130, 80, 19, { size: 14, ...mid }),
+  profBonus: box(1, 40, 136, 33, 30, { size: 16, ...mid }),
+
+  heroicInspiration: tick(1, 57.3, 592, 9),
+
+  // ── equipment training & proficiencies ───────────────────────────────────
+  armorLight: tick(1, 63, 649),
+  armorMedium: tick(1, 97, 649),
+  armorHeavy: tick(1, 141.5, 649),
+  armorShields: tick(1, 178.5, 649),
+  weaponProfs: box(1, 18, 668, 189, 46, { para: true, size: 8 }),
+  toolProfs: box(1, 18, 729, 189, 30, { para: true, size: 8 }),
+
+  // ── the right-hand panels ────────────────────────────────────────────────
+  classFeatures: box(1, 231, 352, 172, 196, { para: true, size: 7.5 }),
+  classFeatures2: box(1, 411, 352, 172, 196, { para: true, size: 7.5 }),
+  speciesTraits: box(1, 231, 593, 158, 158, { para: true, size: 7.5 }),
+  feats: box(1, 415, 593, 170, 158, { para: true, size: 7.5 }),
+
+  // ── page 2, spellcasting ─────────────────────────────────────────────────
+  spellAbility: onRule(2, 25, 32.5, 108, { size: 11 }),
+  spellMod: box(2, 14, 48, 33, 22, { size: 13, ...mid }),
+  spellSaveDC: box(2, 14, 75, 33, 22, { size: 13, ...mid }),
+  spellAtkBonus: box(2, 14, 102, 33, 22, { size: 13, ...mid }),
+
+  // ── page 2, equipment and coins ──────────────────────────────────────────
+  equipment: box(2, 414, 427, 171, 172, { para: true, size: 8 }),
+  // The five coin cells, measured between their own borders.
+  coinCP: box(2, 413, 704, 30.5, 19, { size: 11, ...mid }),
+  coinSP: box(2, 448.6, 704, 31, 19, { size: 11, ...mid }),
+  coinEP: box(2, 484.3, 704, 31.4, 19, { size: 11, ...mid }),
+  coinGP: box(2, 519.7, 704, 31, 19, { size: 11, ...mid }),
+  coinPP: box(2, 553.6, 704, 32, 19, { size: 11, ...mid }),
+};
+
+/**
+ * The six ability blocks: a big modifier in the ring, the score in the folded
+ * tab beside it. Three run down the far-left column, three down the second,
+ * and their vertical positions are the measured ring centres.
+ */
+const ABILITY_RING: Record<string, { cx: number; cy: number; scoreX: number }> = {
+  str: { cx: 43, cy: 223, scoreX: 63 },
+  dex: { cx: 43, cy: 341, scoreX: 63 },
+  con: { cx: 43, cy: 487, scoreX: 63 },
+  int: { cx: 149.5, cy: 144.5, scoreX: 169.5 },
+  wis: { cx: 149.5, cy: 318.5, scoreX: 169.5 },
+  cha: { cx: 149.5, cy: 493, scoreX: 169.5 },
+};
+
+for (const a of ABILITIES) {
+  const { cx, cy, scoreX } = ABILITY_RING[a];
+  layout[`${a}Mod`] = box(1, cx - 18, cy - 15, 36, 30, { size: 19, ...mid });
+  layout[`${a}Score`] = box(1, scoreX, cy - 9, 27, 22, { size: 11, ...mid });
+}
+
+/**
+ * Saving throws and skills. Each row is a proficiency circle and a short rule
+ * for the modifier; the circle centres below were found by scanning the page,
+ * and the rule sits 3.7pt under each one.
+ */
+const SAVE_ROW: Record<string, number> = {
+  str: 265.2, dex: 383.2, con: 529.2, int: 188.0, wis: 361.8, cha: 535.8,
+};
+const SKILL_ROWS: Record<string, number[]> = {
+  str: [284.8],
+  dex: [402.8, 416.8, 430.8],
+  con: [],
+  int: [207.5, 221.8, 235.8, 249.8, 263.8],
+  wis: [381.5, 395.8, 409.8, 423.8, 437.8],
+  cha: [555.2, 569.2, 583.2, 597.5],
+};
+/** Left-hand column for STR/DEX/CON, second column for INT/WIS/CHA. */
+const ROW_X: Record<string, { circle: number; rule: number }> = {
+  str: { circle: 21.25, rule: 27.5 },
+  dex: { circle: 21.25, rule: 27.5 },
+  con: { circle: 21.25, rule: 27.5 },
+  int: { circle: 127.75, rule: 134 },
+  wis: { circle: 127.75, rule: 134 },
+  cha: { circle: 127.75, rule: 134 },
+};
+
+for (const a of ABILITIES) {
+  const { circle, rule } = ROW_X[a];
+  const modBox = (cy: number) => box(1, rule, cy - 6.5, 17.5, 11, { size: 9, ...mid });
+  layout[`${a}SaveProf`] = tick(1, circle, SAVE_ROW[a], 6.5);
+  layout[`${a}Save`] = modBox(SAVE_ROW[a]);
+  SKILLS_BY_ABILITY[a].forEach((name, i) => {
+    const cy = SKILL_ROWS[a][i];
+    const k = skillKey(name);
+    layout[`${k}Prof`] = tick(1, circle, cy, 6.5);
+    layout[k] = modBox(cy);
+  });
+}
+
+// Weapons & damage cantrips: six ruled rows across the upper right.
+const ATTACK_RULE_Y = [212.2, 232.0, 251.2, 270.8, 290.2, 309.8];
+for (let n = 1; n <= ATTACK_ROWS; n++) {
+  const y = ATTACK_RULE_Y[n - 1];
+  layout[`atk${n}Name`] = onRule(1, 228.5, y, 103, { size: 8.5 });
+  layout[`atk${n}Bonus`] = onRule(1, 337, y, 42.5, { size: 8.5, ...mid });
+  layout[`atk${n}Damage`] = onRule(1, 384.5, y, 73.5, { size: 8 });
+  layout[`atk${n}Notes`] = onRule(1, 462.5, y, 123, { size: 7.5 });
+}
+
+// Spell slots: three columns of three, each a short "Total" rule.
+const SLOT_X = [182, 270, 348.5];
+const SLOT_Y = [94, 108, 122];
 for (let lvl = 1; lvl <= 9; lvl++) {
-  const col = lvl <= 5 ? 0 : 1;
-  const row = (lvl - 1) % 5;
-  const x = 40 + col * 280;
-  const top = 260 + row * 100;
-  layout[`lvl${lvl}Slots`] = box(3, x, top, 30, 16, centred);
-  layout[`lvl${lvl}Spells`] = box(3, x, top + 20, 250, 74, { para: true, size: 9 });
+  const col = Math.floor((lvl - 1) / 3);
+  const row = (lvl - 1) % 3;
+  layout[`lvl${lvl}Slots`] = onRule(2, SLOT_X[col], SLOT_Y[row], 14.5, { size: 9, ...mid });
+}
+
+/**
+ * Cantrips & prepared spells: thirty ruled rows, each with the spell's level,
+ * name, casting time and range, diamonds for Concentration and Ritual, and a
+ * notes column. The first rule sits at 192.2 and they step 19.45pt apart.
+ */
+const SPELL_ROW_0 = 192.2;
+const SPELL_ROW_PITCH = 19.45;
+for (let n = 1; n <= SPELL_ROWS; n++) {
+  const y = SPELL_ROW_0 + (n - 1) * SPELL_ROW_PITCH;
+  layout[`spell${n}Level`] = onRule(2, 19, y, 21, { size: 8, ...mid });
+  layout[`spell${n}Name`] = onRule(2, 42.5, y, 107.5, { size: 8 });
+  layout[`spell${n}Time`] = onRule(2, 155, y, 29, { size: 7, ...mid });
+  layout[`spell${n}Range`] = onRule(2, 189, y, 40.5, { size: 7, ...mid });
+  // The row's diamonds sit 7.2pt above its rule, at these measured centres.
+  layout[`spell${n}Conc`] = tick(2, 243, y - 7.2, 8);
+  layout[`spell${n}Ritual`] = tick(2, 265, y - 7.2, 8);
+  layout[`spell${n}Notes`] = onRule(2, 305, y, 85.5, { size: 7 });
 }
 
 export const LAYOUT_2024: SheetLayout = layout;

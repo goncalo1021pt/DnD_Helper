@@ -1,5 +1,5 @@
 /**
- * Every box on the 2024 character sheet, named once.
+ * Every box on the official 2024 character sheet, named once.
  *
  * This catalogue is the seam between the three halves of the exporter: the
  * value builder fills it from a hero, the coordinate layout says where each
@@ -7,8 +7,11 @@
  * a fillable PDF happens to call its fields. Add a field here and all three
  * pick it up — the layout by needing a box, the mapper by needing a match.
  *
- * Ids are ours, not Wizards'. Nothing here reproduces the sheet; it only
- * describes the shape of one, the way a stencil describes a page.
+ * The shape of it follows the real sheet: skills grouped under the ability
+ * that governs them rather than alphabetically, six weapon rows, thirty rows
+ * of spells with their casting time and range, and diamonds for the things
+ * the sheet asks you to tick. Ids are ours, not Wizards'. Nothing here
+ * reproduces the sheet; it only describes the shape of one.
  */
 
 export type FieldKind = "text" | "para" | "check";
@@ -20,7 +23,7 @@ export interface FieldDef {
   kind: FieldKind;
   /** 1-based page of the official sheet this belongs to. */
   page: number;
-  /** Grouping for the UI, so a hundred fields read as a dozen sections. */
+  /** Grouping for the UI, so hundreds of fields read as a dozen sections. */
   group: string;
   /**
    * Extra words to match against a fillable PDF's own field names. The label
@@ -41,30 +44,29 @@ export const ABILITY_LABEL: Record<AbilityKey, string> = {
   cha: "Charisma",
 };
 
-/** The eighteen skills in the order the sheet prints them, with their ability. */
-export const SKILLS: Array<{ name: string; ability: AbilityKey }> = [
-  { name: "Acrobatics", ability: "dex" },
-  { name: "Animal Handling", ability: "wis" },
-  { name: "Arcana", ability: "int" },
-  { name: "Athletics", ability: "str" },
-  { name: "Deception", ability: "cha" },
-  { name: "History", ability: "int" },
-  { name: "Insight", ability: "wis" },
-  { name: "Intimidation", ability: "cha" },
-  { name: "Investigation", ability: "int" },
-  { name: "Medicine", ability: "wis" },
-  { name: "Nature", ability: "int" },
-  { name: "Perception", ability: "wis" },
-  { name: "Performance", ability: "cha" },
-  { name: "Persuasion", ability: "cha" },
-  { name: "Religion", ability: "int" },
-  { name: "Sleight of Hand", ability: "dex" },
-  { name: "Stealth", ability: "dex" },
-  { name: "Survival", ability: "wis" },
-];
+/**
+ * The eighteen skills, filed under the ability that governs them and in the
+ * order the sheet prints them — Strength's one, Dexterity's three, and so on
+ * down the two columns.
+ */
+export const SKILLS_BY_ABILITY: Record<AbilityKey, string[]> = {
+  str: ["Athletics"],
+  dex: ["Acrobatics", "Sleight of Hand", "Stealth"],
+  con: [],
+  int: ["Arcana", "History", "Investigation", "Nature", "Religion"],
+  wis: ["Animal Handling", "Insight", "Medicine", "Perception", "Survival"],
+  cha: ["Deception", "Intimidation", "Performance", "Persuasion"],
+};
 
-/** How many weapon/cantrip rows the attacks table gives us. */
+export const SKILLS: Array<{ name: string; ability: AbilityKey }> = ABILITIES.flatMap((a) =>
+  SKILLS_BY_ABILITY[a].map((name) => ({ name, ability: a })),
+);
+
+/** Weapon rows on the sheet's Weapons & Damage Cantrips table. */
 export const ATTACK_ROWS = 6;
+
+/** Rows in the Cantrips & Prepared Spells table. */
+export const SPELL_ROWS = 30;
 
 /** A stable key for a skill's boxes: "Sleight of Hand" -> "sleightOfHand". */
 export function skillKey(name: string): string {
@@ -85,20 +87,17 @@ function f(
 
 const identity: FieldDef[] = [
   f("charName", "Character Name", "text", 1, "Identity", ["name", "charactername"]),
-  // Sheets that carry a single "Wizard 7" line name it ClassLevel; sheets with
-  // two boxes name them plainly, and the exact match on "Level" wins there.
-  f("class", "Class", "text", 1, "Identity", ["classname", "classlevel"]),
-  f("level", "Level", "text", 1, "Identity", ["charlevel"]),
   f("background", "Background", "text", 1, "Identity"),
+  f("class", "Class", "text", 1, "Identity", ["classname", "classlevel"]),
   f("species", "Species", "text", 1, "Identity", ["race", "ancestry"]),
   f("subclass", "Subclass", "text", 1, "Identity", ["archetype"]),
+  f("level", "Level", "text", 1, "Identity", ["charlevel"]),
   f("xp", "XP", "text", 1, "Identity", ["experience", "experiencepoints", "exp"]),
-  f("playerName", "Player Name", "text", 1, "Identity", ["player"]),
 ];
 
 const abilityFields: FieldDef[] = ABILITIES.flatMap((a) => [
-  f(`${a}Score`, `${ABILITY_LABEL[a]} Score`, "text", 1, "Abilities", [a, `${a}score`]),
   f(`${a}Mod`, `${ABILITY_LABEL[a]} Modifier`, "text", 1, "Abilities", [`${a}mod`, `${a}modifier`]),
+  f(`${a}Score`, `${ABILITY_LABEL[a]} Score`, "text", 1, "Abilities", [a, `${a}score`]),
 ]);
 
 const saveFields: FieldDef[] = ABILITIES.flatMap((a) => [
@@ -129,15 +128,17 @@ const skillFields: FieldDef[] = SKILLS.flatMap(({ name }) => {
 
 const coreFields: FieldDef[] = [
   f("armorClass", "Armor Class", "text", 1, "Core Stats", ["ac", "armour class"]),
+  f("shield", "Shield", "check", 1, "Core Stats", ["hasshield"]),
   f("initiative", "Initiative", "text", 1, "Core Stats", ["init", "initiativebonus"]),
   f("speed", "Speed", "text", 1, "Core Stats", ["walkingspeed"]),
   f("size", "Size", "text", 1, "Core Stats"),
   f("profBonus", "Proficiency Bonus", "text", 1, "Core Stats", ["pb", "profbonus", "proficiencybonus"]),
   f("passivePerception", "Passive Perception", "text", 1, "Core Stats", ["passive", "passiveperception"]),
   f("heroicInspiration", "Heroic Inspiration", "check", 1, "Core Stats", ["inspiration"]),
-  f("hpMax", "Hit Point Maximum", "text", 1, "Hit Points", ["maxhp", "hitpointmaximum"]),
   f("hpCurrent", "Current Hit Points", "text", 1, "Hit Points", ["currenthp", "hpcurrent"]),
   f("hpTemp", "Temporary Hit Points", "text", 1, "Hit Points", ["temphp", "temporaryhitpoints"]),
+  f("hpMax", "Hit Point Maximum", "text", 1, "Hit Points", ["maxhp", "hitpointmaximum"]),
+  f("hitDiceSpent", "Hit Dice Spent", "text", 1, "Hit Points", ["hdspent", "hitdicespent"]),
   f("hitDiceMax", "Hit Dice Max", "text", 1, "Hit Points", [
     "hitdice",
     "hdtotal",
@@ -145,7 +146,6 @@ const coreFields: FieldDef[] = [
     "hitdicetotal",
     "hd",
   ]),
-  f("hitDiceSpent", "Hit Dice Spent", "text", 1, "Hit Points", ["hdspent", "hitdicespent"]),
 ];
 
 const attackFields: FieldDef[] = Array.from({ length: ATTACK_ROWS }, (_, i) => i + 1).flatMap((n) => {
@@ -153,66 +153,71 @@ const attackFields: FieldDef[] = Array.from({ length: ATTACK_ROWS }, (_, i) => i
   // first row that often carries no number at all.
   const first = n === 1 ? ["wpnname", "wpnatkbonus", "wpndamage"] : [];
   return [
-    f(`atk${n}Name`, `Attack ${n} Name`, "text", 1, "Weapons & Cantrips", [
+    f(`atk${n}Name`, `Weapon ${n} Name`, "text", 1, "Weapons & Cantrips", [
       `weapon${n}`, `atk${n}`, `wpn${n}`, `wpnname${n}`, ...first.slice(0, 1),
     ]),
-    f(`atk${n}Bonus`, `Attack ${n} Bonus`, "text", 1, "Weapons & Cantrips", [
+    f(`atk${n}Bonus`, `Weapon ${n} Atk Bonus`, "text", 1, "Weapons & Cantrips", [
       `weapon${n}atk`, `atk${n}bonus`, `wpn${n}atkbonus`, ...first.slice(1, 2),
     ]),
-    f(`atk${n}Damage`, `Attack ${n} Damage`, "text", 1, "Weapons & Cantrips", [
+    f(`atk${n}Damage`, `Weapon ${n} Damage`, "text", 1, "Weapons & Cantrips", [
       `weapon${n}damage`, `atk${n}damage`, `wpn${n}damage`, ...first.slice(2, 3),
     ]),
-    f(`atk${n}Notes`, `Attack ${n} Notes`, "text", 1, "Weapons & Cantrips", [
+    f(`atk${n}Notes`, `Weapon ${n} Notes`, "text", 1, "Weapons & Cantrips", [
       `weapon${n}notes`, `wpn${n}notes`,
     ]),
   ];
 });
 
-const proseFields: FieldDef[] = [
-  f("classFeatures", "Class Features", "para", 1, "Features", ["features", "featurestraits"]),
+const panelFields: FieldDef[] = [
+  // The sheet rules Class Features into two columns; the list is split to match.
+  f("classFeatures", "Class Features (left)", "para", 1, "Features", ["features", "featurestraits"]),
+  f("classFeatures2", "Class Features (right)", "para", 1, "Features", ["features2"]),
   f("speciesTraits", "Species Traits", "para", 1, "Features", ["racialtraits", "traits"]),
   f("feats", "Feats", "para", 1, "Features", ["feat"]),
-  f("armorTraining", "Armor Training", "para", 1, "Training", [
-    "armorproficiency",
-    "armorproficiencies",
-  ]),
+  f("armorLight", "Light Armor Trained", "check", 1, "Training", ["lightarmor"]),
+  f("armorMedium", "Medium Armor Trained", "check", 1, "Training", ["mediumarmor"]),
+  f("armorHeavy", "Heavy Armor Trained", "check", 1, "Training", ["heavyarmor"]),
+  f("armorShields", "Shields Trained", "check", 1, "Training", ["shieldtraining", "shields"]),
   f("weaponProfs", "Weapon Proficiencies", "para", 1, "Training", [
     "weaponproficiency",
     "weaponproficiencies",
     "weapons",
   ]),
-  f("toolProfs", "Tools", "para", 1, "Training", [
-    "toolproficiency",
-    "toolproficiencies",
-    "tools",
-  ]),
-  f("equipment", "Equipment", "para", 1, "Equipment", ["gear", "inventory"]),
-  f("coinGP", "Gold", "text", 1, "Equipment", ["gp", "gold"]),
-  f("coinSP", "Silver", "text", 1, "Equipment", ["sp", "silver"]),
-  f("coinCP", "Copper", "text", 1, "Equipment", ["cp", "copper"]),
-  f("coinEP", "Electrum", "text", 1, "Equipment", ["ep", "electrum"]),
-  f("coinPP", "Platinum", "text", 1, "Equipment", ["pp", "platinum"]),
-  f("armorLight", "Light Armor Trained", "check", 1, "Training", ["lightarmor"]),
-  f("armorMedium", "Medium Armor Trained", "check", 1, "Training", ["mediumarmor"]),
-  f("armorHeavy", "Heavy Armor Trained", "check", 1, "Training", ["heavyarmor"]),
-  f("armorShields", "Shields Trained", "check", 1, "Training", ["shield", "shields"]),
+  f("toolProfs", "Tools", "para", 1, "Training", ["toolproficiency", "toolproficiencies", "tools"]),
 ];
 
-const spellFields: FieldDef[] = [
-  f("spellAbility", "Spellcasting Ability", "text", 3, "Spellcasting", ["spellcastingability"]),
-  f("spellMod", "Spellcasting Modifier", "text", 3, "Spellcasting", ["spellmod", "spellcastingmodifier"]),
-  f("spellSaveDC", "Spell Save DC", "text", 3, "Spellcasting", ["savedc", "spellsavedc"]),
-  f("spellAtkBonus", "Spell Attack Bonus", "text", 3, "Spellcasting", ["spellattack", "spellatkbonus"]),
-  f("cantrips", "Cantrips", "para", 3, "Spellcasting", ["cantrip"]),
-  ...Array.from({ length: 9 }, (_, i) => i + 1).flatMap((lvl) => [
-    f(`lvl${lvl}Slots`, `Level ${lvl} Slots`, "text", 3, "Spell Slots", [
+const spellcasting: FieldDef[] = [
+  f("spellAbility", "Spellcasting Ability", "text", 2, "Spellcasting", ["spellcastingability"]),
+  f("spellMod", "Spellcasting Modifier", "text", 2, "Spellcasting", ["spellmod", "spellcastingmodifier"]),
+  f("spellSaveDC", "Spell Save DC", "text", 2, "Spellcasting", ["savedc", "spellsavedc"]),
+  f("spellAtkBonus", "Spell Attack Bonus", "text", 2, "Spellcasting", ["spellattack", "spellatkbonus"]),
+  ...Array.from({ length: 9 }, (_, i) => i + 1).map((lvl) =>
+    f(`lvl${lvl}Slots`, `Level ${lvl} Slots`, "text", 2, "Spell Slots", [
       `slots${lvl}`,
       `slotstotal${lvl}`,
       `spellslots${lvl}`,
       `sslots${lvl}`,
     ]),
-    f(`lvl${lvl}Spells`, `Level ${lvl} Spells`, "para", 3, "Spell Slots", [`spells${lvl}`, `spelllevel${lvl}`]),
-  ]),
+  ),
+];
+
+const spellRows: FieldDef[] = Array.from({ length: SPELL_ROWS }, (_, i) => i + 1).flatMap((n) => [
+  f(`spell${n}Level`, `Spell ${n} Level`, "text", 2, "Prepared Spells", [`spelllevel${n}`]),
+  f(`spell${n}Name`, `Spell ${n} Name`, "text", 2, "Prepared Spells", [`spellname${n}`, `spells${n}`]),
+  f(`spell${n}Time`, `Spell ${n} Casting Time`, "text", 2, "Prepared Spells", [`castingtime${n}`]),
+  f(`spell${n}Range`, `Spell ${n} Range`, "text", 2, "Prepared Spells", [`spellrange${n}`]),
+  f(`spell${n}Conc`, `Spell ${n} Concentration`, "check", 2, "Prepared Spells", [`concentration${n}`]),
+  f(`spell${n}Ritual`, `Spell ${n} Ritual`, "check", 2, "Prepared Spells", [`ritual${n}`]),
+  f(`spell${n}Notes`, `Spell ${n} Notes`, "text", 2, "Prepared Spells", [`spellnotes${n}`]),
+]);
+
+const gearFields: FieldDef[] = [
+  f("equipment", "Equipment", "para", 2, "Equipment", ["gear", "inventory"]),
+  f("coinCP", "Copper", "text", 2, "Coins", ["cp", "copper"]),
+  f("coinSP", "Silver", "text", 2, "Coins", ["sp", "silver"]),
+  f("coinEP", "Electrum", "text", 2, "Coins", ["ep", "electrum"]),
+  f("coinGP", "Gold", "text", 2, "Coins", ["gp", "gold"]),
+  f("coinPP", "Platinum", "text", 2, "Coins", ["pp", "platinum"]),
 ];
 
 export const FIELDS: FieldDef[] = [
@@ -222,8 +227,10 @@ export const FIELDS: FieldDef[] = [
   ...skillFields,
   ...coreFields,
   ...attackFields,
-  ...proseFields,
-  ...spellFields,
+  ...panelFields,
+  ...spellcasting,
+  ...spellRows,
+  ...gearFields,
 ];
 
 export const FIELD_BY_ID: Record<string, FieldDef> = Object.fromEntries(
