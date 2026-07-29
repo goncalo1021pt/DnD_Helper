@@ -57,7 +57,18 @@ tag; edit afterwards on GitHub if the wording needs love.
 
 ## 5. Deploy to production
 
-On the VM (see `docs/DEPLOY.md`; VPN must be up):
+**The one-tap way (preferred).** `.github/workflows/deploy-prod.yml` runs on a
+self-hosted runner inside the prod VM, so no SSH and no VPN are needed — the box
+dials out to GitHub. From a phone or a browser:
+
+> GitHub → this repo → **Actions** → **Deploy to production** → **Run workflow**
+> → type the tag (`vX.Y.Z`), or leave the ref box empty for `main` → **Run**.
+
+It accepts only `main` or a `vX.Y.Z` tag; an unreviewed branch has to go to
+staging instead (`deploy-staging.yml`, see `docs/STAGING.md`). Deploying an
+older tag is also the deliberate rollback path.
+
+**The manual way**, if the runner is down (see `docs/DEPLOY.md`; VPN must be up):
 
 ```bash
 ssh goncalo@<vm-host>
