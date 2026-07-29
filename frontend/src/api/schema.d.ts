@@ -526,6 +526,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/characters/{characterId}/spells/swap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Change prepared spells on a Long Rest (owner only). Allowed only for classes whose spellChanges rule says long-rest, and only as far as that rule permits — a Cleric re-prepares freely, a Paladin swaps one, a Bard cannot do it at all (its swap comes at level-up). */
+        post: operations["swapCharacterSpells"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/events": {
         parameters: {
             query?: never;
@@ -1808,6 +1827,22 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description One spell traded for another; both must be the same kind (cantrip for cantrip). */
+        SpellSwap: {
+            /**
+             * Format: uuid
+             * @description A spell the hero currently knows.
+             */
+            replace: string;
+            /**
+             * Format: uuid
+             * @description Its replacement, legal for the class and the hero's level.
+             */
+            with: string;
+        };
+        SpellSwapRequest: {
+            swaps: components["schemas"]["SpellSwap"][];
+        };
         LevelUpRequest: {
             /** @enum {string} */
             hpMode: "average" | "roll";
@@ -1825,6 +1860,8 @@ export interface components {
             featId?: string;
             /** @description New spell picks gained with this level (casters only). */
             spells?: string[];
+            /** @description Spells traded on gaining this level, for classes whose spellChanges rule says level-up (Bard, Sorcerer, Warlock). */
+            spellSwaps?: components["schemas"]["SpellSwap"][];
             /** @description Ability increases at an ASI level; total of 2 points, each +1 or +2. */
             asi?: {
                 str?: number;
@@ -3410,6 +3447,36 @@ export interface operations {
         };
         responses: {
             /** @description The hero, one level mightier */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    swapCharacterSpells: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpellSwapRequest"];
+            };
+        };
+        responses: {
+            /** @description The hero with its new list of spells */
             200: {
                 headers: {
                     [name: string]: unknown;

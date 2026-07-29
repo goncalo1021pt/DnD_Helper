@@ -4,6 +4,12 @@ INSERT INTO character_spells (character_id, content_id)
 SELECT $1, unnest($2::uuid[])
 ON CONFLICT DO NOTHING;
 
+-- name: RemoveCharacterSpells :exec
+-- Drop spell picks a swap replaced. Unknown ids are silently no-ops; the
+-- handler has already checked the hero actually knew them.
+DELETE FROM character_spells
+WHERE character_id = $1 AND content_id = ANY($2::uuid[]);
+
 -- name: ListCharacterSpells :many
 -- A hero's spells with their content and author, cantrips first.
 SELECT rc.*, u.name AS creator_name

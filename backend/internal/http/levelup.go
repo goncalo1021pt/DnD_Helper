@@ -186,10 +186,47 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	if err != nil {
 		return nil, err
 	}
-	if msg, _, err := s.validateSpellPicks(ctx, uid, class, newLevel, existingSpells, newSpells); err != nil {
+
+	// Bard, Sorcerer and Warlock trade a spell on the way up rather than on a
+	// Long Rest. The swap is settled first so the new picks are counted against
+	// the list the hero will actually have.
+	var swaps swapResult
+	if body.SpellSwaps != nil && len(*body.SpellSwaps) > 0 {
+		msg, resolved, err := s.validateSpellSwaps(
+			ctx, uid, class, newLevel, existingSpells, *body.SpellSwaps, "level-up")
+		if err != nil {
+			return nil, err
+		}
+		if msg != "" {
+			return badRequest(msg)
+		}
+		swaps = resolved
+	}
+	afterSwaps := existingSpells
+	if len(swaps.Out) > 0 {
+		dropped := map[uuid.UUID]bool{}
+		for _, id := range swaps.Out {
+			dropped[id] = true
+		}
+		afterSwaps = afterSwaps[:0:0]
+		for _, row := range existingSpells {
+			if !dropped[row.ID] {
+				afterSwaps = append(afterSwaps, row)
+			}
+		}
+	}
+	if msg, _, err := s.validateSpellPicks(ctx, uid, class, newLevel, afterSwaps, newSpells); err != nil {
 		return nil, err
 	} else if msg != "" {
 		return badRequest(msg)
+	}
+	// A spell can't be both taken as a new pick and taken as a swap-in.
+	for _, id := range swaps.In {
+		for _, n := range newSpells {
+			if id == n {
+				return badRequest("the same spell was both learned and swapped in")
+			}
+		}
 	}
 
 	// Milestone tables gate level-ups on a pending allowance (XP is advisory),
@@ -267,6 +304,9 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		Feats:        feats,
 	})
 	if err != nil {
+		return nil, err
+	}
+	if err := s.applySpellSwaps(ctx, updated.ID, swaps); err != nil {
 		return nil, err
 	}
 	if len(newSpells) > 0 {

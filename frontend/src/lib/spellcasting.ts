@@ -32,11 +32,50 @@ export function fallbackCasting(kind: string): Casting {
   return wizard;
 }
 
+/**
+ * When a caster may trade one spell for another. Mirrors the backend's
+ * spellChangeRule (backend/internal/http/spells.go) — the server decides what
+ * is legal; this only decides what the sheet offers.
+ */
+export interface SpellChangeRule {
+  when: "long-rest" | "level-up";
+  count: number | "any";
+}
+
+export interface SpellChanges {
+  prepared?: SpellChangeRule;
+  cantrips?: SpellChangeRule;
+}
+
+/** Unlimited, as returned by swapAllowance for a "re-prepare freely" rule. */
+export const ANY_SWAPS = -1;
+
 /** The class-data slice the UI reads for casting. */
 export interface CasterData {
   spellcaster?: string;
   spellcasting?: Partial<Casting>;
   spellList?: string[];
+  spellChanges?: SpellChanges;
+}
+
+/**
+ * A caster whose data predates the field re-prepares freely on a Long Rest —
+ * the commonest 2024 shape, and the same fallback the server applies, so an
+ * imported pack's Artificer still works.
+ */
+export function spellChangesFor(data: CasterData | undefined): SpellChanges {
+  if (!data?.spellcaster) return {};
+  return data.spellChanges ?? { prepared: { when: "long-rest", count: "any" } };
+}
+
+/** How many swaps a rule permits on a trigger. 0 = none, ANY_SWAPS = unlimited. */
+export function swapAllowance(
+  rule: SpellChangeRule | undefined,
+  trigger: "long-rest" | "level-up",
+): number {
+  if (!rule || rule.when !== trigger) return 0;
+  if (rule.count === "any") return ANY_SWAPS;
+  return typeof rule.count === "number" ? rule.count : 0;
 }
 
 /**

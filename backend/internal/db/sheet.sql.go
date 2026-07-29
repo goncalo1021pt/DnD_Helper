@@ -238,6 +238,23 @@ func (q *Queries) ListCharacterSpells(ctx context.Context, characterID uuid.UUID
 	return items, nil
 }
 
+const removeCharacterSpells = `-- name: RemoveCharacterSpells :exec
+DELETE FROM character_spells
+WHERE character_id = $1 AND content_id = ANY($2::uuid[])
+`
+
+type RemoveCharacterSpellsParams struct {
+	CharacterID uuid.UUID   `json:"character_id"`
+	Column2     []uuid.UUID `json:"column_2"`
+}
+
+// Drop spell picks a swap replaced. Unknown ids are silently no-ops; the
+// handler has already checked the hero actually knew them.
+func (q *Queries) RemoveCharacterSpells(ctx context.Context, arg RemoveCharacterSpellsParams) error {
+	_, err := q.db.Exec(ctx, removeCharacterSpells, arg.CharacterID, arg.Column2)
+	return err
+}
+
 const unequipItems = `-- name: UnequipItems :exec
 UPDATE character_items
 SET equipped = false, slot = ''

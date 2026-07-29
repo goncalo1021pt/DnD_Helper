@@ -5,6 +5,7 @@ import { castingFor, maxSpellLevel, spellOnClassList, type CasterData } from "..
 import { abilityMod } from "./ui/AbilityRow";
 import ParchmentModal from "./ui/ParchmentModal";
 import SpellHover from "./ui/SpellHover";
+import SpellSwapModal, { canSwapOn, type Swap } from "./ui/SpellSwapModal";
 import { Blocks } from "./ui/SpellEntry";
 
 /**
@@ -97,6 +98,11 @@ export default function LevelUpModal({
     [feats, sheet.feats, codexLegal, newLevel],
   );
 
+  // Bard, Sorcerer and Warlock trade a spell as they rise rather than on a
+  // Long Rest; the trade has to travel with the level-up itself.
+  const [swaps, setSwaps] = useState<Swap[]>([]);
+  const [swapping, setSwapping] = useState(false);
+
   // Spell picks: additions allowed up to the new level's caps.
   const casting = castingFor(klass?.data as CasterData | undefined);
   const casterKind = (klass?.data as CasterData | undefined)?.spellcaster ?? "";
@@ -164,6 +170,7 @@ export default function LevelUpModal({
     if (hpMode === "roll") body.hpRoll = hpRoll;
     if (needsSubclass) body.subclassId = subclassId;
     if (newSpellIds.length > 0) body.spells = newSpellIds;
+    if (swaps.length > 0) body.spellSwaps = swaps;
     if (isASILevel) {
       if (asiChoice === "feat") {
         body.featId = featId;
@@ -292,6 +299,53 @@ export default function LevelUpModal({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* a spell traded on the way up — Bard, Sorcerer, Warlock */}
+        {canSwapOn(klass, "level-up") && (detail?.spells ?? []).length > 0 && (
+          <div>
+            <div className="field-label mb-1.5">
+              Change a known spell
+              <span className="ml-2 font-normal normal-case tracking-normal text-ink-label">
+                optional
+              </span>
+            </div>
+            {swaps.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                {swaps.map((sw) => {
+                  const out = (detail?.spells ?? []).find((x) => x.id === sw.replace);
+                  const inn = (allSpells ?? []).find((x) => x.id === sw.with);
+                  return (
+                    <div key={sw.replace} className="text-[12.5px] text-ink-body">
+                      <span className="line-through">{out?.name}</span>
+                      {" → "}
+                      <strong className="font-heading text-ink">{inn?.name}</strong>
+                      <button
+                        type="button"
+                        onClick={() => setSwaps((prev) => prev.filter((p) => p.replace !== sw.replace))}
+                        className="label-stamp ml-2 cursor-pointer border-none bg-transparent p-0 text-[9px] tracking-[1px] text-[#8b2520] underline"
+                      >
+                        Undo
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSwapping(true)}
+                className="label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px]"
+                style={{
+                  background: "rgba(120,86,42,.13)",
+                  color: "#4a3620",
+                  boxShadow: "inset 0 0 0 1px rgba(120,80,30,.45)",
+                }}
+              >
+                Trade a spell
+              </button>
+            )}
           </div>
         )}
 
@@ -467,6 +521,20 @@ export default function LevelUpModal({
           </button>
         </div>
       </div>
+      {swapping && (
+        <SpellSwapModal
+          klass={klass}
+          known={detail?.spells ?? []}
+          library={allSpells ?? []}
+          characterLevel={newLevel}
+          trigger="level-up"
+          onClose={() => setSwapping(false)}
+          onConfirm={(picked) => {
+            setSwaps(picked);
+            setSwapping(false);
+          }}
+        />
+      )}
     </ParchmentModal>
   );
 }
