@@ -192,6 +192,8 @@ export default function HeroSheetPage() {
     );
   }
   if (error || !detail || !character) {
+    // Covers the table's veil too: a hero the DM keeps from you is, for now,
+    // not yours to read.
     return (
       <div className="panel-hall px-5 py-[60px] text-center sm:px-[30px]">
         <div className="font-display text-2xl text-[#cdb582]">This hero is not yours to read</div>

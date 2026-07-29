@@ -434,6 +434,7 @@ type Campaign struct {
 	Progression            ProgressionMode    `json:"progression"`
 	MaxLevel               *int16             `json:"max_level"`
 	RequireSeatingApproval bool               `json:"require_seating_approval"`
+	HiddenSheets           bool               `json:"hidden_sheets"`
 }
 
 type CampaignBan struct {
@@ -504,6 +505,12 @@ type CharacterNode struct {
 	CharacterID uuid.UUID          `json:"character_id"`
 	NodeID      uuid.UUID          `json:"node_id"`
 	PickedAt    pgtype.Timestamptz `json:"picked_at"`
+}
+
+type CharacterReveal struct {
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	CharacterID uuid.UUID          `json:"character_id"`
+	RevealedAt  pgtype.Timestamptz `json:"revealed_at"`
 }
 
 type CharacterSpell struct {

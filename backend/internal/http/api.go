@@ -281,6 +281,7 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 				Progression:            row.Progression,
 				MaxLevel:               row.MaxLevel,
 				RequireSeatingApproval: row.RequireSeatingApproval,
+				HiddenSheets:           row.HiddenSheets,
 			}),
 			Role: toAPIRole(row.Role),
 		})
@@ -325,6 +326,7 @@ func toAPICampaign(c db.Campaign) api.Campaign {
 		Progression:            (*api.CampaignProgression)(ptrString(string(c.Progression))),
 		MaxLevel:               maxLevel,
 		RequireSeatingApproval: &c.RequireSeatingApproval,
+		HiddenSheets:           &c.HiddenSheets,
 	}
 }
 

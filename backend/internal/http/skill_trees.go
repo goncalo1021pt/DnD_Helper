@@ -360,7 +360,8 @@ func (s *Server) GetCharacterTree(ctx context.Context, request api.GetCharacterT
 		}
 		return api.GetCharacterTree200JSONResponse(api.CharacterTreeState{Assigned: false}), nil
 	}
-	if _, err := s.requireMember(ctx, campaignID); err != nil {
+	member, err := s.requireMember(ctx, campaignID)
+	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.GetCharacterTree401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -369,6 +370,14 @@ func (s *Server) GetCharacterTree(ctx context.Context, request api.GetCharacterT
 		default:
 			return nil, err
 		}
+	}
+	// A hero's web is their sheet by another name — the table's veil covers it.
+	veil, err := s.loadSheetVeil(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	if veil.concealsFrom(character.ID, character.OwnerUserID, member.UserID, member.Role == db.MembershipRoleDm) {
+		return api.GetCharacterTree403JSONResponse{ForbiddenJSONResponse: veiledSheet()}, nil
 	}
 	state, err := s.buildCharacterTreeState(ctx, character)
 	if err != nil {

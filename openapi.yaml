@@ -1114,6 +1114,72 @@ paths:
         "403":
           $ref: "#/components/responses/Forbidden"
 
+  /campaigns/{campaignId}/hidden-sheets:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setHiddenSheets
+      summary: Draw or lift the veil over the table's character sheets (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+                  description: >
+                    True veils every hero from the other players — names only.
+                    False returns the party to open sheets.
+      responses:
+        "200":
+          description: The campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /characters/{characterId}/reveal:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    put:
+      operationId: revealCharacter
+      summary: Lift or drop the veil on one seated hero's sheet (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revealed]
+              properties:
+                revealed:
+                  type: boolean
+                  description: True opens this hero's sheet to the party; false veils them again.
+      responses:
+        "200":
+          description: The hero, as the party now sees them
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /campaigns/{campaignId}/seat-requests:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -2815,6 +2881,13 @@ components:
         requireSeatingApproval:
           type: boolean
           description: When true the door is barred — new heroes wait for the DM's approval before seating.
+        hiddenSheets:
+          type: boolean
+          description: >
+            When true the veil is drawn over the table's character sheets: a
+            player sees only the names of the other heroes. Owners and the DM
+            always read their own sheets in full, and the DM may lift the veil
+            on individual heroes.
 
     CampaignMembership:
       type: object
@@ -3094,6 +3167,18 @@ components:
         pendingLevels:
           type: integer
           description: Milestone level-ups waiting to be taken.
+        concealed:
+          type: boolean
+          description: >
+            True when the table's veil hides this hero from the caller. Only
+            the name (and who plays them) is real — class, level, HP and the
+            sheet come back emptied, and the full sheet is refused.
+        revealed:
+          type: boolean
+          description: >
+            True when the DM has lifted the veil on this hero, so the party
+            reads their sheet even while the table's sheets are veiled. Only
+            meaningful on a veiled table.
         sheet:
           $ref: "#/components/schemas/CharacterSheet"
 

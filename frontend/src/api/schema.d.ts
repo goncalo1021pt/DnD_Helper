@@ -679,6 +679,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/hidden-sheets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Draw or lift the veil over the table's character sheets (DM only) */
+        put: operations["setHiddenSheets"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Lift or drop the veil on one seated hero's sheet (DM only) */
+        put: operations["revealCharacter"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/seat-requests": {
         parameters: {
             query?: never;
@@ -1588,6 +1626,8 @@ export interface components {
             maxLevel?: number | null;
             /** @description When true the door is barred — new heroes wait for the DM's approval before seating. */
             requireSeatingApproval?: boolean;
+            /** @description When true the veil is drawn over the table's character sheets: a player sees only the names of the other heroes. Owners and the DM always read their own sheets in full, and the DM may lift the veil on individual heroes. */
+            hiddenSheets?: boolean;
         };
         CampaignMembership: {
             campaign: components["schemas"]["Campaign"];
@@ -1730,6 +1770,10 @@ export interface components {
             xp?: number;
             /** @description Milestone level-ups waiting to be taken. */
             pendingLevels?: number;
+            /** @description True when the table's veil hides this hero from the caller. Only the name (and who plays them) is real — class, level, HP and the sheet come back emptied, and the full sheet is refused. */
+            concealed?: boolean;
+            /** @description True when the DM has lifted the veil on this hero, so the party reads their sheet even while the table's sheets are veiled. Only meaningful on a veiled table. */
+            revealed?: boolean;
             sheet?: components["schemas"]["CharacterSheet"];
         };
         /** @description Present only on wizard-forged heroes. */
@@ -3738,6 +3782,71 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    setHiddenSheets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description True veils every hero from the other players — names only. False returns the party to open sheets. */
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    revealCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description True opens this hero's sheet to the party; false veils them again. */
+                    revealed: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The hero, as the party now sees them */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     listSeatRequests: {

@@ -21,13 +21,27 @@ export default function CharacterWebPage() {
   const isDM = role === "dm";
   const { charId } = useParams();
   const { data: characters } = useCharacters(campaign.id);
-  const { data: state, isLoading } = useCharacterTree(charId ?? "");
+  const { data: state, isLoading, error } = useCharacterTree(charId ?? "");
   const grant = useGrantPicks(charId ?? "");
   const spend = useSpendPick(charId ?? "");
   const [confirming, setConfirming] = useState<SkillNode | null>(null);
 
   const character = characters?.find((c) => c.id === charId);
   const canSpend = !!character && (character.mine || isDM);
+
+  // A web behind the table's veil is refused like the sheet it belongs to.
+  if (error) {
+    return (
+      <div className="panel-hall px-5 py-[60px] text-center sm:px-[30px]">
+        <div className="font-display text-2xl text-[#cdb582]">
+          This web is not yours to follow
+        </div>
+        <div className="font-accent mt-2 text-base italic text-[#9c855e]">
+          — {(error as { error?: string } | null)?.error ?? "the strands are hidden from you"} —
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || !state) {
     return (

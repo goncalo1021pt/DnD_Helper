@@ -75,6 +75,16 @@ func (s *Server) GetCharacter(ctx context.Context, request api.GetCharacterReque
 	}
 	uid, _ := auth.UserID(ctx)
 
+	// A veiled table keeps the sheet itself out of reach — spells, inventory
+	// and all. The roster still names the hero.
+	veiled, err := s.sheetVeiledFrom(ctx, character, uid)
+	if err != nil {
+		return nil, err
+	}
+	if veiled {
+		return api.GetCharacter403JSONResponse{ForbiddenJSONResponse: veiledSheet()}, nil
+	}
+
 	ownerName, err := s.ownerName(ctx, character.OwnerUserID)
 	if err != nil {
 		return nil, err

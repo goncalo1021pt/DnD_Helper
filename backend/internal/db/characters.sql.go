@@ -12,6 +12,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const concealCharacter = `-- name: ConcealCharacter :exec
+DELETE FROM character_reveals WHERE campaign_id = $1 AND character_id = $2
+`
+
+type ConcealCharacterParams struct {
+	CampaignID  uuid.UUID `json:"campaign_id"`
+	CharacterID uuid.UUID `json:"character_id"`
+}
+
+func (q *Queries) ConcealCharacter(ctx context.Context, arg ConcealCharacterParams) error {
+	_, err := q.db.Exec(ctx, concealCharacter, arg.CampaignID, arg.CharacterID)
+	return err
+}
+
 const createAccountCharacter = `-- name: CreateAccountCharacter :one
 INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
 VALUES (NULL, $1, $2, $3, $4, $5, $6)
@@ -469,6 +483,32 @@ func (q *Queries) LevelUpCharacter(ctx context.Context, arg LevelUpCharacterPara
 	return i, err
 }
 
+const listCharacterReveals = `-- name: ListCharacterReveals :many
+SELECT character_id FROM character_reveals WHERE campaign_id = $1
+`
+
+// The heroes standing in the light at this table — their sheets are open to
+// the party even while the veil is drawn.
+func (q *Queries) ListCharacterReveals(ctx context.Context, campaignID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listCharacterReveals, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var character_id uuid.UUID
+		if err := rows.Scan(&character_id); err != nil {
+			return nil, err
+		}
+		items = append(items, character_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCharactersByCampaign = `-- name: ListCharactersByCampaign :many
 SELECT c.id, c.campaign_id, c.owner_user_id, c.name, c.class, c.level, c.hp_current, c.hp_max, c.created_at, c.updated_at, c.strength, c.dexterity, c.constitution, c.intelligence, c.wisdom, c.charisma, c.skills, c.class_id, c.species_id, c.background_id, c.subclass_id, c.feats, c.spell_slots_used, c.xp, c.pending_levels, c.table_born, c.species_choices, u.name AS owner_name, rc_class.data AS class_data
 FROM characters c
@@ -651,6 +691,22 @@ func (q *Queries) ListCharactersByOwner(ctx context.Context, ownerUserID uuid.UU
 		return nil, err
 	}
 	return items, nil
+}
+
+const revealCharacter = `-- name: RevealCharacter :exec
+INSERT INTO character_reveals (campaign_id, character_id)
+VALUES ($1, $2)
+ON CONFLICT (campaign_id, character_id) DO NOTHING
+`
+
+type RevealCharacterParams struct {
+	CampaignID  uuid.UUID `json:"campaign_id"`
+	CharacterID uuid.UUID `json:"character_id"`
+}
+
+func (q *Queries) RevealCharacter(ctx context.Context, arg RevealCharacterParams) error {
+	_, err := q.db.Exec(ctx, revealCharacter, arg.CampaignID, arg.CharacterID)
+	return err
 }
 
 const revokeMilestone = `-- name: RevokeMilestone :exec
