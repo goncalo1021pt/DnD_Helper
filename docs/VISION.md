@@ -240,28 +240,87 @@ Shipped after the v1.0.0 launch, in release order:
 - **v1.2.0 — site-wide footer** (#65): the version + credits + a repo link now
   appear on every page, not just the landing.
 
-### Post-v1 — engineering & operations roadmap (added 2026-07-22; status 2026-07-24)
+### Post-launch — v1.3.0 through v1.4.1 (July 2026)
+
+- **v1.3.0 — observability** (#70, #71, #72): the Prometheus metrics listener,
+  the Grafana stack, and provisioned Discord alerting (roadmap items 2 and 8).
+  Later **extracted** (#93) into the homelab-wide
+  [homelab-observability](https://github.com/goncalo1021pt/homelab-observability)
+  repo — Quest Board is one tenant among the services it watches.
+- **Staging + one-tap deploys** (#78, #79, #88): a Proxmox **staging
+  environment**, and `deploy-staging.yml` / `deploy-prod.yml` running on
+  self-hosted runners *inside* each VM — so a deploy is a button in the GitHub
+  mobile app, with no SSH and no VPN, past a Cloudflare tunnel that has no
+  inbound ports. Prod accepts only `main` or a `vX.Y.Z` tag; deploying an older
+  tag is the deliberate rollback path. This was never on the roadmap and is the
+  single biggest ops win since launch — see `docs/STAGING.md`, `docs/HOMELAB.md`.
+- **v1.4.0 / v1.4.1** (#87, #89): the crest favicon, shipped in the binary.
+- **Table-facing fixes**: delete a campaign from the DM Menu (#76), party
+  summons gated behind the encounter trigger with HP synced back (#86), leaked
+  next-monster headers stripped from the Bestiary (#75).
+
+### The unversioned wave after v1.4.1 (late July 2026)
+
+Shipped to `main`, not yet cut as a release:
+
+- **Places + the veil** (#96): quests hang off an arbitrary-depth per-campaign
+  location tree, and both places and quests reveal to the whole party or to
+  individual heroes. A quest reaches a hero's board only if it *and* every
+  location above it resolve visible; the party-wide flag is a reset, not a layer.
+- **The Forge names its sources** (#92, #97): every option step is sifted by
+  search, source book, and the codex of the table the hero must satisfy.
+- **Encounter filing** (#91, #98): each fight carries a session tag and a place,
+  and the library is searchable and shelved by either.
+- **Species, properly** (#94, #99): full traits plus the `data.choices` model —
+  a species declares the picks it asks for at creation, validated in
+  `backend/internal/http/species.go` and mirrored in `frontend/src/lib/species.ts`.
+- **Spell swapping** (#100): casters change spells on the trigger their class
+  allows (only the wizard swaps cantrips on a long rest).
+- **Veiled sheets** (#95, #104): a campaign setting that conceals party members'
+  hero sheets, lifted one hero at a time.
+
+### Post-v1 — engineering & operations roadmap (added 2026-07-22; status 2026-07-29)
 
 v1 shipped feature-complete but with engineering debt to pay down before the
-feature list grows again. **Honest status two weeks on: feature work kept racing
-ahead (the whole DM Menu, HTTPS, footer) while this list barely moved — only the
-progression menu (item 5) is done, CI landed, and item 4 has drifted *backwards*.
-Now that 1.2.0 is out, the next slot should go to this list, not more features.**
+feature list grows again. **Honest status at 2026-07-29: the ops half of this
+list is now done or better than planned (observability, alerting, and a staging
+environment + one-tap deploys that were never even on it), and Go test coverage
+quietly grew well past its target. The frontend half has gone the other way —
+item 4 has now lost to three consecutive feature waves and is measurably worse
+each time.**
+
+**The one insight this list was missing: item 4 is blocked on item 1.** You
+cannot safely split a 1,411-line wizard with zero frontend tests, so the
+refactor never gets picked, so it grows. 58 Go tests guard ~13.8k lines of
+backend; **0 tests** guard 20.1k lines of frontend — exactly the half that is
+now hard to change. **Playwright first, then the split**, in that order, or
+item 4 regresses a fourth time.
+
+**Every open item below is now also a GitHub issue** (milestone *v1.6 — pay down
+the debt*, or unmilestoned for the watch items), because a list that lives only
+in prose loses to a list that lives in the tracker. The issues are the queue;
+this section is the why.
+
 In priority order:
 
-1. **Automated tests + CI.** 🟡 *partly done.*
+1. **Automated tests + CI.** 🟡 *backend done and then some; frontend at zero.*
+   → **#105** (Playwright), **#106** (codex/seating tests)
    - **CI shipped** (#55/#57): every PR runs `make generate`-in-sync, `go vet` +
-     `go build` + `go test`, `tsc --noEmit`, and the frontend build. CD stays
-     manual — the deploy target sits behind a VPN and a self-hosted runner on a
-     public repo is a fork-PR liability; revisit if the repo goes private or with
-     environment-gated deploy jobs.
-   - **Go unit tests: 4 of 5 targets done** — password strength + hashing, TOTP
-     encrypt/decrypt + recovery-code normalization, fog reveal geometry, and
-     encounter combatant redaction all have tests. **Still owed: codex/seating
-     visibility rules** (the highest-value gap — a leak there crosses tables).
+     `go build` + `go test`, `tsc --noEmit`, and the frontend build.
+   - **CD shipped after all** (#78/#79/#88) — the fork-PR liability was solved by
+     putting self-hosted runners *inside* the staging and prod VMs, so the box
+     dials out to GitHub instead of GitHub reaching in. See the v1.3.0–v1.4.1
+     section above.
+   - **Go unit tests: past target** — 58 test functions across 13 files. Beyond
+     the original five (password, TOTP, fog geometry, encounter redaction, plus
+     TLS enforcement): species choices, spell-change rules, pack book stamping,
+     quest/location visibility resolution, sheet veils, bestiary, static embed,
+     metrics. **Still owed: codex/seating legality** — the highest-value gap
+     left, because a leak there crosses tables.
    - **Committed Playwright smoke suite: still not started** — end-to-end
      verification is still throwaway scripts. (register → forge a hero → create
      campaign → post/claim quest → trigger encounter → 2FA enroll/login.)
+     **This is now the top of the list**, because item 4 depends on it.
 2. ✅ *done (2026-07-24).* **Observability — Prometheus + Grafana (+ Loki).**
    The Go server is instrumented via `internal/metrics` (chi middleware for
    request rate / latency histograms / error counts / in-flight, a pgx pool
@@ -276,28 +335,52 @@ In priority order:
    homelab-wide repo — Quest Board is one tenant among the services it watches:
    <https://github.com/goncalo1021pt/homelab-observability>. Still later: Loki +
    promtail (searchable logs).
-3. ❌ *not started.* **Liveness (SSE).** The encounter tracker polls every 8s and the Chronicle
+3. ❌ *not started.* → **#109**. **Liveness (SSE).** The encounter tracker polls every 8s and the Chronicle
    refetches on focus; at-the-table combat deserves sub-second updates.
    Server-Sent Events fit the single-binary model (no websocket infra): one
    `/api/campaigns/{id}/events/stream` endpoint, per-campaign fan-out in the
    server, EventSource in the SPA with the current polling kept as fallback.
-4. 🔴 *regressed — now the most overdue.* **Frontend refactor pass.** The goal
-   was to split `hooks.ts` (~1,400 lines then) by domain and break up the
-   biggest pages. Instead everything grew: `hooks.ts` is **1,625** lines,
-   ForgeWizard **922**, EncounterPage **774**, and the DM Menu added a new
-   **650**-line page. No behavior change intended — purely tractability, and it
-   gets harder every feature it's deferred behind.
+4. 🔴 *regressed again — the most overdue item, and now gated behind item 1.*
+   → **#107** (hooks.ts), **#108** (the pages), **#113** (the backend twins).
+   **Frontend refactor pass.** The goal was to split `hooks.ts` (~1,400 lines
+   then) by domain and break up the biggest pages. Every measurement since has
+   been worse:
+
+   | File | at goal-setting | 2026-07-24 | 2026-07-29 |
+   |---|---|---|---|
+   | `hooks.ts` | ~1,400 | 1,625 | **1,906** (117 exports, 9 section comments) |
+   | `ForgeWizard.tsx` | — | 922 | **1,411** |
+   | `EncounterPage.tsx` | — | 774 | **1,313** |
+   | `MapPage.tsx` | — | — | **1,201** |
+   | `DMMenuPage.tsx` | — | 650 | **865** |
+   | `HeroSheetPage.tsx` | — | — | **787** |
+
+   Those six files are ~7.7k lines — **38% of the entire frontend**. No behavior
+   change intended; purely tractability. Shape of the fix: split `hooks.ts` into
+   a `hooks/` directory by domain (quests, locations, party, heroes,
+   rules/forge, trees, bestiary, encounters, maps, chronicle, dm) re-exported
+   from a barrel so no import churn, then extract step components out of the
+   wizard and panel components out of the pages. **Do the Playwright suite
+   first** — it is the safety net that makes this a mechanical change instead of
+   a scary one.
+
+   Backend equivalents worth the same treatment, less urgently:
+   `encounters.go` (**1,096**) and `skill_trees.go` (**780**) — **#113**.
 5. ✅ *done (#60).* **Progression menu.** The DM's XP/milestone controls moved
    out of the Chronicle block into the DM Menu's Table Rules section.
-6. ❌ *not started.* **Encounter difficulty calculator.** Party size/level →
+6. ❌ *not started.* → **#110**. **Encounter difficulty calculator.** Party size/level →
    easy/medium/hard/deadly XP budget with the adjusted-XP multiplier, shown live
    in the builder; `crValue` is already numeric on every monster.
-7. 🟡 *partly done.* **Ops hardening.** Nightly DB backups shipped with v1.0.0
-   (backup service in docker-compose.prod.yml, ./backups, 14 kept). HTTPS is now
-   enforced end-to-end (v1.1.0, #62). **Still to do**: sync dumps OFF the VM
-   (rclone/rsync cron); an external uptime monitor for dnd.fontao.net; a
-   documented admin path for a 2FA lockout (user loses authenticator AND recovery
-   codes → manual SQL today: clear totp_* on their users row).
+7. 🟡 *partly done, and further along than planned.* → **#111**. **Ops hardening.** Nightly
+   DB backups shipped with v1.0.0 (backup service in docker-compose.prod.yml,
+   ./backups, 14 kept). HTTPS is enforced end-to-end (v1.1.0, #62). A **staging
+   environment and one-tap deploys** landed (#78/#79/#88) — not on this list
+   when it was written, and worth more than several items that were.
+   **Still to do**: sync dumps OFF the VM (rclone/rsync cron — a local-only
+   backup does not survive the failure it exists for); an external uptime
+   monitor for dnd.fontao.net; a documented admin path for a 2FA lockout (user
+   loses authenticator AND recovery codes → manual SQL today: clear `totp_*` on
+   their users row).
 8. ✅ *done (2026-07-24, #71).* **Alerting to Discord.** Grafana unified
    alerting, provisioned as code, pushing to a Discord channel webhook. The four
    rules shipped: app target **down** (2m, critical), HTTP **error rate high**
@@ -306,6 +389,37 @@ In priority order:
    Quest Board. Rules/contact points/policies now live in the
    [homelab-observability](https://github.com/goncalo1021pt/homelab-observability)
    repo; the webhook URL stays in its gitignored `.env`.
+9. ❌ *not started; added 2026-07-29.* → **#112**. **One rule, two implementations.**
+   `species.go` ↔ `species.ts`, `spellslots.go` ↔ `spellcasting.ts`, plus
+   `progression.ts` / `derive.ts` — the UI mirrors server rules so it can
+   validate before submitting, and **nothing verifies the two agree**. A
+   divergence shows up as a UI offering a choice the server then rejects.
+   Cheap fix: shared golden fixtures asserted on both sides. Cleaner long-term
+   fix: derive server-side and ship the computed fields through the contract,
+   which is what the contract-first architecture is for.
+10. ❌ *not started; added 2026-07-29.* → **#114**. **`openapi.yaml` is one 4,563-line file**
+    (81 paths). Not painful yet; will be. Split `components/schemas` out via
+    `$ref` before it doubles — `oapi-codegen` and `openapi-typescript` both
+    follow refs, so this is a file move, not an architecture change.
+
+## How work is tracked (decided 2026-07-29)
+
+Three intake channels had grown with no single queue: this file (strategy),
+GitHub issues (asks from playtesting), and verbal recommendations from people at
+the table that landed nowhere. The split from here:
+
+- **This file is the decisions-and-why record.** What was chosen, what was
+  rejected, and what shipped. It is not a task list — the debt list above lived
+  *only* here, which is exactly why it lost to issues every single sprint:
+  issues are visible, prose is not.
+- **GitHub issues are the only work queue**, including the numbered debt items
+  above — filed 2026-07-29 as #105–#114. Milestones group them into releases:
+  *v1.6 — pay down the debt* (the engineering list) and *v2.0 — the world
+  layer* (#103 places hub → #101 gear schema → #102 NPC vendors, in that order;
+  each depends on the one before).
+- **`from-the-table` labels playtest feedback** — the recommendations people
+  make out loud during a session, captured the moment they are said rather than
+  remembered later.
 
 ## Open questions
 
