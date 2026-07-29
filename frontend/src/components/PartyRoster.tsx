@@ -239,6 +239,13 @@ function CharacterCard({
   const color = hpColor(character.hpCurrent, character.hpMax);
   const pct = character.hpMax > 0 ? (character.hpCurrent / character.hpMax) * 100 : 0;
 
+  /* The Amend form was written for quick-added heroes. A forged hero carries a
+     sheet, and their name, class and level belong to the Forge and the
+     level-up — not to a roster form, for anyone. A table-born hero is the DM's
+     own scribble, so only the DM rewrites it. HP stays live for both, on the ±
+     buttons below. The server refuses the rest either way. */
+  const canAmend = canEdit && !character.sheet && (!character.tableBorn || isDM);
+
   function adjustHp(delta: number) {
     const next = Math.min(Math.max(character.hpCurrent + delta, 0), character.hpMax);
     if (next === character.hpCurrent) return;
@@ -397,13 +404,15 @@ function CharacterCard({
             +
           </button>
           <span className="flex-1" />
-          <button
-            onClick={() => setEditing(true)}
-            title="Edit"
-            className="btn-base btn-ghost-ink p-[9px]"
-          >
-            <IconPencil strokeWidth={1.8} />
-          </button>
+          {canAmend && (
+            <button
+              onClick={() => setEditing(true)}
+              title="Amend the hero"
+              className="btn-base btn-ghost-ink p-[9px]"
+            >
+              <IconPencil strokeWidth={1.8} />
+            </button>
+          )}
           {character.tableBorn ? (
             /* Born of the table: striking it destroys it — there is no shelf
                to return to. Account heroes can only be unseated here; deleting
@@ -434,7 +443,7 @@ function CharacterCard({
         </div>
       )}
 
-      {editing && (
+      {editing && canAmend && (
         <ParchmentModal onClose={() => setEditing(false)} maxWidth="max-w-[480px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
             The Party Ledger
