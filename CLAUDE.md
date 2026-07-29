@@ -79,18 +79,18 @@ All server state goes through TanStack Query hooks in `hooks.ts` (queries + muta
 ### The character-sheet exporter (`frontend/src/lib/sheet/`)
 
 The one feature that deliberately sits outside the contract-first pattern: it is
-pure client work, with no endpoint and no server involvement. Printing a hero
-onto the official 2024 sheet needs the user's own copy of that sheet — which we
-must not ship or store, since it is Wizards' artwork — so the PDF is assembled
-in the browser with `pdf-lib` and neither the sheet nor the hero is posted
-anywhere (`store.ts` keeps the user's copy in IndexedDB so they pick it once).
-`fields.ts` is the seam: the field catalogue that `values.ts` fills,
-`layout2024.ts` positions, and `acroform.ts` matches against a fillable PDF's
-own field names. The coordinates in `layout2024.ts` are *measured* off the real
-sheet (603 × 774pt, two pages), not eyeballed — re-measure by scanning rather
-than nudging if a future printing moves things. `render.ts` and `acroform.ts`
-are reached only through `import()` so pdf-lib stays out of the main bundle —
-never import them eagerly. Details in `docs/PRINTING.md`.
+pure client work, with no endpoint and no server involvement. One **Print**
+button on the hero sheet draws a hero onto the official 2024 sheet — bundled at
+`frontend/src/assets/dnd-2024-character-sheet.pdf`, and declared in `NOTICE`
+since it is Wizards' artwork rather than SRD content — and opens the print
+dialog. `print.ts` is the entry point and the only thing outside it should call;
+it reaches `render.ts` through `import()` and the sheet through `fetch()`, which
+keeps pdf-lib and 1.5 MB of PDF off the page load. Never import `render.ts`
+eagerly. The coordinates in `layout2024.ts` are *measured* off the real sheet
+(603 × 774pt, two pages) by scanning for its ruled lines and proficiency
+circles — re-measure that way rather than nudging if a printing moves things.
+Adding a box means a position in `layout2024.ts` and a value in `values.ts`.
+Details in `docs/PRINTING.md`.
 
 ### Adding an endpoint
 

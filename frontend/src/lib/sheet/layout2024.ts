@@ -12,13 +12,9 @@ import { ABILITIES, ATTACK_ROWS, SKILLS_BY_ABILITY, SPELL_ROWS, skillKey } from 
  * different size.
  *
  * Coordinates are points from the *top* left, because that is how a person
- * reads a page and how the calibrator reports a drag; the renderer flips to
- * PDF's bottom-left origin on the way out. Nothing of Wizards' artwork is
- * reproduced here — these are only the positions our text lands on when it is
- * printed over a copy the user already has.
- *
- * Printers still drift, so every position can be nudged and dragged in the
- * exporter and the result saved per browser — see `prefs.ts`.
+ * reads a page; the renderer flips to PDF's bottom-left origin on the way out.
+ * Nothing of Wizards' artwork is reproduced here — these are only the
+ * positions our text lands on when it is printed over the sheet itself.
  */
 
 export const PAGE = { width: 603, height: 774 } as const;
@@ -38,6 +34,8 @@ export interface FieldBox {
   align?: Align;
   /** Wrap across lines and shrink to fit, rather than sitting on one line. */
   para?: boolean;
+  /** A circle or diamond to tick rather than a box to write in. */
+  check?: boolean;
 }
 
 export type SheetLayout = Record<string, FieldBox>;
@@ -64,8 +62,8 @@ function onRule(page: number, x: number, ruleY: number, w: number, extra: Partia
 }
 
 /** A diamond or circle to tick. The sheet's are 6.5–8pt across. */
-function tick(page: number, cx: number, cy: number, size = 7) {
-  return box(page, cx - size / 2, cy - size / 2, size, size);
+function tick(page: number, cx: number, cy: number, size = 7): FieldBox {
+  return box(page, cx - size / 2, cy - size / 2, size, size, { check: true });
 }
 
 const layout: SheetLayout = {
@@ -233,17 +231,4 @@ export const LAYOUT_2024: SheetLayout = layout;
 /** The pages the layout actually writes on, in order. */
 export function layoutPages(l: SheetLayout = LAYOUT_2024): number[] {
   return [...new Set(Object.values(l).map((b) => b.page))].sort((a, b) => a - b);
-}
-
-/** Merge the calibrator's saved per-field nudges over the shipped layout. */
-export function applyOverrides(
-  layout: SheetLayout,
-  overrides: Record<string, Partial<FieldBox>>,
-): SheetLayout {
-  if (!overrides || Object.keys(overrides).length === 0) return layout;
-  const out: SheetLayout = { ...layout };
-  for (const [id, patch] of Object.entries(overrides)) {
-    if (out[id]) out[id] = { ...out[id], ...patch };
-  }
-  return out;
 }

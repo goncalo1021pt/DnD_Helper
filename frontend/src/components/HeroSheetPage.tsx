@@ -18,7 +18,7 @@ import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import SpellEntry, { Blocks, SpellFlags } from "./ui/SpellEntry";
 import ContentEntry from "./ui/ContentEntry";
 import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
-import SheetExportModal from "./SheetExportModal";
+import { printHeroSheet } from "../lib/sheet/print";
 
 type EquipSlot = "armor" | "mainhand" | "offhand";
 const SLOT_LABEL: Record<EquipSlot, string> = {
@@ -124,6 +124,9 @@ export default function HeroSheetPage() {
   const { data: subclasses } = useRules("subclass");
   const { data: itemLibrary } = useRules("item");
   const { data: spellLibrary } = useRules("spell");
+  // Only the printer needs these two; the query cache keeps them cheap.
+  const { data: speciesLibrary } = useRules("species");
+  const { data: backgroundLibrary } = useRules("background");
   const setSlots = useSetSpellSlots(heroId ?? "");
   const swapSpells = useSwapSpells(heroId ?? "");
   const addItem = useAddItem(heroId ?? "");
@@ -132,6 +135,7 @@ export default function HeroSheetPage() {
   const [levelling, setLevelling] = useState(false);
   const [swapping, setSwapping] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
   const [reading, setReading] = useState<RulesContent | null>(null);
   const [addChoice, setAddChoice] = useState("");
   const [freeText, setFreeText] = useState("");
@@ -261,11 +265,31 @@ export default function HeroSheetPage() {
             HP {character.hpCurrent}/{character.hpMax}
           </span>
           <button
-            onClick={() => setPrinting(true)}
-            title="Print this hero onto a character sheet"
-            className="btn-base btn-ghost-ink h-10 px-3 text-[10px]"
+            disabled={printing}
+            onClick={async () => {
+              setPrinting(true);
+              setPrintError(null);
+              try {
+                await printHeroSheet({
+                  detail,
+                  classes,
+                  subclasses,
+                  species: speciesLibrary,
+                  backgrounds: backgroundLibrary,
+                });
+              } catch (e) {
+                setPrintError(
+                  e instanceof Error ? e.message : "the sheet would not print",
+                );
+              } finally {
+                setPrinting(false);
+              }
+            }}
+            title="Print this hero onto the official 2024 character sheet"
+            className="btn-base btn-ghost-ink h-10 gap-1.5 px-3 text-[10px]"
           >
             <IconPrinter size={14} strokeWidth={1.8} />
+            {printing ? "Setting the ink…" : "Print"}
           </button>
           {canEdit && sheet && character.level < 20 && (
             hold ? (
@@ -768,7 +792,11 @@ export default function HeroSheetPage() {
         </ParchmentModal>
       )}
 
-      {printing && <SheetExportModal detail={detail} onClose={() => setPrinting(false)} />}
+      {printError && (
+        <div className="font-accent mt-4 text-center text-[13px] italic" style={{ color: "#8b2520" }}>
+          — {printError} —
+        </div>
+      )}
 
       {levelling && (
         <LevelUpModal character={character} onClose={() => setLevelling(false)} />
