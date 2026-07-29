@@ -80,14 +80,33 @@ export async function registerViaAPI(
   expect(res.status(), await res.text()).toBe(204);
 }
 
-/** Create a campaign via the API and return its id. */
+export interface Campaign {
+  id: string;
+  name: string;
+  inviteCode: string;
+}
+
+/**
+ * Create a campaign via the API. Returns the whole campaign, because the
+ * invite code comes back with it and there is no GET for one — a member joins
+ * with the code, so a test that needs a second player needs this object.
+ */
 export async function createCampaign(
   request: APIRequestContext,
   name: string,
-): Promise<string> {
+): Promise<Campaign> {
   const res = await request.post("/api/campaigns", { data: { name } });
   expect(res.ok(), await res.text()).toBeTruthy();
-  return (await res.json()).id as string;
+  return (await res.json()) as Campaign;
+}
+
+/** Walk in with an invite code. */
+export async function joinCampaign(
+  request: APIRequestContext,
+  code: string,
+): Promise<void> {
+  const res = await request.post("/api/campaigns/join", { data: { code } });
+  expect(res.ok(), await res.text()).toBeTruthy();
 }
 
 /** Quick-add a table-born hero onto a roster (DM only). */

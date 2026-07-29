@@ -15,7 +15,7 @@ test("prepares an encounter from the Den, triggers it, and runs initiative", asy
 }) => {
   const account = newAccount("dm");
   await registerViaAPI(page.request, account);
-  const campaignId = await createCampaign(page.request, unique("Ambush Table "));
+  const { id: campaignId } = await createCampaign(page.request, unique("Ambush Table "));
 
   await page.goto(`/questboard/campaigns/${campaignId}/encounters`);
 
