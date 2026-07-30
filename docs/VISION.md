@@ -473,38 +473,89 @@ circumstances", with no explanation on screen.
 This is the one genuine **hard blocker**: a player cannot join a table, and the
 app declines to say why.
 
-#### The three that share one root cause
+#### The three sheet bugs
 
-**#131, #129 and #132 are one gap, not three bugs: class and species features
-carry no mechanics.**
+All three are the character sheet failing to *show* something the rules define.
+They are not one bug, and — corrected 2026-07-30 after the reporter clarified
+#129 — only one of them needs anything computed.
 
-- The **data is prose only.** `srd/classes.json` has good coverage (Rogue 18
-  features, Barbarian 20, Monk 22) and Sneak Attack, Rage and Unarmored Defense
-  are all present — but each is a `{level, name, summary}` with the numbers
-  buried in English ("an extra 1d6", "as shown in the Rage Damage column"). No
-  scaling table, no AC formula, no resource pool, and no `choice` field of the
-  kind `species.json` traits already have (`"choice": "lineage"`). So #129
-  ("insufficient stats") is not missing content — it is content that cannot be
-  *computed with*. Rogue Expertise says "choose two" and the app never asks.
-- **The sheet only reads two sources.** `HeroSheetPage.tsx:174` collects
-  `data.features` from `klass` and `subclass` and nothing else — not species
-  `data.traits`, not background, not feats. That is #131 whole: the Forest Gnome
-  keeps Darkvision, Gnomish Cunning and its lineage in the database and the sheet
-  simply never looks. This one is a ~10-line change to one `useMemo`.
-- **AC has no override hook.** `derive.ts:18` `acFromEquipment` computes
-  `10 + DEX`, armour by category, plus shield — with no notion of a feature
-  replacing the base formula, so Barbarian (`10 + DEX + CON`) and Monk
-  (`10 + DEX + WIS`) are quietly wrong. That is #132.
+**#129 — the class features table is not in the app.** This is a *display and
+data* gap, not a rules-engine one. The feature prose shipped from SRD 5.2 points
+at a table the app does not have:
+
+> "The extra damage increases as you gain Rogue levels, **as shown in the Sneak
+> Attack column of the Rogue Features table**."
+>
+> "You can enter your Rage the number of times shown for your Barbarian level in
+> the **Rages column of the Barbarian Features table**."
+
+The table is the *answer* and it was never entered, so a player at the table had
+to open the physical book to learn their own Sneak Attack die. Every class has
+columns like this — Barbarian Rages / Rage Damage, Rogue Sneak Attack, Monk
+Martial Arts die / Focus Points / Unarmored Movement, Bard Bardic die, Sorcerer
+Sorcery Points, Paladin Lay On Hands, Cleric/Paladin Channel Divinity uses,
+Fighter and Ranger Weapon Mastery, Warlock Invocations.
+
+**The shape to use already exists in the data.** `data.spellcasting` is exactly
+this pattern — 20-element arrays indexed by level:
+
+```json
+"spellcasting": { "ability": "INT", "cantrips": [3,3,3,4,…], "prepared": [4,5,6,7,…] }
+```
+
+So the class features table is a sibling of it: per-class named columns of 20
+values on the content row's `data`, not game math hidden in Go. That placement is
+deliberate — `internal/rules/spellslots.go` keeps *shared* math in Go ("game math
+from the 2024 rules, not content") while per-class variation stays in content, and
+**content packs are additive**, so a homebrew or pack class must be able to ship
+its own table. `asiLevels` is a stray half-example of the same thing: it is a
+features-table column, and it exists only on Fighter and Rogue while the other
+ten rely on an "Ability Score Improvement" row in the prose. Fold it in.
+
+Scope, honestly: this is **twelve classes of careful data entry** plus one
+component that renders the table with the hero's row marked, and ideally the
+hero's current value shown inline beside the feature that cites it (*Sneak Attack
+— 2d6* at level 3, rather than making them read a grid). The licensing is
+unchanged: these tables are in SRD 5.2 CC-BY-4.0, the same document the prose
+already ships from, so nothing new is owed in `NOTICE`.
+
+There is a second half that can wait: authoring a table for a *homebrew* class
+needs a 20-row grid in `ContentForm`, whose `class` branch today handles `hitDie`,
+saves and skill choices only — it already cannot edit `features` or
+`spellcasting`. So homebrew classes stay hand-authored via packs for now, which is
+a pre-existing gap rather than a new one.
+
+**#131 — the sheet only reads two of the five sources.**
+`HeroSheetPage.tsx:174` collects `data.features` from `klass` and `subclass` and
+nothing else — not species `data.traits`, not background, not feats. That is #131
+whole: the Forest Gnome keeps Darkvision, Gnomish Cunning and its lineage in the
+database and the sheet simply never looks. A ~10-line change to one `useMemo`.
+
+**#132 — AC has no override hook.** The only one of the three that needs a
+computed value. `derive.ts:18` `acFromEquipment` computes `10 + DEX`, armour by
+category, plus shield — with no notion of a feature *replacing* the base formula,
+so Barbarian (`10 + DEX + CON`) and Monk (`10 + DEX + WIS`) are quietly wrong.
+Needs a small declarative field on the feature (an ability list to sum into the
+unarmoured base), read by `acFromEquipment`.
 
 One piece of good news against #125's warning: `lib/sheet/values.ts:3` *imports*
 `acFromEquipment` from `derive.ts` rather than reimplementing it, so AC is a
 **single** implementation and the print exporter inherits the fix for free. The
 print-vs-screen divergence #125 feared has not happened for AC.
 
-Severity note: #132 outranks #131 and #129 even though it reads smaller. A
-missing feature is a *visible* absence a player routes around with a rulebook
-open. A wrong AC is a **silently wrong number that changes outcomes** — a hit
-lands that should have missed, and nobody at the table ever finds out.
+Severity note: #132 outranks the other two even though it reads smaller. A missing
+table is a *visible* absence — the player noticed it and reached for the book,
+which is annoying but self-correcting. A wrong AC is a **silently wrong number
+that changes outcomes**: a hit lands that should have missed, and nobody at the
+table ever finds out.
+
+**What is *not* #129.** A machine-readable resource model — expendable pools the
+app tracks and spends (Rages used, Focus Points, Channel Divinity charges) — is a
+separate, larger piece of work, and it is the real dependency of **#118**'s rest
+mechanic, which needs pools to have anything to reset. Showing the table is not
+that, does not require it, and should not wait for it. Printing the numbers is
+worth doing on its own: a player who can read their Rage count off the sheet can
+track uses on paper like they already do.
 
 #### The sequencing decision
 
@@ -527,11 +578,21 @@ For most of these, it does not.
   *outside* the six god components, and they fix all 104 mutations at once. The
   cheapest risk reduction available anywhere on this list.
 - **#132** — one function, `derive.ts`, no component involved, and it fixes the
-  printed sheet at the same time. Needs an AC-formula field on features, which is
-  the first small bite of the #129 data work.
+  printed sheet at the same time.
 - **#131** — ~10 lines in one `useMemo`. Cheap enough that waiting for the
   `HeroSheetPage` split to land first is not worth the wrong sheet in the
   meantime.
+- **#129, the data half** — entering the twelve class tables into `classes.json`
+  touches no component at all, so it is refactor-proof and can be worked at any
+  time, including in pieces. Do the data first and independently; it is the part
+  that costs patience rather than design.
+
+**#129's display half — right after the `HeroSheetPage` split, not before.** This
+is the one new-feature item where the refactor order genuinely helps: the table
+wants to be its own component, `HeroSheetPage` is 787 lines and on the #108 list,
+and #108 already names *"stat block, inventory, spells, trees"* as its seams —
+a features-table panel is a fifth one. Building it into the god component first
+means building it twice. The data entry can land in parallel and wait for it.
 
 **Genuinely defer, and defer on purpose:**
 
@@ -540,12 +601,10 @@ For most of these, it does not.
   draft is dramatically easier once the state is the only thing left in the file.
   Sequence it immediately after the ForgeWizard split, not before. The timeout
   fix already removes the reason players were reloading.
-- **#129 proper** (machine-readable feature mechanics: scaling tables, resource
-  pools, feature-driven choices) — the largest single piece of work on the board,
-  a schema change across `srd/*.json` plus the rules engine, and it wants #112's
-  golden fixtures in place first so the Go and TS halves cannot drift while it
-  grows. This is v2 work, and it is the natural home for **#118**'s rest
-  mechanic, which needs the same resource-pool model to have anything to reset.
+- **The resource model** (expendable pools the app tracks and spends) — *not*
+  #129, per the correction above. The largest piece on the board, and the real
+  dependency of **#118**'s rest mechanic. It wants #112's golden fixtures first so
+  the Go and TS halves cannot drift while it grows. v2 work.
 - **#125 / #112 / #106 / #113 / #114** — unchanged, and the playtest did not
   argue against any of them. If anything #132 argues *for* #112: a rule with one
   implementation and no test is exactly how a wrong AC reaches paper.
