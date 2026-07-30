@@ -12,7 +12,7 @@ import {
   useUpdateItem,
 } from "../hooks";
 import { levelUpHold } from "../lib/progression";
-import { acFromEquipment, profBonus, weaponAttacks } from "../lib/derive";
+import { acFromEquipment, featuresOf, profBonus, weaponAttacks, type Feature } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
 import SpellEntry, { Blocks, SpellFlags } from "./ui/SpellEntry";
@@ -102,10 +102,10 @@ const SKILL_ABILITY: Record<string, string> = {
   Deception: "cha", Intimidation: "cha", Performance: "cha", Persuasion: "cha",
 };
 
-interface Feature {
-  level?: number;
-  name?: string;
-  summary?: string;
+/** A species' pick list, so a chosen lineage can be shown as what it grants. */
+interface SpeciesChoice {
+  id?: string;
+  options?: Array<{ name?: string; summary?: string }>;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -124,9 +124,11 @@ export default function HeroSheetPage() {
   const { data: subclasses } = useRules("subclass");
   const { data: itemLibrary } = useRules("item");
   const { data: spellLibrary } = useRules("spell");
-  // Only the printer needs these two; the query cache keeps them cheap.
+  // Species, background and feats: the three sources the Features panel used to
+  // ignore (#131), and what the printer reads to say the same on paper.
   const { data: speciesLibrary } = useRules("species");
   const { data: backgroundLibrary } = useRules("background");
+  const { data: feats } = useRules("feat");
   const setSlots = useSetSpellSlots(heroId ?? "");
   const swapSpells = useSwapSpells(heroId ?? "");
   const addItem = useAddItem(heroId ?? "");
@@ -151,6 +153,8 @@ export default function HeroSheetPage() {
 
   const klass = classes?.find((c) => c.id === sheet?.classId);
   const subclass = subclasses?.find((s) => s.id === sheet?.subclassId);
+  const species = speciesLibrary?.find((s) => s.id === sheet?.speciesId);
+  const background = backgroundLibrary?.find((b) => b.id === sheet?.backgroundId);
 
   // The rig: what sits where. Coin gets a purse, not a tile.
   const purse = detail?.items.find((i) => !i.content && i.name === "Gold Pieces");
@@ -171,16 +175,65 @@ export default function HeroSheetPage() {
     return !q || i.name.toLowerCase().includes(q);
   });
 
+  /*
+  Everything the hero actually has, from every source that grants one (#131).
+
+  This read two of the five: class and subclass. So a Forest Gnome kept
+  Darkvision, Gnomish Cunning and their lineage in the database and the sheet
+  simply never looked — the player was told they had a species and never told
+  what it did for them.
+
+  Class and subclass come first and in level order, because that is how a player
+  learns them. Species, background and feats follow, since they arrive whole at
+  level 1 and a level number against them would be a fiction.
+  */
   const features: Array<Feature & { from: string }> = useMemo(() => {
     if (!character) return [];
-    const collect = (src: RulesContent | undefined) =>
-      (((src?.data as { features?: Feature[] })?.features ?? []) as Feature[])
-        .filter((f) => (f.level ?? 1) <= character.level)
-        .map((f) => ({ ...f, from: src?.name ?? "" }));
-    return [...collect(klass), ...collect(subclass)].sort(
+    const level = character.level;
+    const from = (src: RulesContent | undefined) =>
+      featuresOf(src, level).map((f) => ({ ...f, from: src?.name ?? "" }));
+
+    const earned = [...from(klass), ...from(subclass)].sort(
       (a, b) => (a.level ?? 1) - (b.level ?? 1),
     );
-  }, [character, klass, subclass]);
+
+    // Species traits, and what a lineage pick turned into. The trait says
+    // "choose one of the following"; the sheet should say which one you chose.
+    const innate = from(species);
+    if (species) {
+      const choices = ((species.data as { choices?: SpeciesChoice[] }).choices ?? []);
+      for (const [id, picked] of Object.entries(sheet?.speciesChoices ?? {})) {
+        const options = choices.find((c) => c.id === id)?.options ?? [];
+        for (const name of picked) {
+          const option = options.find((o) => o.name === name);
+          if (option?.summary) innate.push({ name, summary: option.summary, from: species.name });
+        }
+      }
+    }
+
+    // A feat is the whole of what a background grants beyond skills and a kit,
+    // and the sheet listed them as bare names — a player reading "Magic Initiate
+    // (Cleric)" learned nothing they did not already know from choosing it.
+    const taken = (sheet?.feats ?? []).map((name) => {
+      // A background records the feat with its specialisation — "Magic Initiate
+      // (Cleric)" — while the library entry is just "Magic Initiate", so an
+      // exact match alone would leave the most commonly granted feat wordless.
+      const bare = name.replace(/\s*\(.*\)\s*$/, "");
+      const entry = feats?.find((f) => f.name === name) ?? feats?.find((f) => f.name === bare);
+      const data = entry?.data as { description?: string } | undefined;
+      return { name, summary: data?.description ?? entry?.summary, from: "Feat" };
+    });
+
+    // The background's own grant that appears nowhere else on the sheet: its
+    // skills are in the skill list and its kit is in the pack, but the tool has
+    // had no home at all.
+    const tool = (background?.data as { tool?: string } | undefined)?.tool;
+    const trained = tool
+      ? [{ name: "Tool Proficiency", summary: tool, from: background?.name ?? "Background" }]
+      : [];
+
+    return [...earned, ...innate, ...taken, ...trained];
+  }, [character, klass, subclass, species, background, feats, sheet?.feats, sheet?.speciesChoices]);
 
   const spellsByLevel = useMemo(() => {
     const groups = new Map<number, RulesContent[]>();
@@ -406,7 +459,10 @@ export default function HeroSheetPage() {
                     <div key={i} className="text-[13px]">
                       <span className="font-heading font-bold text-ink">{f.name}</span>
                       <span className="label-stamp ml-2 text-[8px] tracking-[1px] text-ink-label">
-                        {f.from} {f.level ?? 1}
+                        {/* A species trait has no level, and stamping one on it
+                            would be inventing a fact about the rules. */}
+                        {f.from}
+                        {f.level ? ` ${f.level}` : ""}
                       </span>
                       {f.summary && (
                         <div className="leading-relaxed text-ink-body">
@@ -415,12 +471,6 @@ export default function HeroSheetPage() {
                       )}
                     </div>
                   ))}
-                  {(sheet.feats ?? []).length > 0 && (
-                    <div className="mt-1 text-[13px]">
-                      <span className="label-stamp text-[9px] tracking-[1.5px] text-ink-label">Feats · </span>
-                      <span className="font-semibold text-ink">{(sheet.feats ?? []).join(", ")}</span>
-                    </div>
-                  )}
                 </div>
               </section>
             )}

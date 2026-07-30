@@ -70,3 +70,32 @@ test("a Barbarian's Unarmored Defense is in their AC", async ({ page }) => {
   const ac = page.getByText("AC", { exact: true }).locator("xpath=following-sibling::div").first();
   await expect(ac).toHaveText("15");
 });
+
+test("a Gnome's species traits and their lineage are on the sheet", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("traits"));
+
+  const id = await forgeHero(page.request, {
+    name: unique("Fizwick "),
+    className: "Fighter",
+    speciesName: "Gnome",
+    backgroundName: "Acolyte",
+    abilities: { str: 12, dex: 14, con: 13, int: 15, wis: 10, cha: 8 },
+    skills: ["Athletics", "Survival"],
+    speciesChoices: { lineage: ["Forest Gnome"], "lineage-ability": ["Intelligence"] },
+  });
+
+  await page.goto(`/questboard/heroes/${id}`);
+
+  // The report, word for word: "I created a gnome of the forest, it did not
+  // show any of the species abilities under the character sheet."
+  await expect(page.getByText("Darkvision").first()).toBeVisible();
+  await expect(page.getByText("Gnomish Cunning").first()).toBeVisible();
+  // And the lineage that was chosen, not merely the invitation to choose one.
+  await expect(page.getByText("Forest Gnome").first()).toBeVisible();
+
+  // A feat the background granted now says what it *does*, rather than sitting
+  // in a comma-separated list of names the player already knew.
+  await expect(page.getByText("Magic Initiate (Cleric)").first()).toBeVisible();
+  await expect(page.getByText("You learn two cantrips of your choice").first()).toBeVisible();
+});
