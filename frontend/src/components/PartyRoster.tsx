@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import type { Character } from "../api/client";
+import type { Character, SeatConflict } from "../api/client";
 import {
   useCharacters,
   useSetSpellSlots,
@@ -21,6 +21,7 @@ import CharacterForm, { emptyHero } from "./CharacterForm";
 import type { CampaignContext } from "./CampaignView";
 import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
+import SeatConflictModal from "./ui/SeatConflictModal";
 import {
   IconPencil,
   IconPlus,
@@ -482,14 +483,25 @@ function CharacterCard({
 }
 
 /* Bring one of your resting heroes from My Heroes to this table. */
-function SummonControl({ campaignId }: { campaignId: string }) {
+function SummonControl({
+  campaignId,
+  campaignName,
+}: {
+  campaignId: string;
+  campaignName: string;
+}) {
   const { data: myHeroes } = useMyCharacters();
   const seat = useSeatCharacter();
   const [choice, setChoice] = useState("");
+  /* The codex can refuse a hero at the door. The server says which content it
+     objects to; this is where that gets read out instead of thrown away (#128). */
+  const [conflict, setConflict] = useState<SeatConflict["missing"] | null>(null);
   const resting = (myHeroes ?? []).filter((h) => !h.campaignId);
+  const chosen = resting.find((h) => h.id === choice);
 
   if (resting.length === 0) return null;
   return (
+    <div className="flex flex-col items-end gap-2">
     <div className="flex items-center gap-2">
       <select
         value={choice}
@@ -508,7 +520,16 @@ function SummonControl({ campaignId }: { campaignId: string }) {
           choice &&
           seat.mutate(
             { characterId: choice, campaignId },
-            { onSuccess: () => setChoice("") },
+            {
+              onSuccess: () => {
+                setChoice("");
+                setConflict(null);
+              },
+              onError: (err) => {
+                const c = err as unknown as SeatConflict;
+                setConflict(c?.missing?.length ? c.missing : []);
+              },
+            },
           )
         }
         disabled={!choice || seat.isPending}
@@ -521,6 +542,24 @@ function SummonControl({ campaignId }: { campaignId: string }) {
       >
         Summon
       </button>
+      </div>
+
+      {/* Any failure says something. A codex refusal gets the full modal with a
+          one-tap proposal; anything else at least admits it happened, rather
+          than leaving a button that quietly did nothing. */}
+      {conflict !== null && conflict.length === 0 && (
+        <span className="font-body text-right text-[12px] italic text-[#e0725f]">
+          {(seat.error as { error?: string } | null)?.error ??
+            "The summons failed — try again in a moment."}
+        </span>
+      )}
+      {conflict !== null && conflict.length > 0 && (
+        <SeatConflictModal
+          heroName={chosen?.name ?? "this hero"}
+          conflict={{ campaignId, campaignName, missing: conflict }}
+          onClose={() => setConflict(null)}
+        />
+      )}
     </div>
   );
 }
@@ -577,7 +616,7 @@ export default function PartyRoster() {
           >
             The Skill Trees →
           </Link>
-          <SummonControl campaignId={campaign.id} />
+          <SummonControl campaignId={campaign.id} campaignName={campaign.name} />
           {isDM && (
             <button
               onClick={() => setAdding(true)}
