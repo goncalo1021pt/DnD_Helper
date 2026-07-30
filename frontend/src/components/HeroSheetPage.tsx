@@ -215,7 +215,8 @@ export default function HeroSheetPage() {
   const hold = levelUpHold(character, table);
   const abilities = sheet?.abilities;
   const prof = profBonus(character.level);
-  const ac = abilities ? acFromEquipment(detail.items, abilities) : null;
+  // Features, because Unarmored Defense replaces the base formula (#132).
+  const ac = abilities ? acFromEquipment(detail.items, abilities, features) : null;
   const attacks = abilities ? weaponAttacks(detail.items, abilities, character.level) : [];
   const slots = sheet?.spellSlots ?? [];
   const hpc = hpColor(character.hpCurrent, character.hpMax);
