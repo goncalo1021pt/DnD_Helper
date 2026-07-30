@@ -94,6 +94,11 @@ test("a hero the codex refuses is turned away with the reason on screen", async 
   await expect(plPage.getByText(/Fighter/).first()).toBeVisible();
   await expect(plPage.getByText(/banned by the DM/i)).toBeVisible();
 
+  // And it is not *also* shouted by the global mutation notice. Seating opts
+  // out (`meta: { quiet: true }`) precisely because this modal says more than a
+  // toast could — proven here against a real 409 rather than a mocked one.
+  await expect(plPage.getByRole("status")).toHaveCount(0);
+
   await dmCtx.close();
   await plCtx.close();
 });

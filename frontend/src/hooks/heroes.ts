@@ -20,6 +20,8 @@ export function useMyCharacters() {
 export function useCreateMyCharacter() {
   const qc = useQueryClient();
   return useMutation({
+    // Quiet: CharacterForm prints the server's wording under the field it belongs to.
+    meta: { quiet: true },
     mutationFn: async (body: CharacterInput) => {
       const { data, error } = await api.POST("/me/characters", { body });
       if (error) throw error;
@@ -32,6 +34,8 @@ export function useCreateMyCharacter() {
 export function useSeatCharacter() {
   const qc = useQueryClient();
   return useMutation({
+    // Quiet: SeatConflictModal lists exactly which content the codex refused, on both doors into a table (#128).
+    meta: { quiet: true },
     mutationFn: async ({
       characterId,
       campaignId,

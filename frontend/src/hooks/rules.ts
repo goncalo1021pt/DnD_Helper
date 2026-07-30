@@ -91,6 +91,8 @@ export function useSetSpellSlots(characterId: string) {
 export function useSwapSpells(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
+    // Quiet: SpellSwapModal shows the refusal beside the spells it refused.
+    meta: { quiet: true },
     mutationFn: async (swaps: Array<{ replace: string; with: string }>) => {
       const { data, error } = await api.POST("/characters/{characterId}/spells/swap", {
         params: { path: { characterId } },
@@ -227,6 +229,8 @@ export function useLevelUp() {
 export function useForgeCharacter() {
   const qc = useQueryClient();
   return useMutation({
+    // Quiet: ForgeAlert already shouts on the wizard's last step.
+    meta: { quiet: true },
     mutationFn: async (body: ForgeRequest) => {
       const { data, error } = await api.POST("/me/characters/forge", { body });
       if (error) throw error;
