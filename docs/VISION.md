@@ -402,6 +402,159 @@ In priority order:
     `$ref` before it doubles — `oapi-codegen` and `openapi-typescript` both
     follow refs, so this is a file move, not an architecture change.
 
+### After the first real playtest (2026-07-30)
+
+The first session with an actual party ran on 2026-07-30 and produced five bug
+reports — #128–#132 — plus the confirmation that the debt list above was aimed at
+roughly the right places. This section records **what those five actually are**
+(root causes, found by reading the code rather than by guessing) and **the
+sequencing decision** they forced, because the honest instinct — *"I'm mid-refactor
+and not using the site, so defer all of it"* — is right for three of them and
+wrong for two.
+
+#### The finding that reframes #130
+
+**#130 is not a Forge bug. It is every mutation in the app.** The Forge is only
+where it hurt most, because the Forge is the screen with the most state to lose.
+
+Three independent omissions stack into the reported symptom — a button that
+"eternally thinks", never errors, and loses everything on reload:
+
+1. **No request ever has a deadline.** `AbortController`, `AbortSignal` and
+   `timeout` appear **zero times** in `frontend/src/`. `api/client.ts` is a bare
+   `createClient({ baseUrl: "/api" })`. A `fetch` stalled on a bad connection
+   stays pending, so `mutation.isPending` stays `true`, so the button stays
+   disabled and captioned "Forging…" — *forever*. The Forge's error surface
+   (`ForgeWizard.tsx:790`, `forge.isError`) is correct and simply never fires,
+   because the mutation never settles into an error.
+2. **No mutation retries.** `main.tsx` sets `queries: { retry: false }` and says
+   nothing about mutations, so all **104** `useMutation` hooks across
+   `hooks/*.ts` inherit TanStack's default of zero retries. One bad moment on the
+   wifi is final.
+3. **No draft survives a reload.** `localStorage` and `sessionStorage` appear
+   **zero times** in the frontend. The wizard is `useState` end to end, so the
+   reload that "fixes" the hang is also what destroys twenty minutes of
+   character building.
+
+There is a fourth, quieter one: `POST /me/characters/forge` has **no idempotency
+key**, so a retry that follows a timeout can create a *second* hero when the
+first request did in fact land. And server-side, `cmd/server/main.go` sets only
+`ReadHeaderTimeout` — no `ReadTimeout` — so a slow client body holds a connection
+open indefinitely at the other end too.
+
+The fix therefore belongs **at the client layer, once** — a default timeout and a
+bounded mutation retry in `api/client.ts` / `main.tsx` fix all 104 call sites —
+not in the Forge. That is what makes it cheap enough to do now.
+
+#### The finding that reframes #128
+
+`SeatCharacter` (`heroes.go:87`) runs a **strict codex gate** before seating:
+`sheetContentIDs` collects the hero's class, species, background *and subclass*,
+**plus every spell pick and every content-backed inventory row**
+(`ListCharacterContentRefs`), and `codexBlockers` (`codex.go:34`) rules homebrew
+**illegal unless explicitly enabled** in that campaign.
+
+Two consequences explain the report exactly:
+
+- **"even the dm"** — the DM bypasses `RequireSeatingApproval`, but *nothing*
+  bypasses `codexBlockers`. The codex gate applies to the DM too.
+- **"in certain parties"** — it fires only in campaigns carrying homebrew or a
+  ban. Heroes are forged at **account level**, outside any campaign, so the Forge
+  offers everything the *user* can see; the codex then judges it against a world
+  the hero was never built for. A hero forged with pack content can never enter
+  a table that has not enabled that pack — and a *spell* or an *item* bars the
+  door exactly as hard as a class does.
+
+And `SummonControl` (`PartyRoster.tsx:485`) renders no error at all — no
+`isError` branch — so the 409 with its perfectly good `SeatConflict.missing`
+payload is thrown away and the button just does nothing. Hence "under any
+circumstances", with no explanation on screen.
+
+This is the one genuine **hard blocker**: a player cannot join a table, and the
+app declines to say why.
+
+#### The three that share one root cause
+
+**#131, #129 and #132 are one gap, not three bugs: class and species features
+carry no mechanics.**
+
+- The **data is prose only.** `srd/classes.json` has good coverage (Rogue 18
+  features, Barbarian 20, Monk 22) and Sneak Attack, Rage and Unarmored Defense
+  are all present — but each is a `{level, name, summary}` with the numbers
+  buried in English ("an extra 1d6", "as shown in the Rage Damage column"). No
+  scaling table, no AC formula, no resource pool, and no `choice` field of the
+  kind `species.json` traits already have (`"choice": "lineage"`). So #129
+  ("insufficient stats") is not missing content — it is content that cannot be
+  *computed with*. Rogue Expertise says "choose two" and the app never asks.
+- **The sheet only reads two sources.** `HeroSheetPage.tsx:174` collects
+  `data.features` from `klass` and `subclass` and nothing else — not species
+  `data.traits`, not background, not feats. That is #131 whole: the Forest Gnome
+  keeps Darkvision, Gnomish Cunning and its lineage in the database and the sheet
+  simply never looks. This one is a ~10-line change to one `useMemo`.
+- **AC has no override hook.** `derive.ts:18` `acFromEquipment` computes
+  `10 + DEX`, armour by category, plus shield — with no notion of a feature
+  replacing the base formula, so Barbarian (`10 + DEX + CON`) and Monk
+  (`10 + DEX + WIS`) are quietly wrong. That is #132.
+
+One piece of good news against #125's warning: `lib/sheet/values.ts:3` *imports*
+`acFromEquipment` from `derive.ts` rather than reimplementing it, so AC is a
+**single** implementation and the print exporter inherits the fix for free. The
+print-vs-screen divergence #125 feared has not happened for AC.
+
+Severity note: #132 outranks #131 and #129 even though it reads smaller. A
+missing feature is a *visible* absence a player routes around with a rulebook
+open. A wrong AC is a **silently wrong number that changes outcomes** — a hit
+lands that should have missed, and nobody at the table ever finds out.
+
+#### The sequencing decision
+
+Defer-until-the-refactor-lands was assessed per issue, against the one question
+that matters: **does the fix live in a file the refactor is about to rewrite?**
+For most of these, it does not.
+
+**Do now, out of order, before more of #108:**
+
+- **#128** — hard blocker, and entirely outside the refactor's blast radius:
+  `codex.go` / `heroes.go` on the backend, plus an `isError` branch in
+  `SummonControl`. `PartyRoster.tsx` is not on the god-component list. There is a
+  design question underneath (should a spell or an item bar the door as hard as a
+  class? should the Forge filter by the *target* campaign's codex?) but the
+  blocker ships before the design question is settled: surface the 409 the server
+  already returns, so the DM can at least see what to enable.
+- **#130 parts 1, 2 and 4** — the client-layer fixes: a default timeout in
+  `api/client.ts`, bounded mutation retry in `main.tsx`, `ReadTimeout` in
+  `main.go`, idempotency on the forge POST. Two small files on the frontend, both
+  *outside* the six god components, and they fix all 104 mutations at once. The
+  cheapest risk reduction available anywhere on this list.
+- **#132** — one function, `derive.ts`, no component involved, and it fixes the
+  printed sheet at the same time. Needs an AC-formula field on features, which is
+  the first small bite of the #129 data work.
+- **#131** — ~10 lines in one `useMemo`. Cheap enough that waiting for the
+  `HeroSheetPage` split to land first is not worth the wrong sheet in the
+  meantime.
+
+**Genuinely defer, and defer on purpose:**
+
+- **#130 part 3** (draft persistence) — this one *does* land in the middle of the
+  refactor. #108 reduces `ForgeWizard` to "state + navigation", and persisting a
+  draft is dramatically easier once the state is the only thing left in the file.
+  Sequence it immediately after the ForgeWizard split, not before. The timeout
+  fix already removes the reason players were reloading.
+- **#129 proper** (machine-readable feature mechanics: scaling tables, resource
+  pools, feature-driven choices) — the largest single piece of work on the board,
+  a schema change across `srd/*.json` plus the rules engine, and it wants #112's
+  golden fixtures in place first so the Go and TS halves cannot drift while it
+  grows. This is v2 work, and it is the natural home for **#118**'s rest
+  mechanic, which needs the same resource-pool model to have anything to reset.
+- **#125 / #112 / #106 / #113 / #114** — unchanged, and the playtest did not
+  argue against any of them. If anything #132 argues *for* #112: a rule with one
+  implementation and no test is exactly how a wrong AC reaches paper.
+
+The principle worth keeping: **fix what stops a session, at the layer where it is
+cheapest, and defer what merely annoys until its file stops moving.** The refactor
+is not a reason to leave a table blocked, and a blocked table is not a reason to
+abandon the refactor.
+
 ## How work is tracked (decided 2026-07-29)
 
 Three intake channels had grown with no single queue: this file (strategy),
