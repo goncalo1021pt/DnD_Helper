@@ -22,6 +22,8 @@ export function useCharacters(campaignId: string) {
 export function useCreateCharacter(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
+    // Quiet: CharacterForm prints the ledger's objection inside the form.
+    meta: { quiet: true },
     mutationFn: async (body: CharacterInput) => {
       const { data, error } = await api.POST("/campaigns/{campaignId}/characters", {
         params: { path: { campaignId } },
@@ -37,6 +39,8 @@ export function useCreateCharacter(campaignId: string) {
 export function useUpdateCharacter(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
+    // Quiet: CharacterForm prints the ledger's objection inside the form.
+    meta: { quiet: true },
     mutationFn: async ({
       characterId,
       body,
