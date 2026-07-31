@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -19,5 +20,12 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+  },
+  // Unit tests (#125). Node environment on purpose: what is worth testing here
+  // is the pure derivation — sheet values, spell slots, progression — and none
+  // of it touches the DOM. Journeys are Playwright's job, in e2e/.
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
   },
 });

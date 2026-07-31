@@ -60,6 +60,11 @@ jobs:
       - run: npm ci
       # `npm run build` is `tsc && vite build` — the tsc step is the type check.
       - run: npm run build
+      # Unit tests for the pure rules code (#112, #125). They also hold the
+      # shared fixtures the Go side asserts against, so a drift between the two
+      # engines fails here as well as in `go test`.
+      - name: Unit tests
+        run: npm test
 
   e2e:
     name: E2E · Playwright smoke suite
