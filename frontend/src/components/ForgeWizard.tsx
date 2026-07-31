@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { AbilityScores, RulesContent } from "../api/client";
 import { useCampaigns, useCodex, useForgeCharacter, useRules } from "../hooks";
@@ -23,6 +23,7 @@ import {
 import { abilityMod, modText } from "./ui/AbilityRow";
 import FloatingDiceTray from "./ui/DiceTray";
 import SpellHover from "./ui/SpellHover";
+import { clearDraft, loadDraft, saveDraft, type ForgeDraft } from "./forge/draft";
 import ForgeAlert from "./forge/ForgeAlert";
 import OptionCard from "./forge/OptionCard";
 import OptionFilters from "./forge/OptionFilters";
@@ -56,25 +57,32 @@ export default function ForgeWizard() {
   const { data: backgrounds } = useRules("background");
   const forge = useForgeCharacter();
 
-  const [step, setStep] = useState(0);
-  const [classId, setClassId] = useState<string>("");
-  const [gear, setGear] = useState<string>("");
-  const [skills, setSkills] = useState<string[]>([]);
-  const [spellIds, setSpellIds] = useState<string[]>([]);
-  const [backgroundId, setBackgroundId] = useState<string>("");
-  const [speciesId, setSpeciesId] = useState<string>("");
+  // A draft from a previous visit, read once. #130: the deadline stopped players
+  // needing to reload; this stops the reload costing them the whole hero.
+  const restored = useRef(loadDraft()).current;
+  const resumed = !!restored;
+
+  const [step, setStep] = useState(restored?.step ?? 0);
+  const [classId, setClassId] = useState<string>(restored?.classId ?? "");
+  const [gear, setGear] = useState<string>(restored?.gear ?? "");
+  const [skills, setSkills] = useState<string[]>(restored?.skills ?? []);
+  const [spellIds, setSpellIds] = useState<string[]>(restored?.spellIds ?? []);
+  const [backgroundId, setBackgroundId] = useState<string>(restored?.backgroundId ?? "");
+  const [speciesId, setSpeciesId] = useState<string>(restored?.speciesId ?? "");
   // Species picks keyed by choice id — a lineage, a free proficiency, an
   // Origin feat. Cleared whenever the species changes.
-  const [speciesPicks, setSpeciesPicks] = useState<SpeciesPicks>({});
-  const [method, setMethod] = useState<Method>("array");
+  const [speciesPicks, setSpeciesPicks] = useState<SpeciesPicks>(restored?.speciesPicks ?? {});
+  const [method, setMethod] = useState<Method>((restored?.method as Method) ?? "array");
   // 0 = unassigned (standard array only); point buy / manual start at 8.
-  const [base, setBase] = useState<Record<AbilityKey, number>>({
-    str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0,
-  });
-  const [bonusMode, setBonusMode] = useState<BonusMode>("2/1");
-  const [bonus2, setBonus2] = useState<AbilityKey | "">("");
-  const [bonus1, setBonus1] = useState<AbilityKey | "">("");
-  const [name, setName] = useState("");
+  const [base, setBase] = useState<Record<AbilityKey, number>>(
+    (restored?.base as Record<AbilityKey, number>) ?? {
+      str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0,
+    },
+  );
+  const [bonusMode, setBonusMode] = useState<BonusMode>((restored?.bonusMode as BonusMode) ?? "2/1");
+  const [bonus2, setBonus2] = useState<AbilityKey | "">((restored?.bonus2 as AbilityKey) ?? "");
+  const [bonus1, setBonus1] = useState<AbilityKey | "">((restored?.bonus1 as AbilityKey) ?? "");
+  const [name, setName] = useState(restored?.name ?? "");
   // Skills a background just took back from the class picks — drives a precise,
   // named warning ("Soldier grants Athletics…") instead of a vague one.
   const [retracted, setRetracted] = useState<string[]>([]);
@@ -86,6 +94,16 @@ export default function ForgeWizard() {
   // Tables the hero could be seated at, and the codex of the chosen one. A
   // campaign that banned the SRD classes and admitted only its own homebrew
   // will offer exactly those here.
+  // Every change is written straight through. The wizard has no save button and
+  // should not grow one — the point is that nothing is ever pending.
+  useEffect(() => {
+    saveDraft({
+      step, classId, gear, skills, spellIds, backgroundId, speciesId,
+      speciesPicks, method, base, bonusMode, bonus2, bonus1, name, tableId,
+    } as ForgeDraft);
+  }, [step, classId, gear, skills, spellIds, backgroundId, speciesId,
+      speciesPicks, method, base, bonusMode, bonus2, bonus1, name, tableId]);
+
   const { data: memberships } = useCampaigns();
   const tables = useMemo(
     () => (memberships ?? []).map((m) => ({ id: m.campaign.id, name: m.campaign.name })),
@@ -389,7 +407,13 @@ export default function ForgeWizard() {
         gear: gearOptions.length > 0 ? gear : undefined,
         speciesChoices: speciesChoices.length > 0 ? speciesPicks : undefined,
       },
-      { onSuccess: () => navigate("/questboard/profile") },
+      {
+        onSuccess: () => {
+          // The hero landed; the draft is no longer anybody's unfinished work.
+          clearDraft();
+          navigate("/questboard/profile");
+        },
+      },
     );
   }
 
@@ -397,6 +421,30 @@ export default function ForgeWizard() {
 
   return (
     <div className="panel-hall px-5 sm:px-[30px] pb-10 pt-8">
+      {/* A restored draft says so. Walking back into a half-filled wizard with
+          no explanation is its own small horror, and the way out has to be one
+          click — a player who wanted a fresh hero should not have to undo
+          fourteen fields to get one. */}
+      {resumed && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[3px] px-4 py-3"
+          style={{ background: "rgba(201,162,39,.10)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }}
+        >
+          <span className="font-body text-[13px] text-cream-soft">
+            Picked up where you left off — your choices were still here.
+          </span>
+          <button
+            onClick={() => {
+              clearDraft();
+              window.location.reload();
+            }}
+            className="label-stamp cursor-pointer border-none bg-transparent text-[10px] font-semibold tracking-[1px] text-gold-muted transition hover:text-ember-bright"
+          >
+            Start a fresh hero
+          </button>
+        </div>
+      )}
+
       {/* header + step rail */}
       <div
         className="mb-6 flex flex-wrap items-center justify-between gap-4 pb-3.5"
@@ -524,6 +572,10 @@ export default function ForgeWizard() {
                         <button
                           key={sk}
                           onClick={() => !granted && toggleSkill(sk)}
+                          // A toggle should say whether it is on. The colour
+                          // alone leaves a screen reader — and a test — with no
+                          // way to tell a chosen skill from an offered one.
+                          aria-pressed={active}
                           disabled={granted}
                           title={granted ? `Granted by ${chosenBackground?.name}` : undefined}
                           className={`label-stamp cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-[10px] tracking-[1px] ${
