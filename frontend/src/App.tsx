@@ -15,6 +15,7 @@ import ArchivesPage from "./components/ArchivesPage";
 import RulesPage from "./components/RulesPage";
 import CodexPage from "./components/CodexPage";
 import MapPage from "./components/MapPage";
+import PlacesPage from "./components/PlacesPage";
 import DenPage from "./components/DenPage";
 import BestiaryPage from "./components/BestiaryPage";
 import EncounterPage from "./components/EncounterPage";
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="codex" element={<CodexPage />} />
           <Route path="map" element={<MapPage />} />
           <Route path="map/:mapId" element={<MapPage />} />
+          <Route path="places" element={<PlacesPage />} />
           <Route path="den" element={<DenPage />} />
           <Route path="bestiary" element={<BestiaryPage />} />
           <Route path="encounters" element={<EncounterPage />} />

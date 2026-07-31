@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import type { Location } from "../api/client";
 import { useCharacters, useCreateQuest, useLocations, useQuests } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
-import PlacesManager from "./PlacesManager";
 import QuestCard from "./QuestCard";
 import QuestForm, { emptyQuest } from "./QuestForm";
 import FloatingDiceTray from "./ui/DiceTray";
@@ -29,8 +28,14 @@ export default function QuestBoard() {
   const { data: characters } = useCharacters(campaign.id);
   const createQuest = useCreateQuest(campaign.id);
   const [posting, setPosting] = useState(false);
-  const [mapping, setMapping] = useState(false);
-  const [place, setPlace] = useState<string>("");
+
+  // The place filter lives in the URL rather than in state, so the Places page
+  // can hand someone a board already narrowed to one corner of the map — and so
+  // that corner survives a reload or a shared link.
+  const [params, setParams] = useSearchParams();
+  const place = params.get("place") ?? "";
+  const setPlace = (next: string) =>
+    setParams(next ? { place: next } : {}, { replace: true });
 
   const places = useMemo(() => locations ?? [], [locations]);
 
@@ -66,15 +71,15 @@ export default function QuestBoard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {isDM && (
-            <button
-              onClick={() => setMapping(true)}
-              className="btn-base btn-ghost-gold clip-octagon h-10 px-4 text-[13px]"
-            >
-              <IconMapPin size={15} strokeWidth={2} />
-              Places
-            </button>
-          )}
+          {/* Places have their own room now — the board keeps a door to it
+              because filing a notice is where you notice a place is missing. */}
+          <Link
+            to={`/questboard/campaigns/${campaign.id}/places`}
+            className="btn-base btn-ghost-gold clip-octagon h-10 px-4 text-[13px] no-underline"
+          >
+            <IconMapPin size={15} strokeWidth={2} />
+            Places
+          </Link>
           {isDM ? (
             <button
               onClick={() => setPosting(true)}
@@ -190,17 +195,6 @@ export default function QuestBoard() {
             onSubmit={(v) =>
               createQuest.mutate(v, { onSuccess: () => setPosting(false) })
             }
-          />
-        </ParchmentModal>
-      )}
-
-      {mapping && (
-        <ParchmentModal onClose={() => setMapping(false)} maxWidth="max-w-[640px]">
-          <PlacesManager
-            campaignId={campaign.id}
-            locations={places}
-            characters={characters ?? []}
-            onClose={() => setMapping(false)}
           />
         </ParchmentModal>
       )}

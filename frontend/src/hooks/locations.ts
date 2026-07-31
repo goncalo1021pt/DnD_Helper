@@ -55,6 +55,33 @@ export function useUpdateLocation(campaignId: string) {
   });
 }
 
+/*
+ * Re-hanging a place is its own call, not a field on the update: `parent_id`
+ * absent from a body and `parent_id` explicitly null decode to the same thing,
+ * so the update endpoint refuses to touch the tree at all. See the note on
+ * UpdateLocationRequest in openapi.yaml.
+ */
+export function useMoveLocation(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      locationId,
+      parentId,
+    }: {
+      locationId: string;
+      parentId: string | null;
+    }) => {
+      const { data, error } = await api.PUT("/locations/{locationId}/parent", {
+        params: { path: { locationId } },
+        body: { parentId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => invalidateBoard(qc, campaignId),
+  });
+}
+
 export function useDeleteLocation(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({

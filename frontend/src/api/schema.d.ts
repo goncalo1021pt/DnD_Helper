@@ -1070,8 +1070,27 @@ export interface paths {
         delete: operations["deleteLocation"];
         options?: never;
         head?: never;
-        /** Rename, redescribe, or move a place (DM only) */
+        /** Rename or redescribe a place (DM only). Moving it is a separate call — see PUT /locations/{locationId}/parent. */
         patch: operations["updateLocation"];
+        trace?: never;
+    };
+    "/locations/{locationId}/parent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Move a place under a new parent, or out to a root of its own (DM only) */
+        put: operations["moveLocation"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/locations/{locationId}/visibility": {
@@ -2476,14 +2495,26 @@ export interface components {
              */
             visibleToParty: boolean;
         };
+        /**
+         * @description A place's own text, replaced. Deliberately cannot move the place: this
+         *     endpoint used to write `parent_id` too, and because an absent field and
+         *     an explicit null are indistinguishable once decoded, a body that only
+         *     renamed a place detached it — taking everything nested inside it out to
+         *     the root, and lifting the veil on any of it that was only dark because
+         *     an ancestor was veiled. Moving is now its own call, where saying nothing
+         *     is not a possible input.
+         */
         UpdateLocationRequest: {
             name: string;
-            description?: string;
+            /** @description Replaces the existing description; send the current one to keep it. */
+            description: string;
+        };
+        MoveLocationRequest: {
             /**
              * Format: uuid
-             * @description Move the place under a new parent; null makes it a root. A place cannot be moved inside itself.
+             * @description The place this one moves inside. Null makes it a root. A place cannot be moved inside itself or inside its own descendant, and the resulting tree must still fit within the depth cap of 10.
              */
-            parentId?: string | null;
+            parentId: string | null;
         };
     };
     responses: {
@@ -4655,6 +4686,36 @@ export interface operations {
         };
         responses: {
             /** @description Updated location */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Location"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    moveLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locationId: components["parameters"]["LocationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveLocationRequest"];
+            };
+        };
+        responses: {
+            /** @description The location after the move, with its new depth */
             200: {
                 headers: {
                     [name: string]: unknown;
