@@ -68,10 +68,18 @@ func run() error {
 		OAuth:          oauth,
 	})
 
+	// Timeouts at both ends of a request. ReadHeaderTimeout alone left a slow
+	// client body holding a connection open indefinitely — the server-side half
+	// of #130, where the client had no deadline either. ReadTimeout is generous
+	// because map uploads carry up to 10 MB of base64 over a phone connection;
+	// WriteTimeout covers the same payload going back out.
 	srv := &stdhttp.Server{
 		Addr:              cfg.Addr,
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       2 * time.Minute,
+		WriteTimeout:      2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
 	}
 
 	// Private metrics server on a SEPARATE port. The Cloudflare tunnel only
@@ -84,6 +92,8 @@ func run() error {
 		Addr:              cfg.MetricsAddr,
 		Handler:           metricsMux,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
 	}
 
 	go func() {

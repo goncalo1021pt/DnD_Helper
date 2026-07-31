@@ -3,8 +3,10 @@
  * builds one. Also level-ups, spells, and inventory.
  */
 
+import { useRef } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { newIdempotencyKey } from "../lib/http";
 import type {
   InventoryItemInput,
   ForgeRequest,
@@ -228,15 +230,37 @@ export function useLevelUp() {
 
 export function useForgeCharacter() {
   const qc = useQueryClient();
+  /*
+  One key per hero attempted, not per request sent (#130).
+
+  A forge that times out may have landed anyway, and both kinds of retry — the
+  transport's own (lib/http.ts) and the player pressing Forge again — must say
+  "this is the same hero I asked for", or the table ends up with twins. The key
+  therefore outlives a single call and is only replaced once a hero has actually
+  been forged with it.
+
+  Which means an edit-and-resubmit after a failure keeps the key: if that first
+  attempt truly never landed, the new body is used as written; if it did land,
+  the player gets the hero they already have rather than a second one. Getting
+  back the hero you made is the right answer to a button you pressed twice.
+  */
+  const key = useRef("");
   return useMutation({
     // Quiet: ForgeAlert already shouts on the wizard's last step.
     meta: { quiet: true },
     mutationFn: async (body: ForgeRequest) => {
-      const { data, error } = await api.POST("/me/characters/forge", { body });
+      if (!key.current) key.current = newIdempotencyKey();
+      const { data, error } = await api.POST("/me/characters/forge", {
+        body,
+        params: { header: { "Idempotency-Key": key.current } },
+      });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-characters"] }),
+    onSuccess: () => {
+      key.current = "";
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+    },
   });
 }
 

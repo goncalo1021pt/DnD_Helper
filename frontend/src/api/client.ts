@@ -1,9 +1,14 @@
 import createClient from "openapi-fetch";
 import type { paths } from "./schema";
+import { apiFetch } from "../lib/http";
 
 // Single typed API client. baseUrl "/api" matches the OpenAPI server url; cookies
 // are same-origin (dev proxy + prod embed) so the session rides along automatically.
-export const api = createClient<paths>({ baseUrl: "/api" });
+//
+// `apiFetch` rather than the platform `fetch`: every request through this client
+// gets a deadline and a bounded retry, so a stalled connection ends in a said
+// error rather than a button that thinks forever (#130). See lib/http.ts.
+export const api = createClient<paths>({ baseUrl: "/api", fetch: apiFetch });
 
 // Convenience aliases for the generated component schemas.
 export type CurrentUser = NonNullable<

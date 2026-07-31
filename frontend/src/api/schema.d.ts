@@ -3051,7 +3051,10 @@ export interface operations {
     forgeCharacter: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Same key, same hero. A forge that times out on a bad connection may in fact have landed, so the retry carries the key of the attempt it is repeating and gets that hero back (201) instead of forging a twin. Keys are scoped to the caller. */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };

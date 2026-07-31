@@ -76,6 +76,12 @@ Same origin serves API + SPA (Vite proxy in dev, `embed.FS` in prod), so session
 
 All server state goes through TanStack Query hooks in `hooks/`, one module per domain (`quests.ts`, `encounters.ts`, `maps.ts`, …) re-exported from `hooks/index.ts` — so `from "../hooks"` resolves to the barrel and either import style works. Queries live beside the mutations that invalidate their keys. `api/client.ts` exports the single typed client and type aliases derived from the OpenAPI schema — new endpoint types flow in automatically after `make generate`. A 401 from `/me` is an expected state (login gate), not an error.
 
+Two defaults are set once and inherited everywhere, so features do not re-solve
+them per call site:
+
+- **Every request has a deadline and a bounded retry** — `lib/http.ts` wraps `fetch` for both the typed client and the hand-rolled auth routes. One 20-second budget covers a whole call, retries included (120s for map images and pack import/export); GET/PUT/PATCH/DELETE are replayed inside it, POST only when it carries an `Idempotency-Key`. Retries belong here, not in `main.tsx`, because only this layer knows the method. Don't add a second retry loop on the QueryClient.
+- **Every mutation failure is said out loud** — a MutationCache handler in `main.tsx` raises a notice for any mutation error; a call site with a better surface of its own opts *out* with `meta: { quiet: true }`.
+
 ### The character-sheet exporter (`frontend/src/lib/sheet/`)
 
 The one feature that deliberately sits outside the contract-first pattern: it is

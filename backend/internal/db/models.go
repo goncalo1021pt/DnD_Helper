@@ -488,6 +488,7 @@ type Character struct {
 	PendingLevels  int16              `json:"pending_levels"`
 	TableBorn      bool               `json:"table_born"`
 	SpeciesChoices []byte             `json:"species_choices"`
+	ForgeKey       pgtype.UUID        `json:"forge_key"`
 }
 
 type CharacterItem struct {

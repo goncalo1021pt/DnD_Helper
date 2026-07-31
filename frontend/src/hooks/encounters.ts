@@ -5,6 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { AddCombatantInput } from "../api/client";
+import { apiFetch } from "../lib/http";
 
 export function useEncounters(campaignId: string, enabled: boolean) {
   return useQuery({
@@ -26,7 +27,7 @@ export function useActiveEncounter(campaignId: string) {
     queryKey: ["encounter-active", campaignId],
     refetchInterval: 8000, // no sockets yet — poll so the table stays in sync
     queryFn: async () => {
-      const res = await fetch(`/api/campaigns/${campaignId}/encounters/active`);
+      const res = await apiFetch(`/api/campaigns/${campaignId}/encounters/active`);
       if (res.status === 204) return null;
       if (!res.ok) throw new Error("failed to load encounter");
       return (await res.json()) as import("../api/client").EncounterDetail;
