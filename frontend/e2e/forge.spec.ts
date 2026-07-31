@@ -15,11 +15,13 @@ mechanics rather than spell selection, which spells.spec covers separately.
 
 const nextStep = (page: Page) => page.getByRole("button", { name: /Next →/ });
 
-test("forges a hero through every step and lands on their sheet", async ({ page }) => {
-  const account = newAccount("forge");
-  await registerViaAPI(page.request, account);
+const forgeButton = (page: Page) => page.getByRole("button", { name: "Forge the Hero" });
 
-  const heroName = unique("Thora ");
+/**
+ * Walks a Fighter through every step and stops with the name typed and the
+ * Forge button armed, so a test can decide what pressing it should mean.
+ */
+async function walkTheWizard(page: Page, heroName: string): Promise<void> {
   await page.goto("/questboard/heroes/forge");
 
   // --- Class: pick the class, then the skills it grants -------------------
@@ -63,13 +65,67 @@ test("forges a hero through every step and lands on their sheet", async ({ page 
   await expect(page.getByText(/The hero's name/i)).toBeVisible();
   await page.getByRole("textbox").last().fill(heroName);
 
-  const forge = page.getByRole("button", { name: "Forge the Hero" });
-  await expect(forge).toBeEnabled();
-  await forge.click();
+  await expect(forgeButton(page)).toBeEnabled();
+}
+
+test("forges a hero through every step and lands on their sheet", async ({ page }) => {
+  const account = newAccount("forge");
+  await registerViaAPI(page.request, account);
+
+  const heroName = unique("Thora ");
+  await walkTheWizard(page, heroName);
+  await forgeButton(page).click();
 
   // The hero exists and their sheet reads back what we chose.
   await expect(page.getByText(heroName)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Fighter/).first()).toBeVisible();
+});
+
+/*
+The other half of #130, and the half that is silent when it breaks.
+
+The reported failure, played out exactly: the forge POST lands and builds the
+hero, and then the connection dies on the way back with the answer. The player
+sees nothing happen, so they press Forge again. Without the idempotency key that
+second press builds a second hero out of the same twenty minutes of choices, and
+nothing on screen ever says so — they simply find twins in My Heroes.
+
+Driven through the UI rather than by replaying a captured request, because the
+key lives in a `useRef` that deliberately outlives a failed attempt: it is the
+*wizard* keeping its promise across the retry that is under test, not just the
+server's half of it. (It also cannot be tested by replay — the transport builds
+its Request in a way Chromium will not hand a body back for, so
+`postDataJSON()` is null.)
+*/
+test("a hero forged twice after a timeout is still one hero", async ({ page }) => {
+  await registerViaAPI(page.request, newAccount("twins"));
+  const heroName = unique("Bruenor ");
+
+  let attempts = 0;
+  await page.route("**/api/me/characters/forge", async (route) => {
+    if (++attempts > 1) return route.continue();
+    // Let the first attempt reach the server — the hero really is built — and
+    // then swallow the answer. That is what a connection dying on the way back
+    // looks like, and it is the case the client had no reply to.
+    await route.fetch();
+    await new Promise((r) => setTimeout(r, 30_000));
+    await route.abort();
+  });
+
+  await walkTheWizard(page, heroName);
+  await forgeButton(page).click();
+
+  // The wizard gives up rather than thinking forever, and hands the button back.
+  await expect(forgeButton(page)).toBeEnabled({ timeout: 40_000 });
+
+  // The player, having seen nothing happen, presses again.
+  await forgeButton(page).click();
+  await expect(page).toHaveURL(/\/questboard\/profile/, { timeout: 20_000 });
+
+  // One hero, not twins. Were the key not carried across the retry — or not
+  // honoured — this is where the second Bruenor would show up.
+  const all = (await (await page.request.get("/api/me/characters")).json()) as { name: string }[];
+  expect(all.filter((h) => h.name === heroName)).toHaveLength(1);
 });
 
 /*
