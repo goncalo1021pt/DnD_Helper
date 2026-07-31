@@ -29,6 +29,52 @@ type codexBlocker struct {
 	state api.SeatConflictMissingState
 }
 
+/*
+codexRuling is the whole codex rule with the database taken out of it: given
+what a piece of content IS and what the campaign has SAID about it, may a hero
+carrying it sit down, and if not, what does the player get told.
+
+The asymmetry is the rule. SRD is legal until a DM bans it — silence means yes.
+Homebrew is illegal until a DM enables it — silence means no. So an unruled
+entry goes opposite ways depending only on its source, which is the part worth
+pinning down: get it backwards and a campaign either admits another author's
+private homebrew or bars its own SRD.
+
+`ruled` is separate from `status` because "no row in the codex" is a distinct
+state from any ruling, and Go's zero value for CodexStatus is a real status.
+Reading a missing row as its zero value is exactly the bug this signature makes
+impossible to write.
+*/
+func codexRuling(source db.ContentSource, status db.CodexStatus, ruled bool) (bool, api.SeatConflictMissingState) {
+	legal := (source == db.ContentSourceSrd && (!ruled || status != db.CodexStatusBanned)) ||
+		(source == db.ContentSourceHomebrew && ruled && status == db.CodexStatusEnabled)
+	if legal {
+		return true, ""
+	}
+	switch {
+	case ruled && status == db.CodexStatusBanned:
+		return false, api.SeatConflictMissingStateBanned
+	case ruled && status == db.CodexStatusProposed:
+		return false, api.SeatConflictMissingStateProposed
+	default:
+		// Never offered to this table at all — the DM has nothing to act on yet.
+		return false, api.SeatConflictMissingStateAbsent
+	}
+}
+
+// sheetColumnIDs is the four rules references a hero carries on the character
+// row itself: class, species, background, and a subclass once they have one.
+// Split out of sheetContentIDs so the part that needs no database can be tested.
+func sheetColumnIDs(c db.Character) []uuid.UUID {
+	var ids []uuid.UUID
+	for _, u := range []pgtype.UUID{c.ClassID, c.SpeciesID, c.BackgroundID, c.SubclassID} {
+		if u.Valid {
+			ids = append(ids, uuid.UUID(u.Bytes))
+		}
+	}
+	return ids
+}
+
 // codexBlockers returns the given content entries that are NOT legal in the
 // campaign: banned SRD, or homebrew that isn't enabled.
 func (s *Server) codexBlockers(ctx context.Context, campaignID uuid.UUID, contentIDs []uuid.UUID) ([]codexBlocker, error) {
@@ -57,18 +103,9 @@ func (s *Server) codexBlockers(ctx context.Context, campaignID uuid.UUID, conten
 			return nil, err
 		}
 		status, ruled := statuses[id]
-		legal := (row.Source == db.ContentSourceSrd && (!ruled || status != db.CodexStatusBanned)) ||
-			(row.Source == db.ContentSourceHomebrew && ruled && status == db.CodexStatusEnabled)
-		if legal {
-			continue
+		if legal, state := codexRuling(row.Source, status, ruled); !legal {
+			blockers = append(blockers, codexBlocker{row: row, state: state})
 		}
-		state := api.SeatConflictMissingStateAbsent
-		if ruled && status == db.CodexStatusBanned {
-			state = api.SeatConflictMissingStateBanned
-		} else if ruled && status == db.CodexStatusProposed {
-			state = api.SeatConflictMissingStateProposed
-		}
-		blockers = append(blockers, codexBlocker{row: row, state: state})
 	}
 	return blockers, nil
 }
@@ -96,12 +133,7 @@ func seatConflictItem(b codexBlocker) struct {
 // sheetContentIDs collects every rules reference a hero carries: the four
 // sheet columns plus spell picks and content-backed inventory rows.
 func (s *Server) sheetContentIDs(ctx context.Context, c db.Character) ([]uuid.UUID, error) {
-	var ids []uuid.UUID
-	for _, u := range []pgtype.UUID{c.ClassID, c.SpeciesID, c.BackgroundID, c.SubclassID} {
-		if u.Valid {
-			ids = append(ids, uuid.UUID(u.Bytes))
-		}
-	}
+	ids := sheetColumnIDs(c)
 	refs, err := s.queries.ListCharacterContentRefs(ctx, c.ID)
 	if err != nil {
 		return nil, err
