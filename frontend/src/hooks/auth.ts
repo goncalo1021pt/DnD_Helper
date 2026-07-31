@@ -7,6 +7,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { http } from "../lib/http";
 
 export interface AuthConfig {
   devLogin: boolean;
@@ -22,7 +23,7 @@ export function useAuthConfig() {
   return useQuery({
     queryKey: ["auth-config"],
     queryFn: async (): Promise<AuthConfig> => {
-      const res = await fetch("/api/auth/config");
+      const res = await http("/api/auth/config");
       if (!res.ok) throw new Error("failed to load auth config");
       return res.json();
     },
@@ -48,7 +49,7 @@ export function useLogout() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await http("/api/auth/logout", { method: "POST" });
     },
     onSuccess: () => qc.invalidateQueries(),
   });
@@ -60,7 +61,7 @@ export function useLogout() {
 type TwofaError = Error & { status: number; data: { field?: string; error?: string } };
 
 async function authPost<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await http(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,

@@ -1831,6 +1831,8 @@ export interface components {
             gear?: string;
             /** @description One entry per choice the species offers, keyed by choice id — an Elf's lineage, a Gnome's Forest-or-Rock, a Human's free skill and Origin feat. Every offered choice must be answered. */
             speciesChoices?: components["schemas"]["SpeciesChoices"];
+            /** @description Opaque per-submission id. If a forge with this key already produced a hero for this user, the server returns that hero instead of forging a second one — so a retry after a timeout is safe. The wizard generates one key and reuses it across retries of the same submission. */
+            idempotencyKey?: string;
         };
         CharacterInput: {
             name: string;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { AbilityScores, RulesContent } from "../api/client";
 import { useCampaigns, useCodex, useForgeCharacter, useRules } from "../hooks";
@@ -48,12 +48,23 @@ import {
  * Everything is driven by the rules content — no hardcoded classes.
  */
 
+// `crypto.randomUUID` needs a secure context, which a LAN deployment over plain
+// http is not. The fallback only has to be unique among one player's tabs.
+const newSubmissionKey = () =>
+  globalThis.crypto?.randomUUID?.() ??
+  `forge-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
 export default function ForgeWizard() {
   const navigate = useNavigate();
   const { data: classes } = useRules("class");
   const { data: species } = useRules("species");
   const { data: backgrounds } = useRules("background");
   const forge = useForgeCharacter();
+
+  // One key per submission, held across retries (#130). A forge that timed out
+  // *after* the server built the hero would otherwise build a second one when
+  // the player, having seen nothing happen, presses Forge again.
+  const submissionKey = useRef(newSubmissionKey());
 
   const [step, setStep] = useState(0);
   const [classId, setClassId] = useState<string>("");
@@ -387,8 +398,15 @@ export default function ForgeWizard() {
         spells: casting ? spellIds : undefined,
         gear: gearOptions.length > 0 ? gear : undefined,
         speciesChoices: speciesChoices.length > 0 ? speciesPicks : undefined,
+        idempotencyKey: submissionKey.current,
       },
-      { onSuccess: () => navigate("/questboard/profile") },
+      {
+        onSuccess: () => {
+          // Spent. Anything forged from here is a different hero.
+          submissionKey.current = newSubmissionKey();
+          navigate("/questboard/profile");
+        },
+      },
     );
   }
 

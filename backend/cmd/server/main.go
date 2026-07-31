@@ -68,10 +68,18 @@ func run() error {
 		OAuth:          oauth,
 	})
 
+	// The other half of #130: the client now gives up on a stalled request, and
+	// this stops a stalled *client* from holding a connection here forever.
+	// ReadTimeout covers the whole body, and hanging a map ships its image as
+	// base64 in that body, so it is generous rather than tight — bounded, not
+	// brisk. No WriteTimeout on purpose: a composited map image going back down
+	// a slow link is a slow response, not a stuck one.
 	srv := &stdhttp.Server{
 		Addr:              cfg.Addr,
 		Handler:           router,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       2 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
 	}
 
 	// Private metrics server on a SEPARATE port. The Cloudflare tunnel only

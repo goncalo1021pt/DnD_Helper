@@ -11,6 +11,42 @@ table, so it is worth driving through the UI rather than trusting the handlers'
 unit tests.
 */
 
+/*
+The front door gives up too (#130).
+
+`/api/auth/*` is hand-rolled and sits outside the OpenAPI client, so the whole
+sign-in flow reaches the network through a plain `fetch`. Its catch — "Could not
+reach the tavern" — was written correctly and never ran, because a stalled fetch
+never rejects: the button just sat at "…" for as long as the tab was open. This
+is the reported bug on the first screen a player ever sees, and it is why the
+deadline lives in `lib/http.ts` rather than in `api/client.ts`.
+*/
+test("a sign-in that never answers gives up rather than sitting at '…'", async ({ page }) => {
+  // No account needed: the request is swallowed before it ever reaches the
+  // server, so what these credentials say is beside the point.
+  let release = () => {};
+  await page.route("**/api/auth/login", async (route) => {
+    await new Promise<void>((resolve) => (release = resolve));
+    await route.abort().catch(() => {});
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Log In" }).first().click();
+  await page.locator('input[name="username"]').fill("nobody");
+  await page.locator('input[name="password"]').fill("does-not-matter");
+  const signIn = page.getByRole("button", { name: "Sign in", exact: true }).last();
+  await signIn.click();
+
+  // The symptom: the button reads "…" and is disabled.
+  await expect(page.getByRole("button", { name: "…", exact: true })).toBeDisabled();
+
+  // Now the catch that was always there finally runs.
+  await expect(page.getByText(/Could not reach the tavern/i)).toBeVisible({ timeout: 40_000 });
+  await expect(signIn).toBeEnabled();
+
+  release();
+});
+
 test("a new account enters unverified and is nudged to confirm", async ({ page }) => {
   const account = newAccount("verify");
   await registerViaUI(page, account);

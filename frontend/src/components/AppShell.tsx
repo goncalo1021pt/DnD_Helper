@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Outlet } from "react-router-dom";
 import type { CurrentUser } from "../api/client";
+import { http } from "../lib/http";
 import { initials, medallionFor } from "../lib/party";
 import Crest from "./ui/Crest";
 import SiteFooter from "./ui/SiteFooter";
@@ -24,7 +25,12 @@ function VerifyBanner() {
       {state === "show" && (
         <button
           onClick={() => {
-            fetch("/api/auth/resend-verification", { method: "POST" }).finally(() => setState("sent"));
+            // Swallowed on purpose: the banner has always said "sent" either
+            // way, and now that the call can actually reject there has to be
+            // something here to catch it.
+            http("/api/auth/resend-verification", { method: "POST" })
+              .catch(() => {})
+              .finally(() => setState("sent"));
           }}
           className="label-stamp cursor-pointer border-none bg-transparent text-[11px] font-semibold tracking-[1px] text-ember-bright hover:text-cream"
         >

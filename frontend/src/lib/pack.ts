@@ -1,6 +1,9 @@
+import { http } from "./http";
+import { noticeFor, pushNotice } from "./notices";
+
 /** Download the caller's whole homebrew collection as a pack file. */
 export function exportHomebrewPack() {
-  fetch("/api/rules/export", { credentials: "include" })
+  http("/api/rules/export", { credentials: "include" })
     .then((r) => r.json())
     .then((pack) => {
       const url = URL.createObjectURL(
@@ -11,7 +14,10 @@ export function exportHomebrewPack() {
       a.download = "questboard-homebrew-pack.json";
       a.click();
       URL.revokeObjectURL(url);
-    });
+    })
+    // Not a mutation, so the MutationCache never hears about it — an export
+    // that dies would otherwise be a button that did nothing at all.
+    .catch((err) => pushNotice(noticeFor(err)));
 }
 
 /** The pack's own name for itself, else the file it arrived in — "Xanathars

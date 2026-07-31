@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
+import { slowUpload } from "../lib/http";
 import type { MapPinInput } from "../api/client";
 
 export function useMaps(campaignId: string) {
@@ -27,9 +28,12 @@ export function useCreateMap(campaignId: string) {
       imageBase64: string;
       parentMapId?: string;
     }) => {
+      // The image rides in the body as base64, so this is the one call that is
+      // slow on purpose rather than stuck. See slowUpload() in lib/http.ts.
       const { data, error } = await api.POST("/campaigns/{campaignId}/maps", {
         params: { path: { campaignId } },
         body,
+        ...slowUpload(),
       });
       if (error) throw error;
       return data;

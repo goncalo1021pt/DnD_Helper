@@ -39,3 +39,40 @@ test("a failed mutation says so, with the server's own words", async ({ page }) 
   await page.getByRole("button", { name: "Dismiss" }).first().click();
   await expect(notice).toBeHidden();
 });
+
+/*
+That a request which never answers stops being a button that never stops (#130).
+
+The report was about the Forge, but the Forge was innocent — its error surface
+is correct and simply never fired, because a stalled `fetch` never settles into
+an error at all. The deadline that fixes it lives in `api/client.ts` and covers
+every call, so this proves it on the cheapest page that shows the same symptom:
+a submit button stuck on its pending caption.
+*/
+test("a request that never answers gives up, and says why", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("stall"));
+
+  // Swallow the call whole: no response, no error, no end. A bad link, exactly.
+  let release = () => {};
+  await page.route("**/api/campaigns", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    await new Promise<void>((resolve) => (release = resolve));
+    await route.abort().catch(() => {});
+  });
+
+  await page.goto("/questboard");
+  await page.getByPlaceholder("Name of the campaign").fill(unique("Stalled "));
+  await page.getByRole("button", { name: "Found", exact: true }).click();
+
+  // The reported symptom, reproduced: pending caption, button disabled.
+  await expect(page.getByRole("button", { name: "Founding…" })).toBeDisabled();
+
+  // Before the deadline, that was the whole story. Now it ends.
+  await expect(page.getByRole("status").getByText(/took too long/)).toBeVisible({
+    timeout: 40_000,
+  });
+  await expect(page.getByRole("button", { name: "Found", exact: true })).toBeEnabled();
+
+  release();
+});

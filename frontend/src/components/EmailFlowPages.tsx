@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { http } from "../lib/http";
 import { passwordStrength } from "../lib/password";
 
 /** Centered parchment card on the hearth — the shell for the email flows. */
@@ -38,7 +39,7 @@ export function VerifyEmailPage() {
       setState("fail");
       return;
     }
-    fetch("/api/auth/verify-email", {
+    http("/api/auth/verify-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
@@ -89,7 +90,7 @@ export function ForgotPasswordPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      await fetch("/api/auth/forgot-password", {
+      await http("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -156,7 +157,7 @@ export function ResetPasswordPage() {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      const res = await http("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),

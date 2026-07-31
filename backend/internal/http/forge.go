@@ -160,6 +160,35 @@ func (s *Server) fetchContent(ctx context.Context, id uuid.UUID, kind db.Content
 	return row, nil
 }
 
+// forgedUnderKey reports the hero a given forge submission already produced,
+// or nil if this is the submission's first arrival. A miss is the normal case,
+// not a fault.
+func (s *Server) forgedUnderKey(ctx context.Context, uid uuid.UUID, key string) (*db.Character, error) {
+	hero, err := s.queries.GetForgedByKey(ctx, db.GetForgedByKeyParams{
+		OwnerUserID: uid,
+		ForgeKey:    &key,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &hero, nil
+}
+
+// forgedResponse renders an already-built hero as the forge's 201, so a repeat
+// submission is indistinguishable from the one that did the work.
+func (s *Server) forgedResponse(ctx context.Context, uid uuid.UUID, hero db.Character) (api.ForgeCharacterResponseObject, error) {
+	me, err := s.queries.GetUserByID(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	return api.ForgeCharacter201JSONResponse(
+		toAPICharacterWithClass(hero, me.Name, uid, s.classDataFor(ctx, hero)),
+	), nil
+}
+
 // ForgeCharacter builds a level-1 hero through the wizard: validated against
 // the rules content, HP derived from the class hit die and CON modifier.
 func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterRequestObject) (api.ForgeCharacterResponseObject, error) {
@@ -174,6 +203,23 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		return badRequest("a forge body is required")
 	}
 	body := request.Body
+
+	// #130: a forge POST that timed out on a slow link may well have landed.
+	// The player, having seen nothing, presses Forge again. If this submission
+	// already produced a hero, hand that hero back instead of building a second
+	// one out of the same twenty minutes of choices.
+	var forgeKey *string
+	if body.IdempotencyKey != nil {
+		if key := strings.TrimSpace(*body.IdempotencyKey); key != "" {
+			forgeKey = &key
+			switch hero, err := s.forgedUnderKey(ctx, uid, key); {
+			case err != nil:
+				return nil, err
+			case hero != nil:
+				return s.forgedResponse(ctx, uid, *hero)
+			}
+		}
+	}
 
 	name := strings.TrimSpace(body.Name)
 	if name == "" || len([]rune(name)) > 80 {
@@ -359,8 +405,20 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		BackgroundID:   pgUUID(background.ID),
 		Feats:          feats,
 		SpeciesChoices: speciesChoices,
+		ForgeKey:       forgeKey,
 	})
 	if err != nil {
+		// Two submissions of the same key in flight at once — two tabs, or a
+		// double press that beat the disabled button. The partial unique index
+		// rejects the loser, which then reads the winner's hero rather than
+		// reporting a failure for work that did in fact succeed. (The winner may
+		// still be stocking spells and gear; the sheet fetches those separately,
+		// so the answer is early rather than wrong.)
+		if forgeKey != nil {
+			if hero, keyErr := s.forgedUnderKey(ctx, uid, *forgeKey); keyErr == nil && hero != nil {
+				return s.forgedResponse(ctx, uid, *hero)
+			}
+		}
 		return nil, err
 	}
 	if len(spellIDs) > 0 {

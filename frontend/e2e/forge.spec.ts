@@ -15,11 +15,19 @@ mechanics rather than spell selection, which spells.spec covers separately.
 
 const nextStep = (page: Page) => page.getByRole("button", { name: /Next →/ });
 
-test("forges a hero through every step and lands on their sheet", async ({ page }) => {
-  const account = newAccount("forge");
-  await registerViaAPI(page.request, account);
+/**
+ * Walks a Fighter through the whole wizard and returns the body the app
+ * actually posted — captured rather than hand-written, so a test that replays a
+ * submission replays the real thing, idempotency key and all.
+ */
+async function forgeAFighter(page: Page, heroName: string): Promise<Record<string, unknown>> {
+  let posted: Record<string, unknown> | undefined;
+  page.on("request", (req) => {
+    if (req.method() === "POST" && req.url().endsWith("/api/me/characters/forge")) {
+      posted = req.postDataJSON();
+    }
+  });
 
-  const heroName = unique("Thora ");
   await page.goto("/questboard/heroes/forge");
 
   // --- Class: pick the class, then the skills it grants -------------------
@@ -70,6 +78,56 @@ test("forges a hero through every step and lands on their sheet", async ({ page 
   // The hero exists and their sheet reads back what we chose.
   await expect(page.getByText(heroName)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Fighter/).first()).toBeVisible();
+
+  if (!posted) throw new Error("the wizard never posted to the forge");
+  return posted;
+}
+
+test("forges a hero through every step and lands on their sheet", async ({ page }) => {
+  const account = newAccount("forge");
+  await registerViaAPI(page.request, account);
+  await forgeAFighter(page, unique("Thora "));
+});
+
+/*
+#130's quieter half: a forge POST that timed out may already have landed, and
+the player — having seen nothing happen — presses Forge again. Without the
+idempotency key that second press builds a second hero out of the same twenty
+minutes of choices.
+
+The body here is the one the wizard really sent, replayed verbatim, because
+that is exactly what a second press sends.
+*/
+test("a repeated submission returns the same hero rather than forging a second", async ({
+  page,
+}) => {
+  await registerViaAPI(page.request, newAccount("idem"));
+  const heroName = unique("Bruenor ");
+
+  const body = await forgeAFighter(page, heroName);
+  expect(typeof body.idempotencyKey).toBe("string");
+
+  const again = await page.request.post("/api/me/characters/forge", { data: body });
+  expect(again.status()).toBe(201);
+
+  const named = async () => {
+    const all = (await (await page.request.get("/api/me/characters")).json()) as {
+      id: string;
+      name: string;
+    }[];
+    return all.filter((h) => h.name === heroName);
+  };
+
+  // One hero, and the repeat was handed that same one back.
+  const after = await named();
+  expect(after).toHaveLength(1);
+  expect((await again.json()).id).toBe(after[0].id);
+
+  // And the key is what did it, not some incidental dedup on the name: the very
+  // same body without a key forges a second Bruenor, exactly as #130 described.
+  delete body.idempotencyKey;
+  expect((await page.request.post("/api/me/characters/forge", { data: body })).status()).toBe(201);
+  expect(await named()).toHaveLength(2);
 });
 
 /*

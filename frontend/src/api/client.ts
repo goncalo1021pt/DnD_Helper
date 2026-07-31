@@ -1,9 +1,11 @@
 import createClient from "openapi-fetch";
 import type { paths } from "./schema";
+import { fetchWithDeadline } from "../lib/http";
 
 // Single typed API client. baseUrl "/api" matches the OpenAPI server url; cookies
 // are same-origin (dev proxy + prod embed) so the session rides along automatically.
-export const api = createClient<paths>({ baseUrl: "/api" });
+// Its transport carries the deadline every request gets — see lib/http.ts.
+export const api = createClient<paths>({ baseUrl: "/api", fetch: fetchWithDeadline });
 
 // Convenience aliases for the generated component schemas.
 export type CurrentUser = NonNullable<

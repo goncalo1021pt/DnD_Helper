@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuthConfig, type AuthConfig } from "../hooks";
+import { http } from "../lib/http";
 import { passwordStrength } from "../lib/password";
 import Crest from "./ui/Crest";
 import Embers from "./ui/Embers";
@@ -62,7 +63,7 @@ function LocalAuth() {
         mode === "signin"
           ? ["/api/auth/login", { identifier, password }]
           : ["/api/auth/register", { email, username, password }];
-      const res = await fetch(path, {
+      const res = await http(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -87,7 +88,7 @@ function LocalAuth() {
     setBusy(true);
     setFormError("");
     try {
-      const res = await fetch("/api/auth/2fa/verify", {
+      const res = await http("/api/auth/2fa/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: code.trim() }),
