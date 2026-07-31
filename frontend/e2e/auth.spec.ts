@@ -11,6 +11,44 @@ table, so it is worth driving through the UI rather than trusting the handlers'
 unit tests.
 */
 
+/*
+The front door gives up too (#130).
+
+`notices.spec` proves the deadline through the typed client. This is the other
+transport: `/api/auth/*` is hand-rolled and sits outside the OpenAPI surface, so
+the whole sign-in flow reaches the network through `apiFetch` directly rather
+than through `api.POST`. It is worth its own test because it is the one place
+where the deadline landing in `api/client.ts` instead of `lib/http.ts` would
+have looked entirely fixed and left the bug in place.
+
+And it is the first screen anyone sees. `LandingPage.submit` has always had the
+right catch — "Could not reach the tavern" — and it never ran, because a stalled
+fetch never rejects. The button just sat at "…" for as long as the tab was open.
+*/
+test("a sign-in that never answers gives up rather than sitting at '…'", async ({ page }) => {
+  // No account needed: the request is swallowed before it reaches the server,
+  // so what these credentials say is beside the point.
+  await page.route("**/api/auth/login", async (route) => {
+    // Accepted, then met with silence — well past the client's budget.
+    await new Promise((r) => setTimeout(r, 35_000));
+    await route.abort();
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Log In" }).first().click();
+  await page.locator('input[name="username"]').fill("nobody");
+  await page.locator('input[name="password"]').fill("does-not-matter");
+  const signIn = page.getByRole("button", { name: "Sign in", exact: true }).last();
+  await signIn.click();
+
+  // The reported symptom, reproduced: the button reads "…" and is disabled.
+  await expect(page.getByRole("button", { name: "…", exact: true })).toBeDisabled();
+
+  // Now the catch that was always there finally runs.
+  await expect(page.getByText(/Could not reach the tavern/i)).toBeVisible({ timeout: 40_000 });
+  await expect(signIn).toBeEnabled();
+});
+
 test("a new account enters unverified and is nudged to confirm", async ({ page }) => {
   const account = newAccount("verify");
   await registerViaUI(page, account);
