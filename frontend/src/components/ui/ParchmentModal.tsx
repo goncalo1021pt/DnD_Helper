@@ -27,6 +27,11 @@ export default function ParchmentModal({
       style={{ background: "rgba(12,7,3,.72)", backdropFilter: "blur(2px)" }}
     >
       <div
+        // A modal is a dialog. Saying so gives assistive tech the boundary it
+        // already draws visually — and gives a test a way to mean "the button
+        // inside this modal" rather than the identically named one behind it.
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
         className={`parchment anim-rise-fast max-h-[calc(100svh-40px)] w-full overflow-y-auto overscroll-contain px-8 pb-8 pt-[34px] ${maxWidth}`}
         style={{

@@ -99,3 +99,62 @@ test("a Gnome's species traits and their lineage are on the sheet", async ({ pag
   await expect(page.getByText("Magic Initiate (Cleric)").first()).toBeVisible();
   await expect(page.getByText("You learn two cantrips of your choice").first()).toBeVisible();
 });
+
+/*
+Armour, and the number it changes.
+
+Two things meet on this page: `slotsFor` decides what an inventory row can be
+worn as, and `acFromEquipment` decides what wearing it is worth. Between them
+sits the rig — three tiles, each a button that opens a picker of whatever fits.
+
+HeroSheetPage is 878 lines and #108's next target, so this is the net under the
+part of it that produces a number. Like #132, "an AC is displayed" was true
+before and after every bug this page has ever had; the number is the test.
+*/
+test("worn armour changes the AC the sheet reports", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("armour"));
+
+  // DEX 14 (+2), no armour: 10 + 2 = 12.
+  const id = await forgeHero(page.request, {
+    name: unique("Sir Kay "),
+    className: "Fighter",
+    speciesName: "Dwarf",
+    backgroundName: "Acolyte",
+    abilities: { str: 15, dex: 14, con: 13, int: 10, wis: 12, cha: 8 },
+    skills: ["Athletics", "Survival"],
+  });
+
+  // Put a real piece of armour in the pack — from the library, so the sheet can
+  // read its type and its AC rather than treating it as free text.
+  const items = (await (await page.request.get("/api/rules/item")).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const chain = items.find((i) => i.name === "Chain Mail");
+  expect(chain, "Chain Mail should be in the armory").toBeTruthy();
+  const added = await page.request.post(`/api/characters/${id}/items`, {
+    data: { contentId: chain!.id, name: "Chain Mail", qty: 1 },
+  });
+  expect(added.ok(), await added.text()).toBeTruthy();
+
+  await page.goto(`/questboard/heroes/${id}`);
+  const ac = page.getByText("AC", { exact: true }).locator("xpath=following-sibling::div").first();
+  await expect(ac).toHaveText("12");
+
+  // The rig lives on the Inventory tab: three tiles, each a button that opens a
+  // picker of whatever fits that slot.
+  await page.getByRole("button", { name: "Inventory", exact: true }).click();
+  // The empty tile, not the "Armor" type filter beside the pack — both are
+  // buttons whose name starts with the word, and clicking the wrong one filters
+  // the grid and equips nothing.
+  await page.getByRole("button", { name: /Armor.*empty/i }).click();
+  // Inside the picker: the pack behind it holds a Chain Mail tile of its own.
+  await page.getByRole("dialog").getByRole("button", { name: /Chain Mail/ }).click();
+
+  // Back on the sheet, the number has moved. Chain Mail is AC 16 flat — DEX
+  // stops counting, which is the whole point of the formula living in the item
+  // rather than in the page.
+  await page.getByRole("button", { name: "The Sheet", exact: true }).click();
+  await expect(ac).toHaveText("16", { timeout: 20_000 });
+});

@@ -15,106 +15,25 @@ import { levelUpHold } from "../lib/progression";
 import { acFromEquipment, featuresOf, profBonus, weaponAttacks, type Feature } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
-import SpellEntry, { Blocks, SpellFlags } from "./ui/SpellEntry";
+import SpellEntry, { SpellFlags } from "./ui/SpellEntry";
 import ContentEntry from "./ui/ContentEntry";
 import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
 import { printHeroSheet } from "../lib/sheet/print";
 
-type EquipSlot = "armor" | "mainhand" | "offhand";
-const SLOT_LABEL: Record<EquipSlot, string> = {
-  armor: "Armor",
-  mainhand: "Main Hand",
-  offhand: "Off Hand",
-};
-
-function itemTypeOf(it: InventoryItem): string {
-  return ((it.content?.data ?? {}) as { type?: string }).type ?? "";
-}
-
-/** Which slots an inventory row can occupy. */
-function slotsFor(it: InventoryItem): EquipSlot[] {
-  switch (itemTypeOf(it)) {
-    case "armor":
-      return ["armor"];
-    case "shield":
-      return ["offhand"];
-    case "weapon":
-      return ["mainhand", "offhand"];
-    default:
-      return [];
-  }
-}
-
-/** The one number worth printing on a tile. */
-function keyStat(it: InventoryItem): string {
-  const d = (it.content?.data ?? {}) as {
-    ac?: number; acBonus?: number; damage?: string; damageType?: string;
-  };
-  switch (itemTypeOf(it)) {
-    case "armor":
-      return `AC ${d.ac ?? "?"}`;
-    case "shield":
-      return `+${d.acBonus ?? 2} AC`;
-    case "weapon":
-      return `${d.damage ?? ""} ${d.damageType ?? ""}`.trim();
-    default:
-      return "";
-  }
-}
-
-function ItemGlyph({ it }: { it: InventoryItem }) {
-  switch (itemTypeOf(it)) {
-    case "armor":
-      return <IconArmor size={15} strokeWidth={1.6} />;
-    case "shield":
-      return <IconShieldItem size={15} strokeWidth={1.6} />;
-    case "weapon":
-      return <IconSword size={15} strokeWidth={1.6} />;
-    default:
-      return <IconSack size={15} strokeWidth={1.6} />;
-  }
-}
 import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
 import LevelUpModal from "./LevelUpModal";
 import {
-  IconArmor,
   IconCoin,
   IconPlus,
   IconPrinter,
-  IconSack,
-  IconShieldItem,
-  IconSword,
   IconTrash,
 } from "./ui/icons";
-
-/**
- * The hero sheet: one page per hero with everything the table needs —
- * abilities, skills, features by level, feats, spells with slot pips,
- * and the pack with real AC. Basic skeleton; the polish pass comes later.
- */
-
-const SKILL_ABILITY: Record<string, string> = {
-  Athletics: "str",
-  Acrobatics: "dex", "Sleight of Hand": "dex", Stealth: "dex",
-  Arcana: "int", History: "int", Investigation: "int", Nature: "int", Religion: "int",
-  "Animal Handling": "wis", Insight: "wis", Medicine: "wis", Perception: "wis", Survival: "wis",
-  Deception: "cha", Intimidation: "cha", Performance: "cha", Persuasion: "cha",
-};
-
-/** A species' pick list, so a chosen lineage can be shown as what it grants. */
-interface SpeciesChoice {
-  id?: string;
-  options?: Array<{ name?: string; summary?: string }>;
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="label-stamp mb-2.5 text-[10px] tracking-[2.5px] text-gold-muted">
-      {children}
-    </div>
-  );
-}
+import { SLOT_LABEL, itemTypeOf, keyStat, slotsFor, type EquipSlot } from "./sheet/items";
+import ItemGlyph from "./sheet/ItemGlyph";
+import SectionLabel, { type SpeciesChoice } from "./sheet/SectionLabel";
+import SkillsPanel from "./sheet/SkillsPanel";
+import FeaturesPanel from "./sheet/FeaturesPanel";
 
 export default function HeroSheetPage() {
   const { heroId } = useParams<{ heroId: string }>();
@@ -426,54 +345,10 @@ export default function HeroSheetPage() {
             </section>
 
             {/* skills */}
-            <section>
-              <SectionLabel>Skills</SectionLabel>
-              <div className="parchment grid grid-cols-2 gap-x-5 gap-y-1 px-4 py-3.5 sm:grid-cols-3">
-                {Object.keys(SKILL_ABILITY).map((sk) => {
-                  const proficient = sheet.skills.includes(sk);
-                  const mod =
-                    abilityMod(sheet.abilities[SKILL_ABILITY[sk] as keyof typeof sheet.abilities]) +
-                    (proficient ? prof : 0);
-                  return (
-                    <div
-                      key={sk}
-                      className={`flex items-baseline justify-between text-[12.5px] ${proficient ? "font-semibold text-ink" : "text-ink-body"}`}
-                    >
-                      <span>
-                        {proficient ? "● " : "○ "}
-                        {sk}
-                      </span>
-                      <span className="tabular-nums">{mod >= 0 ? `+${mod}` : mod}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+            <SkillsPanel sheet={sheet} prof={prof} />
 
             {/* features */}
-            {features.length > 0 && (
-              <section>
-                <SectionLabel>Features</SectionLabel>
-                <div className="parchment flex flex-col gap-2.5 px-4 py-4">
-                  {features.map((f, i) => (
-                    <div key={i} className="text-[13px]">
-                      <span className="font-heading font-bold text-ink">{f.name}</span>
-                      <span className="label-stamp ml-2 text-[8px] tracking-[1px] text-ink-label">
-                        {/* A species trait has no level, and stamping one on it
-                            would be inventing a fact about the rules. */}
-                        {f.from}
-                        {f.level ? ` ${f.level}` : ""}
-                      </span>
-                      {f.summary && (
-                        <div className="leading-relaxed text-ink-body">
-                          <Blocks text={f.summary} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+            <FeaturesPanel features={features} />
           </div>
           )}
 
