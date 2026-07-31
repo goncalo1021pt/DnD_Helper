@@ -263,3 +263,113 @@ test("a stranger with the URL gets nothing", async ({ browser }) => {
   await outCtx.close();
   await anonCtx.close();
 });
+
+/*
+The DM's own hands on the map.
+
+The four tests above are about what the *server* promises — fogged pixels,
+withheld pins, a stranger turned away — and three of them reach the API
+directly, because that is where those promises are kept. None of them touches
+the 840-line function that is MapPage itself, which is where the pointer maths
+lives: turning a tap into a fraction of the map, holding a draft of reveals that
+is not committed until Submit, and taking one back.
+
+That function is #108's next target, so this is the net under it. Written
+against the UI on purpose: `POST /reveals` was already proven, and what is not
+proven is that a click lands where the DM aimed.
+*/
+test("a DM stamps the fog back, takes one stamp off, and seals the rest", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("stamp"));
+  const campaign = await createCampaign(page.request, unique("Stamping "));
+
+  const res = await page.request.post(`/api/campaigns/${campaign.id}/maps`, {
+    data: { name: "The Fogged Vale", imageBase64: await twoTonePng(page) },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+  const mapId = (await res.json()).id as string;
+  // Fog is opt-in per map, and there is nothing to lift until it is on.
+  await page.request.patch(`/api/maps/${mapId}`, {
+    data: { name: "The Fogged Vale", fogEnabled: true },
+  });
+
+  await page.goto(`/questboard/campaigns/${campaign.id}/map`);
+  const canvas = page.locator("img[alt='The Fogged Vale']");
+  await expect(canvas).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole("button", { name: /Lift the fog/ }).click();
+  const bar = page.getByText(/Tap to stamp a reveal|\d+ stamped/);
+  await expect(bar).toHaveText(/Tap to stamp a reveal/);
+
+  // Three taps at different places on the map. The count is the only thing the
+  // draft shows for itself, and it is what says the tap became a circle.
+  const box = (await canvas.boundingBox())!;
+  for (const [fx, fy] of [[0.3, 0.4], [0.5, 0.5], [0.7, 0.6]]) {
+    await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+  }
+  await expect(bar).toHaveText(/3 stamped/);
+
+  // Nothing is committed yet: Undo pulls the last one back.
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(bar).toHaveText(/2 stamped/);
+
+  // Sealing it turns the draft into a batch and leaves stamp mode behind.
+  await page.getByRole("button", { name: "Submit", exact: true }).click();
+  await page.getByPlaceholder("session 12 — the road east").fill("session 1 — the vale");
+  await page.getByRole("button", { name: "Reveal it" }).click();
+
+  await expect(page.getByRole("button", { name: /Lift the fog/ })).toBeVisible({
+    timeout: 20_000,
+  });
+
+  // And the ledger holds exactly what was sealed — two circles, under its note.
+  const batches = await (await page.request.get(`/api/maps/${mapId}/reveals`)).json();
+  expect(batches).toHaveLength(1);
+  expect(batches[0].note).toBe("session 1 — the vale");
+  // `circles` on a batch is a count, not the circles themselves.
+  expect(batches[0].circles).toBe(2);
+});
+
+/*
+A pin goes where the DM tapped.
+
+`tapFraction` converts a click through the pan/zoom transform into a fraction of
+the map, and a pin is stored in those fractions — so a refactor that gets the
+maths wrong moves every pin on every map at once, quietly, and only a player
+looking for the inn would ever notice.
+*/
+test("a pin lands where it was dropped, in the map's own coordinates", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("pindrop"));
+  const campaign = await createCampaign(page.request, unique("Pinning "));
+
+  const res = await page.request.post(`/api/campaigns/${campaign.id}/maps`, {
+    data: { name: "The Coast Road", imageBase64: await twoTonePng(page) },
+  });
+  const mapId = (await res.json()).id as string;
+
+  await page.goto(`/questboard/campaigns/${campaign.id}/map`);
+  const canvas = page.locator("img[alt='The Coast Road']");
+  await expect(canvas).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole("button", { name: "Drop a pin" }).click();
+  await expect(page.getByText("Tap where the pin goes")).toBeVisible();
+
+  // Three-quarters across, one-quarter down — chosen off-centre so a transposed
+  // or inverted axis cannot pass by symmetry.
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.75, box.y + box.height * 0.25);
+
+  await page.getByPlaceholder("The Sleeping Giant Inn").fill("The Sleeping Giant Inn");
+  await page.getByRole("button", { name: "Pin it" }).click();
+
+  await expect(page.getByText("The Sleeping Giant Inn")).toBeVisible({ timeout: 20_000 });
+
+  // The stored fractions are what the DM aimed at, not merely *a* pair.
+  const detail = await (await page.request.get(`/api/maps/${mapId}`)).json();
+  expect(detail.pins).toHaveLength(1);
+  expect(detail.pins[0].x).toBeGreaterThan(0.65);
+  expect(detail.pins[0].x).toBeLessThan(0.85);
+  expect(detail.pins[0].y).toBeGreaterThan(0.15);
+  expect(detail.pins[0].y).toBeLessThan(0.35);
+});
