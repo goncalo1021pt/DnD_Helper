@@ -26,6 +26,20 @@ the Creative Commons Attribution 4.0 International License
 conversion consulted was github.com/downfallx/dnd-5e-srd-markdown (same
 license).
 
+## Class features tables
+
+`srd/classes.json` carries each class's own columns from its Features table —
+Barbarian Rages and Rage Damage, Rogue Sneak Attack, Monk Martial Arts, and so
+on — as `featuresTable`, one value per level exactly as SRD 5.2.1 prints them.
+The class feature text already shipped here refers to those columns by name
+("as shown in the Sneak Attack column of the Rogue Features table"), so the
+table is the other half of text that was already reproduced under the same
+CC-BY-4.0 licence. The Markdown conversion consulted was
+github.com/downfallx/dnd-5e-srd-markdown, as for the spells above.
+
+Spell-slot columns are deliberately not copied: the app derives those in
+`internal/rules/spellslots.go` and `data.spellcasting`.
+
 ## Full-text species entries
 
 Species traits in `srd/species.json` likewise reproduce the rules text of
