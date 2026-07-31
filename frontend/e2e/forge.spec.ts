@@ -79,6 +79,11 @@ test("forges a hero through every step and lands on their sheet", async ({ page 
   // The hero exists and their sheet reads back what we chose.
   await expect(page.getByText(heroName)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Fighter/).first()).toBeVisible();
+
+  // A hero who made it spends the draft behind them (#130): coming back to the
+  // Forge offers a blank one, not the choices that already became someone.
+  await page.goto("/questboard/heroes/forge");
+  await expect(page.getByText(/Picked up where you left off/)).toHaveCount(0);
 });
 
 /*
@@ -165,4 +170,48 @@ test("says so when the background eats a class skill pick", async ({ page }) => 
   await page.getByRole("button", { name: "Survival", exact: true }).click();
   await expect(nextStep(page)).toBeEnabled();
   await expect(page.getByRole("button", { name: /^Class\s*!/ })).toHaveCount(0);
+});
+
+/*
+The draft survives the reload (#130, part 3).
+
+The last of the three things the report stacked together: "the moment you reload
+it will have gone to the start and you have to reintroduce everything". The
+deadline from #137 removed the reason players were reloading; this removes the
+punishment for doing it anyway — a closed tab, a flat phone, a browser that
+updated itself mid-session.
+
+Reloading is the whole test, so it is driven through the browser rather than by
+poking localStorage: what matters is that the wizard comes back, not that a key
+exists.
+*/
+test("a half-built hero is still there after a reload", async ({ page }) => {
+  await registerViaAPI(page.request, newAccount("draft"));
+  await page.goto("/questboard/heroes/forge");
+  await page.getByRole("button", { name: /^Fighter/ }).click();
+  await page.getByRole("button", { name: "Perception", exact: true }).click();
+  await page.getByRole("button", { name: "Survival", exact: true }).click();
+  await nextStep(page).click();
+  await page.getByRole("button", { name: /^Soldier/ }).click();
+  await nextStep(page).click();
+
+  // Three steps in, on the Species step. Now lose the tab.
+  await expect(page.getByRole("button", { name: /^Dwarf/ })).toBeVisible();
+  await page.reload();
+
+  // Back where we were, and told why rather than left to wonder.
+  await expect(page.getByText(/Picked up where you left off/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: /^Dwarf/ })).toBeVisible();
+
+  // And the earlier steps kept their answers, not just the step number.
+  await page.getByRole("button", { name: /^Class/ }).click();
+  await expect(page.getByRole("button", { name: "Perception", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  // Starting over is one click, not fourteen undos.
+  await page.getByRole("button", { name: "Start a fresh hero" }).click();
+  await expect(page.getByText(/Picked up where you left off/)).toHaveCount(0, { timeout: 20_000 });
+  await expect(nextStep(page)).toBeDisabled();
 });

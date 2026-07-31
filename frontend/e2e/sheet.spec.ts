@@ -158,3 +158,65 @@ test("worn armour changes the AC the sheet reports", async ({ page }) => {
   await page.getByRole("button", { name: "The Sheet", exact: true }).click();
   await expect(ac).toHaveText("16", { timeout: 20_000 });
 });
+
+/*
+The number the rules keep pointing at (#129).
+
+Reported as "Rogue sneak and other similar features are missing". They were not
+missing from the Features list — "Sneak Attack" was there with its whole text.
+What was missing is the only part a Rogue needs mid-turn: how many dice. The
+rules text says "see the Sneak Attack column of the Rogue table", and there was
+no table.
+
+So the assertion is the value at this hero's level, not that a table rendered.
+*/
+test("a Rogue is told how many Sneak Attack dice they actually have", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("sneak"));
+
+  const id = await forgeHero(page.request, {
+    name: unique("Shiv "),
+    className: "Rogue",
+    speciesName: "Dwarf",
+    backgroundName: "Acolyte",
+    abilities: { str: 10, dex: 16, con: 13, int: 12, wis: 12, cha: 8 },
+    skills: ["Acrobatics", "Perception", "Stealth", "Investigation"],
+  });
+
+  await page.goto(`/questboard/heroes/${id}`);
+  await expect(page.getByText("Rogue Table")).toBeVisible({ timeout: 20_000 });
+
+  // A level 1 Rogue sneaks for 1d6. Located by title, because "Sneak Attack"
+  // also names the feature in the Features list right above — the whole point
+  // being that the feature was already there and the number was not.
+  await expect(page.getByTitle("Your Sneak Attack at level 1")).toHaveText(/Sneak Attack\s*1d6/);
+
+  // And the road ahead is there too, so levelling up is not a surprise. The
+  // progression carries all twenty rows: 10d6 twice, at levels 19 and 20, which
+  // is the tail of the real table rather than a truncated one.
+  await expect(page.getByRole("cell", { name: "10d6" })).toHaveCount(2);
+  await expect(page.getByRole("cell", { name: "1d6" })).toHaveCount(2);
+});
+
+/*
+Eleven of the twelve SRD classes have a table. The twelfth is the Wizard, whose
+progression is spell slots and nothing else, and it should get no heading with
+nothing under it.
+*/
+test("a class with no table gets no table", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("notable"));
+
+  const id = await forgeHero(page.request, {
+    name: unique("Plain "),
+    className: "Wizard",
+    speciesName: "Dwarf",
+    backgroundName: "Acolyte",
+    abilities: { str: 10, dex: 14, con: 13, int: 16, wis: 12, cha: 8 },
+    skills: ["Arcana", "History"],
+  });
+
+  await page.goto(`/questboard/heroes/${id}`);
+  await expect(page.getByText("Features", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Table$/)).toHaveCount(0);
+});

@@ -33,6 +33,7 @@ import { SLOT_LABEL, itemTypeOf, keyStat, slotsFor, type EquipSlot } from "./she
 import ItemGlyph from "./sheet/ItemGlyph";
 import SectionLabel, { type SpeciesChoice } from "./sheet/SectionLabel";
 import SkillsPanel from "./sheet/SkillsPanel";
+import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
 
 export default function HeroSheetPage() {
@@ -349,6 +350,9 @@ export default function HeroSheetPage() {
 
             {/* features */}
             <FeaturesPanel features={features} />
+
+            {/* The numbers the features text points at (#129). */}
+            <ClassTablePanel klass={klass} level={character.level} />
           </div>
           )}
 
