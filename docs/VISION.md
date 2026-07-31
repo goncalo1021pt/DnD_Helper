@@ -614,6 +614,50 @@ cheapest, and defer what merely annoys until its file stops moving.** The refact
 is not a reason to leave a table blocked, and a blocked table is not a reason to
 abandon the refactor.
 
+#### What the "do now" list actually became (2026-07-30)
+
+The whole list above shipped in the order it was written, in five PRs. Three
+notes where the doing taught something the planning did not know:
+
+**#130's retry does not live where this file said it would.** The plan put a
+bounded mutation retry in `main.tsx`, which is the obvious home for it and the
+wrong one: TanStack hands its `retry` callback a failure with *no request
+attached*, so a policy written there can only say "retry every mutation" or
+"retry none". Retrying every POST invents a second hero on exactly the flaky
+connection that made retrying worthwhile. It went into the transport
+(`lib/http.ts`) instead, which knows the method — GET/PUT/PATCH/DELETE replay,
+POST only when it carries an idempotency key.
+
+The deadline also had to become a **budget for the whole call** rather than a
+timeout per attempt. Three twenty-second attempts is a full minute of a button
+reading "Forging…", which is #130 again wearing a different hat.
+
+And forging turned out to be three writes with no transaction — the hero, their
+spells, their kit. Harmless while nothing ever gave up mid-request; a deadline
+is precisely something giving up mid-request, so it commits as one now.
+
+**`asiLevels` was not folded into the features table**, contrary to the note
+above. The reasoning that said "it is a features-table column" is right about
+what it *is* and wrong about what to do: the ten classes lacking it are not
+broken, because `levelup.go` defaults to `{4, 8, 12, 16, 19}`, and writing that
+same list into ten JSON files creates a second source of truth for a rule with
+no per-class variation. That is the exact drift #112 is about. Fighter and Rogue
+keep theirs because they genuinely differ. (SRD 5.2 marks level 19 as *Epic
+Boon* rather than an ASI; the app's `asiLevels` includes 19 because its level-up
+flow offers "ASI or feat" there, which is the same choice by another name.)
+
+**#129's data half is in, and it is 11 classes rather than 12.** The Wizard's
+only columns are spell counts, which `data.spellcasting` already carries, so it
+has no `featuresTable` — an absence on purpose rather than an omission. Paladin
+Lay On Hands is likewise not a column in SRD 5.2; it is a formula in the feature
+text. Every cell is stored as the text the official table prints ("—", "1d6",
+"+10 ft."), because this is a table to *read*: the machine-readable resource
+model stays where this file already put it, out in v2 with #118.
+
+Still open from this section, unchanged: **#130 part 3** (draft persistence,
+after the ForgeWizard split) and **#129's display half** (after the
+`HeroSheetPage` split). The data is in the database waiting for the panel.
+
 ## How work is tracked (decided 2026-07-29)
 
 Three intake channels had grown with no single queue: this file (strategy),

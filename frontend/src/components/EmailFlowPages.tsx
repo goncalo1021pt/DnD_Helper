@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { passwordStrength } from "../lib/password";
+import { apiFetch } from "../lib/http";
 
 /** Centered parchment card on the hearth — the shell for the email flows. */
 function AuthShell({ title, children }: { title: string; children: ReactNode }) {
@@ -38,7 +39,7 @@ export function VerifyEmailPage() {
       setState("fail");
       return;
     }
-    fetch("/api/auth/verify-email", {
+    apiFetch("/api/auth/verify-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
@@ -89,7 +90,7 @@ export function ForgotPasswordPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      await fetch("/api/auth/forgot-password", {
+      await apiFetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -156,7 +157,7 @@ export function ResetPasswordPage() {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      const res = await apiFetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),

@@ -81,6 +81,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 				}
 			}
 		}
+		if msg := validateFeaturesTable(data); msg != "" {
+			return msg
+		}
 	case db.ContentKindSpecies:
 		if size, ok := getStr(data, "size"); !ok || strings.TrimSpace(size) == "" {
 			return "species data needs a size (e.g. \"Medium\")"

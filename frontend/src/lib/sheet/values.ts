@@ -1,6 +1,6 @@
 import type { CharacterDetail, InventoryItem, RulesContent } from "../../api/client";
 import { abilityMod } from "../../components/ui/AbilityRow";
-import { acFromEquipment, profBonus, weaponAttacks } from "../derive";
+import { acFromEquipment, featuresOf, profBonus, weaponAttacks } from "../derive";
 import {
   ABILITIES,
   ABILITY_LABEL,
@@ -178,7 +178,13 @@ export function buildSheetValues({
   }
 
   // — core stats —
-  v.armorClass = abilities ? String(acFromEquipment(detail.items, abilities)) : "";
+  // The same features the screen reads, so an Unarmored Defense that changed
+  // the AC on the sheet changes it on the printout too (#132).
+  const acFeatures = [
+    ...featuresOf(klass, character.level),
+    ...featuresOf(subclass, character.level),
+  ];
+  v.armorClass = abilities ? String(acFromEquipment(detail.items, abilities, acFeatures)) : "";
   v.shield = detail.items.some(
     (i) => i.equipped && ((i.content?.data ?? {}) as { type?: string }).type === "shield",
   );

@@ -13,21 +13,79 @@ interface ArmorData {
   acBonus?: number;
 }
 
+/**
+ * A feature that replaces the unarmoured base AC formula.
+ *
+ * Barbarian's Unarmored Defense is `10 + DEX + CON`, Monk's is `10 + DEX + WIS`,
+ * Draconic Sorcery's scales are `10 + DEX + CHA` — three different answers to
+ * the same sentence, so the sentence is the thing to declare rather than the
+ * classes. `abilities` are the modifiers summed onto `base`; `shield: false`
+ * means the benefit is lost the moment a Shield is taken up (the Monk's is; the
+ * Barbarian's explicitly is not).
+ *
+ * Declarative on purpose: it is a field a homebrew class or a pack can ship
+ * (content packs are additive), not a list of class names in this file.
+ */
+export interface UnarmoredDefense {
+  base?: number;
+  abilities?: string[];
+  shield?: boolean;
+}
+
+export interface Feature {
+  level?: number;
+  name?: string;
+  summary?: string;
+  unarmoredDefense?: UnarmoredDefense;
+}
+
+/** The features one content entry grants a hero who has reached this level. */
+export function featuresOf(source: { data?: unknown } | undefined, level: number): Feature[] {
+  const data = source?.data as { features?: Feature[]; traits?: Feature[] } | undefined;
+  // Classes and backgrounds call them features; a species calls them traits.
+  return [...(data?.features ?? []), ...(data?.traits ?? [])].filter((f) => (f.level ?? 1) <= level);
+}
+
 /** AC from equipped armor + shield: Light = ac+DEX, Medium = ac+min(DEX,2),
- * Heavy = ac flat; unarmored = 10+DEX. Shield adds its bonus on top. */
-export function acFromEquipment(items: InventoryItem[], abilities: AbilityScores): number {
-  const dex = abilityMod(abilities.dex);
+ * Heavy = ac flat; unarmored = 10+DEX. Shield adds its bonus on top.
+ *
+ * `features` are the hero's earned features — any that declare an
+ * `unarmoredDefense` replace the unarmoured base when it is better and nothing
+ * is worn. Without them a raging Barbarian reads as a commoner in a shirt,
+ * which is the quiet kind of wrong: a hit lands that should have missed and
+ * nobody at the table ever finds out (#132). */
+export function acFromEquipment(
+  items: InventoryItem[],
+  abilities: AbilityScores,
+  features: Feature[] = [],
+): number {
+  const mod = (key: string) =>
+    abilityMod((abilities as unknown as Record<string, number>)[key.toLowerCase()] ?? 10);
+  const dex = mod("dex");
   let ac = 10 + dex;
+  let armored = false;
   let shield = 0;
   for (const it of items) {
     if (!it.equipped || !it.content) continue;
     const d = it.content.data as ArmorData;
     if (d.type === "armor" && typeof d.ac === "number") {
+      armored = true;
       if (d.category === "Light") ac = d.ac + dex;
       else if (d.category === "Medium") ac = d.ac + Math.min(dex, 2);
       else ac = d.ac;
     } else if (d.type === "shield") {
       shield = d.acBonus ?? 2;
+    }
+  }
+  if (!armored) {
+    for (const f of features) {
+      const ud = f.unarmoredDefense;
+      if (!ud?.abilities?.length) continue;
+      // A Monk with a Shield is just a Monk in a shirt.
+      if (shield > 0 && ud.shield === false) continue;
+      const base = (ud.base ?? 10) + ud.abilities.reduce((sum, a) => sum + mod(a), 0);
+      // Better, never worse: a feature is a benefit, not a cap.
+      if (base > ac) ac = base;
     }
   }
   return ac + shield;

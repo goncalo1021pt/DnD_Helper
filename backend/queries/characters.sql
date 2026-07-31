@@ -71,9 +71,16 @@ RETURNING *;
 INSERT INTO characters (
     campaign_id, owner_user_id, name, class, level, hp_current, hp_max,
     strength, dexterity, constitution, intelligence, wisdom, charisma,
-    skills, class_id, species_id, background_id, feats, species_choices
-) VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+    skills, class_id, species_id, background_id, feats, species_choices, forge_key
+) VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 RETURNING *;
+
+-- name: CharacterByForgeKey :one
+-- The hero a previous forge attempt already made with this key, if any. A
+-- timed-out forge that in fact landed is found here, so the retry returns the
+-- twin's older sibling instead of making one.
+SELECT * FROM characters
+WHERE owner_user_id = $1 AND forge_key = $2;
 
 -- name: LevelUpCharacter :one
 -- Apply one level: new level/HP, any ability increases (ASI), the chosen

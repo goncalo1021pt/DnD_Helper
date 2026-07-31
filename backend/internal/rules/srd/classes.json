@@ -41,7 +41,14 @@
     {
      "level": 1,
      "name": "Unarmored Defense",
-     "summary": "While you aren't wearing any armor, your base Armor Class equals 10 plus your Dexterity and Constitution modifiers. You can use a Shield and still gain this benefit."
+     "summary": "While you aren't wearing any armor, your base Armor Class equals 10 plus your Dexterity and Constitution modifiers. You can use a Shield and still gain this benefit.",
+     "unarmoredDefense": {
+      "abilities": [
+       "dex",
+       "con"
+      ],
+      "shield": true
+     }
     },
     {
      "level": 1,
@@ -154,6 +161,83 @@
     {
      "label": "B",
      "gold": 75
+    }
+   ],
+   "featuresTable": [
+    {
+     "name": "Rages",
+     "values": [
+      "2",
+      "2",
+      "3",
+      "3",
+      "3",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "5",
+      "5",
+      "5",
+      "5",
+      "5",
+      "6",
+      "6",
+      "6",
+      "6"
+     ]
+    },
+    {
+     "name": "Rage Damage",
+     "values": [
+      "+2",
+      "+2",
+      "+2",
+      "+2",
+      "+2",
+      "+2",
+      "+2",
+      "+2",
+      "+3",
+      "+3",
+      "+3",
+      "+3",
+      "+3",
+      "+3",
+      "+3",
+      "+4",
+      "+4",
+      "+4",
+      "+4",
+      "+4"
+     ]
+    },
+    {
+     "name": "Weapon Mastery",
+     "values": [
+      "2",
+      "2",
+      "2",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4"
+     ]
     }
    ]
   }
@@ -327,7 +411,34 @@
      "when": "level-up",
      "count": 1
     }
-   }
+   },
+   "featuresTable": [
+    {
+     "name": "Bardic Die",
+     "values": [
+      "D6",
+      "D6",
+      "D6",
+      "D6",
+      "D8",
+      "D8",
+      "D8",
+      "D8",
+      "D8",
+      "D10",
+      "D10",
+      "D10",
+      "D10",
+      "D10",
+      "D12",
+      "D12",
+      "D12",
+      "D12",
+      "D12",
+      "D12"
+     ]
+    }
+   ]
   }
  },
  {
@@ -502,7 +613,34 @@
      "when": "level-up",
      "count": 1
     }
-   }
+   },
+   "featuresTable": [
+    {
+     "name": "Channel Divinity",
+     "values": [
+      "—",
+      "2",
+      "2",
+      "2",
+      "2",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "4",
+      "4",
+      "4"
+     ]
+    }
+   ]
   }
  },
  {
@@ -692,7 +830,34 @@
      "when": "level-up",
      "count": 1
     }
-   }
+   },
+   "featuresTable": [
+    {
+     "name": "Wild Shape",
+     "values": [
+      "—",
+      "2",
+      "2",
+      "2",
+      "2",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "4",
+      "4",
+      "4",
+      "4"
+     ]
+    }
+   ]
   }
  },
  {
@@ -874,6 +1039,58 @@
      "label": "C",
      "gold": 155
     }
+   ],
+   "featuresTable": [
+    {
+     "name": "Second Wind",
+     "values": [
+      "2",
+      "2",
+      "2",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4"
+     ]
+    },
+    {
+     "name": "Weapon Mastery",
+     "values": [
+      "3",
+      "3",
+      "3",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "4",
+      "5",
+      "5",
+      "5",
+      "5",
+      "5",
+      "5",
+      "6",
+      "6",
+      "6",
+      "6",
+      "6"
+     ]
+    }
    ]
   }
  },
@@ -916,7 +1133,14 @@
     {
      "level": 1,
      "name": "Unarmored Defense",
-     "summary": "While you aren't wearing armor or wielding a Shield, your base Armor Class equals 10 plus your Dexterity and Wisdom modifiers."
+     "summary": "While you aren't wearing armor or wielding a Shield, your base Armor Class equals 10 plus your Dexterity and Wisdom modifiers.",
+     "unarmoredDefense": {
+      "abilities": [
+       "dex",
+       "wis"
+      ],
+      "shield": false
+     }
     },
     {
      "level": 2,
@@ -1042,6 +1266,83 @@
     {
      "label": "B",
      "gold": 50
+    }
+   ],
+   "featuresTable": [
+    {
+     "name": "Martial Arts",
+     "values": [
+      "1d6",
+      "1d6",
+      "1d6",
+      "1d6",
+      "1d8",
+      "1d8",
+      "1d8",
+      "1d8",
+      "1d8",
+      "1d8",
+      "1d10",
+      "1d10",
+      "1d10",
+      "1d10",
+      "1d10",
+      "1d10",
+      "1d12",
+      "1d12",
+      "1d12",
+      "1d12"
+     ]
+    },
+    {
+     "name": "Focus Points",
+     "values": [
+      "—",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20"
+     ]
+    },
+    {
+     "name": "Unarmored Movement",
+     "values": [
+      "—",
+      "+10 ft.",
+      "+10 ft.",
+      "+10 ft.",
+      "+10 ft.",
+      "+15 ft.",
+      "+15 ft.",
+      "+15 ft.",
+      "+15 ft.",
+      "+20 ft.",
+      "+20 ft.",
+      "+20 ft.",
+      "+20 ft.",
+      "+25 ft.",
+      "+25 ft.",
+      "+25 ft.",
+      "+25 ft.",
+      "+30 ft.",
+      "+30 ft.",
+      "+30 ft."
+     ]
     }
    ]
   }
@@ -1252,7 +1553,34 @@
      "when": "long-rest",
      "count": 1
     }
-   }
+   },
+   "featuresTable": [
+    {
+     "name": "Channel Divinity",
+     "values": [
+      "—",
+      "—",
+      "2",
+      "2",
+      "2",
+      "2",
+      "2",
+      "2",
+      "2",
+      "2",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3",
+      "3"
+     ]
+    }
+   ]
   }
  },
  {
@@ -1468,7 +1796,34 @@
      "when": "long-rest",
      "count": 1
     }
-   }
+   },
+   "featuresTable": [
+    {
+     "name": "Favored Enemy",
+     "values": [
+      "2",
+      "2",
+      "2",
+      "2",
+      "3",
+      "3",
+      "3",
+      "3",
+      "4",
+      "4",
+      "4",
+      "4",
+      "5",
+      "5",
+      "5",
+      "5",
+      "6",
+      "6",
+      "6",
+      "6"
+     ]
+    }
+   ]
   }
  },
  {
@@ -1643,6 +1998,33 @@
      "label": "B",
      "gold": 100
     }
+   ],
+   "featuresTable": [
+    {
+     "name": "Sneak Attack",
+     "values": [
+      "1d6",
+      "1d6",
+      "2d6",
+      "2d6",
+      "3d6",
+      "3d6",
+      "4d6",
+      "4d6",
+      "5d6",
+      "5d6",
+      "6d6",
+      "6d6",
+      "7d6",
+      "7d6",
+      "8d6",
+      "8d6",
+      "9d6",
+      "9d6",
+      "10d6",
+      "10d6"
+     ]
+    }
    ]
   }
  },
@@ -1808,7 +2190,34 @@
      "when": "level-up",
      "count": 1
     }
-   }
+   },
+   "featuresTable": [
+    {
+     "name": "Sorcery Points",
+     "values": [
+      "—",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20"
+     ]
+    }
+   ]
   }
  },
  {
@@ -1977,7 +2386,34 @@
      "when": "level-up",
      "count": 1
     }
-   }
+   },
+   "featuresTable": [
+    {
+     "name": "Eldritch Invocations",
+     "values": [
+      "1",
+      "3",
+      "3",
+      "3",
+      "5",
+      "5",
+      "6",
+      "6",
+      "7",
+      "7",
+      "7",
+      "8",
+      "8",
+      "8",
+      "9",
+      "9",
+      "9",
+      "10",
+      "10",
+      "10"
+     ]
+    }
+   ]
   }
  },
  {

@@ -175,6 +175,25 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 	}
 	body := request.Body
 
+	// Same key, same hero (#130). A forge that timed out on a bad connection may
+	// have landed anyway, and the retry that follows carries the key of the
+	// attempt it is repeating. If that attempt built someone, hand them back
+	// rather than forging a twin — the player pressed the button once.
+	var forgeKey pgtype.UUID
+	if key := request.Params.IdempotencyKey; key != nil {
+		forgeKey = pgUUID(uuid.UUID(*key))
+		existing, err := s.queries.CharacterByForgeKey(ctx, db.CharacterByForgeKeyParams{
+			OwnerUserID: uid,
+			ForgeKey:    forgeKey,
+		})
+		if err == nil {
+			return s.forgedResponse(ctx, existing, uid)
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+	}
+
 	name := strings.TrimSpace(body.Name)
 	if name == "" || len([]rune(name)) > 80 {
 		return badRequest("name must be between 1 and 80 characters")
@@ -339,8 +358,20 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		hpMax = 1
 	}
 
+	// One whole hero, or none at all. Forging is three writes — the hero, their
+	// spells, their kit — and now that requests have deadlines at all (#130), a
+	// client giving up mid-request cancels the context between any two of them.
+	// A transaction means the retry finds a finished hero or an empty shelf,
+	// never a fighter standing there with no sword.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+
 	s16 := func(v int) *int16 { x := int16(v); return &x }
-	hero, err := s.queries.ForgeCharacter(ctx, db.ForgeCharacterParams{
+	hero, err := qtx.ForgeCharacter(ctx, db.ForgeCharacterParams{
 		OwnerUserID:    uid,
 		Name:           name,
 		Class:          species.Name + " " + class.Name,
@@ -359,12 +390,13 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		BackgroundID:   pgUUID(background.ID),
 		Feats:          feats,
 		SpeciesChoices: speciesChoices,
+		ForgeKey:       forgeKey,
 	})
 	if err != nil {
 		return nil, err
 	}
 	if len(spellIDs) > 0 {
-		if err := s.queries.AddCharacterSpells(ctx, db.AddCharacterSpellsParams{
+		if err := qtx.AddCharacterSpells(ctx, db.AddCharacterSpellsParams{
 			CharacterID: hero.ID,
 			Column2:     spellIDs,
 		}); err != nil {
@@ -385,7 +417,7 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 			stock = append(stock, gearItem{Name: "Gold Pieces", Qty: gold})
 		}
 
-		armory, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
+		armory, err := qtx.ListContentByKind(ctx, db.ListContentByKindParams{
 			Kind:      db.ContentKindItem,
 			CreatedBy: pgUUID(uid),
 		})
@@ -414,7 +446,7 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 					break
 				}
 			}
-			if _, err := s.queries.AddCharacterItem(ctx, db.AddCharacterItemParams{
+			if _, err := qtx.AddCharacterItem(ctx, db.AddCharacterItemParams{
 				CharacterID: hero.ID,
 				ContentID:   contentID,
 				Name:        row.Name,
@@ -425,10 +457,29 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		}
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	metrics.HeroForged()
+	return s.forgedResponse(ctx, hero, uid)
+}
+
+// forgedResponse dresses a hero row as the 201 the wizard expects — the owner's
+// name, and the class data the sheet reads spell slots from. Shared by a fresh
+// forge and by the idempotent replay of one, so a retry gets back exactly what
+// the attempt it repeats would have returned.
+func (s *Server) forgedResponse(ctx context.Context, hero db.Character, uid uuid.UUID) (api.ForgeCharacterResponseObject, error) {
 	me, err := s.queries.GetUserByID(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
-	metrics.HeroForged()
-	return api.ForgeCharacter201JSONResponse(toAPICharacterWithClass(hero, me.Name, uid, class.Data)), nil
+	var classData []byte
+	if hero.ClassID.Valid {
+		class, err := s.fetchContent(ctx, uuid.UUID(hero.ClassID.Bytes), db.ContentKindClass)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+		classData = class.Data
+	}
+	return api.ForgeCharacter201JSONResponse(toAPICharacterWithClass(hero, me.Name, uid, classData)), nil
 }

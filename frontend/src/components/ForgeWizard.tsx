@@ -8,6 +8,7 @@ import {
   sourceLabel,
   sourceOptions,
 } from "../lib/content";
+import { noticeFor } from "../lib/notices";
 import { castingFor, spellOnClassList, type CasterData } from "../lib/spellcasting";
 import {
   ALL_SKILLS,
@@ -788,9 +789,11 @@ export default function ForgeWizard() {
               )}
               {codexAlert && <ForgeAlert text={codexAlert} tone="info" />}
               {forge.isError && (
+                // noticeFor, not `.error` alone: a refusal from the server has
+                // wording worth printing, and a connection that died has our
+                // own — "check the choices" is the wrong advice for bad wifi.
                 <p className="font-body mt-3 text-sm italic text-[#8b2520]">
-                  {(forge.error as { error?: string } | null)?.error ??
-                    "The forge sputtered — check the choices and try again."}
+                  {noticeFor(forge.error)}
                 </p>
               )}
             </div>

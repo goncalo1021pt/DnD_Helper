@@ -1,6 +1,8 @@
+import { apiFetch } from "./http";
+
 /** Download the caller's whole homebrew collection as a pack file. */
 export function exportHomebrewPack() {
-  fetch("/api/rules/export", { credentials: "include" })
+  apiFetch("/api/rules/export", { credentials: "include" })
     .then((r) => r.json())
     .then((pack) => {
       const url = URL.createObjectURL(
