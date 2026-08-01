@@ -128,6 +128,9 @@ func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryI
 	if err != nil {
 		return nil, err
 	}
+	if err := s.syncCombatantAC(ctx, character); err != nil {
+		return nil, err
+	}
 	return api.AddInventoryItem201JSONResponse(s.freshInventoryItem(ctx, created, uid)), nil
 }
 
@@ -241,6 +244,11 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 	if err != nil {
 		return nil, err
 	}
+	// Strapping on a shield mid-fight moves the number the DM is rolling
+	// against, so the tracker hears about it (#153).
+	if err := s.syncCombatantAC(ctx, character); err != nil {
+		return nil, err
+	}
 	return api.UpdateInventoryItem200JSONResponse(s.freshInventoryItem(ctx, updated, uid)), nil
 }
 
@@ -319,6 +327,9 @@ func (s *Server) DeleteInventoryItem(ctx context.Context, request api.DeleteInve
 		return api.DeleteInventoryItem404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 	}
 	if err := s.queries.DeleteCharacterItem(ctx, row.ID); err != nil {
+		return nil, err
+	}
+	if err := s.syncCombatantAC(ctx, character); err != nil {
 		return nil, err
 	}
 	return api.DeleteInventoryItem204Response{}, nil

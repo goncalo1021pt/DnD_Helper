@@ -72,7 +72,12 @@ func (s *Server) combatantSnapshot(ctx context.Context, b *api.AddCombatantReque
 		snap.CharacterID = pgUUID(*b.CharacterId)
 		snap.HpCurrent, snap.HpMax = ch.HpCurrent, ch.HpMax
 		snap.InitMod = int32(abilityMod(dex))
-		snap.Ac = int32(10 + abilityMod(dex))
+		// The AC the player reads on their own sheet, not 10 + DEX — armour and
+		// an Unarmored Defense used to vanish the moment a hero was summoned
+		// (#153), and the DM spent the fight rolling against the wrong number.
+		if snap.Ac, e = s.heroArmorClass(ctx, ch); e != nil {
+			return snap, "", e
+		}
 	case "custom":
 		label := ""
 		if b.Label != nil {
@@ -383,20 +388,50 @@ func (s *Server) syncCharacterHP(ctx context.Context, characterID uuid.UUID, hpC
 // match rather than assuming, since a fight triggered around an already-seated
 // hero could still produce two.
 func (s *Server) syncCombatantHP(ctx context.Context, ch db.Character) error {
+	return s.syncSeatedHero(ctx, ch, false)
+}
+
+// syncCombatantAC does the same for armour class, and is what keeps a hero who
+// straps a shield on mid-fight from reading as the AC they walked in with.
+//
+// Separate from the HP path because it costs a derivation — the hero's kit and
+// their class features — so it is only paid when the kit or the scores it reads
+// have actually moved.
+func (s *Server) syncCombatantAC(ctx context.Context, ch db.Character) error {
+	return s.syncSeatedHero(ctx, ch, true)
+}
+
+// syncSeatedHero writes a character's live numbers onto their combatant rows.
+// withAC re-derives armour class too; without it the row keeps the AC it has,
+// which may be one the DM typed over deliberately.
+func (s *Server) syncSeatedHero(ctx context.Context, ch db.Character, withAC bool) error {
 	seated, err := s.queries.ListActiveCombatantsForCharacter(ctx, pgUUID(ch.ID))
 	if err != nil {
 		return err
+	}
+	if len(seated) == 0 {
+		return nil // not in a fight; nothing to keep in step
+	}
+	ac := int32(0)
+	if withAC {
+		if ac, err = s.heroArmorClass(ctx, ch); err != nil {
+			return err
+		}
 	}
 	for _, c := range seated {
 		if c.Kind != "pc" {
 			continue
 		}
-		if c.HpCurrent == ch.HpCurrent && c.HpMax == ch.HpMax {
+		wantAC := c.Ac
+		if withAC {
+			wantAC = ac
+		}
+		if c.HpCurrent == ch.HpCurrent && c.HpMax == ch.HpMax && wantAC == c.Ac {
 			continue
 		}
 		if _, err := s.queries.UpdateCombatant(ctx, db.UpdateCombatantParams{
 			ID: c.ID, Label: c.Label, PlayerLabel: c.PlayerLabel, Initiative: c.Initiative,
-			HpCurrent: ch.HpCurrent, HpMax: ch.HpMax, Ac: c.Ac, Hidden: c.Hidden,
+			HpCurrent: ch.HpCurrent, HpMax: ch.HpMax, Ac: wantAC, Hidden: c.Hidden,
 		}); err != nil {
 			return err
 		}

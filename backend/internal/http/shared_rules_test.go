@@ -122,6 +122,41 @@ func sameStrings(got, want []string) bool {
 	return true
 }
 
+// --- armour class -----------------------------------------------------------
+
+func TestArmorClassMatchesTheSharedFixture(t *testing.T) {
+	var doc struct {
+		Cases []struct {
+			Name      string            `json:"name"`
+			Level     int               `json:"level"`
+			Abilities map[string]int    `json:"abilities"`
+			Sources   []json.RawMessage `json:"sources"`
+			Items     []struct {
+				Equipped bool            `json:"equipped"`
+				Data     json.RawMessage `json:"data"`
+			} `json:"items"`
+			AC int `json:"ac"`
+		} `json:"cases"`
+	}
+	loadFixture(t, "armor-class.json", &doc)
+	if len(doc.Cases) == 0 {
+		t.Fatal("fixture has no cases")
+	}
+	for _, c := range doc.Cases {
+		var features []heroFeature
+		for _, src := range c.Sources {
+			features = append(features, earnedFeatures(src, c.Level)...)
+		}
+		items := make([]wornItem, 0, len(c.Items))
+		for _, it := range c.Items {
+			items = append(items, wornItem{Equipped: it.Equipped, Data: it.Data})
+		}
+		if got := armorClass(items, c.Abilities, features); got != c.AC {
+			t.Errorf("%s: AC = %d, fixture says %d", c.Name, got, c.AC)
+		}
+	}
+}
+
 // --- level-up gates ---------------------------------------------------------
 
 func TestLevelUpGatesMatchTheSharedFixture(t *testing.T) {
