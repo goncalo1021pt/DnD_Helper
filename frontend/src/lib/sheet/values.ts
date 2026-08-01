@@ -1,5 +1,5 @@
 import type { CharacterDetail, InventoryItem, RulesContent } from "../../api/client";
-import { abilityMod } from "../../components/ui/AbilityRow";
+import { abilityMod } from "../abilities";
 import { acFromEquipment, featuresOf, profBonus, weaponAttacks } from "../derive";
 import {
   ABILITIES,

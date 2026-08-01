@@ -27,6 +27,39 @@ type subclassRules struct {
 	Class string `json:"class"`
 }
 
+// What stops a seated hero rising. The client repeats this decision in
+// lib/progression.ts so the Level up button can explain itself rather than
+// offering a press that fails, so the two are held together by
+// fixtures/rules/level-up-gates.json.
+//
+// The reason is a code rather than a sentence because the two sides word it
+// differently on purpose: the server raises an error a player reads once, the
+// client writes a line that sits under a disabled button.
+const (
+	holdCeiling   = "ceiling"
+	holdMilestone = "milestone"
+)
+
+// levelUpHold names what is holding a hero at their current level, or "" when
+// the road is clear.
+//
+// The ceiling is asked first, and that ordering is the part worth pinning: a
+// hero standing at the table's cap with a milestone already banked is held by
+// the cap. Answer "milestone" there and the player is told to wait on a DM who
+// has done their part — they would go and ask, and the DM would have nothing
+// to give them.
+func levelUpHold(level, pendingLevels int, progression db.ProgressionMode, maxLevel *int16) string {
+	if maxLevel != nil && level >= int(*maxLevel) {
+		return holdCeiling
+	}
+	// XP tables gate on XP alone, which the client already shows; the pending
+	// allowance is the DM's lever on milestone tables only.
+	if progression == db.ProgressionModeMilestone && pendingLevels < 1 {
+		return holdMilestone
+	}
+	return ""
+}
+
 // LevelUpCharacter advances a forged hero one level: HP by average or roll,
 // subclass at the class's subclass level, ASI or feat at ASI levels. CON
 // increases raise max HP retroactively, as the 2024 rules do.
@@ -236,10 +269,10 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		if err != nil {
 			return nil, err
 		}
-		if campaign.MaxLevel != nil && int(character.Level) >= int(*campaign.MaxLevel) {
+		switch levelUpHold(int(character.Level), int(character.PendingLevels), campaign.Progression, campaign.MaxLevel) {
+		case holdCeiling:
 			return badRequest(fmt.Sprintf("the table's ceiling is level %d — the DM must raise it first", *campaign.MaxLevel))
-		}
-		if campaign.Progression == db.ProgressionModeMilestone && character.PendingLevels < 1 {
+		case holdMilestone:
 			return badRequest("no milestone reached yet — the DM decides when the party rises")
 		}
 	}

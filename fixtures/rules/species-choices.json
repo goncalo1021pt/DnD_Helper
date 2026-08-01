@@ -1,0 +1,226 @@
+{
+  "_note": [
+    "What a species asks of a player, and what their answers grant — the part of",
+    "the species rules both engines implement (#112).",
+    "",
+    "Go resolves picks in internal/http/species.go and refuses a hero whose",
+    "answers do not add up; TypeScript answers the same questions in",
+    "lib/species.ts so the Forge can arm its Next button. When they disagree the",
+    "player meets it as a wizard that lets them through and a forge that then",
+    "says no, twenty minutes in.",
+    "",
+    "Only the shared contract is pinned here: is every choice answered, and what",
+    "do the answers put on the sheet. Go checks more than this — unknown option,",
+    "duplicate pick, a skill the background already granted — and the client",
+    "deliberately does not, since the server is the authority. Asserting those",
+    "would be inventing a requirement rather than recording one.",
+    "",
+    "skills and feats are only meaningful when complete is true; an unanswered",
+    "species grants nothing, because it is not a legal hero yet."
+  ],
+  "cases": [
+    {
+      "name": "an Elf's lineage, answered",
+      "choices": [
+        {
+          "id": "lineage",
+          "name": "Elven Lineage",
+          "type": "lineage",
+          "choose": 1,
+          "options": [{ "name": "Drow" }, { "name": "High Elf" }, { "name": "Wood Elf" }]
+        }
+      ],
+      "picks": { "lineage": ["Drow"] },
+      "complete": true,
+      "skills": [],
+      "feats": []
+    },
+    {
+      "name": "an Elf's lineage, left blank — the hero is not finished",
+      "choices": [
+        {
+          "id": "lineage",
+          "name": "Elven Lineage",
+          "type": "lineage",
+          "choose": 1,
+          "options": [{ "name": "Drow" }, { "name": "High Elf" }]
+        }
+      ],
+      "picks": {},
+      "complete": false,
+      "skills": [],
+      "feats": []
+    },
+    {
+      "name": "a skill from an explicit list lands on the sheet",
+      "choices": [
+        {
+          "id": "keen",
+          "name": "Keen Senses",
+          "type": "skill",
+          "choose": 1,
+          "options": [{ "name": "Insight" }, { "name": "Perception" }, { "name": "Survival" }]
+        }
+      ],
+      "picks": { "keen": ["Perception"] },
+      "complete": true,
+      "skills": ["Perception"],
+      "feats": []
+    },
+    {
+      "name": "an open skill pick — any of the eighteen, no list to offer",
+      "choices": [
+        { "id": "skillful", "name": "Skillful", "type": "skill", "choose": 1, "from": "*" }
+      ],
+      "picks": { "skillful": ["Sleight of Hand"] },
+      "complete": true,
+      "skills": ["Sleight of Hand"],
+      "feats": []
+    },
+    {
+      "name": "a Human's Origin feat",
+      "choices": [
+        { "id": "versatile", "name": "Versatile", "type": "feat", "choose": 1, "from": "origin" }
+      ],
+      "picks": { "versatile": ["Alert"] },
+      "complete": true,
+      "skills": [],
+      "feats": ["Alert"]
+    },
+    {
+      "name": "choose 2, answered with 2",
+      "choices": [
+        {
+          "id": "pair",
+          "name": "Two Proficiencies",
+          "type": "skill",
+          "choose": 2,
+          "options": [
+            { "name": "Athletics" },
+            { "name": "Stealth" },
+            { "name": "Nature" }
+          ]
+        }
+      ],
+      "picks": { "pair": ["Athletics", "Stealth"] },
+      "complete": true,
+      "skills": ["Athletics", "Stealth"],
+      "feats": []
+    },
+    {
+      "name": "choose 2, answered with 1 — half an answer is not an answer",
+      "choices": [
+        {
+          "id": "pair",
+          "name": "Two Proficiencies",
+          "type": "skill",
+          "choose": 2,
+          "options": [{ "name": "Athletics" }, { "name": "Stealth" }]
+        }
+      ],
+      "picks": { "pair": ["Athletics"] },
+      "complete": false,
+      "skills": [],
+      "feats": []
+    },
+    {
+      "name": "choose 2, answered with 3 — nor is one too many",
+      "choices": [
+        {
+          "id": "pair",
+          "name": "Two Proficiencies",
+          "type": "skill",
+          "choose": 2,
+          "options": [
+            { "name": "Athletics" },
+            { "name": "Stealth" },
+            { "name": "Nature" }
+          ]
+        }
+      ],
+      "picks": { "pair": ["Athletics", "Stealth", "Nature"] },
+      "complete": false,
+      "skills": [],
+      "feats": []
+    },
+    {
+      "name": "no choose at all means choose one",
+      "choices": [
+        {
+          "id": "size",
+          "name": "Size",
+          "type": "size",
+          "options": [{ "name": "Small" }, { "name": "Medium" }]
+        }
+      ],
+      "picks": { "size": ["Small"] },
+      "complete": true,
+      "skills": [],
+      "feats": []
+    },
+    {
+      "name": "choose 0 means choose one too — never zero",
+      "choices": [
+        {
+          "id": "size",
+          "name": "Size",
+          "type": "size",
+          "choose": 0,
+          "options": [{ "name": "Small" }, { "name": "Medium" }]
+        }
+      ],
+      "picks": { "size": ["Medium"] },
+      "complete": true,
+      "skills": [],
+      "feats": []
+    },
+    {
+      "name": "a species that asks nothing is answered by saying nothing",
+      "choices": [],
+      "picks": {},
+      "complete": true,
+      "skills": [],
+      "feats": []
+    },
+    {
+      "name": "a full Human: lineage, skill and feat together",
+      "choices": [
+        {
+          "id": "lineage",
+          "name": "Lineage",
+          "type": "lineage",
+          "choose": 1,
+          "options": [{ "name": "Civic" }, { "name": "Nomadic" }]
+        },
+        { "id": "skillful", "name": "Skillful", "type": "skill", "choose": 1, "from": "*" },
+        { "id": "versatile", "name": "Versatile", "type": "feat", "choose": 1, "from": "origin" }
+      ],
+      "picks": {
+        "lineage": ["Nomadic"],
+        "skillful": ["Survival"],
+        "versatile": ["Tough"]
+      },
+      "complete": true,
+      "skills": ["Survival"],
+      "feats": ["Tough"]
+    },
+    {
+      "name": "three asked, two answered — one gap is enough",
+      "choices": [
+        {
+          "id": "lineage",
+          "name": "Lineage",
+          "type": "lineage",
+          "choose": 1,
+          "options": [{ "name": "Civic" }, { "name": "Nomadic" }]
+        },
+        { "id": "skillful", "name": "Skillful", "type": "skill", "choose": 1, "from": "*" },
+        { "id": "versatile", "name": "Versatile", "type": "feat", "choose": 1, "from": "origin" }
+      ],
+      "picks": { "lineage": ["Civic"], "skillful": ["Arcana"] },
+      "complete": false,
+      "skills": [],
+      "feats": []
+    }
+  ]
+}

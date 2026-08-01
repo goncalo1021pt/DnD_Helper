@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { AbilityScores, Character, LevelUpRequest } from "../api/client";
 import { useCharacterDetail, useCodex, useLevelUp, useRules } from "../hooks";
 import { castingFor, maxSpellLevel, spellOnClassList, type CasterData } from "../lib/spellcasting";
-import { abilityMod } from "./ui/AbilityRow";
+import { abilityMod } from "../lib/abilities";
 import ParchmentModal from "./ui/ParchmentModal";
 import SpellHover from "./ui/SpellHover";
 import SpellSwapModal, { canSwapOn, type Swap } from "./ui/SpellSwapModal";

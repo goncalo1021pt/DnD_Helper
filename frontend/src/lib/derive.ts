@@ -1,5 +1,5 @@
 import type { AbilityScores, InventoryItem } from "../api/client";
-import { abilityMod } from "../components/ui/AbilityRow";
+import { abilityMod } from "./abilities";
 
 /** Proficiency bonus by character level (2024: +2 at 1, +6 at 17). */
 export function profBonus(level: number): number {

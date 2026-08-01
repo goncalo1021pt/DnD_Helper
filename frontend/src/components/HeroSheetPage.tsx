@@ -14,7 +14,8 @@ import {
 import { levelUpHold } from "../lib/progression";
 import { acFromEquipment, featuresOf, profBonus, weaponAttacks, type Feature } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
-import AbilityRow, { abilityMod, modText } from "./ui/AbilityRow";
+import AbilityRow from "./ui/AbilityRow";
+import { abilityMod, modText } from "../lib/abilities";
 import SpellEntry, { SpellFlags } from "./ui/SpellEntry";
 import ContentEntry from "./ui/ContentEntry";
 import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
