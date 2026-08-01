@@ -1,0 +1,280 @@
+{
+  "_note": [
+    "The armour class a hero's sheet shows, and now the one the tracker seats",
+    "them at (#153, and the fourth rule under #112).",
+    "",
+    "The server answered this with 10 + DEX until now, because it was the only",
+    "answer available at that layer: characters stores raw scores and an",
+    "inventory, and the sheet's number was worked out in the browser and never",
+    "sent anywhere. A Barbarian reading 15 was seated at 12 and the DM rolled",
+    "against the wrong number all fight — failing toward hits landing that",
+    "should have missed, which nobody at the table can detect.",
+    "",
+    "Go has the rule in internal/http/armor.go, TypeScript in lib/derive.ts, and",
+    "both answer these cases.",
+    "",
+    "sources are the data of the hero's class, subclass, species or background —",
+    "whatever grants features. Both engines filter them by level first, so a",
+    "feature the hero has not reached yet cannot raise their AC.",
+    "",
+    "items are inventory rows; only equipped ones count. Light armour adds the",
+    "whole DEX modifier, Medium at most 2 of it, Heavy none.",
+    "",
+    "An unarmoredDefense replaces the unarmoured base and never lowers it. Its",
+    "shield flag is a real tri-state: absent means the benefit survives carrying",
+    "a shield (the Barbarian's does), false means it does not (the Monk's)."
+  ],
+  "cases": [
+    {
+      "name": "a commoner in a shirt",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [],
+      "ac": 10
+    },
+    {
+      "name": "unarmoured, but quick",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 16, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [],
+      "ac": 13
+    },
+    {
+      "name": "Light armour takes the whole DEX modifier",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 16, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Light", "ac": 11 } }],
+      "ac": 14
+    },
+    {
+      "name": "Medium armour caps DEX at 2",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 18, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Medium", "ac": 15 } }],
+      "ac": 17
+    },
+    {
+      "name": "Medium armour under the cap takes what there is",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 12, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Medium", "ac": 15 } }],
+      "ac": 16
+    },
+    {
+      "name": "Heavy armour ignores DEX entirely",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 18, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Heavy", "ac": 16 } }],
+      "ac": 16
+    },
+    {
+      "name": "armour in the pack but not on the body",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 14, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": false, "data": { "type": "armor", "category": "Heavy", "ac": 16 } }],
+      "ac": 12
+    },
+    {
+      "name": "a shield on its own",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 14, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "shield" } }],
+      "ac": 14
+    },
+    {
+      "name": "a shield stacks on worn armour",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 18, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [
+        { "equipped": true, "data": { "type": "armor", "category": "Heavy", "ac": 16 } },
+        { "equipped": true, "data": { "type": "shield" } }
+      ],
+      "ac": 18
+    },
+    {
+      "name": "a shield that says what it is worth",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "shield", "acBonus": 3 } }],
+      "ac": 13
+    },
+    {
+      "name": "a Barbarian's Unarmored Defense",
+      "level": 1,
+      "abilities": { "str": 16, "dex": 14, "con": 16, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            {
+              "level": 1,
+              "name": "Unarmored Defense",
+              "unarmoredDefense": { "abilities": ["dex", "con"] }
+            }
+          ]
+        }
+      ],
+      "items": [],
+      "ac": 15
+    },
+    {
+      "name": "a Barbarian keeps it while carrying a shield",
+      "level": 1,
+      "abilities": { "str": 16, "dex": 14, "con": 16, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            {
+              "level": 1,
+              "name": "Unarmored Defense",
+              "unarmoredDefense": { "abilities": ["dex", "con"] }
+            }
+          ]
+        }
+      ],
+      "items": [{ "equipped": true, "data": { "type": "shield" } }],
+      "ac": 17
+    },
+    {
+      "name": "a Monk's does not survive a shield",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 16, "con": 10, "int": 10, "wis": 14, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            {
+              "level": 1,
+              "name": "Unarmored Defense",
+              "unarmoredDefense": { "abilities": ["dex", "wis"], "shield": false }
+            }
+          ]
+        }
+      ],
+      "items": [{ "equipped": true, "data": { "type": "shield" } }],
+      "ac": 15
+    },
+    {
+      "name": "a Monk without one has it",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 16, "con": 10, "int": 10, "wis": 14, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            {
+              "level": 1,
+              "name": "Unarmored Defense",
+              "unarmoredDefense": { "abilities": ["dex", "wis"], "shield": false }
+            }
+          ]
+        }
+      ],
+      "items": [],
+      "ac": 15
+    },
+    {
+      "name": "worn armour beats the feature — it is a formula for having none",
+      "level": 1,
+      "abilities": { "str": 16, "dex": 14, "con": 16, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            {
+              "level": 1,
+              "name": "Unarmored Defense",
+              "unarmoredDefense": { "abilities": ["dex", "con"] }
+            }
+          ]
+        }
+      ],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Heavy", "ac": 16 } }],
+      "ac": 16
+    },
+    {
+      "name": "a feature that would lower the AC is ignored — better, never worse",
+      "level": 1,
+      "abilities": { "str": 8, "dex": 16, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            { "level": 1, "name": "Odd Hide", "unarmoredDefense": { "abilities": ["str"] } }
+          ]
+        }
+      ],
+      "items": [],
+      "ac": 13
+    },
+    {
+      "name": "a feature the hero has not reached yet does nothing",
+      "level": 2,
+      "abilities": { "str": 10, "dex": 14, "con": 18, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            {
+              "level": 3,
+              "name": "Draconic Resilience",
+              "unarmoredDefense": { "abilities": ["dex", "con"] }
+            }
+          ]
+        }
+      ],
+      "items": [],
+      "ac": 12
+    },
+    {
+      "name": "and the level they reach it, it counts",
+      "level": 3,
+      "abilities": { "str": 10, "dex": 14, "con": 18, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            {
+              "level": 3,
+              "name": "Draconic Resilience",
+              "unarmoredDefense": { "abilities": ["dex", "con"] }
+            }
+          ]
+        }
+      ],
+      "items": [],
+      "ac": 16
+    },
+    {
+      "name": "a species trait can carry one too — a species calls them traits",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [
+        {
+          "traits": [
+            { "name": "Stone Hide", "unarmoredDefense": { "abilities": ["dex", "con"] } }
+          ]
+        }
+      ],
+      "items": [],
+      "ac": 13
+    },
+    {
+      "name": "a feature may name its own base rather than 10",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 14, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [
+        {
+          "features": [
+            { "level": 1, "name": "Scaled Hide", "unarmoredDefense": { "base": 13, "abilities": ["dex"] } }
+          ]
+        }
+      ],
+      "items": [],
+      "ac": 15
+    }
+  ]
+}

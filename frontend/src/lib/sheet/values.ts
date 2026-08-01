@@ -180,10 +180,14 @@ export function buildSheetValues({
   // — core stats —
   // The same features the screen reads, so an Unarmored Defense that changed
   // the AC on the sheet changes it on the printout too (#132).
-  const acFeatures = [
-    ...featuresOf(klass, character.level),
-    ...featuresOf(subclass, character.level),
-  ];
+  //
+  // All four sheet columns, not just class and subclass: the SRD only puts an
+  // unarmoredDefense on a class or a subclass, but content packs are additive,
+  // and a homebrew species that shipped one used to raise the AC on screen and
+  // not on the page (#153). The server derives it from the same four.
+  const acFeatures = [klass, subclass, race, background].flatMap((src) =>
+    featuresOf(src, character.level),
+  );
   v.armorClass = abilities ? String(acFromEquipment(detail.items, abilities, acFeatures)) : "";
   v.shield = detail.items.some(
     (i) => i.equipped && ((i.content?.data ?? {}) as { type?: string }).type === "shield",

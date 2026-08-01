@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import { createCampaign, newAccount, registerViaAPI, unique } from "./helpers";
 
 /*
@@ -132,4 +132,122 @@ test("a hero takes damage, and standing down returns the fight to the builder", 
   await page.getByRole("button", { name: "Stand down" }).click();
   await expect(page.getByRole("button", { name: /Trigger/ })).toBeEnabled({ timeout: 20_000 });
   await expect(page.getByText(/Round\s*\d/i)).toHaveCount(0);
+});
+
+/**
+ * Forge a hero and put them in a seat. A local copy for now: forgeHero is
+ * exported from sheet.spec.ts, and importing it from there would register that
+ * file's tests inside this run — #150 moves it to helpers.ts, and all three
+ * copies collapse into an import once that lands.
+ */
+async function seatedHero(
+  request: APIRequestContext,
+  campaignId: string,
+  hero: { name: string; className: string; abilities: Record<string, number>; skills: string[] },
+): Promise<string> {
+  const byName = async (kind: string, want: string) => {
+    const list = (await (await request.get(`/api/rules/${kind}`)).json()) as Array<{
+      id: string;
+      name: string;
+    }>;
+    const hit = list.find((e) => e.name === want);
+    expect(hit, `${want} should be in the ${kind} library`).toBeTruthy();
+    return hit!.id;
+  };
+  const forged = await request.post("/api/me/characters/forge", {
+    data: {
+      name: hero.name,
+      classId: await byName("class", hero.className),
+      speciesId: await byName("species", "Dwarf"),
+      backgroundId: await byName("background", "Acolyte"),
+      abilities: hero.abilities,
+      skills: hero.skills,
+    },
+  });
+  expect(forged.ok(), await forged.text()).toBeTruthy();
+  const id = (await forged.json()).id as string;
+
+  const seated = await request.put(`/api/characters/${id}/seat`, { data: { campaignId } });
+  expect(seated.ok(), await seated.text()).toBeTruthy();
+  return id;
+}
+
+/*
+The number the DM rolls against (#153).
+
+A hero summoned into a fight used to be seated at `10 + DEX`, because that is
+all the server could see: `characters` holds raw scores and an inventory, and
+the AC on the sheet was worked out in the browser and never sent anywhere. So a
+Barbarian reading 15 was seated at 12 and a Fighter in Chain Mail at 12 instead
+of 16 — and it failed toward hits landing that should have missed, which is the
+direction nobody at the table can detect.
+
+Asserted as numbers rather than "an AC is shown", for the same reason #132 was:
+the wrong AC was always displayed perfectly.
+
+The second half is the one that would rot quietly. Armour class is derived, not
+stored, so a hero who straps a shield on mid-fight has to carry the new number
+into a tracker that already seated them.
+*/
+test("a hero is seated at the AC on their sheet, not 10 + DEX", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("acdm"));
+  const campaign = await createCampaign(page.request, unique("The Armoury "));
+
+  // DEX 14 (+2), CON 16 (+3). A Barbarian's Unarmored Defense makes that 15,
+  // and their starting kit carries no armour. The old snapshot said 12.
+  const heroId = await seatedHero(page.request, campaign.id, {
+    name: unique("Grash "),
+    className: "Barbarian",
+    abilities: { str: 15, dex: 14, con: 16, int: 10, wis: 12, cha: 8 },
+    skills: ["Athletics", "Survival"],
+  });
+
+  const made = await page.request.post(`/api/campaigns/${campaign.id}/encounters`, {
+    data: { name: "The Armoury Brawl" },
+  });
+  expect(made.ok(), await made.text()).toBeTruthy();
+  const encounterId = (await made.json()).id as string;
+
+  const added = await page.request.post(`/api/encounters/${encounterId}/combatants`, {
+    data: { kind: "pc", characterId: heroId },
+  });
+  expect(added.ok(), await added.text()).toBeTruthy();
+  const [combatant] = (await added.json()) as Array<{ id: string; ac: number }>;
+  expect(combatant.ac, "a Barbarian's Unarmored Defense reaches the tracker").toBe(15);
+
+  // --- and it keeps up when the kit changes mid-fight -----------------------
+  const trigger = await page.request.patch(`/api/encounters/${encounterId}`, {
+    data: { status: "active" },
+  });
+  expect(trigger.ok(), await trigger.text()).toBeTruthy();
+
+  const items = (await (await page.request.get("/api/rules/item")).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const chain = items.find((i) => i.name === "Chain Mail");
+  expect(chain, "Chain Mail should be in the armory").toBeTruthy();
+  const packed = await page.request.post(`/api/characters/${heroId}/items`, {
+    data: { contentId: chain!.id, name: "Chain Mail", qty: 1 },
+  });
+  expect(packed.ok(), await packed.text()).toBeTruthy();
+  const itemId = (await packed.json()).id as string;
+
+  // Chain Mail is AC 16 flat — heavy armour ignores DEX, and worn armour
+  // replaces the unarmoured formula rather than stacking with it.
+  const worn = await page.request.patch(`/api/characters/${heroId}/items/${itemId}`, {
+    data: { qty: 1, equipped: true, slot: "armor" },
+  });
+  expect(worn.ok(), await worn.text()).toBeTruthy();
+
+  const detail = (await (await page.request.get(`/api/encounters/${encounterId}`)).json()) as {
+    combatants: Array<{ id: string; ac: number }>;
+  };
+  const seated = detail.combatants.find((c) => c.id === combatant.id);
+  expect(seated?.ac, "donning armour mid-fight moves the tracker's number too").toBe(16);
+
+  // And the DM reads it off the tracker, which is where it actually matters.
+  await page.goto(`/questboard/campaigns/${campaign.id}/encounters`);
+  await expect(page.getByText(/AC 16/).first()).toBeVisible({ timeout: 20_000 });
 });
