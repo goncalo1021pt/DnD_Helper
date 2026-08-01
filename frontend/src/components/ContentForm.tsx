@@ -6,6 +6,7 @@ import BackgroundFields from "./content/fields/BackgroundFields";
 import ClassFields from "./content/fields/ClassFields";
 import FeatFields from "./content/fields/FeatFields";
 import ItemFields from "./content/fields/ItemFields";
+import MonsterFields from "./content/fields/MonsterFields";
 import SpeciesFields from "./content/fields/SpeciesFields";
 import SpellFields from "./content/fields/SpellFields";
 import SubclassFields from "./content/fields/SubclassFields";
@@ -32,6 +33,7 @@ function GuidedFields({
   const props = {
     data,
     set: (key: string, value: unknown) => setData({ ...data, [key]: value }),
+    patch: (values: DataObj) => setData({ ...data, ...values }),
     strArr: (key: string): string[] =>
       Array.isArray(data[key]) ? (data[key] as string[]) : [],
     classNames,
@@ -49,6 +51,8 @@ function GuidedFields({
       return <SpellFields {...props} />;
     case "item":
       return <ItemFields {...props} />;
+    case "monster":
+      return <MonsterFields {...props} />;
     default:
       return <FeatFields {...props} />;
   }
