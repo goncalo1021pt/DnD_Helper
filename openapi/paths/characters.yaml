@@ -1,0 +1,482 @@
+/me/seat-requests:
+  get:
+    operationId: listMySeatRequests
+    summary: The caller's heroes still waiting at a table's door
+    responses:
+      "200":
+        description: Pending requests, oldest first
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/MySeatRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/me/characters:
+  get:
+    operationId: listMyCharacters
+    summary: The caller's heroes across all campaigns, including unseated ones
+    responses:
+      "200":
+        description: Heroes with where they are seated
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Character"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  post:
+    operationId: createMyCharacter
+    summary: Forge a hero in My Heroes (not seated at any campaign)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CharacterInput"
+    responses:
+      "201":
+        description: Created hero
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/me/characters/forge:
+  post:
+    operationId: forgeCharacter
+    summary: Create a hero through the builder — full sheet, derived HP
+    parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: >-
+          Same key, same hero. A forge that times out on a bad connection may
+          in fact have landed, so the retry carries the key of the attempt it
+          is repeating and gets that hero back (201) instead of forging a
+          twin. Keys are scoped to the caller.
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/ForgeRequest"
+    responses:
+      "201":
+        description: The forged hero, resting in My Heroes
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/characters/{characterId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  get:
+    operationId: getCharacter
+    summary: A hero's full sheet — owner, or members of the seated campaign
+    responses:
+      "200":
+        description: The hero in full
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CharacterDetail"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  patch:
+    operationId: updateCharacter
+    summary: Update a character (its owner or the DM)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CharacterInput"
+    responses:
+      "200":
+        description: Updated character
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteCharacter
+    summary: Remove a character (its owner or the DM)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/seat:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  put:
+    operationId: seatCharacter
+    summary: Seat a hero at a campaign, or null to return them to My Heroes (owner only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SeatRequest"
+    responses:
+      "200":
+        description: Hero after moving
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "202":
+        description: The table's door is barred — the request is lodged and awaits the DM's nod
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SeatPending"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+      "409":
+        description: The hero uses content the campaign's codex has not admitted
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SeatConflict"
+
+/characters/{characterId}/slots:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  put:
+    operationId: setSpellSlots
+    summary: Set spell slots spent (owner or DM; casters only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SpellSlotsInput"
+    responses:
+      "200":
+        description: Hero with updated slots
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/items:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: addInventoryItem
+    summary: Add an item to a hero's inventory (owner or DM)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/InventoryItemInput"
+    responses:
+      "201":
+        description: The new inventory row
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/InventoryItem"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/items/{itemId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+    - name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateInventoryItem
+    summary: Change quantity or equip state (owner or DM)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/InventoryItemPatch"
+    responses:
+      "200":
+        description: The updated row
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/InventoryItem"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteInventoryItem
+    summary: Remove an inventory row (owner or DM)
+    responses:
+      "204":
+        description: Removed
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/levelup:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: levelUpCharacter
+    summary: Advance a forged hero one level (owner only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/LevelUpRequest"
+    responses:
+      "200":
+        description: The hero, one level mightier
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/spells/swap:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: swapCharacterSpells
+    summary: >-
+      Change prepared spells on a Long Rest (owner only). Allowed only for
+      classes whose spellChanges rule says long-rest, and only as far as that
+      rule permits — a Cleric re-prepares freely, a Paladin swaps one, a Bard
+      cannot do it at all (its swap comes at level-up).
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SpellSwapRequest"
+    responses:
+      "200":
+        description: The hero with its new list of spells
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/reveal:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  put:
+    operationId: revealCharacter
+    summary: Lift or drop the veil on one seated hero's sheet (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [revealed]
+            properties:
+              revealed:
+                type: boolean
+                description: True opens this hero's sheet to the party; false veils them again.
+    responses:
+      "200":
+        description: The hero, as the party now sees them
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/characters:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listCharacters
+    summary: The campaign's party roster (members only)
+    responses:
+      "200":
+        description: Characters in the campaign
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Character"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createCharacter
+    summary: >
+      Quick-add a table-born character to the roster (DM only) — players
+      bring account heroes through the seat flow, where the door applies
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CharacterInput"
+    responses:
+      "201":
+        description: Created character
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/seat-requests:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listSeatRequests
+    summary: The heroes waiting at the door, oldest first (DM only)
+    responses:
+      "200":
+        description: Pending seat requests
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/PendingSeat"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/seat-requests/{characterId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  delete:
+    operationId: denySeatRequest
+    summary: Turn a waiting hero away from the door (DM only)
+    responses:
+      "204":
+        description: Turned away
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/seat-requests/{characterId}/approve:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: approveSeatRequest
+    summary: Let a waiting hero take their seat (DM only); re-checks the codex first
+    responses:
+      "204":
+        description: Seated
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+      "409":
+        description: The hero uses content the campaign's codex has not admitted; the request stays pending
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SeatConflict"

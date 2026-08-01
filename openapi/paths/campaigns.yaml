@@ -1,0 +1,361 @@
+/campaigns:
+  get:
+    operationId: listCampaigns
+    summary: Campaigns the current user belongs to
+    responses:
+      "200":
+        description: List of campaigns with the caller's role in each
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/CampaignMembership"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  post:
+    operationId: createCampaign
+    summary: Create a campaign (caller becomes its DM)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CreateCampaignRequest"
+    responses:
+      "201":
+        description: Created campaign
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/campaigns/join:
+  post:
+    operationId: joinCampaign
+    summary: Join a campaign as a player using its invite code
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/JoinCampaignRequest"
+    responses:
+      "200":
+        description: The joined campaign with the caller's role
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CampaignMembership"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  delete:
+    operationId: deleteCampaign
+    summary: Permanently delete a campaign (DM only)
+    description: >
+      Strikes the campaign for good: quests, the chronicle, codex rulings,
+      maps, encounters, memberships, and bans are all removed with it.
+      Heroes seated there return to My Heroes rather than being deleted.
+    responses:
+      "204":
+        description: Campaign deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/regenerate-invite:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: regenerateInvite
+    summary: Generate a fresh invite code (DM only)
+    responses:
+      "200":
+        description: Campaign with the new invite code
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/members:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listMembers
+    summary: Everyone seated at the table (members only)
+    responses:
+      "200":
+        description: The campaign's members, DMs first
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Member"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/members/{userId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+    - $ref: "../openapi.yaml#/components/parameters/UserId"
+  delete:
+    operationId: kickMember
+    summary: >
+      Remove a player from the table (DM only). Their heroes return to
+      My Heroes, their claims on open quests are released, and they leave
+      any knowledge pools. They may rejoin with the invite code unless banned.
+    responses:
+      "204":
+        description: Removed from the campaign
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/bans:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listBans
+    summary: Players barred from rejoining this campaign (DM only)
+    responses:
+      "200":
+        description: Current bans, newest first
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Ban"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  post:
+    operationId: banMember
+    summary: >
+      Bar a user from this campaign (DM only). If currently a member they
+      are kicked first; the invite code no longer admits them until unbanned.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/BanRequest"
+    responses:
+      "204":
+        description: Banned
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/bans/{userId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+    - $ref: "../openapi.yaml#/components/parameters/UserId"
+  delete:
+    operationId: unbanMember
+    summary: Lift a ban so the invite code admits them again (DM only)
+    responses:
+      "204":
+        description: Ban lifted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/next-session:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setNextSession
+    summary: Set or clear when the table gathers next (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetNextSessionRequest"
+    responses:
+      "200":
+        description: Campaign with the updated next session
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/progression:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setProgression
+    summary: Switch the campaign between milestone and XP progression (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [mode]
+            properties:
+              mode:
+                type: string
+                enum: [milestone, xp]
+    responses:
+      "200":
+        description: The campaign
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/max-level:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setMaxLevel
+    summary: Set or clear the table's level ceiling (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              maxLevel:
+                type: integer
+                minimum: 1
+                maximum: 20
+                nullable: true
+                description: Highest level heroes may reach here; null restores the standard 20.
+    responses:
+      "200":
+        description: The campaign
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/seating-approval:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setSeatingApproval
+    summary: Bar or open the table's door — barred means new heroes wait for the DM's nod (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [enabled]
+            properties:
+              enabled:
+                type: boolean
+    responses:
+      "200":
+        description: The campaign
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/hidden-sheets:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setHiddenSheets
+    summary: Draw or lift the veil over the table's character sheets (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [enabled]
+            properties:
+              enabled:
+                type: boolean
+                description: >
+                  True veils every hero from the other players — names only.
+                  False returns the party to open sheets.
+    responses:
+      "200":
+        description: The campaign
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"

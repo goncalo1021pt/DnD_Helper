@@ -1,0 +1,57 @@
+Health:
+  type: object
+  required: [status]
+  properties:
+    status:
+      type: string
+      enum: [ok, degraded]
+
+Error:
+  type: object
+  required: [error]
+  properties:
+    error:
+      type: string
+
+Role:
+  type: string
+  enum: [dm, player]
+
+User:
+  type: object
+  required: [id, name, provider, emailVerified, twofaEnabled, createdAt]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    email:
+      type: string
+      nullable: true
+    image:
+      type: string
+      nullable: true
+    provider:
+      type: string
+      description: Where the account came from — discord, google, local, or dev.
+    emailVerified:
+      type: boolean
+      description: Whether the account's email address is confirmed (OAuth accounts always are).
+    twofaEnabled:
+      type: boolean
+      description: Whether the account has TOTP two-factor authentication turned on (local accounts only).
+    createdAt:
+      type: string
+      format: date-time
+
+CurrentUser:
+  type: object
+  required: [user, campaigns]
+  properties:
+    user:
+      $ref: "../openapi.yaml#/components/schemas/User"
+    campaigns:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/CampaignMembership"

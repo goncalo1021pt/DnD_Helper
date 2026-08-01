@@ -1,0 +1,124 @@
+VisibilityScope:
+  type: string
+  enum: [party, character]
+  description: |
+    Who a reveal or hide applies to. `party` sets the entity's party-wide
+    veil and clears every per-hero exception — choosing the party is
+    choosing everyone. `character` records an exception for one hero.
+
+VisibilityOverride:
+  type: object
+  required: [characterId, characterName, visible]
+  description: A single hero's exception to the party-wide veil.
+  properties:
+    characterId:
+      type: string
+      format: uuid
+    characterName:
+      type: string
+    visible:
+      type: boolean
+
+SetVisibilityRequest:
+  type: object
+  required: [scope, visible]
+  properties:
+    scope:
+      $ref: "../openapi.yaml#/components/schemas/VisibilityScope"
+    characterId:
+      type: string
+      format: uuid
+      nullable: true
+      description: Required when scope is `character`; ignored otherwise.
+    visible:
+      type: boolean
+      description: True reveals, false hides.
+
+Location:
+  type: object
+  required: [id, campaignId, name, description, depth, questCount]
+  description: |
+    A place on a campaign's map. Locations nest to an arbitrary depth
+    (capped at 10) — a region holds cities, a city holds districts.
+  properties:
+    id:
+      type: string
+      format: uuid
+    campaignId:
+      type: string
+      format: uuid
+    parentId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The place this one sits inside; null for a root.
+    name:
+      type: string
+    description:
+      type: string
+    depth:
+      type: integer
+      description: 0 for a root location, 1 for its children, and so on.
+    questCount:
+      type: integer
+      description: Notices hanging here that the caller can see.
+    visibleToParty:
+      type: boolean
+      description: DM-only. The party-wide veil on this place.
+    hiddenByAncestor:
+      type: boolean
+      description: DM-only. True when a place above this one is still veiled, so this one stays off the players' map however it is set.
+    visibility:
+      type: array
+      description: DM-only. Per-hero exceptions to visibleToParty.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/VisibilityOverride"
+
+CreateLocationRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 200
+    description:
+      type: string
+    parentId:
+      type: string
+      format: uuid
+      nullable: true
+    visibleToParty:
+      type: boolean
+      default: false
+      description: New places start veiled so the DM can draft a whole region first.
+
+UpdateLocationRequest:
+  type: object
+  required: [name, description]
+  description: |
+    A place's own text, replaced. Deliberately cannot move the place: this
+    endpoint used to write `parent_id` too, and because an absent field and
+    an explicit null are indistinguishable once decoded, a body that only
+    renamed a place detached it — taking everything nested inside it out to
+    the root, and lifting the veil on any of it that was only dark because
+    an ancestor was veiled. Moving is now its own call, where saying nothing
+    is not a possible input.
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 200
+    description:
+      type: string
+      description: Replaces the existing description; send the current one to keep it.
+
+MoveLocationRequest:
+  type: object
+  required: [parentId]
+  properties:
+    parentId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The place this one moves inside. Null makes it a root. A place cannot be moved inside itself or inside its own descendant, and the resulting tree must still fit within the depth cap of 10.

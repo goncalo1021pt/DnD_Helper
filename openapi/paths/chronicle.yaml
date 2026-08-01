@@ -1,0 +1,172 @@
+/campaigns/{campaignId}/events:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listEvents
+    summary: The campaign chronicle, newest first (members)
+    parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+      - name: category
+        in: query
+        description: >
+          Filter to one channel (all | dm | rules | player | log); omit or
+          "all" for everything. Plain string, validated server-side.
+        schema:
+          type: string
+          default: all
+    responses:
+      "200":
+        description: Events
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/ChronicleEvent"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: addChronicleNote
+    summary: Write an entry into the chronicle (any member; players post to player chat)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message]
+            properties:
+              message:
+                type: string
+                minLength: 1
+                maxLength: 500
+              category:
+                type: string
+                description: >
+                  The DM's channel choice — "dm" (story note) or "rules" (a
+                  ruling); defaults to dm. Ignored for players, who always
+                  post to player chat. Plain string, validated server-side.
+    responses:
+      "201":
+        description: The entry
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/ChronicleEvent"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/xp:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: grantXP
+    summary: Grant (or dock) XP to seated heroes (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [amount]
+            properties:
+              amount:
+                type: integer
+                minimum: -100000
+                maximum: 100000
+              characterIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+                description: Omit to grant to every seated hero.
+              reason:
+                type: string
+                maxLength: 200
+    responses:
+      "200":
+        description: The heroes after the grant
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/milestone:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: declareMilestone
+    summary: A milestone — seated heroes gain one pending level-up (DM only)
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              note:
+                type: string
+                maxLength: 200
+              characterIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+                description: Grant only to these seated heroes; omitted means the whole party.
+    responses:
+      "204":
+        description: Declared
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/milestone/revoke:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: revokeMilestone
+    summary: >
+      Take back an unspent level-up (DM only) — from the chosen heroes, or
+      one from everyone when none are named. Already-spent levels stay.
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              characterIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+    responses:
+      "204":
+        description: Taken back
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"

@@ -1,0 +1,158 @@
+/campaigns/{campaignId}/locations:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listLocations
+    summary: The campaign's place tree (members only). The DM sees every place; players see only what is unveiled to them.
+    responses:
+      "200":
+        description: Locations, parents before children
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Location"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createLocation
+    summary: Chart a new place (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CreateLocationRequest"
+    responses:
+      "201":
+        description: Created location
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Location"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/locations/{locationId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/LocationId"
+  patch:
+    operationId: updateLocation
+    summary: Rename or redescribe a place (DM only). Moving it is a separate call — see PUT /locations/{locationId}/parent.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/UpdateLocationRequest"
+    responses:
+      "200":
+        description: Updated location
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Location"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteLocation
+    summary: Erase a place and everything nested inside it (DM only). Notices hanging there are unpinned, not deleted.
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/locations/{locationId}/parent:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/LocationId"
+  put:
+    operationId: moveLocation
+    summary: Move a place under a new parent, or out to a root of its own (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MoveLocationRequest"
+    responses:
+      "200":
+        description: The location after the move, with its new depth
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Location"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/locations/{locationId}/visibility:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/LocationId"
+  put:
+    operationId: setLocationVisibility
+    summary: Reveal or veil a place, for the whole party or for one hero (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetVisibilityRequest"
+    responses:
+      "200":
+        description: The location after the veil moved
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Location"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/locations/{locationId}/visibility/{characterId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/LocationId"
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  delete:
+    operationId: clearLocationVisibilityOverride
+    summary: Drop one hero's exception so they follow the party again (DM only)
+    responses:
+      "200":
+        description: The location after the exception was dropped
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Location"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

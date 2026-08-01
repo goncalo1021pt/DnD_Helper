@@ -1,0 +1,232 @@
+/campaigns/{campaignId}/maps:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listMaps
+    summary: The campaign atlas — every map, no image bytes (members)
+    responses:
+      "200":
+        description: Maps of the campaign
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/CampaignMap"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createMap
+    summary: Hang a new map in the atlas (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CreateMapRequest"
+    responses:
+      "201":
+        description: The new map
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CampaignMap"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/maps/{mapId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/MapId"
+  get:
+    operationId: getMap
+    summary: One map with its pins (members; players never receive DM-only pins)
+    responses:
+      "200":
+        description: The map and its pins
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapDetail"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  patch:
+    operationId: updateMap
+    summary: Rename a map or re-hang it under a parent (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/UpdateMapRequest"
+    responses:
+      "200":
+        description: The updated map
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CampaignMap"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteMap
+    summary: Strike a map and all its pins (DM only)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/maps/{mapId}/pins:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/MapId"
+  post:
+    operationId: createMapPin
+    summary: Drop a pin on the map (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapPinInput"
+    responses:
+      "201":
+        description: The new pin
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapPin"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/maps/{mapId}/reveals:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/MapId"
+  get:
+    operationId: listReveals
+    summary: The reveal ledger — every submitted batch on this map (DM only)
+    responses:
+      "200":
+        description: Batches, oldest first
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/RevealBatch"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  post:
+    operationId: submitReveals
+    summary: Lift the fog — commit a draft of stamped circles as one batch (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SubmitRevealsRequest"
+    responses:
+      "201":
+        description: The committed batch
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/RevealBatch"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/reveals/{batchId}:
+  parameters:
+    - name: batchId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  delete:
+    operationId: deleteReveals
+    summary: Tear a batch out of the ledger — its area fogs over again (DM only)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/pins/{pinId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/PinId"
+  patch:
+    operationId: updateMapPin
+    summary: Move or reword a pin (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapPinInput"
+    responses:
+      "200":
+        description: The updated pin
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapPin"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteMapPin
+    summary: Pull a pin off the map (DM only)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

@@ -1,0 +1,166 @@
+/campaigns/{campaignId}/quests:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listQuests
+    summary: List quests on a campaign's board (members only)
+    responses:
+      "200":
+        description: Quests with rewards and claims
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Quest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createQuest
+    summary: Post a new quest (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CreateQuestRequest"
+    responses:
+      "201":
+        description: Created quest
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Quest"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/quests/{questId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/QuestId"
+  patch:
+    operationId: updateQuest
+    summary: Update a quest, including its status and rewards (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/UpdateQuestRequest"
+    responses:
+      "200":
+        description: Updated quest
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Quest"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteQuest
+    summary: Remove a quest (DM only)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/quests/{questId}/claim:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/QuestId"
+  post:
+    operationId: claimQuest
+    summary: Claim a quest (any campaign member)
+    responses:
+      "200":
+        description: Quest after claiming
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Quest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: unclaimQuest
+    summary: Release a previously claimed quest
+    responses:
+      "200":
+        description: Quest after unclaiming
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Quest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/quests/{questId}/visibility:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/QuestId"
+  put:
+    operationId: setQuestVisibility
+    summary: Reveal or veil a notice, for the whole party or for one hero (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetVisibilityRequest"
+    responses:
+      "200":
+        description: The quest after the veil moved
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Quest"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/quests/{questId}/visibility/{characterId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/QuestId"
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  delete:
+    operationId: clearQuestVisibilityOverride
+    summary: Drop one hero's exception so they follow the party again (DM only)
+    responses:
+      "200":
+        description: The quest after the exception was dropped
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Quest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

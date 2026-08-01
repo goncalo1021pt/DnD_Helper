@@ -1,0 +1,392 @@
+Character:
+  type: object
+  required:
+    [id, ownerUserId, ownerName, name, class, level, hpCurrent, hpMax, createdAt, mine, tableBorn]
+  properties:
+    id:
+      type: string
+      format: uuid
+    campaignId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The campaign this hero is seated at; null while in My Heroes.
+    campaignName:
+      type: string
+      nullable: true
+      description: Name of the seated campaign, when known.
+    ownerUserId:
+      type: string
+      format: uuid
+    ownerName:
+      type: string
+      description: Display name of the member who plays this character.
+    name:
+      type: string
+    class:
+      type: string
+      description: 'Freeform class/ancestry line, e.g. "Half-Elf Bard".'
+    level:
+      type: integer
+    hpCurrent:
+      type: integer
+    hpMax:
+      type: integer
+    createdAt:
+      type: string
+      format: date-time
+    mine:
+      type: boolean
+      description: True when the caller owns this character.
+    tableBorn:
+      type: boolean
+      description: >
+        Born of a quick-add on a campaign roster: lives and dies with the
+        table, never listed in My Heroes, never seated elsewhere. Account
+        heroes are the opposite — the roster may only unseat them.
+    xp:
+      type: integer
+      description: Experience points (XP-mode campaigns; advisory).
+    pendingLevels:
+      type: integer
+      description: Milestone level-ups waiting to be taken.
+    concealed:
+      type: boolean
+      description: >
+        True when the table's veil hides this hero from the caller. Only
+        the name (and who plays them) is real — class, level, HP and the
+        sheet come back emptied, and the full sheet is refused.
+    revealed:
+      type: boolean
+      description: >
+        True when the DM has lifted the veil on this hero, so the party
+        reads their sheet even while the table's sheets are veiled. Only
+        meaningful on a veiled table.
+    sheet:
+      $ref: "../openapi.yaml#/components/schemas/CharacterSheet"
+
+CharacterSheet:
+  type: object
+  description: Present only on wizard-forged heroes.
+  required: [abilities, skills]
+  properties:
+    abilities:
+      $ref: "../openapi.yaml#/components/schemas/AbilityScores"
+    skills:
+      type: array
+      items:
+        type: string
+    classId:
+      type: string
+      format: uuid
+      nullable: true
+    speciesId:
+      type: string
+      format: uuid
+      nullable: true
+    backgroundId:
+      type: string
+      format: uuid
+      nullable: true
+    subclassId:
+      type: string
+      format: uuid
+      nullable: true
+    feats:
+      type: array
+      items:
+        type: string
+    speciesChoices:
+      $ref: "../openapi.yaml#/components/schemas/SpeciesChoices"
+      description: The species picks made at creation, keyed by choice id.
+    spellcastingAbility:
+      type: string
+      description: Present on casters (STR…CHA).
+    spellSlots:
+      type: array
+      description: Present on casters — max and used per spell level.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/SpellSlot"
+
+SpeciesChoices:
+  type: object
+  description: >-
+    Species picks keyed by the choice id declared in the species entry's
+    data, each holding the chosen option names.
+  additionalProperties:
+    type: array
+    items:
+      type: string
+
+SpellSlot:
+  type: object
+  required: [level, max, used]
+  properties:
+    level: { type: integer, minimum: 1, maximum: 9 }
+    max: { type: integer, minimum: 0 }
+    used: { type: integer, minimum: 0 }
+
+AbilityScores:
+  type: object
+  required: [str, dex, con, int, wis, cha]
+  properties:
+    str: { type: integer, minimum: 3, maximum: 30 }
+    dex: { type: integer, minimum: 3, maximum: 30 }
+    con: { type: integer, minimum: 3, maximum: 30 }
+    int: { type: integer, minimum: 3, maximum: 30 }
+    wis: { type: integer, minimum: 3, maximum: 30 }
+    cha: { type: integer, minimum: 3, maximum: 30 }
+
+ForgeRequest:
+  type: object
+  required: [name, classId, speciesId, backgroundId, abilities, skills]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    classId:
+      type: string
+      format: uuid
+    speciesId:
+      type: string
+      format: uuid
+    backgroundId:
+      type: string
+      format: uuid
+    abilities:
+      $ref: "../openapi.yaml#/components/schemas/AbilityScores"
+      description: Final scores, background bonuses already applied.
+    skills:
+      type: array
+      items:
+        type: string
+      description: Chosen class skills (background skills are implied).
+    spells:
+      type: array
+      items:
+        type: string
+        format: uuid
+      description: Level-1 spell picks (casters only; cantrips included).
+    gear:
+      type: string
+      maxLength: 1
+      description: >-
+        Starting-equipment option label (A/B/C) from the class's
+        startingEquipment data. The server stocks the inventory: listed
+        items (linked to armory content where names match), gold as a
+        Gold Pieces row, plus the background's equipment items.
+    speciesChoices:
+      $ref: "../openapi.yaml#/components/schemas/SpeciesChoices"
+      description: >-
+        One entry per choice the species offers, keyed by choice id — an
+        Elf's lineage, a Gnome's Forest-or-Rock, a Human's free skill and
+        Origin feat. Every offered choice must be answered.
+
+CharacterInput:
+  type: object
+  required: [name, level, hpCurrent, hpMax]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    class:
+      type: string
+      maxLength: 80
+    level:
+      type: integer
+      minimum: 1
+      maximum: 20
+    hpCurrent:
+      type: integer
+      minimum: 0
+    hpMax:
+      type: integer
+      minimum: 1
+
+SeatRequest:
+  type: object
+  properties:
+    campaignId:
+      type: string
+      format: uuid
+      nullable: true
+      description: Omit or null to unseat the hero back to My Heroes.
+
+SpellSwap:
+  type: object
+  description: One spell traded for another; both must be the same kind (cantrip for cantrip).
+  required: [replace, with]
+  properties:
+    replace:
+      type: string
+      format: uuid
+      description: A spell the hero currently knows.
+    with:
+      type: string
+      format: uuid
+      description: Its replacement, legal for the class and the hero's level.
+
+SpellSwapRequest:
+  type: object
+  required: [swaps]
+  properties:
+    swaps:
+      type: array
+      minItems: 1
+      items:
+        $ref: "../openapi.yaml#/components/schemas/SpellSwap"
+
+LevelUpRequest:
+  type: object
+  required: [hpMode]
+  properties:
+    hpMode:
+      type: string
+      enum: [average, roll]
+    hpRoll:
+      type: integer
+      minimum: 1
+      maximum: 12
+      description: The hit-die result when hpMode is roll.
+    subclassId:
+      type: string
+      format: uuid
+      description: Required when the new level is the class's subclass level.
+    featId:
+      type: string
+      format: uuid
+      description: Take a feat instead of ability increases at an ASI level.
+    spells:
+      type: array
+      items:
+        type: string
+        format: uuid
+      description: New spell picks gained with this level (casters only).
+    spellSwaps:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/SpellSwap"
+      description: >-
+        Spells traded on gaining this level, for classes whose spellChanges
+        rule says level-up (Bard, Sorcerer, Warlock).
+    asi:
+      type: object
+      description: Ability increases at an ASI level; total of 2 points, each +1 or +2.
+      additionalProperties: false
+      properties:
+        str: { type: integer, minimum: 1, maximum: 2 }
+        dex: { type: integer, minimum: 1, maximum: 2 }
+        con: { type: integer, minimum: 1, maximum: 2 }
+        int: { type: integer, minimum: 1, maximum: 2 }
+        wis: { type: integer, minimum: 1, maximum: 2 }
+        cha: { type: integer, minimum: 1, maximum: 2 }
+
+SeatConflict:
+  type: object
+  required: [error, missing]
+  properties:
+    error:
+      type: string
+    missing:
+      type: array
+      description: Content the hero uses that the codex has not admitted.
+      items:
+        type: object
+        required: [id, kind, name, state]
+        properties:
+          id:
+            type: string
+            format: uuid
+          kind:
+            type: string
+          name:
+            type: string
+          state:
+            type: string
+            enum: [absent, proposed, banned]
+            description: absent = never offered; proposed = awaiting the DM; banned = the DM said no.
+
+SpellSlotsInput:
+  type: object
+  required: [used]
+  properties:
+    used:
+      type: array
+      maxItems: 9
+      items:
+        type: integer
+        minimum: 0
+      description: Slots spent per spell level (index 0 = level 1).
+
+InventoryItem:
+  type: object
+  required: [id, name, qty, equipped]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    qty:
+      type: integer
+    equipped:
+      type: boolean
+    slot:
+      type: string
+      enum: ["", armor, mainhand, offhand]
+      description: Where an equipped item sits; empty when stowed.
+    content:
+      $ref: "../openapi.yaml#/components/schemas/RulesContent"
+      nullable: true
+      description: The rules entry behind this row; null for free-text gear.
+
+InventoryItemInput:
+  type: object
+  properties:
+    contentId:
+      type: string
+      format: uuid
+      description: An item from the library — or omit and use name for free-text gear.
+    name:
+      type: string
+      maxLength: 80
+    qty:
+      type: integer
+      minimum: 1
+      maximum: 999
+      default: 1
+
+InventoryItemPatch:
+  type: object
+  properties:
+    qty:
+      type: integer
+      minimum: 1
+      maximum: 999
+    equipped:
+      type: boolean
+    slot:
+      type: string
+      enum: [armor, mainhand, offhand]
+      description: >-
+        Equip into a specific slot (implies equipped). Armor only fits
+        the armor slot, shields only the off-hand; weapons fit either
+        hand. Displaced occupants are unequipped in the same stroke.
+        Use equipped:false to stow.
+
+CharacterDetail:
+  type: object
+  required: [character, spells, items]
+  properties:
+    character:
+      $ref: "../openapi.yaml#/components/schemas/Character"
+    spells:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/RulesContent"
+    items:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/InventoryItem"

@@ -10,7 +10,7 @@ STATIC := backend/internal/static
 PLAYWRIGHT_VERSION := v1.62.0
 E2E_BASE_URL ?= http://localhost:8080
 
-.PHONY: help generate gen-backend gen-frontend frontend embed backend build run test e2e prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
+.PHONY: help generate gen-spec gen-backend gen-frontend frontend embed backend build run test e2e prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -24,7 +24,14 @@ tools: ## Install codegen tools (sqlc, oapi-codegen) at pinned versions
 	go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.7.1
 
-generate: gen-backend gen-frontend ## Regenerate all code from SQL + OpenAPI
+generate: gen-spec gen-backend gen-frontend ## Regenerate all code from SQL + OpenAPI
+
+# The spec is authored as a tree under openapi/ and bundled into the single
+# openapi.yaml both generators read. This has to run FIRST — the two targets
+# below read the bundled file, not the tree, because oapi-codegen cannot follow
+# an external $ref (see openapi/README.md).
+gen-spec: ## Bundle openapi/ into the root openapi.yaml
+	cd frontend && npm run gen:bundle
 
 gen-backend: ## sqlc (DB) + oapi-codegen (Go server) from queries/ and openapi.yaml
 	cd backend && PATH="$(GOBIN):$$PATH" sqlc generate
@@ -102,13 +109,14 @@ clean: ## Remove build artifacts
 	rm -rf bin frontend/dist
 
 # --- Line counts (handwritten code only — generated files are excluded) ---
-# Generated: api.gen.go, schema.d.ts, and sqlc output (db.go, models.go, *.sql.go).
+# Generated: api.gen.go, schema.d.ts, sqlc output (db.go, models.go, *.sql.go),
+# and the root openapi.yaml — the spec is authored under openapi/ and bundled.
 
 FRONTEND_TS  = find frontend/src -type f \( -name '*.ts' -o -name '*.tsx' \) ! -name 'schema.d.ts' -print0 | xargs -0 -r cat | wc -l
 FRONTEND_CSS = find frontend/src -type f -name '*.css' -print0 | xargs -0 -r cat | wc -l
 BACKEND_GO   = find backend -type f -name '*.go' ! -name '*.gen.go' ! -name '*.sql.go' ! -path 'backend/internal/db/db.go' ! -path 'backend/internal/db/models.go' -print0 | xargs -0 -r cat | wc -l
 DB_SQL       = find backend/queries backend/internal/db/migrations -type f -name '*.sql' -print0 | xargs -0 -r cat | wc -l
-SPEC_YAML    = cat openapi.yaml | wc -l
+SPEC_YAML    = find openapi -type f -name '*.yaml' -print0 | xargs -0 -r cat | wc -l
 
 countFrontend: ## Count handwritten frontend lines (TypeScript + CSS)
 	@printf "  \033[36m%-12s\033[0m %6d lines\n" "TypeScript" $$($(FRONTEND_TS))

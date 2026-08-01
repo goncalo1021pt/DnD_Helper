@@ -1,0 +1,311 @@
+/campaigns/{campaignId}/encounters:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listEncounters
+    summary: The DM's encounter library — every prepared fight, running or not (DM only)
+    responses:
+      "200":
+        description: Encounters, newest first
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Encounter"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createEncounter
+    summary: Prepare a new (inactive) encounter (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CreateEncounterRequest"
+    responses:
+      "201":
+        description: The new encounter
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Encounter"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/encounters/active:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: getActiveEncounter
+    summary: >-
+      The running encounter this member is in — the fight their hero stands in
+      for a player, the most recently triggered one for the DM. Redacted for
+      players. 204 when none applies.
+    responses:
+      "200":
+        description: The active encounter and its combatants
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/EncounterDetail"
+      "204":
+        description: No encounter is running for this member
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/encounters/stand-down:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: standDownEncounters
+    summary: >-
+      Stand down every running encounter at once, releasing every summoned
+      hero (DM only). The way out when several fights are open and a player is
+      stuck in one of them.
+    responses:
+      "200":
+        description: The encounters that were stood down
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Encounter"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/encounters/{encounterId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/EncounterId"
+  get:
+    operationId: getEncounter
+    summary: One encounter with its combatants — full detail (DM only)
+    responses:
+      "200":
+        description: The encounter and its combatants
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/EncounterDetail"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  patch:
+    operationId: updateEncounter
+    summary: Rename, trigger/end, or advance the tracker (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/UpdateEncounterRequest"
+    responses:
+      "200":
+        description: The updated encounter and combatants
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/EncounterDetail"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteEncounter
+    summary: Discard an encounter and its combatants (DM only)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/encounters/{encounterId}/filing:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/EncounterId"
+  put:
+    operationId: fileEncounter
+    summary: File an encounter under a session tag and/or a place (DM only)
+    description: >-
+      Replaces the encounter's filing wholesale, so one call can move it,
+      unpin it, or clear its tag. The library groups on these two fields.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/FileEncounterRequest"
+    responses:
+      "200":
+        description: The refiled encounter
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Encounter"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/encounters/{encounterId}/combatants:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/EncounterId"
+  post:
+    operationId: addCombatant
+    summary: Add a Den monster, a seated PC, or a custom line (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/AddCombatantRequest"
+    responses:
+      "201":
+        description: >-
+          The combatants added — one element for a lone addition, or every
+          member of the group when count > 1.
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Combatant"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/encounters/{encounterId}/roll-initiative:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/EncounterId"
+  post:
+    operationId: rollInitiative
+    summary: Roll initiative (d20 + modifier) for every combatant at once (DM only)
+    responses:
+      "200":
+        description: The encounter with rolled initiative
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/EncounterDetail"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/combatants/{combatantId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CombatantId"
+  patch:
+    operationId: updateCombatant
+    summary: Edit a combatant — HP, initiative, reveal, rename (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/UpdateCombatantRequest"
+    responses:
+      "200":
+        description: The updated combatant
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Combatant"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteCombatant
+    summary: Remove a combatant (DM only)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/encounters/{encounterId}/combatant-groups/{groupId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/EncounterId"
+    - name: groupId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  delete:
+    operationId: deleteCombatantGroup
+    summary: Remove a whole mob at once (DM only)
+    description: >-
+      Deletes every combatant sharing this groupId. Removing one dead skeleton
+      is still a plain combatant delete; this is for clearing the entire unit.
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/combatants/{combatantId}/roll:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CombatantId"
+  post:
+    operationId: rollCombatantInitiative
+    summary: Roll this combatant's initiative (DM, or the owner of a PC combatant)
+    responses:
+      "200":
+        description: The combatant with a fresh initiative
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Combatant"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

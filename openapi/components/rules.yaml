@@ -1,0 +1,156 @@
+RulesContent:
+  type: object
+  required: [id, kind, source, name, summary, data, mine]
+  properties:
+    id:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      enum: [class, species, background, subclass, feat, spell, item, monster]
+    source:
+      type: string
+      enum: [srd, homebrew]
+    name:
+      type: string
+    summary:
+      type: string
+    data:
+      type: object
+      description: Kind-specific payload (hit die, traits, features…).
+      additionalProperties: true
+    mine:
+      type: boolean
+      description: True when the caller authored this homebrew entry.
+    creatorName:
+      type: string
+      nullable: true
+      description: Author of a homebrew entry; null for SRD content.
+
+RulesContentInput:
+  type: object
+  required: [name, summary, data]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    summary:
+      type: string
+      maxLength: 300
+    data:
+      type: object
+      additionalProperties: true
+
+CodexEntry:
+  type: object
+  required: [content, status]
+  properties:
+    content:
+      $ref: "../openapi.yaml#/components/schemas/RulesContent"
+    status:
+      type: string
+      enum: [proposed, enabled, banned]
+    proposerName:
+      type: string
+      nullable: true
+
+PackEntry:
+  type: object
+  required: [kind, name, data]
+  properties:
+    kind:
+      type: string
+      enum: [class, species, background, subclass, feat, spell, item, monster]
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    summary:
+      type: string
+      maxLength: 300
+    data:
+      type: object
+      additionalProperties: true
+
+HomebrewImpact:
+  type: object
+  required: [byKind]
+  properties:
+    byKind:
+      type: array
+      description: One row per kind you have homebrew in, with usage counts.
+      items:
+        type: object
+        required: [kind, total, onMyCharacters, onOthersCharacters, inCampaigns]
+        properties:
+          kind:
+            type: string
+          total:
+            type: integer
+          onMyCharacters:
+            type: integer
+            description: Entries referenced by characters you own.
+          onOthersCharacters:
+            type: integer
+            description: Entries referenced by other players' characters.
+          inCampaigns:
+            type: integer
+            description: Entries admitted in a campaign codex.
+
+HomebrewBooks:
+  type: object
+  required: [rows]
+  properties:
+    rows:
+      type: array
+      description: One row per (book, kind) pair present in your homebrew.
+      items:
+        type: object
+        required: [kind, total]
+        properties:
+          book:
+            type: string
+            nullable: true
+            description: data.book of the entries; null for hand-scribed homebrew.
+          kind:
+            type: string
+          total:
+            type: integer
+
+ImportReport:
+  type: object
+  required: [created, updated, failed, results]
+  properties:
+    created:
+      type: integer
+    updated:
+      type: integer
+    failed:
+      type: integer
+    results:
+      type: array
+      items:
+        type: object
+        required: [kind, name, status]
+        properties:
+          kind:
+            type: string
+          name:
+            type: string
+          status:
+            type: string
+            enum: [created, updated, failed]
+          error:
+            type: string
+    warnings:
+      type: array
+      items:
+        type: string
+      description: >-
+        Non-fatal notes about the import — chiefly entries whose name
+        shadows an SRD entry of the same kind. Packs are meant to be
+        additive (new classes, subclasses, feats, spells), so a shadowing
+        entry usually means a book's extra class features were pasted onto
+        a copy of the base class; the import still succeeds, but the
+        library will now show both.

@@ -1,0 +1,516 @@
+openapi: 3.0.3
+info:
+  title: Quest Board API
+  version: 0.1.0
+  description: |
+    Self-hosted D&D campaign helper. This spec is the single source of truth for
+    the API contract: the Go server interface and the TypeScript client are both
+    generated from it (`make generate`).
+servers:
+  - url: /api
+
+paths:
+  /health:
+    $ref: "./paths/core.yaml#/~1health"
+  /me:
+    $ref: "./paths/core.yaml#/~1me"
+
+  /campaigns:
+    $ref: "./paths/campaigns.yaml#/~1campaigns"
+  /campaigns/join:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1join"
+  /campaigns/{campaignId}:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}"
+  /campaigns/{campaignId}/regenerate-invite:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1regenerate-invite"
+  /campaigns/{campaignId}/members:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1members"
+  /campaigns/{campaignId}/members/{userId}:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1members~1{userId}"
+  /campaigns/{campaignId}/bans:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1bans"
+  /campaigns/{campaignId}/bans/{userId}:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1bans~1{userId}"
+  /campaigns/{campaignId}/next-session:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1next-session"
+
+  /campaigns/{campaignId}/quests:
+    $ref: "./paths/quests.yaml#/~1campaigns~1{campaignId}~1quests"
+  /quests/{questId}:
+    $ref: "./paths/quests.yaml#/~1quests~1{questId}"
+
+  /me/seat-requests:
+    $ref: "./paths/characters.yaml#/~1me~1seat-requests"
+  /me/characters:
+    $ref: "./paths/characters.yaml#/~1me~1characters"
+  /me/characters/forge:
+    $ref: "./paths/characters.yaml#/~1me~1characters~1forge"
+  /characters/{characterId}/seat:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1seat"
+  /characters/{characterId}/slots:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1slots"
+  /characters/{characterId}/items:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1items"
+  /characters/{characterId}/items/{itemId}:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1items~1{itemId}"
+
+  /rules/import:
+    $ref: "./paths/rules.yaml#/~1rules~1import"
+  /rules/export:
+    $ref: "./paths/rules.yaml#/~1rules~1export"
+  /rules/homebrew/impact:
+    $ref: "./paths/rules.yaml#/~1rules~1homebrew~1impact"
+  /rules/homebrew/books:
+    $ref: "./paths/rules.yaml#/~1rules~1homebrew~1books"
+  /rules/homebrew:
+    $ref: "./paths/rules.yaml#/~1rules~1homebrew"
+  /rules/{kind}:
+    $ref: "./paths/rules.yaml#/~1rules~1{kind}"
+  /rules/content/{contentId}:
+    $ref: "./paths/rules.yaml#/~1rules~1content~1{contentId}"
+
+  /characters/{characterId}/levelup:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1levelup"
+  /characters/{characterId}/spells/swap:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1spells~1swap"
+
+  /campaigns/{campaignId}/events:
+    $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1events"
+  /campaigns/{campaignId}/xp:
+    $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1xp"
+  /campaigns/{campaignId}/milestone:
+    $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1milestone"
+  /campaigns/{campaignId}/milestone/revoke:
+    $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1milestone~1revoke"
+
+  /campaigns/{campaignId}/progression:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1progression"
+  /campaigns/{campaignId}/max-level:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1max-level"
+  /campaigns/{campaignId}/seating-approval:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1seating-approval"
+  /campaigns/{campaignId}/hidden-sheets:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1hidden-sheets"
+
+  /characters/{characterId}/reveal:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1reveal"
+  /campaigns/{campaignId}/seat-requests:
+    $ref: "./paths/characters.yaml#/~1campaigns~1{campaignId}~1seat-requests"
+  /campaigns/{campaignId}/seat-requests/{characterId}/approve:
+    $ref: "./paths/characters.yaml#/~1campaigns~1{campaignId}~1seat-requests~1{characterId}~1approve"
+  /campaigns/{campaignId}/seat-requests/{characterId}:
+    $ref: "./paths/characters.yaml#/~1campaigns~1{campaignId}~1seat-requests~1{characterId}"
+
+  /campaigns/{campaignId}/codex:
+    $ref: "./paths/rules.yaml#/~1campaigns~1{campaignId}~1codex"
+  /campaigns/{campaignId}/codex/bulk:
+    $ref: "./paths/rules.yaml#/~1campaigns~1{campaignId}~1codex~1bulk"
+  /campaigns/{campaignId}/codex/{contentId}:
+    $ref: "./paths/rules.yaml#/~1campaigns~1{campaignId}~1codex~1{contentId}"
+
+  /campaigns/{campaignId}/characters:
+    $ref: "./paths/characters.yaml#/~1campaigns~1{campaignId}~1characters"
+  /characters/{characterId}:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}"
+
+  /campaigns/{campaignId}/trees:
+    $ref: "./paths/trees.yaml#/~1campaigns~1{campaignId}~1trees"
+  /trees/{treeId}:
+    $ref: "./paths/trees.yaml#/~1trees~1{treeId}"
+  /trees/{treeId}/nodes:
+    $ref: "./paths/trees.yaml#/~1trees~1{treeId}~1nodes"
+  /trees/{treeId}/edges:
+    $ref: "./paths/trees.yaml#/~1trees~1{treeId}~1edges"
+  /nodes/{nodeId}:
+    $ref: "./paths/trees.yaml#/~1nodes~1{nodeId}"
+  /characters/{characterId}/tree:
+    $ref: "./paths/trees.yaml#/~1characters~1{characterId}~1tree"
+  /characters/{characterId}/tree/grants:
+    $ref: "./paths/trees.yaml#/~1characters~1{characterId}~1tree~1grants"
+  /characters/{characterId}/tree/picks:
+    $ref: "./paths/trees.yaml#/~1characters~1{characterId}~1tree~1picks"
+
+  /campaigns/{campaignId}/locations:
+    $ref: "./paths/locations.yaml#/~1campaigns~1{campaignId}~1locations"
+  /locations/{locationId}:
+    $ref: "./paths/locations.yaml#/~1locations~1{locationId}"
+  /locations/{locationId}/parent:
+    $ref: "./paths/locations.yaml#/~1locations~1{locationId}~1parent"
+  /locations/{locationId}/visibility:
+    $ref: "./paths/locations.yaml#/~1locations~1{locationId}~1visibility"
+  /locations/{locationId}/visibility/{characterId}:
+    $ref: "./paths/locations.yaml#/~1locations~1{locationId}~1visibility~1{characterId}"
+
+  /quests/{questId}/visibility/{characterId}:
+    $ref: "./paths/quests.yaml#/~1quests~1{questId}~1visibility~1{characterId}"
+  /quests/{questId}/visibility:
+    $ref: "./paths/quests.yaml#/~1quests~1{questId}~1visibility"
+  /quests/{questId}/claim:
+    $ref: "./paths/quests.yaml#/~1quests~1{questId}~1claim"
+
+  /campaigns/{campaignId}/bestiary:
+    $ref: "./paths/bestiary.yaml#/~1campaigns~1{campaignId}~1bestiary"
+  /campaigns/{campaignId}/bestiary/{entryId}:
+    $ref: "./paths/bestiary.yaml#/~1campaigns~1{campaignId}~1bestiary~1{entryId}"
+  /campaigns/{campaignId}/bestiary/{entryId}/notes:
+    $ref: "./paths/bestiary.yaml#/~1campaigns~1{campaignId}~1bestiary~1{entryId}~1notes"
+  /campaigns/{campaignId}/bestiary/{entryId}/notes/{noteId}:
+    $ref: "./paths/bestiary.yaml#/~1campaigns~1{campaignId}~1bestiary~1{entryId}~1notes~1{noteId}"
+
+  /campaigns/{campaignId}/maps:
+    $ref: "./paths/maps.yaml#/~1campaigns~1{campaignId}~1maps"
+  /maps/{mapId}:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}"
+  /maps/{mapId}/pins:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1pins"
+  /maps/{mapId}/reveals:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1reveals"
+  /reveals/{batchId}:
+    $ref: "./paths/maps.yaml#/~1reveals~1{batchId}"
+  /pins/{pinId}:
+    $ref: "./paths/maps.yaml#/~1pins~1{pinId}"
+
+  /campaigns/{campaignId}/encounters:
+    $ref: "./paths/encounters.yaml#/~1campaigns~1{campaignId}~1encounters"
+  /campaigns/{campaignId}/encounters/active:
+    $ref: "./paths/encounters.yaml#/~1campaigns~1{campaignId}~1encounters~1active"
+  /campaigns/{campaignId}/encounters/stand-down:
+    $ref: "./paths/encounters.yaml#/~1campaigns~1{campaignId}~1encounters~1stand-down"
+  /encounters/{encounterId}:
+    $ref: "./paths/encounters.yaml#/~1encounters~1{encounterId}"
+  /encounters/{encounterId}/filing:
+    $ref: "./paths/encounters.yaml#/~1encounters~1{encounterId}~1filing"
+  /encounters/{encounterId}/combatants:
+    $ref: "./paths/encounters.yaml#/~1encounters~1{encounterId}~1combatants"
+  /encounters/{encounterId}/roll-initiative:
+    $ref: "./paths/encounters.yaml#/~1encounters~1{encounterId}~1roll-initiative"
+  /combatants/{combatantId}:
+    $ref: "./paths/encounters.yaml#/~1combatants~1{combatantId}"
+  /encounters/{encounterId}/combatant-groups/{groupId}:
+    $ref: "./paths/encounters.yaml#/~1encounters~1{encounterId}~1combatant-groups~1{groupId}"
+  /combatants/{combatantId}/roll:
+    $ref: "./paths/encounters.yaml#/~1combatants~1{combatantId}~1roll"
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+  security:
+    - sessionCookie: []
+
+  parameters:
+    CampaignId:
+      name: campaignId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    QuestId:
+      name: questId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CharacterId:
+      name: characterId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TreeId:
+      name: treeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ContentKind:
+      name: kind
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [class, species, background, subclass, feat, spell, item, monster]
+    NodeId:
+      name: nodeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MapId:
+      name: mapId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PinId:
+      name: pinId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    EncounterId:
+      name: encounterId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    CombatantId:
+      name: combatantId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    LocationId:
+      name: locationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Not allowed (not a member, or insufficient role)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Health:
+      $ref: "./components/core.yaml#/Health"
+    Error:
+      $ref: "./components/core.yaml#/Error"
+    Role:
+      $ref: "./components/core.yaml#/Role"
+    User:
+      $ref: "./components/core.yaml#/User"
+
+    Campaign:
+      $ref: "./components/campaigns.yaml#/Campaign"
+    CampaignMembership:
+      $ref: "./components/campaigns.yaml#/CampaignMembership"
+    Member:
+      $ref: "./components/campaigns.yaml#/Member"
+    Ban:
+      $ref: "./components/campaigns.yaml#/Ban"
+    BanRequest:
+      $ref: "./components/campaigns.yaml#/BanRequest"
+    PendingSeat:
+      $ref: "./components/campaigns.yaml#/PendingSeat"
+    SeatPending:
+      $ref: "./components/campaigns.yaml#/SeatPending"
+    MySeatRequest:
+      $ref: "./components/campaigns.yaml#/MySeatRequest"
+
+    CurrentUser:
+      $ref: "./components/core.yaml#/CurrentUser"
+
+    CreateCampaignRequest:
+      $ref: "./components/campaigns.yaml#/CreateCampaignRequest"
+    JoinCampaignRequest:
+      $ref: "./components/campaigns.yaml#/JoinCampaignRequest"
+    SetNextSessionRequest:
+      $ref: "./components/campaigns.yaml#/SetNextSessionRequest"
+
+    QuestStatus:
+      $ref: "./components/quests.yaml#/QuestStatus"
+    QuestDifficulty:
+      $ref: "./components/quests.yaml#/QuestDifficulty"
+    RewardType:
+      $ref: "./components/quests.yaml#/RewardType"
+    QuestReward:
+      $ref: "./components/quests.yaml#/QuestReward"
+    QuestClaim:
+      $ref: "./components/quests.yaml#/QuestClaim"
+    Quest:
+      $ref: "./components/quests.yaml#/Quest"
+
+    Character:
+      $ref: "./components/characters.yaml#/Character"
+    CharacterSheet:
+      $ref: "./components/characters.yaml#/CharacterSheet"
+    SpeciesChoices:
+      $ref: "./components/characters.yaml#/SpeciesChoices"
+    SpellSlot:
+      $ref: "./components/characters.yaml#/SpellSlot"
+    AbilityScores:
+      $ref: "./components/characters.yaml#/AbilityScores"
+    ForgeRequest:
+      $ref: "./components/characters.yaml#/ForgeRequest"
+    CharacterInput:
+      $ref: "./components/characters.yaml#/CharacterInput"
+    SeatRequest:
+      $ref: "./components/characters.yaml#/SeatRequest"
+
+    RulesContent:
+      $ref: "./components/rules.yaml#/RulesContent"
+    RulesContentInput:
+      $ref: "./components/rules.yaml#/RulesContentInput"
+
+    SpellSwap:
+      $ref: "./components/characters.yaml#/SpellSwap"
+    SpellSwapRequest:
+      $ref: "./components/characters.yaml#/SpellSwapRequest"
+    LevelUpRequest:
+      $ref: "./components/characters.yaml#/LevelUpRequest"
+
+    CodexEntry:
+      $ref: "./components/rules.yaml#/CodexEntry"
+
+    SeatConflict:
+      $ref: "./components/characters.yaml#/SeatConflict"
+    SpellSlotsInput:
+      $ref: "./components/characters.yaml#/SpellSlotsInput"
+    InventoryItem:
+      $ref: "./components/characters.yaml#/InventoryItem"
+    InventoryItemInput:
+      $ref: "./components/characters.yaml#/InventoryItemInput"
+    InventoryItemPatch:
+      $ref: "./components/characters.yaml#/InventoryItemPatch"
+    CharacterDetail:
+      $ref: "./components/characters.yaml#/CharacterDetail"
+
+    BestiaryNote:
+      $ref: "./components/bestiary.yaml#/BestiaryNote"
+
+    CampaignMap:
+      $ref: "./components/maps.yaml#/CampaignMap"
+    MapPin:
+      $ref: "./components/maps.yaml#/MapPin"
+    MapDetail:
+      $ref: "./components/maps.yaml#/MapDetail"
+    RevealCircle:
+      $ref: "./components/maps.yaml#/RevealCircle"
+    SubmitRevealsRequest:
+      $ref: "./components/maps.yaml#/SubmitRevealsRequest"
+    RevealBatch:
+      $ref: "./components/maps.yaml#/RevealBatch"
+    CreateMapRequest:
+      $ref: "./components/maps.yaml#/CreateMapRequest"
+    UpdateMapRequest:
+      $ref: "./components/maps.yaml#/UpdateMapRequest"
+    MapPinInput:
+      $ref: "./components/maps.yaml#/MapPinInput"
+
+    Encounter:
+      $ref: "./components/encounters.yaml#/Encounter"
+    Combatant:
+      $ref: "./components/encounters.yaml#/Combatant"
+    EncounterDetail:
+      $ref: "./components/encounters.yaml#/EncounterDetail"
+    CreateEncounterRequest:
+      $ref: "./components/encounters.yaml#/CreateEncounterRequest"
+    FileEncounterRequest:
+      $ref: "./components/encounters.yaml#/FileEncounterRequest"
+    UpdateEncounterRequest:
+      $ref: "./components/encounters.yaml#/UpdateEncounterRequest"
+    AddCombatantRequest:
+      $ref: "./components/encounters.yaml#/AddCombatantRequest"
+    UpdateCombatantRequest:
+      $ref: "./components/encounters.yaml#/UpdateCombatantRequest"
+
+    BestiaryEntry:
+      $ref: "./components/bestiary.yaml#/BestiaryEntry"
+    BestiaryEntryInput:
+      $ref: "./components/bestiary.yaml#/BestiaryEntryInput"
+    BestiaryEntryPatch:
+      $ref: "./components/bestiary.yaml#/BestiaryEntryPatch"
+
+    PackEntry:
+      $ref: "./components/rules.yaml#/PackEntry"
+    HomebrewImpact:
+      $ref: "./components/rules.yaml#/HomebrewImpact"
+    HomebrewBooks:
+      $ref: "./components/rules.yaml#/HomebrewBooks"
+    ImportReport:
+      $ref: "./components/rules.yaml#/ImportReport"
+
+    ChronicleEvent:
+      $ref: "./components/chronicle.yaml#/ChronicleEvent"
+
+    NodeRarity:
+      $ref: "./components/trees.yaml#/NodeRarity"
+    SkillTree:
+      $ref: "./components/trees.yaml#/SkillTree"
+    SkillTreeInput:
+      $ref: "./components/trees.yaml#/SkillTreeInput"
+    SkillNode:
+      $ref: "./components/trees.yaml#/SkillNode"
+    SkillNodeInput:
+      $ref: "./components/trees.yaml#/SkillNodeInput"
+    SkillEdge:
+      $ref: "./components/trees.yaml#/SkillEdge"
+    SkillEdgesInput:
+      $ref: "./components/trees.yaml#/SkillEdgesInput"
+    SkillTreeDetail:
+      $ref: "./components/trees.yaml#/SkillTreeDetail"
+    CharacterTreeState:
+      $ref: "./components/trees.yaml#/CharacterTreeState"
+    SetPactRequest:
+      $ref: "./components/trees.yaml#/SetPactRequest"
+    GrantPicksRequest:
+      $ref: "./components/trees.yaml#/GrantPicksRequest"
+    SpendPickRequest:
+      $ref: "./components/trees.yaml#/SpendPickRequest"
+
+    RewardInput:
+      $ref: "./components/quests.yaml#/RewardInput"
+    CreateQuestRequest:
+      $ref: "./components/quests.yaml#/CreateQuestRequest"
+    UpdateQuestRequest:
+      $ref: "./components/quests.yaml#/UpdateQuestRequest"
+
+    VisibilityScope:
+      $ref: "./components/locations.yaml#/VisibilityScope"
+    VisibilityOverride:
+      $ref: "./components/locations.yaml#/VisibilityOverride"
+    SetVisibilityRequest:
+      $ref: "./components/locations.yaml#/SetVisibilityRequest"
+    Location:
+      $ref: "./components/locations.yaml#/Location"
+    CreateLocationRequest:
+      $ref: "./components/locations.yaml#/CreateLocationRequest"
+    UpdateLocationRequest:
+      $ref: "./components/locations.yaml#/UpdateLocationRequest"
+    MoveLocationRequest:
+      $ref: "./components/locations.yaml#/MoveLocationRequest"
+
+security:
+  - sessionCookie: []

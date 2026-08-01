@@ -1,0 +1,162 @@
+Campaign:
+  type: object
+  required: [id, name, ownerUserId, createdAt, inviteCode]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    ownerUserId:
+      type: string
+      format: uuid
+    createdAt:
+      type: string
+      format: date-time
+    inviteCode:
+      type: string
+      description: Shareable code players use to join the campaign.
+    nextSessionAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: When the table gathers next; null when unscheduled.
+    progression:
+      type: string
+      enum: [milestone, xp]
+      description: How heroes advance at this table.
+    maxLevel:
+      type: integer
+      nullable: true
+      description: The DM's level ceiling for this table; null means the standard 20.
+    requireSeatingApproval:
+      type: boolean
+      description: When true the door is barred — new heroes wait for the DM's approval before seating.
+    hiddenSheets:
+      type: boolean
+      description: >
+        When true the veil is drawn over the table's character sheets: a
+        player sees only the names of the other heroes. Owners and the DM
+        always read their own sheets in full, and the DM may lift the veil
+        on individual heroes.
+
+CampaignMembership:
+  type: object
+  required: [campaign, role]
+  properties:
+    campaign:
+      $ref: "../openapi.yaml#/components/schemas/Campaign"
+    role:
+      $ref: "../openapi.yaml#/components/schemas/Role"
+
+Member:
+  type: object
+  required: [userId, name, role, joinedAt]
+  properties:
+    userId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    image:
+      type: string
+      nullable: true
+    role:
+      $ref: "../openapi.yaml#/components/schemas/Role"
+    joinedAt:
+      type: string
+      format: date-time
+
+Ban:
+  type: object
+  required: [userId, name, bannedAt]
+  properties:
+    userId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    image:
+      type: string
+      nullable: true
+    bannedAt:
+      type: string
+      format: date-time
+
+BanRequest:
+  type: object
+  required: [userId]
+  properties:
+    userId:
+      type: string
+      format: uuid
+
+PendingSeat:
+  type: object
+  required: [characterId, name, level, ownerName, requestedAt]
+  properties:
+    characterId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    class:
+      type: string
+      nullable: true
+    level:
+      type: integer
+    ownerName:
+      type: string
+      description: Display name of the player who knocks.
+    requestedAt:
+      type: string
+      format: date-time
+
+SeatPending:
+  type: object
+  required: [campaignId, campaignName]
+  properties:
+    campaignId:
+      type: string
+      format: uuid
+    campaignName:
+      type: string
+
+MySeatRequest:
+  type: object
+  required: [characterId, campaignId, campaignName]
+  properties:
+    characterId:
+      type: string
+      format: uuid
+    campaignId:
+      type: string
+      format: uuid
+    campaignName:
+      type: string
+
+CreateCampaignRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+
+JoinCampaignRequest:
+  type: object
+  required: [code]
+  properties:
+    code:
+      type: string
+      minLength: 1
+
+SetNextSessionRequest:
+  type: object
+  properties:
+    nextSessionAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Omit or send null to clear the scheduled session.
