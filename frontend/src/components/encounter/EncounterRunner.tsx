@@ -5,6 +5,7 @@ import { useRollInitiative, useUpdateEncounter } from "../../hooks";
 import type { CampaignContext } from "../CampaignView";
 import { AddCombatant } from "./AddCombatant";
 import { CombatantRow } from "./CombatantRow";
+import { DifficultyMeter } from "./DifficultyMeter";
 import { toEntries } from "./entries";
 import { GroupRow } from "./GroupRow";
 import { MonsterBrowser } from "./MonsterBrowser";
@@ -153,6 +154,8 @@ export function BuildLayout({ campaign, detail }: { campaign: CampaignContext["c
             ▶ Trigger
           </button>
         </div>
+
+        <DifficultyMeter campaignId={campaign.id} combatants={combatants} />
 
         <AddCombatant campaignId={campaign.id} encounterId={enc.id} monster={false} party={false} />
 
