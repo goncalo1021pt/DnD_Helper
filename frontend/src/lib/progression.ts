@@ -16,21 +16,55 @@ export function readyToLevel(xp: number, level: number): boolean {
   return next !== null && xp >= next;
 }
 
+/** What is holding a hero at their level, as both engines name it. */
+export type LevelUpHold = "ceiling" | "milestone";
+
 /**
- * Why this hero cannot level up right now, or null when the road is clear.
- * Mirrors the server's gates so the Level up button never lies: the table's
- * ceiling first, then the milestone allowance (XP tables gate on XP alone).
+ * What stops a seated hero rising, or null when the road is clear.
+ *
+ * This is the server's gate, repeated — internal/http/levelup.go has the same
+ * decision, and fixtures/rules/level-up-gates.json holds the two together. It
+ * returns a reason rather than a sentence because the two sides word it
+ * differently on purpose: the server raises an error a player reads once, this
+ * side writes a line that sits under a disabled button.
+ *
+ * The ceiling is asked first, and that ordering is the part worth pinning. A
+ * hero standing at the table's cap with a milestone already banked is held by
+ * the cap; say "milestone" there and the player goes to ask a DM who has
+ * already done their part and has nothing to give them.
  */
+export function levelUpHoldReason(
+  level: number,
+  pendingLevels: number,
+  progression: "milestone" | "xp",
+  maxLevel: number | null,
+): LevelUpHold | null {
+  if (maxLevel != null && level >= maxLevel) return "ceiling";
+  // XP tables gate on XP alone; the allowance is the DM's lever on milestone
+  // tables only.
+  if (progression !== "xp" && pendingLevels < 1) return "milestone";
+  return null;
+}
+
+/** The same answer, in the words the button wears. */
 export function levelUpHold(
   character: { level: number; pendingLevels?: number | null; campaignId?: string | null },
   table: { progression?: "milestone" | "xp"; maxLevel?: number | null } | undefined,
 ): string | null {
   if (!character.campaignId || !table) return null; // resting heroes rise freely
-  if (table.maxLevel != null && character.level >= table.maxLevel) {
-    return `at the table's ceiling — level ${table.maxLevel}`;
+  switch (
+    levelUpHoldReason(
+      character.level,
+      character.pendingLevels ?? 0,
+      table.progression ?? "milestone",
+      table.maxLevel ?? null,
+    )
+  ) {
+    case "ceiling":
+      return `at the table's ceiling — level ${table.maxLevel}`;
+    case "milestone":
+      return "waiting on the DM's milestone";
+    default:
+      return null;
   }
-  if ((table.progression ?? "milestone") !== "xp" && (character.pendingLevels ?? 0) < 1) {
-    return "waiting on the DM's milestone";
-  }
-  return null;
 }

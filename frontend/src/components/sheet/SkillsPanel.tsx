@@ -3,7 +3,7 @@
    skill plus the bonus if they have it. */
 
 import type { Character } from "../../api/client";
-import { abilityMod } from "../ui/AbilityRow";
+import { abilityMod } from "../../lib/abilities";
 import SectionLabel from "./SectionLabel";
 import { SKILL_ABILITY } from "./skills";
 

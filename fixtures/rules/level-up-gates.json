@@ -1,0 +1,114 @@
+{
+  "_note": [
+    "What stops a seated hero rising, and in what order (#112).",
+    "",
+    "The server enforces this in internal/http/levelup.go; the client repeats it",
+    "in lib/progression.ts so the Level up button can explain itself instead of",
+    "offering a press that fails. progression.ts says as much in its own comment",
+    "— 'Mirrors the server's gates so the Level up button never lies' — and until",
+    "now nothing checked that it still did.",
+    "",
+    "The two report the same decision in different words, deliberately: the",
+    "server raises an error a player reads once, the client writes a line that",
+    "sits under a disabled button. So this fixture pins the decision and the",
+    "reason, not the sentence.",
+    "",
+    "The ordering cases are the ones worth having. A hero at the ceiling with a",
+    "milestone banked is held by the ceiling, on both sides — if one of them",
+    "answered 'milestone' the player would be told to wait for a DM who has",
+    "already done their part.",
+    "",
+    "hold: null when the road is clear, otherwise 'ceiling' or 'milestone'.",
+    "maxLevel: null when the table has set no ceiling."
+  ],
+  "cases": [
+    {
+      "name": "milestone table, allowance banked — go",
+      "level": 3,
+      "pendingLevels": 1,
+      "progression": "milestone",
+      "maxLevel": null,
+      "hold": null
+    },
+    {
+      "name": "milestone table, nothing banked — the DM decides",
+      "level": 3,
+      "pendingLevels": 0,
+      "progression": "milestone",
+      "maxLevel": null,
+      "hold": "milestone"
+    },
+    {
+      "name": "XP table ignores the allowance entirely",
+      "level": 3,
+      "pendingLevels": 0,
+      "progression": "xp",
+      "maxLevel": null,
+      "hold": null
+    },
+    {
+      "name": "XP table, below the ceiling — go",
+      "level": 4,
+      "pendingLevels": 0,
+      "progression": "xp",
+      "maxLevel": 5,
+      "hold": null
+    },
+    {
+      "name": "XP table, sitting on the ceiling",
+      "level": 5,
+      "pendingLevels": 0,
+      "progression": "xp",
+      "maxLevel": 5,
+      "hold": "ceiling"
+    },
+    {
+      "name": "already past a lowered ceiling — still held",
+      "level": 6,
+      "pendingLevels": 3,
+      "progression": "milestone",
+      "maxLevel": 5,
+      "hold": "ceiling"
+    },
+    {
+      "name": "at the ceiling WITH a milestone banked — the ceiling answers first",
+      "level": 5,
+      "pendingLevels": 2,
+      "progression": "milestone",
+      "maxLevel": 5,
+      "hold": "ceiling"
+    },
+    {
+      "name": "at the ceiling with nothing banked — the ceiling still answers first",
+      "level": 5,
+      "pendingLevels": 0,
+      "progression": "milestone",
+      "maxLevel": 5,
+      "hold": "ceiling"
+    },
+    {
+      "name": "no ceiling set, milestone unearned",
+      "level": 12,
+      "pendingLevels": 0,
+      "progression": "milestone",
+      "maxLevel": null,
+      "hold": "milestone"
+    },
+    {
+      "name": "one below a level-20 ceiling, allowance in hand",
+      "level": 19,
+      "pendingLevels": 1,
+      "progression": "milestone",
+      "maxLevel": 20,
+      "hold": null
+    },
+    {
+      "name": "several milestones banked spends only one, but any is enough to rise",
+      "level": 2,
+      "pendingLevels": 3,
+      "progression": "milestone",
+      "maxLevel": null,
+      "hold": null
+    }
+  ]
+}

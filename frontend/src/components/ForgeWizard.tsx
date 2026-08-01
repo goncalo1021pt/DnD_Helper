@@ -20,7 +20,7 @@ import {
   type SpeciesData,
   type SpeciesPicks,
 } from "../lib/species";
-import { abilityMod, modText } from "./ui/AbilityRow";
+import { abilityMod, modText } from "../lib/abilities";
 import FloatingDiceTray from "./ui/DiceTray";
 import SpellHover from "./ui/SpellHover";
 import { clearDraft, loadDraft, saveDraft, type ForgeDraft } from "./forge/draft";

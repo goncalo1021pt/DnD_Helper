@@ -1,13 +1,5 @@
 import type { AbilityScores } from "../../api/client";
-
-export function abilityMod(score: number): number {
-  return Math.floor((score - 10) / 2);
-}
-
-export function modText(score: number): string {
-  const m = abilityMod(score);
-  return m >= 0 ? `+${m}` : `−${Math.abs(m)}`;
-}
+import { modText } from "../../lib/abilities";
 
 const ORDER: Array<[keyof AbilityScores, string]> = [
   ["str", "STR"],
