@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { createCampaign, newAccount, registerViaAPI, unique } from "./helpers";
+import { createCampaign, newAccount, quickAddHero, registerViaAPI, unique } from "./helpers";
 
 /*
 The DM's combat tool: prepare a fight at home, trigger it at the table, run
@@ -250,4 +250,48 @@ test("a hero is seated at the AC on their sheet, not 10 + DEX", async ({ page })
   // And the DM reads it off the tracker, which is where it actually matters.
   await page.goto(`/questboard/campaigns/${campaign.id}/encounters`);
   await expect(page.getByText(/AC 16/).first()).toBeVisible({ timeout: 20_000 });
+});
+
+/*
+Will this flatten them? (#110)
+
+The DM had no signal about a fight's weight until the table found out. The
+assertion is the numbers, not that a meter rendered — "a difficulty is shown"
+was true of every wrong answer this could give.
+
+The second half is the part worth having. The same fight gets harder when
+someone does not turn up, because the budget is summed per hero rather than
+looked up by party size — so dropping one out has to move the band, and here it
+does, without a single monster changing.
+*/
+test("the builder says how heavy a fight is, and who it assumed was coming", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("weigh"));
+  const campaign = await createCampaign(page.request, unique("The Scales "));
+
+  // Three level-3 heroes: 3 × 150/225/400 = a budget of 450 / 675 / 1,200.
+  for (const name of ["Alda", "Bryn", "Cael"]) {
+    await quickAddHero(page.request, campaign.id, name);
+  }
+
+  await page.goto(`/questboard/campaigns/${campaign.id}/encounters`);
+  await page.getByPlaceholder("Prepare a new encounter — name it…").fill("A Fair Fight");
+  await page.getByRole("button", { name: "Prepare", exact: true }).click();
+
+  // Scoped: the Den's "CR: low → high" sort sits a few hundred pixels away, and
+  // an unscoped "Low" would happily match it and pass on a broken meter.
+  const meter = page.getByRole("group", { name: "Encounter difficulty" });
+  await expect(meter.getByText(/450 \/ 675 \/ 1,200/)).toBeVisible({ timeout: 20_000 });
+
+  // One Berserker — CR 2, 450 XP — lands exactly on the low budget.
+  await addFromDen(page, "Berserker");
+  await expect(meter.getByText(/450\s*XP in the fight/)).toBeVisible({ timeout: 20_000 });
+  await expect(meter.getByText("Low", { exact: true })).toBeVisible();
+
+  // Bryn cannot make it. Two heroes have a budget of 300 / 450 / 800, so the
+  // same berserker is now a moderate fight — nothing about the fight changed.
+  await meter.getByRole("button", { name: /^Bryn/ }).click();
+  await expect(meter.getByText(/300 \/ 450 \/ 800/)).toBeVisible();
+  await expect(meter.getByText("Moderate", { exact: true })).toBeVisible();
+  await expect(meter.getByRole("button", { name: /^Bryn/ })).toHaveAttribute("aria-pressed", "false");
 });
