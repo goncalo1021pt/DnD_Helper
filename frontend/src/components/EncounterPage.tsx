@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import {
   useActiveEncounter,
   useCreateEncounter,
@@ -36,6 +36,13 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
   const [groupBy, setGroupBy] = useState<GroupMode>("tag");
   const places = useMemo(() => locations ?? [], [locations]);
 
+  // Arriving from a place on the Places page: the library opens showing only
+  // the fights prepared there. By id rather than by search text, because two
+  // districts in different cities are allowed to share a name.
+  const [params, setParams] = useSearchParams();
+  const placeFilter = params.get("place") ?? "";
+  const filterName = places.find((l) => l.id === placeFilter)?.name ?? "";
+
   function prepare() {
     if (!name.trim()) return;
     create.mutate(
@@ -48,14 +55,16 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
   // fights prepared there even when the DM never put it in a title.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return list ?? [];
-    return (list ?? []).filter(
+    let out = list ?? [];
+    if (placeFilter) out = out.filter((e) => e.locationId === placeFilter);
+    if (!q) return out;
+    return out.filter(
       (e) =>
         e.name.toLowerCase().includes(q) ||
         e.tag.toLowerCase().includes(q) ||
         (e.locationName ?? "").toLowerCase().includes(q),
     );
-  }, [list, search]);
+  }, [list, search, placeFilter]);
   const shelves = useMemo(() => shelve(filtered, groupBy), [filtered, groupBy]);
 
   // Several fights can run at once — a split party is two encounters — so this
@@ -161,8 +170,17 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
               ))}
             </select>
           </div>
-          <div className="label-stamp mb-4 text-[10px] tracking-[1.5px] text-gold-muted">
+          <div className="label-stamp mb-4 flex flex-wrap items-center gap-2 text-[10px] tracking-[1.5px] text-gold-muted">
             {filtered.length} of {(list ?? []).length} encounters
+            {placeFilter && (
+              <button
+                onClick={() => setParams({}, { replace: true })}
+                title="Show encounters everywhere again"
+                className="btn-base btn-gold clip-octagon px-2.5 py-1 text-[10px] tracking-[1.5px]"
+              >
+                {filterName || "this place"} ✕
+              </button>
+            )}
             {search && (
               <button
                 onClick={() => setSearch("")}

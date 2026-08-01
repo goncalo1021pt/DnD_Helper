@@ -123,6 +123,48 @@ export async function quickAddHero(
 }
 
 /**
+ * Chart a place (DM only). `parentId` nests it; omitted, it is a root. Places
+ * start veiled, so a test that wants the party to see one must reveal it.
+ */
+export async function createLocation(
+  request: APIRequestContext,
+  campaignId: string,
+  name: string,
+  parentId?: string,
+): Promise<string> {
+  const res = await request.post(`/api/campaigns/${campaignId}/locations`, {
+    data: { name, parentId: parentId ?? null },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+  return (await res.json()).id as string;
+}
+
+/** Lift the party-wide veil on a place (DM only). */
+export async function revealLocation(
+  request: APIRequestContext,
+  locationId: string,
+): Promise<void> {
+  const res = await request.put(`/api/locations/${locationId}/visibility`, {
+    data: { scope: "party", visible: true },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+}
+
+/** Nail up a notice, optionally hanging it in a place (DM only). */
+export async function postQuest(
+  request: APIRequestContext,
+  campaignId: string,
+  title: string,
+  locationId?: string,
+): Promise<string> {
+  const res = await request.post(`/api/campaigns/${campaignId}/quests`, {
+    data: { title, locationId: locationId ?? null },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+  return (await res.json()).id as string;
+}
+
+/**
  * Wait for the SPA to settle after a mutation. TanStack Query refetches on
  * invalidation, so "the button was clicked" is not "the server agreed".
  */

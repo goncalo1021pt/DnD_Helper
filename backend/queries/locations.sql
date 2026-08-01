@@ -9,12 +9,20 @@ INSERT INTO locations (campaign_id, parent_id, name, description, visible_to_par
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
+-- Text only. Moving a place is MoveLocation, so that a rename can never touch
+-- the tree — see the note on UpdateLocationRequest in openapi.yaml.
 -- name: UpdateLocation :one
 UPDATE locations
 SET name        = $2,
     description = $3,
-    parent_id   = $4,
     updated_at  = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: MoveLocation :one
+UPDATE locations
+SET parent_id  = $2,
+    updated_at = now()
 WHERE id = $1
 RETURNING *;
 

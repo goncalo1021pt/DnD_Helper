@@ -658,6 +658,82 @@ Still open from this section, unchanged: **#130 part 3** (draft persistence,
 after the ForgeWizard split) and **#129's display half** (after the
 `HeroSheetPage` split). The data is in the database waiting for the panel.
 
+### The world layer opens: places get a room (2026-07-31, #103)
+
+First of the *v2.0 — the world layer* chain (#103 → #101 → #102), and it went
+first because the other two hang off it: vendors need a place to stand in, and
+both quests and encounters already file by location.
+
+**The scoping note on #103 was half wrong, in the useful direction.** It costed
+reparenting as work to be done — *"one `PATCH /api/locations/{id}` that sets
+`parent_id`, plus a cycle check … Small."* It already existed, and had since
+#96: `UpdateLocation` takes `parentId`, refuses to move a place inside its own
+descendant, and re-runs the depth cap over the moved subtree with
+`heightBelow`. All of it unit tested.
+
+What did not exist was **a way in.** The "Move inside" select sat inside an
+expander opened by an unlabelled eye button titled *"Reveal hero by hero"*,
+inside a modal, on the quest board. So the feature was shipped, correct, and
+invisible — and the issue reporting it missing was filed by the person who
+wrote it.
+
+That is worth naming, because it is the second time in three issues: #129 was
+*"Sneak Attack is missing"* about a feature whose full rules text was already on
+screen. **A capability nobody can find is indistinguishable from one that does
+not exist, and the bug report will describe it as missing.** The endpoint test
+passes either way, which is exactly why neither was caught by one.
+
+So the work was mostly the room, not the mechanism:
+
+- **`/campaigns/:id/places`**, a page rather than a board modal. The DM gets the
+  cartographer's table; players get a **gazetteer** — the places they have been
+  let in on, in the same nesting, and no trace of the ones they have not. The
+  filtering is the server's already; the page never sees a veiled place.
+- **Reparenting moved to the pencil**, where someone looking to edit a place
+  actually looks.
+- **Descriptions became writable.** `locations.description` has been in the
+  schema and the API since #96 and **no screen ever set it** — it was empty in
+  every campaign that has ever existed. A hub page with no room for prose is a
+  filing dropdown with a bigger heading.
+- **The counts became doors.** A place links to the board filtered to it and to
+  the encounters prepared for it. The board's place filter moved from component
+  state into `?place=`, which is what made the link possible and incidentally
+  makes a narrowed board shareable.
+
+Not done, deliberately: the place tree is still nowhere near the battle maps
+(#109's territory) and a place still cannot be pinned to a map region. That is a
+real connection and it wants the map work, not this page.
+
+#### The bug the screenshot found
+
+Worth recording because of *how* it surfaced. A throwaway script that set up a
+nested map for a screenshot renamed two places over the API — and the child
+jumped to the root of the map. Nothing in the app did this; nothing in the app
+could, because the one screen that calls the endpoint always sent every field.
+
+`PATCH /locations/{id}` wrote `parent_id` straight from the request body, and
+once decoded **an absent field and an explicit null are the same nil**. So any
+body that did not mention the parent read as *"make this a root"*. A rename
+detached the place, took everything nested inside it along, and — because
+visibility resolves up the ancestor chain — **lifted the veil on anything down
+there that was dark only because an ancestor was veiled**. A rename, silently
+showing the party a place the DM had not revealed.
+
+Two things generalise:
+
+- **The trap is in the type, not the handler.** No amount of care in
+  `UpdateLocation` could distinguish the two cases, so "remember to send
+  `parentId`" was the only defence, and a defence that lives in the caller's
+  memory is not one. Moving is now `PUT /locations/{id}/parent`, where the
+  field is required and saying nothing is not a possible input. The update
+  endpoint cannot touch the tree at all. Same shape as the visibility
+  sub-resource next to it, which got this right first.
+- **This is the argument for driving the thing you built.** The unit tests
+  passed, the e2e suite passed, and the endpoint had been wrong since #96. It
+  took *looking at the page* — and a setup script written the way an outside
+  caller would write one — to find it. The regression test is at the API layer,
+  not through the UI, because the UI was never the thing that got it wrong.
+
 ## How work is tracked (decided 2026-07-29)
 
 Three intake channels had grown with no single queue: this file (strategy),

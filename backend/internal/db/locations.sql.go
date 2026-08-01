@@ -184,6 +184,35 @@ func (q *Queries) ListLocationsByCampaign(ctx context.Context, campaignID uuid.U
 	return items, nil
 }
 
+const moveLocation = `-- name: MoveLocation :one
+UPDATE locations
+SET parent_id  = $2,
+    updated_at = now()
+WHERE id = $1
+RETURNING id, campaign_id, parent_id, name, description, visible_to_party, created_at, updated_at
+`
+
+type MoveLocationParams struct {
+	ID       uuid.UUID   `json:"id"`
+	ParentID pgtype.UUID `json:"parent_id"`
+}
+
+func (q *Queries) MoveLocation(ctx context.Context, arg MoveLocationParams) (Location, error) {
+	row := q.db.QueryRow(ctx, moveLocation, arg.ID, arg.ParentID)
+	var i Location
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.ParentID,
+		&i.Name,
+		&i.Description,
+		&i.VisibleToParty,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const rememberLocationNamesBeforeDelete = `-- name: RememberLocationNamesBeforeDelete :exec
 WITH RECURSIVE subtree(loc_id, loc_name) AS (
     SELECT root.id, root.name FROM locations root WHERE root.id = $1
@@ -260,26 +289,21 @@ const updateLocation = `-- name: UpdateLocation :one
 UPDATE locations
 SET name        = $2,
     description = $3,
-    parent_id   = $4,
     updated_at  = now()
 WHERE id = $1
 RETURNING id, campaign_id, parent_id, name, description, visible_to_party, created_at, updated_at
 `
 
 type UpdateLocationParams struct {
-	ID          uuid.UUID   `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	ParentID    pgtype.UUID `json:"parent_id"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
 }
 
+// Text only. Moving a place is MoveLocation, so that a rename can never touch
+// the tree — see the note on UpdateLocationRequest in openapi.yaml.
 func (q *Queries) UpdateLocation(ctx context.Context, arg UpdateLocationParams) (Location, error) {
-	row := q.db.QueryRow(ctx, updateLocation,
-		arg.ID,
-		arg.Name,
-		arg.Description,
-		arg.ParentID,
-	)
+	row := q.db.QueryRow(ctx, updateLocation, arg.ID, arg.Name, arg.Description)
 	var i Location
 	err := row.Scan(
 		&i.ID,

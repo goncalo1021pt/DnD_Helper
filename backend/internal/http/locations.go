@@ -238,38 +238,10 @@ func (s *Server) UpdateLocation(ctx context.Context, request api.UpdateLocationR
 		}}, nil
 	}
 
-	v, err := s.loadVeil(ctx, loc.CampaignID)
-	if err != nil {
-		return nil, err
-	}
-	if body.ParentId != nil {
-		parentID := uuid.UUID(*body.ParentId)
-		parent, ok := v.locations[parentID]
-		if !ok || parent.CampaignID != loc.CampaignID {
-			return api.UpdateLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
-				Error: "parent location not found on this campaign",
-			}}, nil
-		}
-		// Moving a place inside itself (or inside its own child) would orphan
-		// the whole subtree into a cycle.
-		if parentID == locationID || v.isDescendant(parentID, locationID) {
-			return api.UpdateLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
-				Error: "a place cannot be moved inside itself",
-			}}, nil
-		}
-		parentDepth, ok := v.depthOf(parentID)
-		if !ok || parentDepth+1+v.heightBelow(locationID) >= maxLocationDepth {
-			return api.UpdateLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
-				Error: "places may nest at most 10 deep",
-			}}, nil
-		}
-	}
-
 	if _, err := s.queries.UpdateLocation(ctx, db.UpdateLocationParams{
 		ID:          locationID,
 		Name:        name,
-		Description: optStr(body.Description),
-		ParentID:    optUUID(body.ParentId),
+		Description: body.Description,
 	}); err != nil {
 		return nil, err
 	}
@@ -278,6 +250,78 @@ func (s *Server) UpdateLocation(ctx context.Context, request api.UpdateLocationR
 		return nil, err
 	}
 	return api.UpdateLocation200JSONResponse(out), nil
+}
+
+// MoveLocation re-hangs a place — the "chart the city before the country and
+// file it properly later" case. Its own endpoint rather than a field on the
+// update, because a `parent_id` that is merely absent from a body is
+// indistinguishable from one explicitly set to null, and guessing wrong
+// detaches a subtree and lifts the veil on everything under it.
+func (s *Server) MoveLocation(ctx context.Context, request api.MoveLocationRequestObject) (api.MoveLocationResponseObject, error) {
+	locationID := uuid.UUID(request.LocationId)
+	loc, err := s.queries.GetLocation(ctx, locationID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.MoveLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	if _, err := s.requireDM(ctx, loc.CampaignID); err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.MoveLocation401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.MoveLocation403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+	if request.Body == nil {
+		return api.MoveLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "a parent is required — send null to make this place a root",
+		}}, nil
+	}
+
+	v, err := s.loadVeil(ctx, loc.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	if request.Body.ParentId != nil {
+		parentID := uuid.UUID(*request.Body.ParentId)
+		parent, ok := v.locations[parentID]
+		if !ok || parent.CampaignID != loc.CampaignID {
+			return api.MoveLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: "parent location not found on this campaign",
+			}}, nil
+		}
+		// Moving a place inside itself (or inside its own child) would orphan
+		// the whole subtree into a cycle.
+		if parentID == locationID || v.isDescendant(parentID, locationID) {
+			return api.MoveLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: "a place cannot be moved inside itself",
+			}}, nil
+		}
+		// The cap applies to the tree the move would create, so a deep subtree
+		// cannot be smuggled under a parent that is itself near the limit.
+		parentDepth, ok := v.depthOf(parentID)
+		if !ok || parentDepth+1+v.heightBelow(locationID) >= maxLocationDepth {
+			return api.MoveLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: "places may nest at most 10 deep",
+			}}, nil
+		}
+	}
+
+	if _, err := s.queries.MoveLocation(ctx, db.MoveLocationParams{
+		ID:       locationID,
+		ParentID: optUUID(request.Body.ParentId),
+	}); err != nil {
+		return nil, err
+	}
+	out, err := s.buildOneLocation(ctx, loc.CampaignID, locationID)
+	if err != nil {
+		return nil, err
+	}
+	return api.MoveLocation200JSONResponse(out), nil
 }
 
 func (s *Server) DeleteLocation(ctx context.Context, request api.DeleteLocationRequestObject) (api.DeleteLocationResponseObject, error) {

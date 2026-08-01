@@ -5,6 +5,7 @@ import {
   useCharacters,
   useCodex,
   useEvents,
+  useLocations,
   useQuests,
   useUpdateCharacter,
 } from "../hooks";
@@ -262,6 +263,8 @@ export default function CampaignDashboard() {
   const isDM = role === "dm";
   const { data: quests } = useQuests(campaign.id);
   const { data: characters } = useCharacters(campaign.id);
+  const { data: locations } = useLocations(campaign.id);
+  const placeCount = locations?.length ?? 0;
 
   const availableCount = quests?.filter((q) => q.status === "available").length ?? 0;
   const activeCount = quests?.filter((q) => q.status === "active").length ?? 0;
@@ -385,6 +388,28 @@ export default function CampaignDashboard() {
             {isDM
               ? "Hang your world, pin what matters, and lead the party from region to region."
               : "The lands your party travels — follow the pins the DM has placed."}
+          </div>
+        </section>
+
+        {/* places — the world layer the board, the encounters and the veil
+            all hang off, so it is a block rather than a DM-screen row */}
+        <section className="panel-hall px-6 pb-6 pt-5">
+          <BlockHeader
+            title="Places"
+            meta={
+              placeCount > 0
+                ? `${placeCount} charted`
+                : isDM
+                  ? "nothing charted yet"
+                  : undefined
+            }
+            to="places"
+            linkLabel={isDM ? "Open the map room" : "Read the gazetteer"}
+          />
+          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+            {isDM
+              ? "Chart realms and the cities inside them, move one that was filed wrong, and choose who knows each exists."
+              : "The realms and cities your party has been let in on — and what hangs in each."}
           </div>
         </section>
 

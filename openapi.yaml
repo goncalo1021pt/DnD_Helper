@@ -1820,7 +1820,7 @@ paths:
       - $ref: "#/components/parameters/LocationId"
     patch:
       operationId: updateLocation
-      summary: Rename, redescribe, or move a place (DM only)
+      summary: Rename or redescribe a place (DM only). Moving it is a separate call — see PUT /locations/{locationId}/parent.
       requestBody:
         required: true
         content:
@@ -1848,6 +1848,34 @@ paths:
       responses:
         "204":
           description: Deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /locations/{locationId}/parent:
+    parameters:
+      - $ref: "#/components/parameters/LocationId"
+    put:
+      operationId: moveLocation
+      summary: Move a place under a new parent, or out to a root of its own (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveLocationRequest"
+      responses:
+        "200":
+          description: The location after the move, with its new depth
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -4557,7 +4585,15 @@ components:
 
     UpdateLocationRequest:
       type: object
-      required: [name]
+      required: [name, description]
+      description: |
+        A place's own text, replaced. Deliberately cannot move the place: this
+        endpoint used to write `parent_id` too, and because an absent field and
+        an explicit null are indistinguishable once decoded, a body that only
+        renamed a place detached it — taking everything nested inside it out to
+        the root, and lifting the veil on any of it that was only dark because
+        an ancestor was veiled. Moving is now its own call, where saying nothing
+        is not a possible input.
       properties:
         name:
           type: string
@@ -4565,11 +4601,17 @@ components:
           maxLength: 200
         description:
           type: string
+          description: Replaces the existing description; send the current one to keep it.
+
+    MoveLocationRequest:
+      type: object
+      required: [parentId]
+      properties:
         parentId:
           type: string
           format: uuid
           nullable: true
-          description: Move the place under a new parent; null makes it a root. A place cannot be moved inside itself.
+          description: The place this one moves inside. Null makes it a root. A place cannot be moved inside itself or inside its own descendant, and the resulting tree must still fit within the depth cap of 10.
 
 security:
   - sessionCookie: []
