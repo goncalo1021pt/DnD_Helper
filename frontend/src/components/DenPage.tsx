@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import type { ImportReport, RulesContent } from "../api/client";
 import PackWarnings from "./ui/PackWarnings";
-import { useCreateRules, useImportPack, useRules } from "../hooks";
+import { useCreateRules, useDeleteRules, useImportPack, useRules, useUpdateRules } from "../hooks";
 import { ContentForm, KIND_DEFAULTS } from "./ContentForm";
+import type { DataObj } from "./content/constants";
 import ContentEntry from "./ui/ContentEntry";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconPlus } from "./ui/icons";
+import { IconCopy, IconPencil, IconPlus, IconTrash } from "./ui/icons";
 import type { CampaignContext } from "./CampaignView";
 import {
   BASE_TYPES,
@@ -15,7 +16,7 @@ import {
   MONSTER_SORTS,
   type MonsterSort,
 } from "../lib/monsters";
-import { sourceLabel, sourceOptions } from "../lib/content";
+import { copyOf, sourceLabel, sourceOptions } from "../lib/content";
 import { parsePackFile } from "../lib/pack";
 
 /**
@@ -30,6 +31,8 @@ export default function DenPage() {
   const isDM = role === "dm";
   const { data: monsters, isLoading } = useRules("monster", isDM);
   const create = useCreateRules("monster");
+  const update = useUpdateRules("monster");
+  const del = useDeleteRules("monster");
   const importPack = useImportPack();
   const [search, setSearch] = useState("");
   const [band, setBand] = useState(0);
@@ -37,7 +40,13 @@ export default function DenPage() {
   const [source, setSource] = useState("");
   const [sort, setSort] = useState<MonsterSort>("cr-asc");
   const [reading, setReading] = useState<RulesContent | null>(null);
-  const [scribing, setScribing] = useState(false);
+  // The scribe modal takes a seed rather than a boolean, because "Scribe" and
+  // "Copy" are the same form over different starting positions (#127).
+  const [scribing, setScribing] = useState<{
+    seed: { name: string; summary: string; data: DataObj };
+    copiedFrom?: string;
+  } | null>(null);
+  const [editing, setEditing] = useState<RulesContent | null>(null);
   const [packReport, setPackReport] = useState<ImportReport | null>(null);
   const [packError, setPackError] = useState("");
 
@@ -139,7 +148,9 @@ export default function DenPage() {
             />
           </label>
           <button
-            onClick={() => setScribing(true)}
+            onClick={() =>
+              setScribing({ seed: { name: "", summary: "", data: { ...KIND_DEFAULTS.monster } } })
+            }
             className="btn-base btn-gold clip-octagon h-10 whitespace-nowrap px-5 text-[13px]"
           >
             <IconPlus size={15} strokeWidth={2} />
@@ -252,20 +263,107 @@ export default function DenPage() {
       {reading && (
         <ParchmentModal onClose={() => setReading(null)} maxWidth="max-w-[600px]">
           <ContentEntry entry={reading} />
+          {/* Copy is offered on ANY creature, the SRD's included — that is the
+              point of it: a Goblin Warrior is the fastest way to start writing
+              a Goblin Chieftain (#127). Amending and striking stay yours. */}
+          <div
+            className="mt-4 flex flex-wrap items-center justify-end gap-2 border-t pt-3"
+            style={{ borderColor: "rgba(90,60,20,.25)" }}
+          >
+            <button
+              onClick={() => {
+                setScribing({
+                  seed: copyOf(reading, (monsters ?? []).map((m) => m.name)),
+                  copiedFrom: reading.name,
+                });
+                setReading(null);
+              }}
+              title={`Start a new creature of your own from ${reading.name}`}
+              className="btn-base btn-ghost-ink px-4 py-2 text-[11px]"
+            >
+              <IconCopy size={13} strokeWidth={1.8} />
+              Copy
+            </button>
+            {reading.mine && (
+              <>
+                <button
+                  onClick={() => {
+                    setEditing(reading);
+                    setReading(null);
+                  }}
+                  className="btn-base btn-ghost-ink px-4 py-2 text-[11px]"
+                >
+                  <IconPencil size={13} strokeWidth={1.8} />
+                  Amend
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Loose "${reading.name}" from the Den?`)) {
+                      del.mutate(reading.id);
+                      setReading(null);
+                    }
+                  }}
+                  className="btn-base btn-ghost-red px-4 py-2 text-[11px]"
+                >
+                  <IconTrash size={13} strokeWidth={1.8} />
+                  Strike
+                </button>
+              </>
+            )}
+          </div>
         </ParchmentModal>
       )}
 
-      {scribing && (
-        <ParchmentModal onClose={() => setScribing(false)} maxWidth="max-w-[620px]">
+      {editing && (
+        <ParchmentModal onClose={() => setEditing(null)} maxWidth="max-w-[620px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
             The Monster Den
           </div>
           <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Scribe a Monster
+            Amend {editing.name}
           </h3>
           <ContentForm
             kind="monster"
-            initial={{ name: "", summary: "", data: { ...KIND_DEFAULTS.monster } }}
+            initial={{
+              name: editing.name,
+              summary: editing.summary,
+              data: (editing.data ?? {}) as DataObj,
+            }}
+            isPending={update.isPending}
+            errorText={
+              update.isError
+                ? ((update.error as { error?: string } | null)?.error ??
+                  "The quill snapped — check the fields.")
+                : undefined
+            }
+            classNames={[]}
+            onSubmit={(body) =>
+              update.mutate(
+                { contentId: editing.id, body },
+                { onSuccess: () => setEditing(null) },
+              )
+            }
+            onCancel={() => setEditing(null)}
+          />
+        </ParchmentModal>
+      )}
+
+      {scribing && (
+        <ParchmentModal onClose={() => setScribing(null)} maxWidth="max-w-[620px]">
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            The Monster Den
+          </div>
+          <h3 className="font-display m-0 mb-1 text-center text-2xl font-bold text-ink">
+            {scribing.copiedFrom ? "Copy a Monster" : "Scribe a Monster"}
+          </h3>
+          {scribing.copiedFrom && (
+            <p className="font-body m-0 mb-4 text-center text-[12.5px] italic text-ink-body">
+              After {scribing.copiedFrom}. Change anything — it is yours once scribed.
+            </p>
+          )}
+          <ContentForm
+            kind="monster"
+            initial={scribing.seed}
             isPending={create.isPending}
             errorText={
               create.isError
@@ -274,8 +372,8 @@ export default function DenPage() {
                 : undefined
             }
             classNames={[]}
-            onSubmit={(body) => create.mutate(body, { onSuccess: () => setScribing(false) })}
-            onCancel={() => setScribing(false)}
+            onSubmit={(body) => create.mutate(body, { onSuccess: () => setScribing(null) })}
+            onCancel={() => setScribing(null)}
           />
         </ParchmentModal>
       )}

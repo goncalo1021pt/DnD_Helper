@@ -36,6 +36,46 @@ export function sourceOptions(entries: RulesContent[] | undefined): string[] {
   });
 }
 
+/**
+ * A free name for a copy of `original` (#127).
+ *
+ * The server refuses a second homebrew entry of the same kind and name — "you
+ * already have a homebrew monster named X" — so a copy that suggested the
+ * original's name would fail on the first press. It also dodges names that are
+ * merely *present*: an SRD name is not technically taken, but a homebrew entry
+ * wearing one shadows it, and both then sit in the list looking identical.
+ *
+ * Copying a copy gives "(copy 2)", not "(copy) (copy)".
+ */
+export function copyName(original: string, taken: Iterable<string>): string {
+  const used = new Set([...taken].map((n) => n.trim().toLowerCase()));
+  const base = original.trim().replace(/\s*\(copy(?:\s+\d+)?\)$/i, "");
+  let candidate = `${base} (copy)`;
+  let n = 1;
+  while (used.has(candidate.toLowerCase())) {
+    n += 1;
+    candidate = `${base} (copy ${n})`;
+  }
+  return candidate;
+}
+
+/**
+ * An entry as the seed for a new homebrew one of your own.
+ *
+ * `book` is dropped deliberately. It is what sourceLabel reads to say where an
+ * entry came from, so a copy that kept it would file itself under someone
+ * else's book — a creature you wrote, claiming to be from Rime of the
+ * Frostmaiden. Everything else about the creature comes across whole, which is
+ * the point: a copy is a starting position, not a blank page.
+ */
+export function copyOf(
+  e: RulesContent,
+  taken: Iterable<string>,
+): { name: string; summary: string; data: Record<string, unknown> } {
+  const { book: _book, ...data } = (e.data ?? {}) as Record<string, unknown>;
+  return { name: copyName(e.name, taken), summary: e.summary ?? "", data };
+}
+
 /** A campaign's verdict on one entry. */
 export type Legality = "legal" | "banned" | "proposed" | "absent";
 
