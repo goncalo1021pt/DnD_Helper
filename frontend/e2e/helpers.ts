@@ -171,3 +171,48 @@ export async function postQuest(
 export async function settled(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
 }
+
+/**
+ * Forge a hero straight onto the account, as the wizard would.
+ *
+ * Lives here rather than in sheet.spec because importing it from a spec file
+ * registers that file's tests wherever it is imported — they run again, under
+ * the importer's `test.use`, which is how a desktop journey ends up executing
+ * at phone width.
+ */
+export async function forgeHero(
+  request: APIRequestContext,
+  hero: {
+    name: string;
+    className: string;
+    speciesName: string;
+    backgroundName: string;
+    abilities: Record<string, number>;
+    skills: string[];
+    speciesChoices?: Record<string, string[]>;
+  },
+): Promise<string> {
+  const byName = async (kind: string, want: string) => {
+    const list = (await (await request.get(`/api/rules/${kind}`)).json()) as Array<{
+      id: string;
+      name: string;
+    }>;
+    const hit = list.find((e) => e.name === want);
+    expect(hit, `${want} should be in the ${kind} library`).toBeTruthy();
+    return hit!.id;
+  };
+
+  const res = await request.post("/api/me/characters/forge", {
+    data: {
+      name: hero.name,
+      classId: await byName("class", hero.className),
+      speciesId: await byName("species", hero.speciesName),
+      backgroundId: await byName("background", hero.backgroundName),
+      abilities: hero.abilities,
+      skills: hero.skills,
+      speciesChoices: hero.speciesChoices,
+    },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+  return (await res.json()).id as string;
+}
