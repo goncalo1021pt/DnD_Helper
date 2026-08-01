@@ -1,0 +1,173 @@
+QuestStatus:
+  type: string
+  enum: [available, active, completed, failed]
+
+QuestDifficulty:
+  type: string
+  enum: [trivial, easy, medium, hard, deadly]
+
+RewardType:
+  type: string
+  enum: [gold, item, xp, reputation, other]
+
+QuestReward:
+  type: object
+  required: [id, type, label]
+  properties:
+    id:
+      type: string
+      format: uuid
+    type:
+      $ref: "../openapi.yaml#/components/schemas/RewardType"
+    label:
+      type: string
+    value:
+      type: string
+      nullable: true
+
+QuestClaim:
+  type: object
+  required: [userId, userName, claimedAt]
+  properties:
+    userId:
+      type: string
+      format: uuid
+    userName:
+      type: string
+    claimedAt:
+      type: string
+      format: date-time
+
+Quest:
+  type: object
+  required: [id, campaignId, title, description, difficulty, status, createdAt, rewards, claims, claimedByMe]
+  properties:
+    id:
+      type: string
+      format: uuid
+    campaignId:
+      type: string
+      format: uuid
+    title:
+      type: string
+    description:
+      type: string
+    giver:
+      type: string
+      nullable: true
+    location:
+      type: string
+      nullable: true
+      description: Display name of the place this notice hangs in.
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+    visibleToParty:
+      type: boolean
+      description: DM-only. The party-wide veil on this notice.
+    hiddenByLocation:
+      type: boolean
+      description: DM-only. True when the place this notice hangs in (or one above it) is still veiled, so the notice stays off the players' board however it is set.
+    visibility:
+      type: array
+      description: DM-only. Per-hero exceptions to visibleToParty.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/VisibilityOverride"
+    difficulty:
+      $ref: "../openapi.yaml#/components/schemas/QuestDifficulty"
+    status:
+      $ref: "../openapi.yaml#/components/schemas/QuestStatus"
+    createdAt:
+      type: string
+      format: date-time
+    rewards:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/QuestReward"
+    claims:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/QuestClaim"
+    claimedByMe:
+      type: boolean
+
+RewardInput:
+  type: object
+  required: [type, label]
+  properties:
+    type:
+      $ref: "../openapi.yaml#/components/schemas/RewardType"
+    label:
+      type: string
+      minLength: 1
+    value:
+      type: string
+      nullable: true
+
+CreateQuestRequest:
+  type: object
+  required: [title]
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    description:
+      type: string
+    giver:
+      type: string
+      nullable: true
+    location:
+      type: string
+      nullable: true
+      description: Legacy freeform place name, kept for boards that predate the location tree. Ignored when locationId is set.
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The place this notice hangs in. Must belong to the same campaign.
+    visibleToParty:
+      type: boolean
+      default: true
+      description: Post it to the board straight away, or leave it drafted (false) until the DM reveals it.
+    difficulty:
+      $ref: "../openapi.yaml#/components/schemas/QuestDifficulty"
+    rewards:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/RewardInput"
+
+UpdateQuestRequest:
+  type: object
+  required: [title, status, difficulty]
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    description:
+      type: string
+    giver:
+      type: string
+      nullable: true
+    location:
+      type: string
+      nullable: true
+      description: Legacy freeform place name. Ignored when locationId is set.
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The place this notice hangs in; null unpins it.
+    visibleToParty:
+      type: boolean
+      description: Omit to leave the party-wide veil as it is.
+    difficulty:
+      $ref: "../openapi.yaml#/components/schemas/QuestDifficulty"
+    status:
+      $ref: "../openapi.yaml#/components/schemas/QuestStatus"
+    rewards:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/RewardInput"

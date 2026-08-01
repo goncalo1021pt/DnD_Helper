@@ -1,0 +1,226 @@
+Encounter:
+  type: object
+  required: [id, campaignId, name, status, round, turnIndex, combatantCount, tag, createdAt]
+  properties:
+    id:
+      type: string
+      format: uuid
+    campaignId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    tag:
+      type: string
+      description: >-
+        Free-text filing for the library — a session, an act, a chapter.
+        Empty when the encounter is unfiled.
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The place this fight is prepared for; null when it belongs nowhere in particular.
+    locationName:
+      type: string
+      nullable: true
+      description: Display name of that place, so the library needs no second lookup.
+    status:
+      type: string
+      description: "inactive | active (plain string, validated server-side)."
+    round:
+      type: integer
+    turnIndex:
+      type: integer
+      description: Index into the initiative order whose turn it is.
+    combatantCount:
+      type: integer
+    createdAt:
+      type: string
+      format: date-time
+
+Combatant:
+  type: object
+  required: [id, encounterId, kind, name, initMod, hpState, hidden, current, sortOrder]
+  properties:
+    current:
+      type: boolean
+      description: Whether it's this combatant's turn right now (false for all when a hidden enemy is acting).
+    id:
+      type: string
+      format: uuid
+    encounterId:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      description: "monster | pc | custom (plain string)."
+    name:
+      type: string
+      description: The DM sees the true label; players see the reveal label ("Unknown" until named).
+    playerLabel:
+      type: string
+      nullable: true
+      description: DM-only — what players see for this combatant.
+    contentId:
+      type: string
+      format: uuid
+      nullable: true
+      description: DM-only — the Den monster this was built from.
+    characterId:
+      type: string
+      format: uuid
+      nullable: true
+      description: DM-only (or the viewer's own PC) — the seated character.
+    initMod:
+      type: integer
+    initiative:
+      type: integer
+      nullable: true
+      description: Order value; null until rolled or typed.
+    hpCurrent:
+      type: integer
+      nullable: true
+      description: DM, or the owner of a PC combatant. Omitted for players otherwise.
+    hpMax:
+      type: integer
+      nullable: true
+    ac:
+      type: integer
+      nullable: true
+    hpState:
+      type: string
+      description: "healthy | bloodied | down — the only HP cue players get for others."
+    hidden:
+      type: boolean
+      description: DM-only flag; hidden combatants are omitted from player payloads entirely.
+    isMine:
+      type: boolean
+      description: For a player, whether this is their own PC (they may roll its initiative and see its HP).
+    sortOrder:
+      type: integer
+    groupId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        Set when this combatant is one of a mob added together. Everything
+        sharing a groupId is consecutive in the list and acts on a single
+        turn; the tracker collapses the run into one entry.
+
+EncounterDetail:
+  type: object
+  required: [encounter, combatants]
+  properties:
+    encounter:
+      $ref: "../openapi.yaml#/components/schemas/Encounter"
+    combatants:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Combatant"
+
+CreateEncounterRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+    tag:
+      type: string
+      maxLength: 60
+      description: File it under a session or an act as you prepare it.
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The place it is prepared for. Must belong to the same campaign.
+
+FileEncounterRequest:
+  type: object
+  description: >-
+    The filing an encounter should carry, in full. This is a replacement,
+    not a patch: an omitted tag clears the tag, an omitted or null
+    locationId unpins the place.
+  properties:
+    tag:
+      type: string
+      maxLength: 60
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+
+UpdateEncounterRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      minLength: 1
+    status:
+      type: string
+      description: >-
+        inactive | active. Setting active triggers the fight; several may
+        run at once. Setting inactive stands it down — the party is released
+        and initiative is cleared, while prepared monsters stay.
+    round:
+      type: integer
+      minimum: 1
+    turnIndex:
+      type: integer
+      minimum: 0
+
+AddCombatantRequest:
+  type: object
+  required: [kind]
+  properties:
+    kind:
+      type: string
+      description: "monster (needs contentId) | pc (needs characterId) | custom (typed)."
+    contentId:
+      type: string
+      format: uuid
+    characterId:
+      type: string
+      format: uuid
+    label:
+      type: string
+      description: Name for a custom line, or an override for a monster/PC.
+    playerLabel:
+      type: string
+    hpMax:
+      type: integer
+    ac:
+      type: integer
+    initMod:
+      type: integer
+    hidden:
+      type: boolean
+    count:
+      type: integer
+      minimum: 1
+      maximum: 12
+      description: >-
+        How many to add; omitted means 1. Above 1 they arrive as one GROUP — a single
+        initiative, a single turn, numbered labels ("Skeleton 1"…) — while
+        each keeps its own HP. Add one at a time instead if you want
+        genuinely independent monsters. Ignored for kind=pc; a character
+        can only be seated once.
+
+UpdateCombatantRequest:
+  type: object
+  properties:
+    label:
+      type: string
+    playerLabel:
+      type: string
+    initiative:
+      type: integer
+      nullable: true
+    hpCurrent:
+      type: integer
+    hpMax:
+      type: integer
+    ac:
+      type: integer
+    hidden:
+      type: boolean

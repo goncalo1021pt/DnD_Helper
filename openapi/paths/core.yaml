@@ -1,0 +1,32 @@
+/health:
+  get:
+    operationId: getHealth
+    summary: Liveness / readiness probe
+    security: []
+    responses:
+      "200":
+        description: Service healthy
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Health"
+      "503":
+        description: Service degraded
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Health"
+
+/me:
+  get:
+    operationId: getCurrentUser
+    summary: The currently authenticated user and their campaign memberships
+    responses:
+      "200":
+        description: Authenticated user
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CurrentUser"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"

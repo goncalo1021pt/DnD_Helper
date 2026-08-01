@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "gen:bundle": "node scripts/bundle-spec.mjs",
     "gen:api": "openapi-typescript ../openapi.yaml -o src/api/schema.d.ts",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,12 +23,14 @@
     "react-router-dom": "^7.18.1"
   },
   "devDependencies": {
+    "@apidevtools/json-schema-ref-parser": "11.7.2",
     "@playwright/test": "1.62.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "js-yaml": "4.1.1",
     "openapi-typescript": "^7.4.4",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.2",

@@ -1,0 +1,25 @@
+ChronicleEvent:
+  type: object
+  required: [id, kind, category, message, createdAt]
+  properties:
+    id:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      description: quest_posted, hero_seated, level_up, codex_enabled, xp, milestone, note…
+    category:
+      type: string
+      description: >
+        The channel a line belongs to (plain string, not an enum, to avoid
+        a codegen name clash): dm (the DM's story notes), rules (rulings +
+        codex changes), player (player posts), log (system happenings).
+        Derived from kind.
+    message:
+      type: string
+    actorName:
+      type: string
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time

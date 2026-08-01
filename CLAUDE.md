@@ -19,8 +19,8 @@ docker compose up -d postgres   # database only
 make run                        # Go server on :8080 (runs migrations on startup)
 cd frontend && npm run dev      # Vite on :5173, proxies /api to :8080 — develop here
 
-# Codegen — run after editing openapi.yaml or backend/queries/*.sql
-make generate                   # sqlc + oapi-codegen (Go) + openapi-typescript (TS)
+# Codegen — run after editing openapi/ or backend/queries/*.sql
+make generate                   # bundle openapi/ + sqlc + oapi-codegen (Go) + openapi-typescript (TS)
 
 # Build / deploy
 make build                      # SPA -> embed -> single Go binary at bin/server
@@ -45,12 +45,15 @@ identical to the exact-pinned `@playwright/test` in `frontend/package.json`.
 
 ## Architecture
 
-Contract-first, code-generated at both ends. `openapi.yaml` (repo root) is the single source of truth:
+Contract-first, code-generated at both ends. The API spec is the single source of truth, and it is **authored under `openapi/`** — an index plus per-domain `paths/` and `components/` files. `make generate` bundles that tree into `openapi.yaml` at the repo root, and both generators read the bundled file:
 
+- `frontend/scripts/bundle-spec.mjs` (`make gen-spec`) bundles `openapi/` → `openapi.yaml`
 - `oapi-codegen` (config: `backend/oapi-codegen.yaml`, strict-server + chi) generates `backend/internal/api/api.gen.go`
 - `openapi-typescript` generates `frontend/src/api/schema.d.ts`, consumed by the `openapi-fetch` client in `frontend/src/api/client.ts`
 
-Never hand-edit generated files (`api.gen.go`, `schema.d.ts`, `backend/internal/db/*.sql.go`, `models.go`) — edit the spec/SQL and run `make generate`.
+The bundling step exists because `oapi-codegen` cannot follow an external `$ref` — it reads one as "generated into another Go package" and emits `type Health = Health`. `openapi/README.md` has the details and the rules for editing in there.
+
+Never hand-edit generated files (`openapi.yaml`, `api.gen.go`, `schema.d.ts`, `backend/internal/db/*.sql.go`, `models.go`) — edit `openapi/`, the SQL, and run `make generate`.
 
 ### Request flow
 
@@ -100,7 +103,7 @@ Details in `docs/PRINTING.md`.
 
 ### Adding an endpoint
 
-1. Add the path/schema to `openapi.yaml`
+1. Add the path item to `openapi/paths/<domain>.yaml` and its schemas to `openapi/components/<domain>.yaml`, then a `$ref` line for each in the `openapi/openapi.yaml` index
 2. `make generate`
 3. Implement the new method on `Server` in `backend/internal/http` (compile fails until you do)
 4. Add a hook to the matching domain module in `frontend/src/hooks/` using the freshly typed client

@@ -1,0 +1,293 @@
+/campaigns/{campaignId}/trees:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listTrees
+    summary: The campaign's skill trees (members only)
+    responses:
+      "200":
+        description: Skill trees
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/SkillTree"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createTree
+    summary: Create a skill tree (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SkillTreeInput"
+    responses:
+      "201":
+        description: Created tree
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SkillTree"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/trees/{treeId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/TreeId"
+  get:
+    operationId: getTree
+    summary: A skill tree with its full web (members only)
+    responses:
+      "200":
+        description: Tree with nodes and edges
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SkillTreeDetail"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  patch:
+    operationId: updateTree
+    summary: Update a skill tree (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SkillTreeInput"
+    responses:
+      "200":
+        description: Updated tree
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SkillTree"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteTree
+    summary: Delete a skill tree and its web (DM only)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/trees/{treeId}/nodes:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/TreeId"
+  post:
+    operationId: createNode
+    summary: Add a power node to a tree (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SkillNodeInput"
+    responses:
+      "201":
+        description: Created node
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SkillNode"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/trees/{treeId}/edges:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/TreeId"
+  put:
+    operationId: setEdges
+    summary: Replace the tree's web of connections (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SkillEdgesInput"
+    responses:
+      "200":
+        description: Tree with the new web
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SkillTreeDetail"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/nodes/{nodeId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/NodeId"
+  patch:
+    operationId: updateNode
+    summary: Update a power node (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SkillNodeInput"
+    responses:
+      "200":
+        description: Updated node
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/SkillNode"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteNode
+    summary: Remove a power node (DM only)
+    responses:
+      "204":
+        description: Deleted
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/tree:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  get:
+    operationId: getCharacterTree
+    summary: A character's pact and web progress (members only)
+    responses:
+      "200":
+        description: Pact state (assigned=false when no tree is bound)
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CharacterTreeState"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  put:
+    operationId: setCharacterTree
+    summary: Bind a character to a tree — the pact (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetPactRequest"
+    responses:
+      "200":
+        description: New pact state (a changed tree resets progress)
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CharacterTreeState"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/tree/grants:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: grantPicks
+    summary: Grant unspent picks at a story beat (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/GrantPicksRequest"
+    responses:
+      "200":
+        description: Pact state with the new grant
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CharacterTreeState"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/tree/picks:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: spendPick
+    summary: Spend a granted pick on a reachable node (owner or DM)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SpendPickRequest"
+    responses:
+      "200":
+        description: Pact state including the new power
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CharacterTreeState"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

@@ -1,0 +1,89 @@
+BestiaryNote:
+  type: object
+  required: [id, body, mine]
+  properties:
+    id:
+      type: string
+      format: uuid
+    body:
+      type: string
+    authorName:
+      type: string
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+    mine:
+      type: boolean
+      description: Whether the viewer penned this note.
+
+BestiaryEntry:
+  type: object
+  required: [id, title, identified, revealed, record, notes, canEdit, isDM]
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+      description: The party's own name for the creature.
+    identified:
+      type: boolean
+      description: Whether the DM has linked this sighting to a known creature.
+    monsterName:
+      type: string
+      nullable: true
+      description: The creature's true name, present once identified.
+    revealed:
+      type: array
+      items:
+        type: string
+        enum: [defenses, offense, traits, lore]
+      description: Which record sections the DM has unveiled to the party.
+    record:
+      type: object
+      additionalProperties:
+        type: string
+      description: >-
+        Unveiled sections of the official stat block as rendered markdown,
+        keyed by section. Members receive only revealed sections; the DM
+        receives every section the creature has.
+    notes:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/BestiaryNote"
+    canEdit:
+      type: boolean
+      description: Whether the viewer may rename or delete this entry (creator or DM).
+    isDM:
+      type: boolean
+      description: Whether the viewer may identify and unveil (DM only).
+
+BestiaryEntryInput:
+  type: object
+  required: [title]
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 120
+
+BestiaryEntryPatch:
+  type: object
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 120
+    contentId:
+      type: string
+      format: uuid
+      description: >-
+        Link to a Den monster to identify the sighting (DM only). The
+        all-zero UUID unlinks it, returning the entry to an unknown creature.
+    revealed:
+      type: array
+      items:
+        type: string
+        enum: [defenses, offense, traits, lore]
+      description: The full set of unveiled sections (idempotent; DM only).

@@ -1,0 +1,182 @@
+NodeRarity:
+  type: string
+  enum: [minor, keystone]
+
+SkillTree:
+  type: object
+  required: [id, campaignId, name, description, keystonePickCost, createdAt]
+  properties:
+    id:
+      type: string
+      format: uuid
+    campaignId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    description:
+      type: string
+    keystonePickCost:
+      type: integer
+      description: How many picks a keystone eats (1 = gated only by the web).
+    createdAt:
+      type: string
+      format: date-time
+
+SkillTreeInput:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    description:
+      type: string
+    keystonePickCost:
+      type: integer
+      minimum: 1
+      maximum: 5
+      default: 1
+
+SkillNode:
+  type: object
+  required: [id, treeId, name, description, rarity, limb, isEntry]
+  properties:
+    id:
+      type: string
+      format: uuid
+    treeId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    description:
+      type: string
+    tradeoff:
+      type: string
+      nullable: true
+      description: The price baked into a keystone.
+    rarity:
+      $ref: "../openapi.yaml#/components/schemas/NodeRarity"
+    limb:
+      type: string
+      description: Grouping label within the web, e.g. ENTROPY.
+    isEntry:
+      type: boolean
+      description: Pickable with no prior picks in the tree.
+    posX:
+      type: number
+      nullable: true
+    posY:
+      type: number
+      nullable: true
+
+SkillNodeInput:
+  type: object
+  required: [name, rarity]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    description:
+      type: string
+    tradeoff:
+      type: string
+      nullable: true
+    rarity:
+      $ref: "../openapi.yaml#/components/schemas/NodeRarity"
+    limb:
+      type: string
+      maxLength: 40
+    isEntry:
+      type: boolean
+      default: false
+    posX:
+      type: number
+      nullable: true
+    posY:
+      type: number
+      nullable: true
+
+SkillEdge:
+  type: object
+  required: [a, b]
+  properties:
+    a:
+      type: string
+      format: uuid
+    b:
+      type: string
+      format: uuid
+
+SkillEdgesInput:
+  type: object
+  required: [edges]
+  properties:
+    edges:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/SkillEdge"
+
+SkillTreeDetail:
+  type: object
+  required: [tree, nodes, edges]
+  properties:
+    tree:
+      $ref: "../openapi.yaml#/components/schemas/SkillTree"
+    nodes:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/SkillNode"
+    edges:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/SkillEdge"
+
+CharacterTreeState:
+  type: object
+  required: [assigned]
+  properties:
+    assigned:
+      type: boolean
+    tree:
+      $ref: "../openapi.yaml#/components/schemas/SkillTreeDetail"
+    picksGranted:
+      type: integer
+    picksSpent:
+      type: integer
+      description: Picks consumed by taken nodes (keystones may cost more).
+    picksRemaining:
+      type: integer
+    takenNodeIds:
+      type: array
+      items:
+        type: string
+        format: uuid
+
+SetPactRequest:
+  type: object
+  required: [treeId]
+  properties:
+    treeId:
+      type: string
+      format: uuid
+
+GrantPicksRequest:
+  type: object
+  required: [picks]
+  properties:
+    picks:
+      type: integer
+      minimum: 1
+      maximum: 10
+
+SpendPickRequest:
+  type: object
+  required: [nodeId]
+  properties:
+    nodeId:
+      type: string
+      format: uuid
