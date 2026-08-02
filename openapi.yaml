@@ -1978,6 +1978,167 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /campaigns/{campaignId}/vendors:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listVendors
+      summary: The shops of a campaign. The DM sees every one with all its shelves; a player sees only the shops that have been revealed, and within them only the lines that have.
+      responses:
+        "200":
+          description: Shops, redacted for the viewer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createVendor
+      summary: Open a shop (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: The new shop
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /vendors/{vendorId}:
+    parameters:
+      - name: vendorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateVendor
+      summary: Rename a shop, move it, or reveal it to the party (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "200":
+          description: The shop after the change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteVendor
+      summary: Close a shop and empty its shelves (DM only)
+      responses:
+        "204":
+          description: Closed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /vendors/{vendorId}/stock:
+    parameters:
+      - name: vendorId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: addStock
+      summary: Put something on the shelves (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockInput"
+      responses:
+        "201":
+          description: The shop, with its new line
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /stock/{stockId}:
+    parameters:
+      - name: stockId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: updateStock
+      summary: Reprice a line, restock it, or show it to the party (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockPatch"
+      responses:
+        "200":
+          description: The shop after the change
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteStock
+      summary: Take a line off the shelves (DM only)
+      responses:
+        "204":
+          description: Gone
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /campaigns/{campaignId}/bestiary:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -3730,6 +3891,112 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InventoryItem"
+    Vendor:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - revealed
+        - stock
+        - isDM
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+        locationName:
+          type: string
+          nullable: true
+          description: The place this shop trades in — null when it is filed nowhere.
+        revealed:
+          type: boolean
+          description: Whether the party has met this shop. Players are only ever sent revealed shops, so for them this is always true; the DM sees it as a switch.
+        stock:
+          type: array
+          items:
+            $ref: "#/components/schemas/VendorStock"
+        isDM:
+          type: boolean
+          description: Whether the viewer may edit this shop and reveal its shelves.
+    VendorStock:
+      type: object
+      required:
+        - id
+        - name
+        - price
+        - revealed
+      properties:
+        id:
+          type: string
+          format: uuid
+        contentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The armory entry behind this line; null for a written-in line.
+        name:
+          type: string
+        price:
+          type: string
+          description: What this trader asks — a shop marks up, so it is not the item's own cost.
+        qty:
+          type: integer
+          nullable: true
+          description: How many are in stock; null is "as many as you like".
+        revealed:
+          type: boolean
+        item:
+          $ref: "#/components/schemas/RulesContent"
+          nullable: true
+          description: The armory entry, so a player can read what they are being offered.
+    VendorInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+        revealed:
+          type: boolean
+    StockInput:
+      type: object
+      properties:
+        contentId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          description: Required for a written-in line; taken from the armory entry otherwise.
+        price:
+          type: string
+        qty:
+          type: integer
+          nullable: true
+    StockPatch:
+      type: object
+      properties:
+        price:
+          type: string
+        qty:
+          type: integer
+          nullable: true
+        revealed:
+          type: boolean
     BestiaryNote:
       type: object
       required:

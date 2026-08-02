@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS vendor_stock;
+
+DROP TABLE IF EXISTS vendors;

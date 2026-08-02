@@ -1210,6 +1210,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The shops of a campaign. The DM sees every one with all its shelves; a player sees only the shops that have been revealed, and within them only the lines that have. */
+        get: operations["listVendors"];
+        put?: never;
+        /** Open a shop (DM only) */
+        post: operations["createVendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendors/{vendorId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vendorId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Close a shop and empty its shelves (DM only) */
+        delete: operations["deleteVendor"];
+        options?: never;
+        head?: never;
+        /** Rename a shop, move it, or reveal it to the party (DM only) */
+        patch: operations["updateVendor"];
+        trace?: never;
+    };
+    "/vendors/{vendorId}/stock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vendorId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put something on the shelves (DM only) */
+        post: operations["addStock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stock/{stockId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stockId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take a line off the shelves (DM only) */
+        delete: operations["deleteStock"];
+        options?: never;
+        head?: never;
+        /** Reprice a line, restock it, or show it to the party (DM only) */
+        patch: operations["updateStock"];
+        trace?: never;
+    };
     "/campaigns/{campaignId}/bestiary": {
         parameters: {
             query?: never;
@@ -2040,6 +2119,58 @@ export interface components {
             character: components["schemas"]["Character"];
             spells: components["schemas"]["RulesContent"][];
             items: components["schemas"]["InventoryItem"][];
+        };
+        Vendor: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            /** Format: uuid */
+            locationId?: string | null;
+            /** @description The place this shop trades in — null when it is filed nowhere. */
+            locationName?: string | null;
+            /** @description Whether the party has met this shop. Players are only ever sent revealed shops, so for them this is always true; the DM sees it as a switch. */
+            revealed: boolean;
+            stock: components["schemas"]["VendorStock"][];
+            /** @description Whether the viewer may edit this shop and reveal its shelves. */
+            isDM: boolean;
+        };
+        VendorStock: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The armory entry behind this line; null for a written-in line.
+             */
+            contentId?: string | null;
+            name: string;
+            /** @description What this trader asks — a shop marks up, so it is not the item's own cost. */
+            price: string;
+            /** @description How many are in stock; null is "as many as you like". */
+            qty?: number | null;
+            revealed: boolean;
+            /** @description The armory entry, so a player can read what they are being offered. */
+            item?: components["schemas"]["RulesContent"];
+        };
+        VendorInput: {
+            name: string;
+            description?: string;
+            /** Format: uuid */
+            locationId?: string | null;
+            revealed?: boolean;
+        };
+        StockInput: {
+            /** Format: uuid */
+            contentId?: string | null;
+            /** @description Required for a written-in line; taken from the armory entry otherwise. */
+            name?: string;
+            price?: string;
+            qty?: number | null;
+        };
+        StockPatch: {
+            price?: string;
+            qty?: number | null;
+            revealed?: boolean;
         };
         BestiaryNote: {
             /** Format: uuid */
@@ -4960,6 +5091,195 @@ export interface operations {
                     "application/json": components["schemas"]["Quest"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listVendors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Shops, redacted for the viewer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorInput"];
+            };
+        };
+        responses: {
+            /** @description The new shop */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vendorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vendorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorInput"];
+            };
+        };
+        responses: {
+            /** @description The shop after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vendorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockInput"];
+            };
+        };
+        responses: {
+            /** @description The shop, with its new line */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stockId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stockId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockPatch"];
+            };
+        };
+        responses: {
+            /** @description The shop after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

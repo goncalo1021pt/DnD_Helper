@@ -1,0 +1,101 @@
+Vendor:
+  type: object
+  required: [id, name, description, revealed, stock, isDM]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    description:
+      type: string
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+    locationName:
+      type: string
+      nullable: true
+      description: The place this shop trades in — null when it is filed nowhere.
+    revealed:
+      type: boolean
+      description: >-
+        Whether the party has met this shop. Players are only ever sent revealed
+        shops, so for them this is always true; the DM sees it as a switch.
+    stock:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/VendorStock"
+    isDM:
+      type: boolean
+      description: Whether the viewer may edit this shop and reveal its shelves.
+
+VendorStock:
+  type: object
+  required: [id, name, price, revealed]
+  properties:
+    id:
+      type: string
+      format: uuid
+    contentId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The armory entry behind this line; null for a written-in line.
+    name:
+      type: string
+    price:
+      type: string
+      description: What this trader asks — a shop marks up, so it is not the item's own cost.
+    qty:
+      type: integer
+      nullable: true
+      description: How many are in stock; null is "as many as you like".
+    revealed:
+      type: boolean
+    item:
+      $ref: "../openapi.yaml#/components/schemas/RulesContent"
+      nullable: true
+      description: The armory entry, so a player can read what they are being offered.
+
+VendorInput:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+    description:
+      type: string
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+    revealed:
+      type: boolean
+
+StockInput:
+  type: object
+  properties:
+    contentId:
+      type: string
+      format: uuid
+      nullable: true
+    name:
+      type: string
+      description: Required for a written-in line; taken from the armory entry otherwise.
+    price:
+      type: string
+    qty:
+      type: integer
+      nullable: true
+
+StockPatch:
+  type: object
+  properties:
+    price:
+      type: string
+    qty:
+      type: integer
+      nullable: true
+    revealed:
+      type: boolean

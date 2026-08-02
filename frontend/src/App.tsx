@@ -17,6 +17,7 @@ import CodexPage from "./components/CodexPage";
 import MapPage from "./components/MapPage";
 import PlacesPage from "./components/PlacesPage";
 import DenPage from "./components/DenPage";
+import VendorsPage from "./components/VendorsPage";
 import BestiaryPage from "./components/BestiaryPage";
 import EncounterPage from "./components/EncounterPage";
 import ChroniclePage from "./components/ChroniclePage";
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="places" element={<PlacesPage />} />
           <Route path="den" element={<DenPage />} />
           <Route path="bestiary" element={<BestiaryPage />} />
+          <Route path="vendors" element={<VendorsPage />} />
           <Route path="encounters" element={<EncounterPage />} />
           <Route path="chronicle" element={<ChroniclePage />} />
           <Route path="dm" element={<DMMenuPage />} />

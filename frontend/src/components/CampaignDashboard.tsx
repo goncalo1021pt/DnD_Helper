@@ -361,6 +361,21 @@ export default function CampaignDashboard() {
           </div>
         </section>
 
+        {/* the bazaar — shops filed under the places they trade in (#102) */}
+        <section className="panel-hall px-6 pb-6 pt-5">
+          <BlockHeader
+            title="The Bazaar"
+            meta={isDM ? "who trades where" : "what is for sale"}
+            to="vendors"
+            linkLabel={isDM ? "Open the bazaar" : "Go shopping"}
+          />
+          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+            {isDM
+              ? "Stock a shop at home and file it under a place; show the party the shelves you want them to see."
+              : "The traders you have met, and what they have out on the counter."}
+          </div>
+        </section>
+
         {/* encounters — the DM's combat tool, shared tracker at the table */}
         <section className="panel-hall px-6 pb-6 pt-5">
           <BlockHeader

@@ -759,3 +759,27 @@ type User struct {
 	TotpSecret    *string            `json:"totp_secret"`
 	TotpEnabled   bool               `json:"totp_enabled"`
 }
+
+type Vendor struct {
+	ID          uuid.UUID          `json:"id"`
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	LocationID  pgtype.UUID        `json:"location_id"`
+	Revealed    bool               `json:"revealed"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type VendorStock struct {
+	ID        uuid.UUID          `json:"id"`
+	VendorID  uuid.UUID          `json:"vendor_id"`
+	ContentID pgtype.UUID        `json:"content_id"`
+	Name      string             `json:"name"`
+	Price     string             `json:"price"`
+	Qty       *int32             `json:"qty"`
+	Revealed  bool               `json:"revealed"`
+	SortOrder int32              `json:"sort_order"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
