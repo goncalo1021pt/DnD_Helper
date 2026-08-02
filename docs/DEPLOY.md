@@ -149,6 +149,21 @@ machine, or even a synced folder). An ad-hoc manual dump is still just:
 docker compose exec postgres pg_dump -U questboard questboard > backup-$(date +%F).sql
 ```
 
+## When something goes wrong
+
+`docs/RUNBOOK.md` is the operator's page — what to type, written to be read on a
+phone from the Proxmox console or an SSH app. It currently covers clearing a
+user's two-factor auth when they have lost both their authenticator and their
+recovery codes:
+
+```bash
+docker compose exec app /server admin unlock-2fa --login <username-or-email>
+```
+
+Nothing is written without `--confirm`; the first run just prints the account so
+you can check the name. There is deliberately no admin page for this — see the
+runbook for why.
+
 ## Running a separate test environment (staging)
 
 > **On a Proxmox homelab?** The recommended setup is a **dedicated staging VM**

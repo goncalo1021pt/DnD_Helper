@@ -84,3 +84,15 @@ UPDATE twofa_recovery_codes SET used_at = now() WHERE id = $1;
 
 -- name: DeleteRecoveryCodes :exec
 DELETE FROM twofa_recovery_codes WHERE user_id = $1;
+
+-- name: CountUnusedRecoveryCodes :one
+-- How many recovery codes a user has left. Read before clearing 2FA so the
+-- operator is told what they are about to burn, and useful later for warning a
+-- player that they are running out.
+SELECT count(*) FROM twofa_recovery_codes
+WHERE user_id = $1 AND used_at IS NULL;
+
+-- name: RecordAdminAction :exec
+-- The trail for something done to an account from a shell (#111).
+INSERT INTO admin_actions (action, target_user_id, target_label, note)
+VALUES ($1, $2, $3, $4);

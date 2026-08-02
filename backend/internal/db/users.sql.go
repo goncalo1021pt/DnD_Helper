@@ -26,6 +26,21 @@ func (q *Queries) AddRecoveryCode(ctx context.Context, arg AddRecoveryCodeParams
 	return err
 }
 
+const countUnusedRecoveryCodes = `-- name: CountUnusedRecoveryCodes :one
+SELECT count(*) FROM twofa_recovery_codes
+WHERE user_id = $1 AND used_at IS NULL
+`
+
+// How many recovery codes a user has left. Read before clearing 2FA so the
+// operator is told what they are about to burn, and useful later for warning a
+// player that they are running out.
+func (q *Queries) CountUnusedRecoveryCodes(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUnusedRecoveryCodes, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createEmailToken = `-- name: CreateEmailToken :one
 INSERT INTO email_tokens (user_id, purpose, token_hash, expires_at)
 VALUES ($1, $2, $3, $4)
@@ -293,6 +308,29 @@ type InvalidateUserTokensParams struct {
 // Spend any outstanding tokens of one purpose for a user (e.g. after a reset).
 func (q *Queries) InvalidateUserTokens(ctx context.Context, arg InvalidateUserTokensParams) error {
 	_, err := q.db.Exec(ctx, invalidateUserTokens, arg.UserID, arg.Purpose)
+	return err
+}
+
+const recordAdminAction = `-- name: RecordAdminAction :exec
+INSERT INTO admin_actions (action, target_user_id, target_label, note)
+VALUES ($1, $2, $3, $4)
+`
+
+type RecordAdminActionParams struct {
+	Action       string      `json:"action"`
+	TargetUserID pgtype.UUID `json:"target_user_id"`
+	TargetLabel  string      `json:"target_label"`
+	Note         string      `json:"note"`
+}
+
+// The trail for something done to an account from a shell (#111).
+func (q *Queries) RecordAdminAction(ctx context.Context, arg RecordAdminActionParams) error {
+	_, err := q.db.Exec(ctx, recordAdminAction,
+		arg.Action,
+		arg.TargetUserID,
+		arg.TargetLabel,
+		arg.Note,
+	)
 	return err
 }
 
