@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	stdhttp "net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -19,6 +20,14 @@ import (
 )
 
 func main() {
+	// `server admin ...` runs an operator command against the database and
+	// exits, instead of starting the server (#111). Everything else is the app.
+	if len(os.Args) > 1 && os.Args[1] == "admin" {
+		if err := runAdmin(os.Args[2:]); err != nil {
+			log.Fatalf("admin: %v", err)
+		}
+		return
+	}
 	if err := run(); err != nil {
 		log.Fatalf("fatal: %v", err)
 	}

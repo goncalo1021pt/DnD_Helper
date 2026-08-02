@@ -405,6 +405,15 @@ func (ns NullRewardType) Value() (driver.Value, error) {
 	return string(ns.RewardType), nil
 }
 
+type AdminAction struct {
+	ID           uuid.UUID          `json:"id"`
+	Action       string             `json:"action"`
+	TargetUserID pgtype.UUID        `json:"target_user_id"`
+	TargetLabel  string             `json:"target_label"`
+	Note         string             `json:"note"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type BestiaryEntry struct {
 	ID         uuid.UUID          `json:"id"`
 	CampaignID uuid.UUID          `json:"campaign_id"`
