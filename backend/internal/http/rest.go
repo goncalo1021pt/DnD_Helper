@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 /*
@@ -233,6 +234,7 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 	// The chronicle shows the shape of the adventuring day; a rest is one of
 	// the few things every player at the table already agrees just happened.
 	if campaignID, seated := seatedCampaign(updated); seated {
+		s.publish(campaignID, live.TopicParty)
 		s.logEvent(ctx, campaignID, actor, "rest_taken", restLine(updated.Name, string(request.Body.Kind), outcome))
 	}
 

@@ -14,6 +14,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
@@ -22,11 +23,21 @@ type Server struct {
 	pool     *pgxpool.Pool
 	queries  *db.Queries
 	fogCache *fogImageCache
+	// hub fans live nudges out to open streams (#109). Never nil in a running
+	// server; a nil hub simply means nobody is listening, which is what the
+	// unit tests construct.
+	hub *live.Hub
 }
 
 func NewServer(pool *pgxpool.Pool) *Server {
-	return &Server{pool: pool, queries: db.New(pool), fogCache: newFogImageCache()}
+	return &Server{
+		pool: pool, queries: db.New(pool),
+		fogCache: newFogImageCache(), hub: live.New(),
+	}
 }
+
+// Hub exposes the fan-out so the router can close it on shutdown.
+func (s *Server) Hub() *live.Hub { return s.hub }
 
 // GetHealth reports liveness and database reachability.
 func (s *Server) GetHealth(ctx context.Context, _ api.GetHealthRequestObject) (api.GetHealthResponseObject, error) {

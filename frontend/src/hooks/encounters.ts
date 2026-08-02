@@ -25,7 +25,11 @@ export function useEncounters(campaignId: string, enabled: boolean) {
 export function useActiveEncounter(campaignId: string) {
   return useQuery({
     queryKey: ["encounter-active", campaignId],
-    refetchInterval: 8000, // no sockets yet — poll so the table stays in sync
+    // The fallback, not the mechanism. useLiveCampaign nudges this key within
+    // a heartbeat of the DM moving (#109); this catches the table up when the
+    // stream is gone — a tunnel dropped it, a phone slept — so the worst case
+    // is exactly the behaviour that shipped before.
+    refetchInterval: 8000,
     queryFn: async () => {
       const res = await apiFetch(`/api/campaigns/${campaignId}/encounters/active`);
       if (res.status === 204) return null;

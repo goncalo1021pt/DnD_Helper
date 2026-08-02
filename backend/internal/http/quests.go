@@ -12,6 +12,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
@@ -323,6 +324,7 @@ func (s *Server) ClaimQuest(ctx context.Context, request api.ClaimQuestRequestOb
 	if err != nil {
 		return nil, err
 	}
+	s.publish(quest.CampaignID, live.TopicQuests)
 	return api.ClaimQuest200JSONResponse(out), nil
 }
 
@@ -355,4 +357,3 @@ func (s *Server) UnclaimQuest(ctx context.Context, request api.UnclaimQuestReque
 	}
 	return api.UnclaimQuest200JSONResponse(out), nil
 }
-

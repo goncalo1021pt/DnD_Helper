@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 /*
@@ -267,6 +268,7 @@ func (s *Server) UpdateVendor(ctx context.Context, request api.UpdateVendorReque
 	if err != nil {
 		return nil, err
 	}
+	s.publish(v.CampaignID, live.TopicVendors)
 	return api.UpdateVendor200JSONResponse(out), nil
 }
 
@@ -406,6 +408,7 @@ func (s *Server) UpdateStock(ctx context.Context, request api.UpdateStockRequest
 	if err != nil {
 		return nil, err
 	}
+	s.publish(row.CampaignID, live.TopicVendors)
 	return api.UpdateStock200JSONResponse(out), nil
 }
 

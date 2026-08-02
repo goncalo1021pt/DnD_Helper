@@ -11,6 +11,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 /*
@@ -29,7 +30,11 @@ func (s *Server) logEvent(ctx context.Context, campaignID, actorID uuid.UUID, ki
 		Message:     message,
 	}); err != nil {
 		log.Printf("chronicle: %s in %s: %v", kind, campaignID, err)
+		return
 	}
+	// One publish here covers every kind of post — a rest, a level-up, a quest,
+	// a seating — because they all come through this door (#109).
+	s.publish(campaignID, live.TopicChronicle)
 }
 
 func toAPIEvent(row db.ListEventsRow) api.ChronicleEvent {

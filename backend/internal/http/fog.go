@@ -9,6 +9,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 // Fog of war, stage 1: the DM stamps reveal circles on a draft client-side
@@ -140,6 +141,7 @@ func (s *Server) SubmitReveals(ctx context.Context, request api.SubmitRevealsReq
 		return nil, err
 	}
 
+	s.publish(meta.CampaignID, live.TopicMap)
 	return api.SubmitReveals201JSONResponse(api.RevealBatch{
 		Id:        batch.ID,
 		Note:      batch.Note,
