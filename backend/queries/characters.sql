@@ -103,6 +103,19 @@ SET spell_slots_used = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
+-- name: RestCharacter :one
+-- One rest, written as one row change (#118). HP, spent slots and spent hit
+-- dice move together or not at all — a hero left with their slots back but
+-- their hit points where they were has had half a rest, which is a state the
+-- rules have no name for.
+UPDATE characters
+SET hp_current = $2,
+    spell_slots_used = $3,
+    hit_dice_used = GREATEST(sqlc.arg(hit_dice_used)::smallint, 0),
+    updated_at = now()
+WHERE id = $1
+RETURNING *;
+
 -- name: GrantXP :many
 -- Add (or dock) XP for a set of seated heroes; totals never go below zero.
 UPDATE characters

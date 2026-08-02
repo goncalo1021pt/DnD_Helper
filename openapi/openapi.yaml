@@ -71,6 +71,8 @@ paths:
 
   /characters/{characterId}/levelup:
     $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1levelup"
+  /characters/{characterId}/rest:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1rest"
   /characters/{characterId}/spells/swap:
     $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1spells~1swap"
 
@@ -384,6 +386,10 @@ components:
     RulesContentInput:
       $ref: "./components/rules.yaml#/RulesContentInput"
 
+    RestRequest:
+      $ref: "./components/characters.yaml#/RestRequest"
+    RestReport:
+      $ref: "./components/characters.yaml#/RestReport"
     SpellSwap:
       $ref: "./components/characters.yaml#/SpellSwap"
     SpellSwapRequest:

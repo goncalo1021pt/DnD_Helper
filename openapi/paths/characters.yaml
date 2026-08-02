@@ -310,6 +310,38 @@
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
 
+/characters/{characterId}/rest:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: restCharacter
+    summary: >-
+      Take a long or short rest (owner or DM). A long rest restores HP to full,
+      returns every spell slot and hands back half the hero's hit dice; a short
+      rest spends hit dice to heal and returns a pact caster's slots. The report
+      says what actually moved, including what each die rolled.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/RestRequest"
+    responses:
+      "200":
+        description: What the rest restored
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/RestReport"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
 /characters/{characterId}/spells/swap:
   parameters:
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"

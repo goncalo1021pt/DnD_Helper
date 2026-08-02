@@ -18,6 +18,7 @@ import AbilityRow from "./ui/AbilityRow";
 import { abilityMod, modText } from "../lib/abilities";
 import SpellEntry, { SpellFlags } from "./ui/SpellEntry";
 import ContentEntry from "./ui/ContentEntry";
+import RestPanel from "./sheet/RestPanel";
 import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
 import { printHeroSheet } from "../lib/sheet/print";
 
@@ -352,6 +353,19 @@ export default function HeroSheetPage() {
             {/* features */}
             <FeaturesPanel features={features} />
 
+            {/* One action instead of three chores (#118). */}
+            <RestPanel
+              character={character}
+              canEdit={canEdit}
+              // Same guard the standalone button carries: a class MAY
+              // re-prepare on a long rest, but a hero with nothing written down
+              // has nothing to trade, and a modal saying so is noise at the end
+              // of every night.
+              onSpellSwap={() => {
+                if ((detail?.spells ?? []).length > 0) setSwapping(true);
+              }}
+            />
+
             {/* The numbers the features text points at (#129). */}
             <ClassTablePanel klass={klass} level={character.level} />
           </div>
@@ -376,7 +390,7 @@ export default function HeroSheetPage() {
                         boxShadow: "inset 0 0 0 1px rgba(201,162,39,.3)",
                       }}
                     >
-                      Long Rest — change spells
+                      Change prepared spells
                     </button>
                   )}
                 </div>

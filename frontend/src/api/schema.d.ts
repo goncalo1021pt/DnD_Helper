@@ -526,6 +526,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/characters/{characterId}/rest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take a long or short rest (owner or DM). A long rest restores HP to full, returns every spell slot and hands back half the hero's hit dice; a short rest spends hit dice to heal and returns a pact caster's slots. The report says what actually moved, including what each die rolled. */
+        post: operations["restCharacter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/characters/{characterId}/spells/swap": {
         parameters: {
             query?: never;
@@ -1776,6 +1795,8 @@ export interface components {
             name: string;
             /** @description Freeform class/ancestry line, e.g. "Half-Elf Bard". */
             class: string;
+            /** @description Hit dice already spent. The total is the hero's level, so what is left to spend on a short rest is level minus this. */
+            hitDiceUsed?: number;
             level: number;
             hpCurrent: number;
             hpMax: number;
@@ -1889,6 +1910,28 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
+        };
+        RestRequest: {
+            /** @enum {string} */
+            kind: "long" | "short";
+            /** @description Short rest only: how many hit dice to spend healing. Ignored on a long rest, which spends none. */
+            hitDice?: number;
+        };
+        RestReport: {
+            character: components["schemas"]["Character"];
+            kind: string;
+            /** @description Hit points actually regained — 0 when the hero was already whole. */
+            hpRestored: number;
+            hitDiceSpent: number;
+            hitDiceRegained: number;
+            /** @description Hit dice still available to spend after this rest. */
+            hitDiceLeft: number;
+            /** @description Whether spell slots came back. Always on a long rest; on a short rest only for a pact caster, whose slots are the ones that return. */
+            slotsRestored: boolean;
+            /** @description What each spent hit die rolled, before the CON modifier. */
+            rolls: number[];
+            /** @description Whether this hero's class may change its prepared spells now — the long-rest trigger the spell swap has been waiting for. */
+            canSwapSpells: boolean;
         };
         /** @description One spell traded for another; both must be the same kind (cantrip for cantrip). */
         SpellSwap: {
@@ -3531,6 +3574,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    restCharacter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestRequest"];
+            };
+        };
+        responses: {
+            /** @description What the rest restored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestReport"];
                 };
             };
             400: components["responses"]["BadRequest"];
