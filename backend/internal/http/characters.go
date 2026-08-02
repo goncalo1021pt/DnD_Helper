@@ -398,10 +398,12 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 	}
 	xp := int(c.Xp)
 	pending := int(c.PendingLevels)
+	hitDiceUsed := int(c.HitDiceUsed)
 	return api.Character{
 		Sheet:         sheet,
 		Xp:            &xp,
 		PendingLevels: &pending,
+		HitDiceUsed:   &hitDiceUsed,
 		Id:            c.ID,
 		CampaignId:    campaignID,
 		OwnerUserId:   c.OwnerUserID,

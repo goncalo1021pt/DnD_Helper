@@ -111,6 +111,34 @@ export function useSwapSpells(characterId: string) {
   });
 }
 
+/**
+ * Take a rest (#118).
+ *
+ * Invalidates the same three keys a spell swap does — a rest moves HP, spent
+ * slots and hit dice at once, and those are read on the sheet, the party
+ * roster and My Heroes. It also touches the chronicle, which the campaign hall
+ * shows, so that goes too.
+ */
+export function useRest(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { kind: "long" | "short"; hitDice?: number }) => {
+      const { data, error } = await api.POST("/characters/{characterId}/rest", {
+        params: { path: { characterId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["character-detail", characterId] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+    },
+  });
+}
+
 export function useAddItem(characterId: string) {
   const qc = useQueryClient();
   return useMutation({

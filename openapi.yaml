@@ -789,6 +789,33 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /characters/{characterId}/rest:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    post:
+      operationId: restCharacter
+      summary: Take a long or short rest (owner or DM). A long rest restores HP to full, returns every spell slot and hands back half the hero's hit dice; a short rest spends hit dice to heal and returns a pact caster's slots. The report says what actually moved, including what each die rolled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestRequest"
+      responses:
+        "200":
+          description: What the rest restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestReport"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /characters/{characterId}/spells/swap:
     parameters:
       - $ref: "#/components/parameters/CharacterId"
@@ -3149,6 +3176,9 @@ components:
         class:
           type: string
           description: Freeform class/ancestry line, e.g. "Half-Elf Bard".
+        hitDiceUsed:
+          type: integer
+          description: Hit dice already spent. The total is the hero's level, so what is left to spend on a short rest is level minus this.
         level:
           type: integer
         hpCurrent:
@@ -3422,6 +3452,57 @@ components:
         data:
           type: object
           additionalProperties: true
+    RestRequest:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          enum:
+            - long
+            - short
+        hitDice:
+          type: integer
+          description: "Short rest only: how many hit dice to spend healing. Ignored on a long rest, which spends none."
+    RestReport:
+      type: object
+      required:
+        - character
+        - kind
+        - hpRestored
+        - hitDiceSpent
+        - hitDiceRegained
+        - hitDiceLeft
+        - slotsRestored
+        - rolls
+        - canSwapSpells
+      properties:
+        character:
+          $ref: "#/components/schemas/Character"
+        kind:
+          type: string
+        hpRestored:
+          type: integer
+          description: Hit points actually regained — 0 when the hero was already whole.
+        hitDiceSpent:
+          type: integer
+        hitDiceRegained:
+          type: integer
+        hitDiceLeft:
+          type: integer
+          description: Hit dice still available to spend after this rest.
+        slotsRestored:
+          type: boolean
+          description: Whether spell slots came back. Always on a long rest; on a short rest only for a pact caster, whose slots are the ones that return.
+        rolls:
+          type: array
+          description: What each spent hit die rolled, before the CON modifier.
+          items:
+            type: integer
+        canSwapSpells:
+          type: boolean
+          description: Whether this hero's class may change its prepared spells now — the long-rest trigger the spell swap has been waiting for.
     SpellSwap:
       type: object
       description: One spell traded for another; both must be the same kind (cantrip for cantrip).
