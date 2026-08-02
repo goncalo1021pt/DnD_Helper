@@ -14,6 +14,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 // The tracker: who is in the fight, and in what order.
@@ -177,6 +178,7 @@ func (s *Server) AddCombatant(ctx context.Context, request api.AddCombatantReque
 	for _, c := range added {
 		out = append(out, combatantForDM(c, false))
 	}
+	s.publish(enc.CampaignID, live.TopicEncounter)
 	return api.AddCombatant201JSONResponse(out), nil
 }
 
@@ -283,6 +285,7 @@ func (s *Server) RollInitiative(ctx context.Context, request api.RollInitiativeR
 	if err != nil {
 		return nil, err
 	}
+	s.publish(enc.CampaignID, live.TopicEncounter)
 	return api.RollInitiative200JSONResponse(detail), nil
 }
 
@@ -359,6 +362,7 @@ func (s *Server) UpdateCombatant(ctx context.Context, request api.UpdateCombatan
 			return nil, err
 		}
 	}
+	s.publish(row.CampaignID, live.TopicEncounter)
 	return api.UpdateCombatant200JSONResponse(combatantForDM(c, false)), nil
 }
 
@@ -460,6 +464,7 @@ func (s *Server) DeleteCombatant(ctx context.Context, request api.DeleteCombatan
 	if _, err := s.queries.DeleteCombatant(ctx, request.CombatantId); err != nil {
 		return nil, err
 	}
+	s.publish(row.CampaignID, live.TopicEncounter)
 	return api.DeleteCombatant204Response{}, nil
 }
 
@@ -490,6 +495,7 @@ func (s *Server) DeleteCombatantGroup(ctx context.Context, request api.DeleteCom
 	if n == 0 {
 		return api.DeleteCombatantGroup404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 	}
+	s.publish(enc.CampaignID, live.TopicEncounter)
 	return api.DeleteCombatantGroup204Response{}, nil
 }
 
@@ -542,6 +548,7 @@ func (s *Server) RollCombatantInitiative(ctx context.Context, request api.RollCo
 			return nil, err
 		}
 	}
+	s.publish(row.CampaignID, live.TopicEncounter)
 	if isDM {
 		return api.RollCombatantInitiative200JSONResponse(combatantForDM(c, false)), nil
 	}

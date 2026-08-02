@@ -10,6 +10,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
@@ -146,6 +147,7 @@ func (s *Server) UpdateEncounter(ctx context.Context, request api.UpdateEncounte
 	if err != nil {
 		return nil, err
 	}
+	s.publish(enc.CampaignID, live.TopicEncounter)
 	return api.UpdateEncounter200JSONResponse(detail), nil
 }
 
@@ -218,5 +220,6 @@ func (s *Server) StandDownEncounters(ctx context.Context, request api.StandDownE
 		}
 		out = append(out, encounterFromRow(stood, len(count), s.locationNameFor(ctx, stood.LocationID)))
 	}
+	s.publish(request.CampaignId, live.TopicEncounter)
 	return api.StandDownEncounters200JSONResponse(out), nil
 }

@@ -46,6 +46,11 @@ func NewRouter(deps Deps) http.Handler {
 		// Map images stream outside the JSON contract (binary, cacheable).
 		ar.Get("/maps/{mapID}/image", srv.ServeMapImage)
 
+		// The live nudge stream (#109). Outside the contract for the same
+		// reason: a strict handler returns a typed object and is done, and a
+		// stream is the opposite of done.
+		ar.Get("/campaigns/{campaignID}/events/stream", srv.ServeCampaignStream)
+
 		// Register the generated, type-checked operation handlers onto this
 		// subrouter (paths: /health, /me, /campaigns).
 		mountAPI(ar, strict)

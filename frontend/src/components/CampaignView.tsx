@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Link, Outlet, useLocation, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
-import { useCampaigns, useRegenerateInvite } from "../hooks";
+import { useCampaigns, useLiveCampaign, useRegenerateInvite } from "../hooks";
 import RoleBadge from "./ui/RoleBadge";
 import { IconCopy, IconRefresh } from "./ui/icons";
 
@@ -55,6 +55,10 @@ export default function CampaignView() {
   const { id } = useParams();
   const location = useLocation();
   const { data: campaigns, isLoading } = useCampaigns();
+  // One stream per campaign, opened here because every tab lives under this
+  // route — the tracker, the chronicle, the board (#109). The 8-second poll
+  // underneath stays as the fallback.
+  useLiveCampaign(id);
   const regenerate = useRegenerateInvite(id ?? "");
 
   if (isLoading) {

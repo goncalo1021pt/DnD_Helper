@@ -9,6 +9,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 // sheetVeil answers "may this player read that hero's numbers?" at one table.
@@ -190,6 +191,7 @@ func (s *Server) RevealCharacter(ctx context.Context, request api.RevealCharacte
 	}
 	out := toAPICharacterWithClass(character, ownerName, member.UserID, s.classDataFor(ctx, character))
 	out.Revealed = &revealed
+	s.publish(member.CampaignID, live.TopicParty)
 	return api.RevealCharacter200JSONResponse(out), nil
 }
 
