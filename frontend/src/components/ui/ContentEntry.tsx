@@ -332,10 +332,24 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
               ["Properties", arr("properties").join(", ")],
             ]
           : [["Type", "Gear"]];
+
+  // What an item is worth, weighs, and how rare it is (#101). Rarity is the
+  // only thing that says an item is magical, so it is shown whenever present —
+  // and attunement is shown WITH it, because "requires attunement" on its own
+  // tells a player nothing about what they are holding.
+  const rarity = (str("rarity") ?? "").trim();
+  const trappings: Array<[string, ReactNode]> = [
+    ["Cost", str("cost")],
+    ["Weight", typeof d.weight === "number" ? `${d.weight} lb` : undefined],
+    [
+      "Rarity",
+      rarity ? `${rarity}${d.attunement ? " · requires attunement" : ""}` : undefined,
+    ],
+  ];
   return (
     <div className="text-[13px]">
       <Header entry={entry} tagline={entry.summary} />
-      <Facts rows={[...typeRows, ["Source", book]]} />
+      <Facts rows={[...typeRows, ...trappings, ["Source", book]]} />
       <Description text={str("description")} />
     </div>
   );
