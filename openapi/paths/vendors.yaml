@@ -1,0 +1,167 @@
+/campaigns/{campaignId}/vendors:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listVendors
+    summary: >-
+      The shops of a campaign. The DM sees every one with all its shelves; a
+      player sees only the shops that have been revealed, and within them only
+      the lines that have.
+    responses:
+      "200":
+        description: Shops, redacted for the viewer
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Vendor"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createVendor
+    summary: Open a shop (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/VendorInput"
+    responses:
+      "201":
+        description: The new shop
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Vendor"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/vendors/{vendorId}:
+  parameters:
+    - name: vendorId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateVendor
+    summary: Rename a shop, move it, or reveal it to the party (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/VendorInput"
+    responses:
+      "200":
+        description: The shop after the change
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Vendor"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteVendor
+    summary: Close a shop and empty its shelves (DM only)
+    responses:
+      "204":
+        description: Closed
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/vendors/{vendorId}/stock:
+  parameters:
+    - name: vendorId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: addStock
+    summary: Put something on the shelves (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/StockInput"
+    responses:
+      "201":
+        description: The shop, with its new line
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Vendor"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/stock/{stockId}:
+  parameters:
+    - name: stockId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateStock
+    summary: Reprice a line, restock it, or show it to the party (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/StockPatch"
+    responses:
+      "200":
+        description: The shop after the change
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Vendor"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteStock
+    summary: Take a line off the shelves (DM only)
+    responses:
+      "204":
+        description: Gone
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

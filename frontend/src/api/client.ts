@@ -24,6 +24,19 @@ export type Member =
 export type Ban =
   paths["/campaigns/{campaignId}/bans"]["get"]["responses"]["200"]["content"]["application/json"][number];
 
+export type Vendor =
+  paths["/campaigns/{campaignId}/vendors"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type VendorStock = Vendor["stock"][number];
+export type VendorInput = NonNullable<
+  paths["/campaigns/{campaignId}/vendors"]["post"]["requestBody"]
+>["content"]["application/json"];
+export type StockInput = NonNullable<
+  paths["/vendors/{vendorId}/stock"]["post"]["requestBody"]
+>["content"]["application/json"];
+export type StockPatch = NonNullable<
+  paths["/stock/{stockId}"]["patch"]["requestBody"]
+>["content"]["application/json"];
+
 export type Quest =
   paths["/campaigns/{campaignId}/quests"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type QuestReward = Quest["rewards"][number];

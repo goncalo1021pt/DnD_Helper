@@ -150,6 +150,15 @@ paths:
   /quests/{questId}/claim:
     $ref: "./paths/quests.yaml#/~1quests~1{questId}~1claim"
 
+  /campaigns/{campaignId}/vendors:
+    $ref: "./paths/vendors.yaml#/~1campaigns~1{campaignId}~1vendors"
+  /vendors/{vendorId}:
+    $ref: "./paths/vendors.yaml#/~1vendors~1{vendorId}"
+  /vendors/{vendorId}/stock:
+    $ref: "./paths/vendors.yaml#/~1vendors~1{vendorId}~1stock"
+  /stock/{stockId}:
+    $ref: "./paths/vendors.yaml#/~1stock~1{stockId}"
+
   /campaigns/{campaignId}/bestiary:
     $ref: "./paths/bestiary.yaml#/~1campaigns~1{campaignId}~1bestiary"
   /campaigns/{campaignId}/bestiary/{entryId}:
@@ -412,6 +421,17 @@ components:
       $ref: "./components/characters.yaml#/InventoryItemPatch"
     CharacterDetail:
       $ref: "./components/characters.yaml#/CharacterDetail"
+
+    Vendor:
+      $ref: "./components/vendors.yaml#/Vendor"
+    VendorStock:
+      $ref: "./components/vendors.yaml#/VendorStock"
+    VendorInput:
+      $ref: "./components/vendors.yaml#/VendorInput"
+    StockInput:
+      $ref: "./components/vendors.yaml#/StockInput"
+    StockPatch:
+      $ref: "./components/vendors.yaml#/StockPatch"
 
     BestiaryNote:
       $ref: "./components/bestiary.yaml#/BestiaryNote"

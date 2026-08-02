@@ -18,6 +18,7 @@ export * from "./locations";
 export * from "./party";
 export * from "./heroes";
 export * from "./rules";
+export * from "./vendors";
 export * from "./chronicle";
 export * from "./packs";
 export * from "./codex";
