@@ -160,11 +160,60 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 		default:
 			return "item type must be armor, weapon, shield or gear"
 		}
+		// The fields every item may carry, whatever it does in a fight (#101).
+		if msg := validateItemTrappings(data); msg != "" {
+			return msg
+		}
 	case db.ContentKindFeat:
 		// Free-form: the summary carries the rules text.
 	case db.ContentKindMonster:
 		// Free-form: stat blocks vary too much to gate; the Den renders
 		// whatever facts are present.
+	}
+	return ""
+}
+
+/*
+What an item is worth, weighs, and how rare it is (#101).
+
+These sit outside the type switch because they are true of a rope and of a
+Vorpal Sword alike: an item's cost, weight, rarity and attunement have nothing
+to do with whether it is worn, swung or drunk. Rarity is what makes an item
+magical here — there is no separate "magic" type, because a magic sword is still
+a sword and everything that reads a weapon should keep reading it as one.
+
+Blank is always allowed. Most gear has no rarity, plenty of homebrew has no
+priced cost, and refusing an item for lacking a field it does not need is how a
+form stops being used.
+*/
+var itemRarities = map[string]bool{
+	"": true, "common": true, "uncommon": true, "rare": true,
+	"very rare": true, "legendary": true, "artifact": true,
+}
+
+// costRe accepts the way the books write a price — "15 gp", "1 sp", "5,000 gp"
+// — and nothing else, so a cost cannot quietly become prose the sheet then
+// prints as a number.
+var costRe = regexp.MustCompile(`^\d{1,3}(,\d{3})*(\.\d+)?\s?(cp|sp|ep|gp|pp)$`)
+
+func validateItemTrappings(data map[string]interface{}) string {
+	if rarity, _ := getStr(data, "rarity"); !itemRarities[strings.ToLower(strings.TrimSpace(rarity))] {
+		return "rarity must be common, uncommon, rare, very rare, legendary or artifact"
+	}
+	if cost, _ := getStr(data, "cost"); strings.TrimSpace(cost) != "" &&
+		!costRe.MatchString(strings.ToLower(strings.TrimSpace(cost))) {
+		return "cost must read like 15 gp, 1 sp or 5,000 gp"
+	}
+	if w, ok := getNum(data, "weight"); ok && (w < 0 || w > 10000) {
+		return "weight must be between 0 and 10000 lb"
+	}
+	// Attunement without a rarity is a mundane item asking to be attuned to,
+	// which no rule allows and which reads on the sheet as a magic item that
+	// forgot to say so.
+	if att, ok := data["attunement"].(bool); ok && att {
+		if rarity, _ := getStr(data, "rarity"); strings.TrimSpace(rarity) == "" {
+			return "only a magic item can require attunement — give it a rarity"
+		}
 	}
 	return ""
 }

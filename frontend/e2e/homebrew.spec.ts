@@ -52,10 +52,10 @@ test("a scribed piece of armour is stored in the shape the sheet reads", async (
 });
 
 /*
-The Den is the same component through a different door, and monster is the one
-kind GuidedFields has no branch for — it falls through to the raw entry instead.
-Worth its own test precisely because it is the path the guided fields do not
-cover: a refactor that reorders those branches could swallow it silently.
+The Den is the same component through a different door. Monster was the one kind
+GuidedFields had no branch for — it fell through to the FEAT form until #127
+gave it one — so this is the path most likely to be swallowed silently by a
+refactor that reorders those branches.
 */
 test("a monster scribed in the Den joins the bestiary and can be fought", async ({ page }) => {
   await page.goto("/");
@@ -80,4 +80,77 @@ test("a monster scribed in the Den joins the bestiary and can be fought", async 
   const mine = monsters.find((m) => m.name === name);
   expect(mine, "the scribed monster should be in the Den").toBeTruthy();
   expect(mine!.source).toBe("homebrew");
+});
+
+
+/*
+Everything an item is besides a number in a fight (#101).
+
+Gear carried an AC or a damage die and nothing else — no cost, no weight, no
+rarity, and no way to say what the thing actually does. Two of those were
+already RENDERED on the item card and simply could not be written: the
+description, and a weapon's properties.
+
+The assertion is the stored shape again, for the reason the armour test gives:
+a form that writes rarity under the wrong key produces a magic sword that reads
+as mundane and never says why.
+*/
+test("a magic weapon keeps its price, its weight and its rarity", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("gear"));
+
+  const name = unique("Flametongue ");
+  await page.goto("/questboard/archives");
+  await page.getByRole("button", { name: "Items", exact: true }).click();
+  await page.getByRole("button", { name: /Scribe an? Item/ }).click();
+
+  const form = page.getByRole("dialog");
+  await form.getByLabel("Name").fill(name);
+  await form.getByLabel("Item type").selectOption("weapon");
+  await form.getByLabel("Category").selectOption("Martial");
+  await form.getByLabel("Damage", { exact: true }).fill("1d8");
+  await form.getByLabel("Damage type").fill("slashing");
+  await form.getByLabel("Properties").fill("Versatile, Finesse");
+  await form.getByLabel("Cost").fill("5,000 gp");
+  await form.getByLabel("Weight (lb)").fill("3");
+
+  // Attunement only exists once the item is magical — the server refuses an
+  // attuned mundane rope, so the form does not offer the box until then.
+  await expect(form.getByLabel("Requires attunement")).toHaveCount(0);
+  await form.getByLabel("Rarity").selectOption("rare");
+  await form.getByLabel("Requires attunement").check();
+
+  await form.getByLabel("The entry (what it does)").fill("It bursts into flame on command.");
+  await form.getByRole("button", { name: "Scribe It" }).click();
+
+  const items = (await (await page.request.get("/api/rules/item")).json()) as Array<{
+    name: string;
+    data: {
+      type?: string;
+      cost?: string;
+      weight?: number;
+      rarity?: string;
+      attunement?: boolean;
+      properties?: string[];
+      description?: string;
+    };
+  }>;
+  const mine = items.find((i) => i.name === name);
+  expect(mine, "the scribed weapon should be in the armory").toBeTruthy();
+  expect(mine!.data).toMatchObject({
+    type: "weapon",
+    cost: "5,000 gp",
+    weight: 3,
+    rarity: "rare",
+    attunement: true,
+  });
+  expect(mine!.data.properties).toEqual(["Versatile", "Finesse"]);
+  expect(mine!.data.description).toContain("bursts into flame");
+
+  // And the card says all of it, which is where a player actually meets it.
+  await page.getByText(name).first().click();
+  const card = page.getByRole("dialog");
+  await expect(card.getByText("5,000 gp")).toBeVisible();
+  await expect(card.getByText("3 lb")).toBeVisible();
+  await expect(card.getByText(/rare · requires attunement/)).toBeVisible();
 });

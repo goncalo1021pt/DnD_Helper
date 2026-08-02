@@ -1,8 +1,22 @@
 import type { FieldProps } from "./shared";
 import { input } from "./shared";
 
-export default function ItemFields({ data, set }: FieldProps) {
+/*
+Gear carried only what mattered in a fight (#101) — an AC, a damage die — so
+there was nowhere to say what a thing costs, what it weighs, what it does, or
+whether it is magical at all. Two of these were already *rendered* on the item
+card and simply could not be written: the description and a weapon's properties.
+
+Rarity is what makes an item magical; there is no separate "magic" type,
+because a magic sword is still a sword and everything that reads a weapon
+should go on reading it as one.
+*/
+
+const RARITIES = ["", "common", "uncommon", "rare", "very rare", "legendary", "artifact"];
+
+export default function ItemFields({ data, set, strArr }: FieldProps) {
   const itemType = (data.type as string) ?? "gear";
+  const rarity = (data.rarity as string) ?? "";
   return (
     <>
       <label className="flex flex-col gap-1.5">
@@ -78,8 +92,65 @@ export default function ItemFields({ data, set }: FieldProps) {
               onChange={(e) => set("ranged", e.target.checked)} />
             <span className="field-label">Ranged</span>
           </label>
+          <label className="flex min-w-44 flex-1 flex-col gap-1.5">
+            <span className="field-label">Properties</span>
+            <input className={input} placeholder="Finesse, Light, Thrown"
+              value={strArr("properties").join(", ")}
+              onChange={(e) =>
+                set("properties", e.target.value.split(",").map((p) => p.trim()).filter(Boolean))
+              } />
+          </label>
         </div>
       )}
+
+      {/* True of a rope and a Vorpal Sword alike, so they sit outside the type. */}
+      <div className="flex flex-wrap gap-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="field-label">Cost</span>
+          <input className={`${input} w-28`} placeholder="15 gp"
+            value={(data.cost as string) ?? ""}
+            onChange={(e) => set("cost", e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="field-label">Weight (lb)</span>
+          <input type="number" min={0} className={`${input} w-24`}
+            value={typeof data.weight === "number" ? (data.weight as number) : ""}
+            onChange={(e) =>
+              set("weight", e.target.value === "" ? undefined : Number(e.target.value))
+            } />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="field-label">Rarity</span>
+          <select className={`${input} w-36 cursor-pointer`} value={rarity}
+            onChange={(e) => {
+              // Losing the rarity un-magics the item, and an attunement left
+              // behind would be a mundane rope asking to be attuned to — which
+              // the server refuses, so the form should not offer it.
+              if (e.target.value === "") set("attunement", false);
+              set("rarity", e.target.value);
+            }}>
+            {RARITIES.map((r) => (
+              <option key={r || "none"} value={r}>{r === "" ? "Not magical" : r}</option>
+            ))}
+          </select>
+        </label>
+        {rarity !== "" && (
+          <label className="flex cursor-pointer items-center gap-2 self-end pb-2 text-[13px]">
+            <input type="checkbox"
+              checked={(data.attunement as boolean) ?? false}
+              onChange={(e) => set("attunement", e.target.checked)} />
+            <span className="field-label">Requires attunement</span>
+          </label>
+        )}
+      </div>
+
+      <label className="flex flex-col gap-1.5">
+        <span className="field-label">The entry (what it does)</span>
+        <textarea rows={5} className={`${input} min-h-[100px] leading-relaxed`}
+          placeholder="What holding it is worth — paragraphs, **bold** and _italics_ welcome."
+          value={(data.description as string) ?? ""}
+          onChange={(e) => set("description", e.target.value)} />
+      </label>
     </>
   );
 }
