@@ -1,5 +1,5 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
-import { newAccount, registerViaAPI, unique } from "./helpers";
+import { test, expect } from "@playwright/test";
+import { forgeHero, newAccount, registerViaAPI, unique } from "./helpers";
 
 /*
 What the hero sheet is willing to tell a player about their own hero.
@@ -12,43 +12,6 @@ on. "An AC is displayed" is what the app did before the fix too, so the number
 itself is the test.
 */
 
-/** Forge a hero straight onto the account, as the wizard would. */
-export async function forgeHero(
-  request: APIRequestContext,
-  hero: {
-    name: string;
-    className: string;
-    speciesName: string;
-    backgroundName: string;
-    abilities: Record<string, number>;
-    skills: string[];
-    speciesChoices?: Record<string, string[]>;
-  },
-): Promise<string> {
-  const byName = async (kind: string, want: string) => {
-    const list = (await (await request.get(`/api/rules/${kind}`)).json()) as Array<{
-      id: string;
-      name: string;
-    }>;
-    const hit = list.find((e) => e.name === want);
-    expect(hit, `${want} should be in the ${kind} library`).toBeTruthy();
-    return hit!.id;
-  };
-
-  const res = await request.post("/api/me/characters/forge", {
-    data: {
-      name: hero.name,
-      classId: await byName("class", hero.className),
-      speciesId: await byName("species", hero.speciesName),
-      backgroundId: await byName("background", hero.backgroundName),
-      abilities: hero.abilities,
-      skills: hero.skills,
-      speciesChoices: hero.speciesChoices,
-    },
-  });
-  expect(res.ok(), await res.text()).toBeTruthy();
-  return (await res.json()).id as string;
-}
 
 test("a Barbarian's Unarmored Defense is in their AC", async ({ page }) => {
   await page.goto("/");

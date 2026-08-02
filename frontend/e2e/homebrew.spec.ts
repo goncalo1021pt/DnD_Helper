@@ -36,6 +36,12 @@ test("a scribed piece of armour is stored in the shape the sheet reads", async (
   await form.getByLabel("Base AC").fill("18");
   await form.getByRole("button", { name: "Scribe It" }).click();
 
+  // Wait for the app's own confirmation before reading the API back. Without
+  // this the GET below races the POST, and the test fails about one run in
+  // three on a name that is merely not written yet — which reads exactly like
+  // the form having stored the wrong shape.
+  await expect(page.getByText(name).first()).toBeVisible({ timeout: 20_000 });
+
   // The shape is the point. `type` and `ac` are the two keys the hero sheet
   // reads to decide what can be worn and what wearing it is worth.
   const items = (await (await page.request.get("/api/rules/item")).json()) as Array<{
@@ -46,9 +52,6 @@ test("a scribed piece of armour is stored in the shape the sheet reads", async (
   expect(mine, "the scribed item should be in the armory").toBeTruthy();
   expect(mine!.data.type).toBe("armor");
   expect(mine!.data.ac).toBe(18);
-
-  // And it is on the shelf, under the category it was given.
-  await expect(page.getByText(name).first()).toBeVisible({ timeout: 20_000 });
 });
 
 /*
