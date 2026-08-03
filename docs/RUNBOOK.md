@@ -77,6 +77,90 @@ docker compose exec postgres psql -U questboard -d questboard -c "SELECT created
 
 ---
 
+## Setting up offsite backups (once)
+
+The nightly dumps land in `./backups` on this machine. That survives a bad
+migration; it does not survive the disk. This mirrors them to Cloudflare R2,
+encrypted.
+
+### 1. In the Cloudflare dashboard
+
+- **R2 → Create bucket** → name it `questboard-backups`
+- **R2 → Manage API tokens → Create** → permission **Object Read & Write**,
+  scoped to *that bucket only*, not account-wide
+- Copy the **Access Key ID** and **Secret Access Key**, and note your
+  **Account ID** (it is in the R2 page URL)
+
+### 2. Pick a passphrase and obscure it
+
+```sh
+docker compose run --rm offsite obscure 'a long passphrase you have not used elsewhere'
+```
+
+Put the **output** in `.env` as `BACKUP_CRYPT_PASSWORD`, and put the
+**passphrase itself in your password manager** before you go any further.
+
+> An encrypted backup whose key only existed on the machine that died is not a
+> backup. This is the one step with no second chance.
+
+### 3. Fill in `.env` and start it
+
+```sh
+R2_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=questboard-backups
+BACKUP_CRYPT_PASSWORD=<the obscured output>
+```
+
+```sh
+docker compose up -d offsite
+docker compose logs -f offsite
+```
+
+It waits five minutes for a dump to exist, then syncs and repeats daily. If
+`R2_BUCKET` is empty it idles and says so — it will not crash-loop.
+
+## Verifying a restore actually works
+
+**Do this once, now, and not during an emergency.** A backup nobody has
+restored from is a hope.
+
+### 1. See what is off-box
+
+```sh
+docker compose run --rm offsite lsl VAULT:
+```
+
+Filenames come back readable here because rclone decrypts them on the way out.
+In the bucket itself they are ciphertext.
+
+### 2. Pull the newest one down
+
+```sh
+docker compose run --rm -v "$PWD/restore-test:/restore" offsite copy VAULT: /restore --max-age 2d
+ls -lh restore-test/
+```
+
+### 3. Load it into a throwaway database and count something
+
+```sh
+docker compose exec -T postgres createdb -U questboard restorecheck
+gunzip -c restore-test/questboard-*.sql.gz | docker compose exec -T postgres psql -U questboard -d restorecheck -q
+docker compose exec -T postgres psql -U questboard -d restorecheck -c "SELECT count(*) AS campaigns FROM campaigns; SELECT count(*) AS heroes FROM characters;"
+```
+
+Those counts should look like your live table. If they do, the backup is real.
+
+### 4. Clean up
+
+```sh
+docker compose exec -T postgres dropdb -U questboard restorecheck
+rm -rf restore-test
+```
+
+---
+
 ## Why there is no admin page for this
 
 Clearing someone's two-factor auth is the single most dangerous thing this app

@@ -142,9 +142,15 @@ gunzip -c backups/questboard-<date>.sql.gz | \
   docker compose exec -T postgres psql -U questboard -d questboard
 ```
 
-The dumps live on the same machine as the database — for real disaster recovery,
-sync `./backups/` off the box (rclone to cloud storage, an rsync cron to another
-machine, or even a synced folder). An ad-hoc manual dump is still just:
+The dumps live on the same machine as the database, which does not survive the
+disk dying. The **`offsite`** service mirrors them to Cloudflare R2 nightly —
+encrypted, filenames included, keeping the last `OFFSITE_KEEP_DAYS` off-box and
+pruning the rest so the free tier stays free. Leave `R2_BUCKET` empty and it
+idles rather than crash-looping.
+
+Setup is four values in `.env` and one `obscure` command; the steps, and the
+restore verification you should do **once, before you need it**, are in
+`docs/RUNBOOK.md`. An ad-hoc manual dump is still just:
 ```bash
 docker compose exec postgres pg_dump -U questboard questboard > backup-$(date +%F).sql
 ```

@@ -54,3 +54,77 @@ services:
         done
     profiles:
       - full
+
+  # Push the dumps off this machine (#111).
+  #
+  # A local-only backup does not survive the failure it exists for: if the disk
+  # or the VM goes, the dumps go with it. This mirrors ./backups to Cloudflare
+  # R2 nightly, encrypted, keeping only the recent ones off-box.
+  #
+  # Encrypted because the dumps carry password hashes and email addresses, and
+  # this is somebody else's disk. rclone's crypt layer also encrypts the
+  # FILENAMES, so the bucket does not even leak which nights you played.
+  #
+  # Unconfigured is not an error — leave the R2_* vars empty and this idles with
+  # a note in the log rather than crash-looping on a stack that is otherwise
+  # perfectly healthy.
+  offsite:
+    image: rclone/rclone:1.75
+    restart: unless-stopped
+    depends_on:
+      - backup
+    environment:
+      # The bucket, reached with an S3 API. R2 credentials are static, so there
+      # is no token to go stale on a machine nobody logs into.
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_REGION: auto
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      RCLONE_CONFIG_R2_ENDPOINT: https://${R2_ACCOUNT_ID:-unset}.r2.cloudflarestorage.com
+      # The crypt layer in front of it. VAULT: is what the sync writes to; R2:
+      # only ever sees ciphertext.
+      RCLONE_CONFIG_VAULT_TYPE: crypt
+      RCLONE_CONFIG_VAULT_REMOTE: R2:${R2_BUCKET:-}
+      RCLONE_CONFIG_VAULT_PASSWORD: ${BACKUP_CRYPT_PASSWORD:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      # How many days of dumps to keep off-box. The local job keeps 14; there is
+      # no reason to pay for all of them somewhere else.
+      OFFSITE_KEEP_DAYS: ${OFFSITE_KEEP_DAYS:-7}
+      # A runaway sync aborts instead of uploading forever. The free tier is
+      # 10 GB and normal use is a fraction of that, so anything near this is a
+      # mistake, not a busy night.
+      OFFSITE_MAX_TRANSFER: ${OFFSITE_MAX_TRANSFER:-2G}
+      # Optional: pinged after a successful run. An unmonitored backup is a
+      # hope — if this stops arriving, the sync stopped and nothing else says so.
+      HEALTHCHECK_URL: ${HEALTHCHECK_URL:-}
+    volumes:
+      # Read-only: this job's whole job is to copy them elsewhere.
+      - ./backups:/backups:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ -z "$$R2_BUCKET" ]; then
+          echo "offsite: not configured — set R2_* in .env to sync backups off this machine"
+          while true; do sleep 86400; done
+        fi
+        # Let the nightly dump land first; the backup service writes on start.
+        sleep 300
+        while true; do
+          if rclone copy /backups VAULT: \
+               --max-age "$${OFFSITE_KEEP_DAYS}d" \
+               --max-transfer "$$OFFSITE_MAX_TRANSFER" \
+               --stats-one-line --stats 0; then
+            # Prune the far end separately from uploading it. Two commands with
+            # obvious semantics beat one clever --sync that could decide the
+            # whole bucket is surplus.
+            rclone delete VAULT: --min-age "$${OFFSITE_KEEP_DAYS}d" || true
+            echo "offsite: synced $$(rclone lsf VAULT: | wc -l) dump(s) off-box"
+            [ -n "$$HEALTHCHECK_URL" ] && wget -qO- --timeout=10 "$$HEALTHCHECK_URL" >/dev/null 2>&1
+          else
+            echo "offsite: FAILED — the dumps are still on this machine only" >&2
+          fi
+          sleep 86400
+        done
+    profiles:
+      - full
