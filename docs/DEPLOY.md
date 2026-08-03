@@ -155,6 +155,14 @@ restore verification you should do **once, before you need it**, are in
 docker compose exec postgres pg_dump -U questboard questboard > backup-$(date +%F).sql
 ```
 
+## Knowing when it breaks
+
+Grafana watches from inside the homelab, so it cannot report the tunnel being
+down, the VM being off, or the power being out. `https://dnd.fontao.net/api/health`
+is public and answers `503` when the database is unreachable, so a plain status
+check from an outside service covers both the app and its database. Setup, and
+the Discord-webhook catch, are in `docs/RUNBOOK.md`.
+
 ## When something goes wrong
 
 `docs/RUNBOOK.md` is the operator's page — what to type, written to be read on a
