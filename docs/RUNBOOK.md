@@ -161,6 +161,64 @@ rm -rf restore-test
 
 ---
 
+## Watching the site from outside the house
+
+Grafana watches the app from inside the homelab, which cannot tell you the
+tunnel is down, the VM is off, or the power is out — in all three cases the
+thing that would alert you is also down. That needs a check from somewhere else.
+
+### What to point it at
+
+```
+https://dnd.fontao.net/api/health
+```
+
+Verified behaviour, not assumed:
+
+| State | Response |
+|---|---|
+| Healthy | `200` · `{"status":"ok"}` |
+| Database down | `503` · `{"status":"degraded"}` |
+| No session cookie | still answers — the endpoint is public |
+
+So a plain **HTTP status check** is enough. It catches the app being gone *and*
+the database having died, needs no authentication, and needs no keyword match.
+If your monitor offers keyword matching anyway, `"status":"ok"` is the string.
+
+**Interval:** 5 minutes is plenty. This is a game table, not a payments API, and
+tighter intervals mostly buy false alarms from transient tunnel blips.
+
+### Two layers worth having
+
+**1. An external poller** — UptimeRobot's free tier (50 monitors, 5-minute
+checks) is the usual choice. Add an HTTP(s) monitor on the URL above.
+
+> Discord wiring has a catch: Discord webhooks expect `{"content": "..."}`, and a
+> generic "POST to this URL" alert usually will not render. If your monitor
+> cannot shape the payload, send the alert to **email** instead — it is less
+> satisfying and it works. Check this when you set it up rather than assuming
+> the first test alert arriving means it is wired.
+
+**2. Cloudflare's own tunnel notification** — you are already in that dashboard.
+Zero Trust → Notifications can alert when a tunnel goes down, which is exactly
+the "VM is off / house has no power" case, and it costs nothing extra. Worth
+checking whether your plan includes it.
+
+The two catch different things and neither replaces the other: the tunnel
+notification knows the connection died, and the poller knows the app answered
+badly. A 503 from a perfectly healthy tunnel is invisible to the first and
+obvious to the second.
+
+### Not the same as the backup ping
+
+`HEALTHCHECK_URL` in `.env` is a *dead-man's switch* for the nightly offsite
+sync — the backup job pings it on success and you are told when the ping stops.
+That answers "did the backup run". It says nothing about whether the site is up,
+and the site being up says nothing about the backup. Both, or neither is worth
+much.
+
+---
+
 ## Why there is no admin page for this
 
 Clearing someone's two-factor auth is the single most dangerous thing this app
