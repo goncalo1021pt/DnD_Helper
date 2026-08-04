@@ -7,7 +7,7 @@ STATIC := backend/internal/static
 # The Playwright image tag MUST match the @playwright/test version pinned in
 # frontend/package.json — the library refuses to drive browsers it did not ship
 # with. Bump both together.
-PLAYWRIGHT_VERSION := v1.62.0
+PLAYWRIGHT_VERSION := v1.62.1
 E2E_BASE_URL ?= http://localhost:8080
 
 .PHONY: help generate gen-spec gen-backend gen-frontend frontend embed backend build run test e2e prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
