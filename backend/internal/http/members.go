@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
+	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 )
 
@@ -198,6 +199,38 @@ func (s *Server) ListBans(ctx context.Context, request api.ListBansRequestObject
 		})
 	}
 	return api.ListBans200JSONResponse(bans), nil
+}
+
+// LeaveCampaign lets a member walk away from the table themself (#171). The
+// DM cannot — their leaving would orphan the table; disbanding is their exit.
+func (s *Server) LeaveCampaign(ctx context.Context, request api.LeaveCampaignRequestObject) (api.LeaveCampaignResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	uid, ok := auth.UserID(ctx)
+	if !ok {
+		return api.LeaveCampaign401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	if _, err := s.queries.GetCampaign(ctx, campaignID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.LeaveCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	membership, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: campaignID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.LeaveCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	if membership.Role == db.MembershipRoleDm {
+		return api.LeaveCampaign400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "the DM cannot walk away from their own table — disband it instead",
+		}}, nil
+	}
+	if err := s.removeMemberTx(ctx, campaignID, uid, false); err != nil {
+		return nil, err
+	}
+	return api.LeaveCampaign204Response{}, nil
 }
 
 // removeMemberTx atomically removes a user's presence at a table: membership,

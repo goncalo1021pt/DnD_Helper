@@ -101,6 +101,24 @@ export function useSetSeatingApproval(campaignId: string) {
   });
 }
 
+export function useSetMaxSeated(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (maxSeatedPerPlayer: number) => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/max-seated", {
+        params: { path: { campaignId } },
+        body: { maxSeatedPerPlayer },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+    },
+  });
+}
+
 // DM only — the heroes waiting at the door.
 export function useSeatRequests(campaignId: string, enabled: boolean) {
   return useQuery({

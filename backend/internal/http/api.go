@@ -292,6 +292,7 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 				Progression:            row.Progression,
 				MaxLevel:               row.MaxLevel,
 				RequireSeatingApproval: row.RequireSeatingApproval,
+				MaxSeatedPerPlayer:     row.MaxSeatedPerPlayer,
 				HiddenSheets:           row.HiddenSheets,
 			}),
 			Role: toAPIRole(row.Role),
@@ -327,6 +328,7 @@ func toAPICampaign(c db.Campaign) api.Campaign {
 		v := int(*c.MaxLevel)
 		maxLevel = &v
 	}
+	maxSeated := int(c.MaxSeatedPerPlayer)
 	return api.Campaign{
 		Id:                     c.ID,
 		Name:                   c.Name,
@@ -337,6 +339,7 @@ func toAPICampaign(c db.Campaign) api.Campaign {
 		Progression:            (*api.CampaignProgression)(ptrString(string(c.Progression))),
 		MaxLevel:               maxLevel,
 		RequireSeatingApproval: &c.RequireSeatingApproval,
+		MaxSeatedPerPlayer:     &maxSeated,
 		HiddenSheets:           &c.HiddenSheets,
 	}
 }

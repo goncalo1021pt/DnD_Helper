@@ -32,6 +32,12 @@ Campaign:
     requireSeatingApproval:
       type: boolean
       description: When true the door is barred — new heroes wait for the DM's approval before seating.
+    maxSeatedPerPlayer:
+      type: integer
+      description: >
+        How many heroes one player may seat at this table at once. The DM's
+        dial; defaults to one. The cap holds the door — heroes already seated
+        are never evicted by lowering it.
     hiddenSheets:
       type: boolean
       description: >

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import type { ImportReport, RulesContent } from "../api/client";
 import PackWarnings from "./ui/PackWarnings";
 import { useCreateRules, useDeleteRules, useImportPack, useRules, useUpdateRules } from "../hooks";
@@ -107,6 +107,15 @@ export default function DenPage() {
         <div className="font-accent px-5 py-[60px] text-center text-base italic text-[#9c855e]">
           The Den is the DM's alone — what stalks these pages, your heroes must
           discover at the table.
+          {/* #178: the two halves of one feature finally point at each other */}
+          <div className="mt-4">
+            <Link
+              to="../bestiary"
+              className="label-stamp text-[11px] font-semibold not-italic text-ember-bright no-underline transition hover:text-cream"
+            >
+              Open the Bestiary — your side of the story →
+            </Link>
+          </div>
         </div>
       </div>
     );

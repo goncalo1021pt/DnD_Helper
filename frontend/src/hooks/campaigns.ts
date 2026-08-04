@@ -64,6 +64,25 @@ export function useDeleteCampaign(campaignId: string) {
   });
 }
 
+// Leaving mirrors a kick, self-served: heroes return to My Heroes, open
+// quest claims release, knowledge pools forget you.
+export function useLeaveCampaign(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await api.POST("/campaigns/{campaignId}/leave", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+    },
+  });
+}
+
 export function useRegenerateInvite(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({

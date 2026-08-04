@@ -81,6 +81,29 @@ function DMScreenPanel() {
   );
 }
 
+/*
+ * The player's mirror of the DM's Screen: the door to their own seat at
+ * this table. New player-side tools become rows here too.
+ */
+function PlayerScreenPanel() {
+  return (
+    <section className="panel-hall px-3 pb-3 pt-4">
+      <div className="label-stamp mb-2 flex items-baseline justify-between px-3 text-[11px]">
+        <span className="font-semibold tracking-[2px] text-gold-muted">
+          Your Pack
+        </span>
+        <span className="text-[10px] text-ink-label">yours to carry</span>
+      </div>
+      <ScreenRow
+        to="player"
+        icon={<IconUsers strokeWidth={1.8} />}
+        title="Player Menu"
+        sub="Your heroes at this table — or the door out"
+      />
+    </section>
+  );
+}
+
 /* Small stable tilt for the mini notices, from the quest id. */
 function slipRotation(id: string): string {
   let h = 0;
@@ -202,9 +225,13 @@ function PartyRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="font-heading truncate text-[13px] font-semibold text-cream">
+          {/* #178: the party row is a door to the sheet, not just a name */}
+          <Link
+            to={`/questboard/heroes/${character.id}`}
+            className="font-heading truncate text-[13px] font-semibold text-cream no-underline transition hover:text-ember-bright"
+          >
             {character.name}
-          </span>
+          </Link>
           <span
             className="text-[12px] font-semibold tabular-nums"
             style={{ color: color === "#8b2520" ? "#d68a72" : color === "#b07a2e" ? "#d8a44e" : "#8fb15f" }}
@@ -326,7 +353,7 @@ export default function CampaignDashboard() {
                 : undefined
             }
             to="party"
-            linkLabel="Manage the party"
+            linkLabel={isDM ? "Manage the party" : "Meet the party"}
           />
           {characters && characters.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -344,6 +371,22 @@ export default function CampaignDashboard() {
               No adventurers yet — take a seat in the party ledger.
             </div>
           )}
+        </section>
+
+        {/* skill trees — the table's custom progression webs (#178: the
+            flagship feature finally gets a door on the hall) */}
+        <section className="panel-hall px-6 pb-6 pt-5">
+          <BlockHeader
+            title="The Skill Trees"
+            meta="story-woven powers"
+            to="trees"
+            linkLabel="Open the trees"
+          />
+          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+            {isDM
+              ? "Weave webs of powers outside the standard rules, bind heroes to a pact, and grant picks at story beats."
+              : "The webs your DM has woven — spend the picks the story grants you, node by node."}
+          </div>
         </section>
 
         {/* bestiary — the party's field journal, open to all at the table */}
@@ -419,7 +462,7 @@ export default function CampaignDashboard() {
                   : undefined
             }
             to="places"
-            linkLabel={isDM ? "Open the map room" : "Read the gazetteer"}
+            linkLabel="Open the gazetteer"
           />
           <div className="font-accent py-1 text-[14px] italic text-cream-muted">
             {isDM
@@ -475,7 +518,7 @@ export default function CampaignDashboard() {
 
         <DiceTowerPanel />
 
-        {isDM && <DMScreenPanel />}
+        {isDM ? <DMScreenPanel /> : <PlayerScreenPanel />}
       </div>
     </div>
   );

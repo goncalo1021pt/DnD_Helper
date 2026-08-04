@@ -145,7 +145,10 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   put:
     operationId: seatCharacter
-    summary: Seat a hero at a campaign, or null to return them to My Heroes (owner only)
+    summary: >
+      Seat a hero at a campaign, or null to return them to My Heroes. Seating
+      is the owner's act alone; unseating is the owner's — or, for a seated
+      hero, the table's DM benching them back to the owner's shelf.
     requestBody:
       required: true
       content:
@@ -496,10 +499,14 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: approveSeatRequest
-    summary: Let a waiting hero take their seat (DM only); re-checks the codex first
+    summary: >
+      Let a waiting hero take their seat (DM only); re-checks the codex and
+      the table's seats-per-player cap first
     responses:
       "204":
         description: Seated
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
       "401":
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
       "403":

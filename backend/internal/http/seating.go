@@ -46,6 +46,54 @@ func (s *Server) SetSeatingApproval(ctx context.Context, request api.SetSeatingA
 	return api.SetSeatingApproval200JSONResponse(toAPICampaign(updated)), nil
 }
 
+// seatCapMessage words the refusal when a player already fills their seats.
+func seatCapMessage(limit int16) string {
+	if limit == 1 {
+		return "this table seats one hero per player — unseat the other first"
+	}
+	return fmt.Sprintf("this table seats %d heroes per player — unseat one first", limit)
+}
+
+// SetMaxSeatedPerPlayer sets how many heroes one player may seat at once
+// (DM only). Lowering it never unseats anyone; it only holds the door.
+func (s *Server) SetMaxSeatedPerPlayer(ctx context.Context, request api.SetMaxSeatedPerPlayerRequestObject) (api.SetMaxSeatedPerPlayerResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	member, err := s.requireDM(ctx, campaignID)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.SetMaxSeatedPerPlayer401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.SetMaxSeatedPerPlayer403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+	if request.Body == nil {
+		return api.SetMaxSeatedPerPlayer400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a body is required"}}, nil
+	}
+	v := request.Body.MaxSeatedPerPlayer
+	if v < 1 || v > 10 {
+		return api.SetMaxSeatedPerPlayer400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "the seat cap must sit between 1 and 10",
+		}}, nil
+	}
+	updated, err := s.queries.SetMaxSeatedPerPlayer(ctx, db.SetMaxSeatedPerPlayerParams{
+		ID: campaignID, MaxSeatedPerPlayer: int16(v),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if v == 1 {
+		s.logEvent(ctx, campaignID, member.UserID, "table_rules",
+			"The DM grants each player a single seat at the table")
+	} else {
+		s.logEvent(ctx, campaignID, member.UserID, "table_rules",
+			fmt.Sprintf("The DM grants each player %d seats at the table", v))
+	}
+	return api.SetMaxSeatedPerPlayer200JSONResponse(toAPICampaign(updated)), nil
+}
+
 // ListSeatRequests returns the heroes waiting at the door (DM only).
 func (s *Server) ListSeatRequests(ctx context.Context, request api.ListSeatRequestsRequestObject) (api.ListSeatRequestsResponseObject, error) {
 	campaignID := uuid.UUID(request.CampaignId)
@@ -130,6 +178,23 @@ func (s *Server) ApproveSeatRequest(ctx context.Context, request api.ApproveSeat
 			return api.ApproveSeatRequest404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
 		return nil, err
+	}
+
+	// The cap may have filled while the hero stood at the door (#171).
+	campaign, err := s.queries.GetCampaign(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	seated, err := s.queries.CountSeatedByOwner(ctx, db.CountSeatedByOwnerParams{
+		OwnerUserID: character.OwnerUserID, CampaignID: pgUUID(campaignID), ID: characterID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if seated >= int64(campaign.MaxSeatedPerPlayer) {
+		return api.ApproveSeatRequest400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: seatCapMessage(campaign.MaxSeatedPerPlayer),
+		}}, nil
 	}
 
 	refs, err := s.sheetContentIDs(ctx, character)

@@ -138,7 +138,7 @@ func (q *Queries) ListSeatRequests(ctx context.Context, campaignID uuid.UUID) ([
 
 const setSeatingApproval = `-- name: SetSeatingApproval :one
 
-UPDATE campaigns SET require_seating_approval = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets
+UPDATE campaigns SET require_seating_approval = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player
 `
 
 type SetSeatingApprovalParams struct {
@@ -161,6 +161,7 @@ func (q *Queries) SetSeatingApproval(ctx context.Context, arg SetSeatingApproval
 		&i.MaxLevel,
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
+		&i.MaxSeatedPerPlayer,
 	)
 	return i, err
 }

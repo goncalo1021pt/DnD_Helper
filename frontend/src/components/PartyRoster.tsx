@@ -440,6 +440,21 @@ function CharacterCard({
             >
               Unseat
             </button>
+          ) : isDM ? (
+            /* The DM's bench (#179): unseat without kicking the player. The
+               hero returns to the owner's shelf and may be re-seated through
+               the usual door — codex and seating approval still apply. */
+            <button
+              onClick={() => {
+                if (confirm(`Bench "${character.name}"? The hero returns to ${character.ownerName}'s My Heroes shelf. They may be re-seated through the usual door.`))
+                  seat.mutate({ characterId: character.id, campaignId: null });
+              }}
+              disabled={seat.isPending}
+              title="Bench — the hero returns to its owner's My Heroes shelf"
+              className="btn-base btn-ghost-ink px-3 py-[9px] text-[10px]"
+            >
+              Bench
+            </button>
           ) : null}
         </div>
       )}

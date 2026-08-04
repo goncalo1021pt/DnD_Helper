@@ -6,6 +6,7 @@ import {
   useGrantXP,
   useRevokeMilestone,
   useSetMaxLevel,
+  useSetMaxSeated,
   useSetProgression,
   useSetHiddenSheets,
   useSetSeatingApproval,
@@ -22,6 +23,7 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
   const setMaxLevel = useSetMaxLevel(campaign.id);
   const setSeatingApproval = useSetSeatingApproval(campaign.id);
   const setHiddenSheets = useSetHiddenSheets(campaign.id);
+  const setMaxSeated = useSetMaxSeated(campaign.id);
   const milestone = useDeclareMilestone(campaign.id);
   const revoke = useRevokeMilestone(campaign.id);
   const grantXP = useGrantXP(campaign.id);
@@ -113,6 +115,25 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
           >
             <option value="open">Open — heroes seat freely</option>
             <option value="barred">Barred — you approve seats</option>
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
+            Seats per player
+          </span>
+          <select
+            value={campaign.maxSeatedPerPlayer ?? 1}
+            onChange={(e) => setMaxSeated.mutate(Number(e.target.value))}
+            disabled={setMaxSeated.isPending}
+            className="input-hall h-9 w-40 text-[12px]"
+            title="How many heroes one player may seat at once. Lowering it never unseats anyone."
+          >
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n === 1 ? "One hero each" : `${n} heroes each`}
+              </option>
+            ))}
           </select>
         </label>
 

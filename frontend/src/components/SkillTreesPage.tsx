@@ -38,18 +38,25 @@ export default function SkillTreesPage() {
         className="mb-[26px] flex flex-wrap items-center justify-between gap-4 pb-3.5"
         style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
       >
-        <div className="flex flex-wrap items-baseline gap-3.5">
-          <h2
-            className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
-            style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
-          >
-            The Skill Trees
-          </h2>
-          {trees && trees.length > 0 && (
-            <span className="label-stamp text-xs text-gold-muted">
-              {trees.length} woven
-            </span>
-          )}
+        <div>
+          <div className="flex flex-wrap items-baseline gap-3.5">
+            <h2
+              className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
+              style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
+            >
+              The Skill Trees
+            </h2>
+            {trees && trees.length > 0 && (
+              <span className="label-stamp text-xs text-gold-muted">
+                {trees.length} woven
+              </span>
+            )}
+          </div>
+          <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
+            {isDM
+              ? "Webs of powers outside the standard levels — woven here, granted at story beats."
+              : "Powers woven for this world alone — spend the picks the story grants you."}
+          </div>
         </div>
         {isDM && (
           <button
@@ -97,7 +104,7 @@ export default function SkillTreesPage() {
           <div className="font-accent mt-2 text-base italic text-[#9c855e]">
             {isDM
               ? "— weave the first web of powers. —"
-              : "— the powers of this world are still hidden. —"}
+              : "— your DM has not woven any webs here yet. —"}
           </div>
         </div>
       )}

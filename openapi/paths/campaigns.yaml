@@ -297,6 +297,60 @@
       "403":
         $ref: "../openapi.yaml#/components/responses/Forbidden"
 
+/campaigns/{campaignId}/max-seated:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setMaxSeatedPerPlayer
+    summary: Set how many heroes one player may seat at this table at once (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [maxSeatedPerPlayer]
+            properties:
+              maxSeatedPerPlayer:
+                type: integer
+                minimum: 1
+                maximum: 10
+                description: >
+                  Seats per player. Lowering it never unseats anyone — it only
+                  bars further seating until the player is back under the cap.
+    responses:
+      "200":
+        description: The campaign
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/leave:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: leaveCampaign
+    summary: >
+      Walk away from the table (members only). Your heroes return to My
+      Heroes, your claims on open quests are released, and you leave any
+      knowledge pools. The DM cannot leave — they disband the table instead.
+    responses:
+      "204":
+        description: You have left the campaign
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
 /campaigns/{campaignId}/seating-approval:
   parameters:
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
