@@ -99,7 +99,7 @@ jobs:
         working-directory: backend
 
       - name: Run Claude Code
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@v1.0.183
         with:
           # Long-lived token from `claude setup-token` — bills the Claude
           # Max subscription instead of an API account.
