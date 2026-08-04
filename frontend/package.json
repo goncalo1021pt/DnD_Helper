@@ -20,15 +20,15 @@
     "pdf-lib": "^1.17.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.1"
+    "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "11.7.2",
-    "@playwright/test": "1.62.0",
+    "@playwright/test": "1.62.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.1.2",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^5.2.0",
     "js-yaml": "4.1.1",
     "openapi-typescript": "^7.4.4",
