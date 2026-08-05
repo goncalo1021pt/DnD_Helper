@@ -83,7 +83,7 @@ export default function PlayerMenuPage() {
                 <span className="ml-auto flex flex-none items-center gap-2">
                   <Link
                     to={`/questboard/heroes/${c.id}`}
-                    className="btn-base btn-ghost-ink px-3 py-[7px] text-[10px] no-underline"
+                    className="btn-base btn-ghost-gold px-3 py-[7px] text-[10px] no-underline"
                   >
                     Open the sheet
                   </Link>
@@ -91,7 +91,7 @@ export default function PlayerMenuPage() {
                     onClick={() => seat.mutate({ characterId: c.id, campaignId: null })}
                     disabled={seat.isPending}
                     title="Unseat — the hero returns to your My Heroes shelf"
-                    className="btn-base btn-ghost-ink px-3 py-[7px] text-[10px]"
+                    className="btn-base btn-ghost-gold px-3 py-[7px] text-[10px]"
                   >
                     Unseat
                   </button>
@@ -111,7 +111,7 @@ export default function PlayerMenuPage() {
                     onClick={() => seat.mutate({ characterId: w.characterId, campaignId: null })}
                     disabled={seat.isPending}
                     title="Withdraw the request — the hero stays on your shelf"
-                    className="btn-base btn-ghost-ink px-3 py-[7px] text-[10px]"
+                    className="btn-base btn-ghost-gold px-3 py-[7px] text-[10px]"
                   >
                     Withdraw
                   </button>

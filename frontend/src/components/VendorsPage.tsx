@@ -296,7 +296,7 @@ function VendorCard({
               );
             }}
             disabled={!picking || addStock.isPending}
-            className="btn-base btn-ghost-ink h-8 px-3 text-[11px] disabled:opacity-40"
+            className="btn-base btn-ghost-gold h-8 px-3 text-[11px] disabled:opacity-40"
           >
             Stock it
           </button>

@@ -374,6 +374,18 @@ body {
   background: rgba(43, 32, 24, 0.11);
   filter: none;
 }
+/* Ghost with a gold hairline (secondary on the dark hall). btn-ghost-ink is
+   ink on parchment — on a hall panel it reads as a disabled button. */
+.btn-ghost-gold {
+  background: rgba(201, 162, 39, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.4);
+  color: #e7d3a6;
+  border-radius: 2px;
+}
+.btn-ghost-gold:hover:not(:disabled) {
+  background: rgba(201, 162, 39, 0.16);
+  filter: none;
+}
 .btn-ghost-red {
   background: rgba(139, 37, 32, 0.05);
   box-shadow: inset 0 0 0 1px rgba(139, 37, 32, 0.45);
