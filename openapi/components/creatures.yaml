@@ -1,0 +1,199 @@
+CreatureRole:
+  type: string
+  enum: [form, companion, summon]
+  description: >-
+    What the second stat block is to the hero. A `form` replaces their
+    statistics while keeping their hit points (Wild Shape); a `companion` is a
+    separate creature with its own pool that stays between sessions (a Steel
+    Defender, a familiar, a steed); a `summon` is the same but temporary.
+
+CharacterCreature:
+  type: object
+  required: [id, role, name, active, block, molded]
+  properties:
+    id:
+      type: string
+      format: uuid
+    role:
+      $ref: "../openapi.yaml#/components/schemas/CreatureRole"
+    name:
+      type: string
+      description: The player's name for it — a wolf companion is somebody's Grey.
+    grantedBy:
+      type: string
+      description: The feature that granted it, for the stamp on the sheet.
+    active:
+      type: boolean
+      description: Currently shaped into, or currently on the field.
+    hpCurrent:
+      type: integer
+      nullable: true
+      description: >-
+        Damage tracked against `hpMax`. Null on a form, which has no pool of
+        its own — in a form the hero keeps their own hit points and gains
+        temporary ones instead.
+    hpMax:
+      type: integer
+      nullable: true
+      description: >-
+        Read-only, and read off the resolved block rather than stored: a
+        companion whose pool is "five times your level" has to grow when the
+        hero does. Houserule it by overriding `hp` like any other field.
+    notes:
+      type: string
+    contentId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The library stat block behind it; null for one written by hand.
+    blockSource:
+      type: string
+      enum: [srd, homebrew, custom]
+      description: Where the numbers came from. `custom` means there is no library entry.
+    block:
+      type: object
+      additionalProperties: true
+      description: >-
+        The stat block as played: the library entry, with any `scale`
+        expressions on it evaluated against this hero, with the player's
+        overrides applied on top.
+    molded:
+      type: array
+      items:
+        type: string
+      description: >-
+        Which fields the player has set by hand. Everything else still tracks
+        the library entry and re-scales when the hero levels.
+    overrides:
+      type: object
+      additionalProperties: true
+      description: >-
+        The molded values themselves, unmerged. An editor needs these: `block`
+        cannot tell a hand-set number from the book's, so building a patch from
+        it would silently un-mold every field the player did not retype.
+    tempHp:
+      type: integer
+      nullable: true
+      description: >-
+        Temporary hit points assuming this form grants, when the granting
+        feature declares them. Forms only.
+
+CreatureInput:
+  type: object
+  required: [role]
+  properties:
+    role:
+      $ref: "../openapi.yaml#/components/schemas/CreatureRole"
+    contentId:
+      type: string
+      format: uuid
+      description: >-
+        A stat block from the library. Omit and supply a name to write one by
+        hand instead. A player may only draw on blocks their own features
+        grant; a DM may draw on any the campaign admits.
+    name:
+      type: string
+      maxLength: 80
+      description: Defaults to the library entry's name.
+    grantedBy:
+      type: string
+      maxLength: 80
+    overrides:
+      type: object
+      additionalProperties: true
+      description: Fields to mold from the outset.
+    notes:
+      type: string
+      maxLength: 2000
+
+CreaturePatch:
+  type: object
+  properties:
+    name:
+      type: string
+      maxLength: 80
+    overrides:
+      type: object
+      additionalProperties: true
+      description: >-
+        Replaces the whole override map, so removing a field un-molds it and
+        hands that number back to the library entry.
+    hpCurrent:
+      type: integer
+      minimum: 0
+      description: >-
+        Where the creature stands now, clamped to the block's hit points. The
+        maximum is not settable here — override `hp` to change it.
+    active:
+      type: boolean
+      description: >-
+        Assuming a form drops any other form the hero is holding — one shape at
+        a time. Companions and summons are independent of each other.
+    notes:
+      type: string
+      maxLength: 2000
+
+CreatureOption:
+  type: object
+  required: [name, role, block]
+  properties:
+    contentId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    summary:
+      type: string
+    role:
+      $ref: "../openapi.yaml#/components/schemas/CreatureRole"
+    grantedBy:
+      type: string
+      description: The feature offering it.
+    block:
+      type: object
+      additionalProperties: true
+      description: Resolved for this hero, so the picker previews real numbers.
+
+FormAllowance:
+  type: object
+  required: [feature, known, maxCR, fly, tempHp, options]
+  properties:
+    feature:
+      type: string
+      description: The feature granting the forms, e.g. "Wild Shape".
+    creatureType:
+      type: string
+      description: The creature type forms are drawn from, e.g. "Beast".
+    known:
+      type: integer
+      description: How many forms the hero may know at their level.
+    maxCR:
+      type: number
+      description: The Challenge Rating ceiling at their level.
+    fly:
+      type: boolean
+      description: Whether a form with a Fly Speed is allowed yet.
+    tempHp:
+      type: integer
+      description: Temporary hit points assuming a form grants.
+    options:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/CreatureOption"
+
+CreatureOptions:
+  type: object
+  required: [forms, companions]
+  description: >-
+    What this hero's features actually grant. This is the only way a player
+    reaches monster stat blocks — the Den stays a DM room, and this is narrowed
+    to the creatures their own sheet entitles them to.
+  properties:
+    forms:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/FormAllowance"
+    companions:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/CreatureOption"

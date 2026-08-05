@@ -14,6 +14,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
 // The six ability shorthands, for validating saves and background bonuses.
@@ -169,6 +170,98 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 	case db.ContentKindMonster:
 		// Free-form: stat blocks vary too much to gate; the Den renders
 		// whatever facts are present.
+	}
+	// Creature grants and scaling ride on every kind, so they are checked
+	// after the switch rather than repeated inside five of its arms.
+	if msg := validateCreatureDeclarations(data); msg != "" {
+		return msg
+	}
+	return ""
+}
+
+/*
+The second stat block, as content declares it (#180-adjacent, and the whole of
+what makes an Artificer possible without shipping one).
+
+Three shapes are checked here, on any kind that carries them:
+
+  - `companions`, on a class/subclass/feat/species/item: creatures the feature
+    hands the hero, named the same way a subclass names its class.
+  - `forms`, on the same: a shapeshifter's allowance table.
+  - `scale`, on a monster: expressions evaluated against the hero who owns the
+    creature, so a companion's hit points follow their level instead of going
+    stale the moment they gain one.
+
+A bad expression is refused at import rather than at the table. The alternative
+is a companion that quietly reads zero hit points three sessions later, with
+nothing anywhere saying why.
+*/
+func validateCreatureDeclarations(data map[string]interface{}) string {
+	if raw, present := data["companions"]; present {
+		list, ok := raw.([]interface{})
+		if !ok {
+			return "companions must be a list of {name, role}"
+		}
+		for _, entry := range list {
+			grant, ok := entry.(map[string]interface{})
+			if !ok {
+				return "each companion must be an object with a name"
+			}
+			if name, ok := getStr(grant, "name"); !ok || strings.TrimSpace(name) == "" {
+				return "each companion needs the name of the stat block it grants"
+			}
+			if role, ok := getStr(grant, "role"); ok && role != "" &&
+				role != "form" && role != "companion" && role != "summon" {
+				return "companion role must be form, companion or summon"
+			}
+		}
+	}
+
+	if raw, present := data["forms"]; present {
+		forms, ok := raw.(map[string]interface{})
+		if !ok {
+			return "forms must be an object with a table"
+		}
+		if temp, ok := getStr(forms, "tempHp"); ok && strings.TrimSpace(temp) != "" {
+			if err := rules.Check(temp); err != nil {
+				return "forms.tempHp: " + err.Error()
+			}
+		}
+		table, ok := forms["table"].([]interface{})
+		if !ok || len(table) == 0 {
+			return "forms needs a table of {level, known, maxCR, fly} rows"
+		}
+		for _, entry := range table {
+			row, ok := entry.(map[string]interface{})
+			if !ok {
+				return "each forms.table row must be an object"
+			}
+			if level, ok := getNum(row, "level"); !ok || level < 1 || level > 20 {
+				return "each forms.table row needs a level between 1 and 20"
+			}
+			if known, ok := getNum(row, "known"); !ok || known < 1 {
+				return "each forms.table row needs how many forms are known"
+			}
+			if _, ok := getNum(row, "maxCR"); !ok {
+				return "each forms.table row needs a maxCR ceiling"
+			}
+		}
+	}
+
+	if raw, present := data["scale"]; present {
+		scale, ok := raw.(map[string]interface{})
+		if !ok {
+			return "scale must be an object of field name to expression"
+		}
+		for field, expr := range scale {
+			text, ok := expr.(string)
+			if !ok {
+				return "scale." + field + " must be an expression, e.g. \"5 * level + con\""
+			}
+			if err := rules.Check(text); err != nil {
+				return "scale." + field + ": " + err.Error()
+			}
+		}
 	}
 	return ""
 }

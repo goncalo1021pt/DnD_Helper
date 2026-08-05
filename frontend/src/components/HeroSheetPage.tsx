@@ -37,6 +37,7 @@ import SectionLabel, { type SpeciesChoice } from "./sheet/SectionLabel";
 import SkillsPanel from "./sheet/SkillsPanel";
 import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
+import CreaturesPanel from "./sheet/CreaturesPanel";
 
 export default function HeroSheetPage() {
   const { heroId } = useParams<{ heroId: string }>();
@@ -352,6 +353,15 @@ export default function HeroSheetPage() {
 
             {/* features */}
             <FeaturesPanel features={features} />
+
+            {/* The second stat block: what the hero turns into, and what
+                fights beside them. Sits under Features because that is where
+                the feature granting it was just read. */}
+            <CreaturesPanel
+              characterId={character.id}
+              creatures={detail.creatures}
+              canEdit={canEdit}
+            />
 
             {/* One action instead of three chores (#118). */}
             <RestPanel

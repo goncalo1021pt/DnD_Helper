@@ -71,6 +71,13 @@ paths:
   /rules/content/{contentId}:
     $ref: "./paths/rules.yaml#/~1rules~1content~1{contentId}"
 
+  /characters/{characterId}/creatures:
+    $ref: "./paths/creatures.yaml#/~1characters~1{characterId}~1creatures"
+  /characters/{characterId}/creatures/{creatureId}:
+    $ref: "./paths/creatures.yaml#/~1characters~1{characterId}~1creatures~1{creatureId}"
+  /characters/{characterId}/creature-options:
+    $ref: "./paths/creatures.yaml#/~1characters~1{characterId}~1creature-options"
+
   /characters/{characterId}/levelup:
     $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1levelup"
   /characters/{characterId}/rest:
@@ -425,6 +432,21 @@ components:
       $ref: "./components/characters.yaml#/InventoryItemPatch"
     CharacterDetail:
       $ref: "./components/characters.yaml#/CharacterDetail"
+
+    CreatureRole:
+      $ref: "./components/creatures.yaml#/CreatureRole"
+    CharacterCreature:
+      $ref: "./components/creatures.yaml#/CharacterCreature"
+    CreatureInput:
+      $ref: "./components/creatures.yaml#/CreatureInput"
+    CreaturePatch:
+      $ref: "./components/creatures.yaml#/CreaturePatch"
+    CreatureOption:
+      $ref: "./components/creatures.yaml#/CreatureOption"
+    FormAllowance:
+      $ref: "./components/creatures.yaml#/FormAllowance"
+    CreatureOptions:
+      $ref: "./components/creatures.yaml#/CreatureOptions"
 
     Vendor:
       $ref: "./components/vendors.yaml#/Vendor"

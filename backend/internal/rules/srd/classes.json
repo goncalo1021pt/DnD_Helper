@@ -857,7 +857,32 @@
       "4"
      ]
     }
-   ]
+   ],
+   "forms": {
+    "feature": "Wild Shape",
+    "type": "Beast",
+    "tempHp": "level",
+    "table": [
+     {
+      "level": 2,
+      "known": 4,
+      "maxCR": 0.25,
+      "fly": false
+     },
+     {
+      "level": 4,
+      "known": 6,
+      "maxCR": 0.5,
+      "fly": false
+     },
+     {
+      "level": 8,
+      "known": 8,
+      "maxCR": 1,
+      "fly": true
+     }
+    ]
+   }
   }
  },
  {

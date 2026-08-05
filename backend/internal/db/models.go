@@ -145,6 +145,49 @@ func (ns NullContentSource) Value() (driver.Value, error) {
 	return string(ns.ContentSource), nil
 }
 
+type CreatureRole string
+
+const (
+	CreatureRoleForm      CreatureRole = "form"
+	CreatureRoleCompanion CreatureRole = "companion"
+	CreatureRoleSummon    CreatureRole = "summon"
+)
+
+func (e *CreatureRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CreatureRole(s)
+	case string:
+		*e = CreatureRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CreatureRole: %T", src)
+	}
+	return nil
+}
+
+type NullCreatureRole struct {
+	CreatureRole CreatureRole `json:"creature_role"`
+	Valid        bool         `json:"valid"` // Valid is true if CreatureRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCreatureRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.CreatureRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CreatureRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCreatureRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CreatureRole), nil
+}
+
 type MembershipRole string
 
 const (
@@ -500,6 +543,21 @@ type Character struct {
 	SpeciesChoices []byte             `json:"species_choices"`
 	ForgeKey       pgtype.UUID        `json:"forge_key"`
 	HitDiceUsed    int16              `json:"hit_dice_used"`
+}
+
+type CharacterCreature struct {
+	ID          uuid.UUID          `json:"id"`
+	CharacterID uuid.UUID          `json:"character_id"`
+	Role        CreatureRole       `json:"role"`
+	ContentID   pgtype.UUID        `json:"content_id"`
+	Name        string             `json:"name"`
+	GrantedBy   string             `json:"granted_by"`
+	Overrides   []byte             `json:"overrides"`
+	HpCurrent   *int32             `json:"hp_current"`
+	Active      bool               `json:"active"`
+	Notes       string             `json:"notes"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type CharacterItem struct {

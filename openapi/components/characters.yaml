@@ -383,7 +383,7 @@ InventoryItemPatch:
 
 CharacterDetail:
   type: object
-  required: [character, spells, items]
+  required: [character, spells, items, creatures]
   properties:
     character:
       $ref: "../openapi.yaml#/components/schemas/Character"
@@ -395,6 +395,14 @@ CharacterDetail:
       type: array
       items:
         $ref: "../openapi.yaml#/components/schemas/InventoryItem"
+    creatures:
+      type: array
+      description: >-
+        The hero's second stat blocks — forms they take and companions that
+        fight beside them — already resolved, so the sheet needs no second
+        round trip and players need no reach into the Den.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/CharacterCreature"
 
 RestRequest:
   type: object

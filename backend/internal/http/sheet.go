@@ -110,10 +110,19 @@ func (s *Server) GetCharacter(ctx context.Context, request api.GetCharacterReque
 		items = append(items, toAPIInventoryItem(row, uid))
 	}
 
+	// Forms and companions come down resolved with the sheet: a Druid reading
+	// their own wolf should not need a second request, and cannot be sent to
+	// the Den to find it.
+	creatures, err := s.listCreatures(ctx, character)
+	if err != nil {
+		return nil, err
+	}
+
 	return api.GetCharacter200JSONResponse(api.CharacterDetail{
 		Character: toAPICharacterWithClass(character, ownerName, uid, s.classDataFor(ctx, character)),
 		Spells:    spells,
 		Items:     items,
+		Creatures: creatures,
 	}), nil
 }
 

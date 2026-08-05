@@ -1,0 +1,93 @@
+/characters/{characterId}/creatures:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: addCharacterCreature
+    summary: Give a hero a form, companion or summon (owner or DM)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CreatureInput"
+    responses:
+      "201":
+        description: The new creature, resolved for this hero
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CharacterCreature"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/creatures/{creatureId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+    - name: creatureId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateCharacterCreature
+    summary: Mold a creature's numbers, track its hit points, or take the form (owner or DM)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CreaturePatch"
+    responses:
+      "200":
+        description: The updated creature
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CharacterCreature"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteCharacterCreature
+    summary: Release a creature (owner or DM)
+    responses:
+      "204":
+        description: Gone
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/creature-options:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  get:
+    operationId: getCreatureOptions
+    summary: The forms and companions this hero's own features grant
+    responses:
+      "200":
+        description: Everything the sheet entitles this hero to
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CreatureOptions"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
