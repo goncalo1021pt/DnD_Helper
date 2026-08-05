@@ -444,6 +444,7 @@ type Campaign struct {
 	MaxLevel               *int16             `json:"max_level"`
 	RequireSeatingApproval bool               `json:"require_seating_approval"`
 	HiddenSheets           bool               `json:"hidden_sheets"`
+	MaxSeatedPerPlayer     int16              `json:"max_seated_per_player"`
 }
 
 type CampaignBan struct {

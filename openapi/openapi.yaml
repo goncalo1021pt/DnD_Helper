@@ -31,6 +31,8 @@ paths:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1bans"
   /campaigns/{campaignId}/bans/{userId}:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1bans~1{userId}"
+  /campaigns/{campaignId}/leave:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1leave"
   /campaigns/{campaignId}/next-session:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1next-session"
 
@@ -89,6 +91,8 @@ paths:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1progression"
   /campaigns/{campaignId}/max-level:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1max-level"
+  /campaigns/{campaignId}/max-seated:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1max-seated"
   /campaigns/{campaignId}/seating-approval:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1seating-approval"
   /campaigns/{campaignId}/hidden-sheets:

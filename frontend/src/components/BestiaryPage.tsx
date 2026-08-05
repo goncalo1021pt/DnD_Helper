@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import type { BestiaryEntry, BestiarySection, RulesContent } from "../api/client";
 import {
   useAddBestiaryNote,
@@ -89,13 +89,23 @@ export default function BestiaryPage() {
               : "Every creature you've faced — what you've puzzled out, and what the DM has confirmed."}
           </div>
         </div>
-        <button
-          onClick={() => setLogging(true)}
-          className="btn-base btn-gold clip-octagon h-10 whitespace-nowrap px-5 text-[13px]"
-        >
-          <IconPlus size={15} strokeWidth={2} />
-          Log a sighting
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {isDM && (
+            <Link
+              to="../den"
+              className="label-stamp whitespace-nowrap text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
+            >
+              The Monster Den →
+            </Link>
+          )}
+          <button
+            onClick={() => setLogging(true)}
+            className="btn-base btn-gold clip-octagon h-10 whitespace-nowrap px-5 text-[13px]"
+          >
+            <IconPlus size={15} strokeWidth={2} />
+            Log a sighting
+          </button>
+        </div>
       </div>
 
       <input

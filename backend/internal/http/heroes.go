@@ -83,7 +83,8 @@ func (s *Server) CreateMyCharacter(ctx context.Context, request api.CreateMyChar
 }
 
 // SeatCharacter moves a hero to a campaign table, or back to My Heroes.
-// Owner only; seating requires the owner to be a member of that campaign.
+// Seating is the owner's act alone; unseating is the owner's — or the seated
+// table's DM benching the hero back to the owner's shelf (#179).
 func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterRequestObject) (api.SeatCharacterResponseObject, error) {
 	uid, ok := auth.UserID(ctx)
 	if !ok {
@@ -97,7 +98,21 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 		return nil, err
 	}
 	if character.OwnerUserID != uid {
-		return api.SeatCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		prevCampaign, wasSeated := seatedCampaign(character)
+		unseating := request.Body == nil || request.Body.CampaignId == nil
+		if !wasSeated || !unseating {
+			return api.SeatCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		if _, err := s.requireDM(ctx, prevCampaign); err != nil {
+			switch {
+			case errors.Is(err, errNoAuth):
+				return api.SeatCharacter401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+			case errors.Is(err, errForbidden):
+				return api.SeatCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+			default:
+				return nil, err
+			}
+		}
 	}
 	if character.TableBorn {
 		return api.SeatCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
@@ -122,6 +137,18 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 				return api.SeatCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 			}
 			return nil, err
+		}
+		// The table seats a bounded number of heroes per player (#171).
+		seated, err := s.queries.CountSeatedByOwner(ctx, db.CountSeatedByOwnerParams{
+			OwnerUserID: character.OwnerUserID, CampaignID: pgUUID(campaignID), ID: character.ID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if seated >= int64(campaign.MaxSeatedPerPlayer) {
+			return api.SeatCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: seatCapMessage(campaign.MaxSeatedPerPlayer),
+			}}, nil
 		}
 		// Strict seating: every rules reference must be legal in this world.
 		refs, err := s.sheetContentIDs(ctx, character)
@@ -169,7 +196,7 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 	if err != nil {
 		return nil, err
 	}
-	me, err := s.queries.GetUserByID(ctx, uid)
+	owner, err := s.queries.GetUserByID(ctx, updated.OwnerUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -177,10 +204,13 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 		s.logEvent(ctx, uuid.UUID(target.Bytes), uid, "hero_seated",
 			fmt.Sprintf("%s takes a seat at the table", updated.Name))
 	} else if prevCampaign, wasSeated := seatedCampaign(character); wasSeated {
-		s.logEvent(ctx, prevCampaign, uid, "hero_unseated",
-			fmt.Sprintf("%s leaves the table", updated.Name))
+		msg := fmt.Sprintf("%s leaves the table", updated.Name)
+		if character.OwnerUserID != uid {
+			msg = fmt.Sprintf("The DM benches %s — the hero returns to %s's shelf", updated.Name, owner.Name)
+		}
+		s.logEvent(ctx, prevCampaign, uid, "hero_unseated", msg)
 	}
-	out := toAPICharacterWithClass(updated, me.Name, uid, s.classDataFor(ctx, updated))
+	out := toAPICharacterWithClass(updated, owner.Name, uid, s.classDataFor(ctx, updated))
 	out.CampaignName = campaignName
 	return api.SeatCharacter200JSONResponse(out), nil
 }

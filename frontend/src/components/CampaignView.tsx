@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link, Outlet, useLocation, useParams } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
 import { useCampaigns, useLiveCampaign, useRegenerateInvite } from "../hooks";
 import RoleBadge from "./ui/RoleBadge";
@@ -9,6 +9,63 @@ import { IconCopy, IconRefresh } from "./ui/icons";
 export interface CampaignContext {
   campaign: Campaign;
   role: Role;
+}
+
+/*
+ * #178: the section rail — every room reachable from every room, so a
+ * mid-session hop (Encounters ↔ Party ↔ Bazaar) stops costing a round-trip
+ * through the hall. One strip, shared words for DM and players.
+ */
+function SectionRail({ role }: { role: Role }) {
+  const sections: { to: string; label: string; end?: boolean }[] = [
+    { to: ".", label: "The Hall", end: true },
+    { to: "board", label: "Board" },
+    { to: "party", label: "Party" },
+    { to: "trees", label: "Trees" },
+    { to: "encounters", label: "Encounters" },
+    { to: "map", label: "Map" },
+    { to: "places", label: "Places" },
+    { to: "vendors", label: "Bazaar" },
+    { to: "bestiary", label: "Bestiary" },
+    { to: "codex", label: "Codex" },
+    { to: "chronicle", label: "Chronicle" },
+    ...(role === "dm"
+      ? [
+          { to: "den", label: "The Den" },
+          { to: "dm", label: "DM Menu" },
+        ]
+      : [{ to: "player", label: "Player Menu" }]),
+  ];
+
+  return (
+    <nav
+      className="mb-[26px] flex items-center gap-x-1 overflow-x-auto whitespace-nowrap py-1"
+      style={{
+        borderTop: "1px solid rgba(201,162,39,.18)",
+        borderBottom: "1px solid rgba(201,162,39,.18)",
+      }}
+    >
+      {sections.map((s) => (
+        <NavLink
+          key={s.to}
+          to={s.to}
+          end={s.end}
+          className={({ isActive }) =>
+            `label-stamp px-2.5 py-1.5 text-[10px] tracking-[1.5px] no-underline transition ${
+              isActive
+                ? "text-ember-bright"
+                : "text-gold-muted hover:text-cream"
+            }`
+          }
+          style={({ isActive }) =>
+            isActive ? { boxShadow: "inset 0 -2px 0 rgba(201,162,39,.55)" } : undefined
+          }
+        >
+          {s.label}
+        </NavLink>
+      ))}
+    </nav>
+  );
 }
 
 /* Invite-code plate: click to copy, with a transient confirmation. */
@@ -100,7 +157,7 @@ export default function CampaignView() {
       </Link>
 
       {/* campaign toolbar */}
-      <div className="mb-[26px] mt-3 flex flex-wrap items-center justify-between gap-5">
+      <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-5">
         <div className="flex min-w-0 flex-wrap items-center gap-[18px]">
           <div className="min-w-0">
             <div className="font-accent text-sm italic tracking-[.16em] text-[#c89a5a]">
@@ -127,6 +184,8 @@ export default function CampaignView() {
           </div>
         )}
       </div>
+
+      <SectionRail role={role} />
 
       <Outlet context={context} />
     </div>

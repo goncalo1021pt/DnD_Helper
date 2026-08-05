@@ -734,6 +734,42 @@ Two things generalise:
   caller would write one — to find it. The regression test is at the API layer,
   not through the UI, because the UI was never the thing that got it wrong.
 
+### The next waves (planned 2026-08-04)
+
+With both milestones closed (*v1.6 — pay down the debt*, *v2.0 — the world
+layer*) and v1.6.0 released, the open backlog — seven findings from the
+2026-08-03 menu review plus three user-filed ideas — was ordered into four
+waves, each a milestone:
+
+- **v1.7 — the campaign menus**: the menu-review cleanups. A player menu in
+  campaign with a leave action and a max-seated-heroes-per-player dial,
+  default 1 (#171); the DM bench — unseat a hero without kicking the player
+  (#179); navigation polish — a Skill Trees tile, doors to the hero sheet,
+  Den ↔ Bestiary cross-links, an in-campaign rail, copy repairs (#178).
+- **v1.8 — resource pools** (#175): the piece this file has called the
+  largest on the board, its dependencies now met — #112's golden fixtures
+  guard the two rule implementations and #118's rests are the consumer that
+  refills the pools. Spell slots are the precedent: server-owned, ± from the
+  sheet. One design rule settled up front: pools do **not** parse the
+  `featuresTable` display text ("1d6", "—"); they get their own small
+  machine-readable declaration on class `data`, so packs can ship their own.
+- **v1.9 — running the fight**: conditions + death saves on the tracker
+  (#173) and the opt-in shared roll log (#176), both riding the SSE stream
+  (#109) that already pushes tracker updates.
+- **v1.10 — the living world**: the Bazaar takes money (#174 — the backend
+  already accepts price/qty, the UI never sends them; the new piece is the
+  buy transaction) and Chronicle handouts (#177, reusing the map upload path).
+
+Parked without a milestone, on purpose: character sharing (#180) until its
+design is sketched, and friends/chat (#181) until the table asks for it — the
+Chronicle's player channel already covers party chat.
+
+**Versioning, settled the same day: the v2 label is retired from planning
+vocabulary.** The *v2.0 — the world layer* milestone shipped inside the
+v1.6.0 release, which proved the milestone names and the tags had drifted
+apart. From here the convention is the normal one — waves count v1.7, v1.8, …
+and a 2.0.0 tag waits for a genuinely breaking change, not a headline feature.
+
 ## How work is tracked (decided 2026-07-29)
 
 Three intake channels had grown with no single queue: this file (strategy),

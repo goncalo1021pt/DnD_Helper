@@ -54,6 +54,12 @@ WHERE campaign_id = $1 AND table_born;
 UPDATE characters SET campaign_id = NULL, updated_at = now()
 WHERE campaign_id = $1;
 
+-- name: CountSeatedByOwner :one
+-- How many of a player's heroes already hold a seat at this table, besides
+-- the one asking. Table-born characters are the DM's roster, not a seat taken.
+SELECT COUNT(*) FROM characters
+WHERE owner_user_id = $1 AND campaign_id = $2 AND NOT table_born AND id <> $3;
+
 -- name: SeatCharacter :one
 -- Seat a hero at a campaign (or NULL to return them to My Heroes).
 UPDATE characters SET campaign_id = $2, updated_at = now()

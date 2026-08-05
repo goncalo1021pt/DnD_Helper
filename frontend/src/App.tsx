@@ -29,6 +29,7 @@ import SkillTreesPage from "./components/SkillTreesPage";
 import TreeEditorPage from "./components/TreeEditorPage";
 import CharacterWebPage from "./components/CharacterWebPage";
 import DMMenuPage from "./components/DMMenuPage";
+import PlayerMenuPage from "./components/PlayerMenuPage";
 
 export default function App() {
   const { data: me, isLoading } = useCurrentUser();
@@ -85,6 +86,7 @@ export default function App() {
           <Route path="encounters" element={<EncounterPage />} />
           <Route path="chronicle" element={<ChroniclePage />} />
           <Route path="dm" element={<DMMenuPage />} />
+          <Route path="player" element={<PlayerMenuPage />} />
           <Route path="trees" element={<SkillTreesPage />} />
           <Route path="trees/:treeId" element={<TreeEditorPage />} />
           <Route path="characters/:charId/web" element={<CharacterWebPage />} />

@@ -235,6 +235,22 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /campaigns/{campaignId}/leave:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: leaveCampaign
+      summary: |
+        Walk away from the table (members only). Your heroes return to My Heroes, your claims on open quests are released, and you leave any knowledge pools. The DM cannot leave — they disband the table instead.
+      responses:
+        "204":
+          description: You have left the campaign
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /campaigns/{campaignId}/next-session:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -426,7 +442,8 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     put:
       operationId: seatCharacter
-      summary: Seat a hero at a campaign, or null to return them to My Heroes (owner only)
+      summary: |
+        Seat a hero at a campaign, or null to return them to My Heroes. Seating is the owner's act alone; unseating is the owner's — or, for a seated hero, the table's DM benching them back to the owner's shelf.
       requestBody:
         required: true
         content:
@@ -1075,6 +1092,40 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /campaigns/{campaignId}/max-seated:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setMaxSeatedPerPlayer
+      summary: Set how many heroes one player may seat at this table at once (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - maxSeatedPerPlayer
+              properties:
+                maxSeatedPerPlayer:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  description: |
+                    Seats per player. Lowering it never unseats anyone — it only bars further seating until the player is back under the cap.
+      responses:
+        "200":
+          description: The campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /campaigns/{campaignId}/seating-approval:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -1197,10 +1248,13 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: approveSeatRequest
-      summary: Let a waiting hero take their seat (DM only); re-checks the codex first
+      summary: |
+        Let a waiting hero take their seat (DM only); re-checks the codex and the table's seats-per-player cap first
       responses:
         "204":
           description: Seated
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3032,6 +3086,10 @@ components:
         requireSeatingApproval:
           type: boolean
           description: When true the door is barred — new heroes wait for the DM's approval before seating.
+        maxSeatedPerPlayer:
+          type: integer
+          description: |
+            How many heroes one player may seat at this table at once. The DM's dial; defaults to one. The cap holds the door — heroes already seated are never evicted by lowering it.
         hiddenSheets:
           type: boolean
           description: |

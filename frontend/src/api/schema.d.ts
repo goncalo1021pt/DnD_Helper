@@ -193,6 +193,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Walk away from the table (members only). Your heroes return to My Heroes, your claims on open quests are released, and you leave any knowledge pools. The DM cannot leave — they disband the table instead. */
+        post: operations["leaveCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/next-session": {
         parameters: {
             query?: never;
@@ -314,7 +333,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Seat a hero at a campaign, or null to return them to My Heroes (owner only) */
+        /** Seat a hero at a campaign, or null to return them to My Heroes. Seating is the owner's act alone; unseating is the owner's — or, for a seated hero, the table's DM benching them back to the owner's shelf. */
         put: operations["seatCharacter"];
         post?: never;
         delete?: never;
@@ -679,6 +698,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/max-seated": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Set how many heroes one player may seat at this table at once (DM only) */
+        put: operations["setMaxSeatedPerPlayer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/seating-approval": {
         parameters: {
             query?: never;
@@ -767,7 +805,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Let a waiting hero take their seat (DM only); re-checks the codex first */
+        /** Let a waiting hero take their seat (DM only); re-checks the codex and the table's seats-per-player cap first */
         post: operations["approveSeatRequest"];
         delete?: never;
         options?: never;
@@ -1743,6 +1781,8 @@ export interface components {
             maxLevel?: number | null;
             /** @description When true the door is barred — new heroes wait for the DM's approval before seating. */
             requireSeatingApproval?: boolean;
+            /** @description How many heroes one player may seat at this table at once. The DM's dial; defaults to one. The cap holds the door — heroes already seated are never evicted by lowering it. */
+            maxSeatedPerPlayer?: number;
             /** @description When true the veil is drawn over the table's character sheets: a player sees only the names of the other heroes. Owners and the DM always read their own sheets in full, and the DM may lift the veil on individual heroes. */
             hiddenSheets?: boolean;
         };
@@ -3049,6 +3089,29 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    leaveCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description You have left the campaign */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     setNextSession: {
         parameters: {
             query?: never;
@@ -3991,6 +4054,38 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
+    setMaxSeatedPerPlayer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Seats per player. Lowering it never unseats anyone — it only bars further seating until the player is back under the cap. */
+                    maxSeatedPerPlayer: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
     setSeatingApproval: {
         parameters: {
             query?: never;
@@ -4131,6 +4226,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

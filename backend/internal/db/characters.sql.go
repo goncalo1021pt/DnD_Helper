@@ -76,6 +76,26 @@ func (q *Queries) ConcealCharacter(ctx context.Context, arg ConcealCharacterPara
 	return err
 }
 
+const countSeatedByOwner = `-- name: CountSeatedByOwner :one
+SELECT COUNT(*) FROM characters
+WHERE owner_user_id = $1 AND campaign_id = $2 AND NOT table_born AND id <> $3
+`
+
+type CountSeatedByOwnerParams struct {
+	OwnerUserID uuid.UUID   `json:"owner_user_id"`
+	CampaignID  pgtype.UUID `json:"campaign_id"`
+	ID          uuid.UUID   `json:"id"`
+}
+
+// How many of a player's heroes already hold a seat at this table, besides
+// the one asking. Table-born characters are the DM's roster, not a seat taken.
+func (q *Queries) CountSeatedByOwner(ctx context.Context, arg CountSeatedByOwnerParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSeatedByOwner, arg.OwnerUserID, arg.CampaignID, arg.ID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createAccountCharacter = `-- name: CreateAccountCharacter :one
 INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max)
 VALUES (NULL, $1, $2, $3, $4, $5, $6)
