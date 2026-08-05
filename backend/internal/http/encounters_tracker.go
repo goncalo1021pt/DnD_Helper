@@ -340,9 +340,36 @@ func (s *Server) UpdateCombatant(ctx context.Context, request api.UpdateCombatan
 	if b.Hidden != nil {
 		params.Hidden = *b.Hidden
 	}
+	// Both new fields are validated before anything is written, so a bad chip
+	// name cannot leave the HP edit that shared its request already applied.
+	conditions, condErr := combatantConditions(b)
+	if condErr != "" {
+		return api.UpdateCombatant400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: condErr}}, nil
+	}
+	saves, savesErr := combatantDeathSaves(b, row, params.HpCurrent)
+	if savesErr != "" {
+		return api.UpdateCombatant400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: savesErr}}, nil
+	}
 	c, err := s.queries.UpdateCombatant(ctx, params)
 	if err != nil {
 		return nil, err
+	}
+	if conditions != nil {
+		if c, err = s.queries.SetCombatantConditions(ctx, db.SetCombatantConditionsParams{
+			ID: row.ID, Conditions: conditions,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	// After the HP write, never before: UpdateCombatant clears the pips whenever
+	// hit points rise, and a request that set both would otherwise have its
+	// tally wiped by its own heal.
+	if saves != nil {
+		if c, err = s.queries.SetCombatantDeathSaves(ctx, db.SetCombatantDeathSavesParams{
+			ID: row.ID, DeathSaveSuccesses: saves.successes, DeathSaveFailures: saves.failures,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	// Initiative belongs to the unit, not the individual: retyping it on one
 	// skeleton moves the whole mob, or they would split across the order and

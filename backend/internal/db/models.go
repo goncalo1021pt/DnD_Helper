@@ -560,22 +560,25 @@ type Encounter struct {
 }
 
 type EncounterCombatant struct {
-	ID          uuid.UUID          `json:"id"`
-	EncounterID uuid.UUID          `json:"encounter_id"`
-	Kind        string             `json:"kind"`
-	ContentID   pgtype.UUID        `json:"content_id"`
-	CharacterID pgtype.UUID        `json:"character_id"`
-	Label       string             `json:"label"`
-	PlayerLabel string             `json:"player_label"`
-	InitMod     int32              `json:"init_mod"`
-	Initiative  *int32             `json:"initiative"`
-	HpCurrent   int32              `json:"hp_current"`
-	HpMax       int32              `json:"hp_max"`
-	Ac          int32              `json:"ac"`
-	Hidden      bool               `json:"hidden"`
-	SortOrder   int32              `json:"sort_order"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	GroupID     pgtype.UUID        `json:"group_id"`
+	ID                 uuid.UUID          `json:"id"`
+	EncounterID        uuid.UUID          `json:"encounter_id"`
+	Kind               string             `json:"kind"`
+	ContentID          pgtype.UUID        `json:"content_id"`
+	CharacterID        pgtype.UUID        `json:"character_id"`
+	Label              string             `json:"label"`
+	PlayerLabel        string             `json:"player_label"`
+	InitMod            int32              `json:"init_mod"`
+	Initiative         *int32             `json:"initiative"`
+	HpCurrent          int32              `json:"hp_current"`
+	HpMax              int32              `json:"hp_max"`
+	Ac                 int32              `json:"ac"`
+	Hidden             bool               `json:"hidden"`
+	SortOrder          int32              `json:"sort_order"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	GroupID            pgtype.UUID        `json:"group_id"`
+	Conditions         []string           `json:"conditions"`
+	DeathSaveSuccesses int16              `json:"death_save_successes"`
+	DeathSaveFailures  int16              `json:"death_save_failures"`
 }
 
 type KnowledgePool struct {

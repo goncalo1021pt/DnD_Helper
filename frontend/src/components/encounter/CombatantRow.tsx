@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { Combatant } from "../../api/client";
 import { useDeleteCombatant, useRollCombatant, useUpdateCombatant } from "../../hooks";
 import { IconEye, IconEyeOff, IconTrash } from "../ui/icons";
+import { ConditionChips, ConditionEditor, DeathSavePips, shouldShowDeathSaves } from "./conditionParts";
 import { GREEN_BTN, HP_STATE_TONE, HP_STEP, RED_BTN } from "./theme";
 
 /* ═══ DM: the encounter tool ═══════════════════════════════════════════════ */
@@ -119,9 +120,24 @@ export function CombatantRow({
         </button>
       </div>
 
+      <ConditionEditor c={c} campaignId={campaignId} encounterId={encounterId} />
+
       <button onClick={() => del.mutate(c.id)} title="Remove from encounter" className="btn-base flex-none p-1.5" style={RED_BTN}>
         <IconTrash size={12} />
       </button>
+
+      {/* What is happening to it, on its own line. The row above is already
+          full of controls, and conditions are read far more often than they are
+          set — burying them between two buttons would hide the tracker's whole
+          answer to "who is poisoned". */}
+      {(c.conditions.length > 0 || shouldShowDeathSaves(c)) && (
+        <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1">
+          <ConditionChips conditions={c.conditions} />
+          {shouldShowDeathSaves(c) && (
+            <DeathSavePips c={c} campaignId={campaignId} encounterId={encounterId} editable />
+          )}
+        </div>
+      )}
     </div>
   );
 }

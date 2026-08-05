@@ -86,7 +86,44 @@ func combatantForDM(c db.EncounterCombatant, current bool) api.Combatant {
 	hc, hm, ac := int(c.HpCurrent), int(c.HpMax), int(c.Ac)
 	out.HpCurrent, out.HpMax, out.Ac = &hc, &hm, &ac
 	out.GroupId = groupIDOf(c)
+	out.Conditions = conditionsOf(c)
+	out.DeathSaves = deathSavesOf(c)
 	return out
+}
+
+// conditionsOf is the same for both roles, and always a list.
+//
+// Nothing is redacted here, which is the deliberate part: a combatant a player
+// can see at all is one the DM chose to reveal, and revealing a creature while
+// hiding that it is Prone would be a distinction the table cannot use. The
+// combatants a player must not know about never reach this function — they are
+// dropped whole, one layer up.
+//
+// The empty list is built rather than passed through so a combatant with
+// nothing on it serialises as [] and not null; the client draws a row of chips
+// from it without a guard.
+func conditionsOf(c db.EncounterCombatant) []string {
+	if len(c.Conditions) == 0 {
+		return []string{}
+	}
+	return c.Conditions
+}
+
+// deathSavesOf reports a hero's tally, and nothing for anything that is not a
+// hero. Monsters in this app die when their hit points do, so pips on one would
+// be a promise the tracker does not keep.
+//
+// A hero standing up carries 0/0, which is worth sending rather than omitting:
+// the client tells "not dying" from "no such concept" by the field's presence,
+// and only ever draws pips for a PC that is down.
+func deathSavesOf(c db.EncounterCombatant) *api.DeathSaves {
+	if c.Kind != "pc" {
+		return nil
+	}
+	return &api.DeathSaves{
+		Successes: int(c.DeathSaveSuccesses),
+		Failures:  int(c.DeathSaveFailures),
+	}
 }
 
 // isCurrent decides whether a combatant is the one acting. A mob acts as a
@@ -138,6 +175,12 @@ func combatantForPlayer(c db.EncounterCombatant, mine, current bool) api.Combata
 		out.Initiative = &v
 	}
 	out.GroupId = groupIDOf(c)
+	// Both of these are party-visible on purpose. Conditions are the tracker's
+	// whole job at a table — "who is poisoned, who is down" — and a friend's
+	// death saves are the thing everyone leans in to watch. Neither says
+	// anything about a creature the player was not already shown.
+	out.Conditions = conditionsOf(c)
+	out.DeathSaves = deathSavesOf(c)
 	if mine {
 		hc, hm, ac := int(c.HpCurrent), int(c.HpMax), int(c.Ac)
 		out.HpCurrent, out.HpMax, out.Ac = &hc, &hm, &ac

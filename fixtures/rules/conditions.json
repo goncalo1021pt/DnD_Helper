@@ -1,0 +1,116 @@
+{
+  "_note": [
+    "What a combatant can be suffering, and how a submitted set is cleaned up",
+    "(#173, and the fifth rule under #112).",
+    "",
+    "Go holds the vocabulary in internal/http/conditions.go and refuses a PATCH",
+    "carrying anything outside it; TypeScript holds the same list in",
+    "lib/conditions.ts so the DM's picker can draw chips without asking the",
+    "server what exists. When the two drift the symptom is a picker offering a",
+    "condition the tracker then rejects, mid-fight, with the party waiting.",
+    "",
+    "Normalisation is the part worth pinning. Both engines fold case, drop",
+    "duplicates, and sort into one canonical order, so that two DMs who toggled",
+    "the same three conditions in different orders produce the same row and the",
+    "tracker does not reshuffle its chips under them.",
+    "",
+    "Exhaustion is the exception in every case below: one condition with six",
+    "levels, carried in the name, collapsing to the highest level submitted and",
+    "always sorting last."
+  ],
+  "names": [
+    "Concentrating",
+    "Blinded",
+    "Charmed",
+    "Deafened",
+    "Frightened",
+    "Grappled",
+    "Incapacitated",
+    "Invisible",
+    "Paralyzed",
+    "Petrified",
+    "Poisoned",
+    "Prone",
+    "Restrained",
+    "Stunned",
+    "Unconscious"
+  ],
+  "maxExhaustion": 6,
+  "cases": [
+    {
+      "name": "nothing ails this one",
+      "input": [],
+      "normalized": []
+    },
+    {
+      "name": "a single condition passes through",
+      "input": ["Poisoned"],
+      "normalized": ["Poisoned"]
+    },
+    {
+      "name": "case and stray space are forgiven",
+      "input": ["  poisoned ", "PRONE"],
+      "normalized": ["Poisoned", "Prone"]
+    },
+    {
+      "name": "the canonical order is the picker's order, not the submitted one",
+      "input": ["Unconscious", "Concentrating", "Grappled"],
+      "normalized": ["Concentrating", "Grappled", "Unconscious"]
+    },
+    {
+      "name": "duplicates collapse",
+      "input": ["Prone", "prone", "Prone"],
+      "normalized": ["Prone"]
+    },
+    {
+      "name": "exhaustion carries its level",
+      "input": ["Exhaustion 3"],
+      "normalized": ["Exhaustion 3"]
+    },
+    {
+      "name": "exhaustion collapses to the worst level submitted",
+      "input": ["Exhaustion 1", "Exhaustion 4", "exhaustion 2"],
+      "normalized": ["Exhaustion 4"]
+    },
+    {
+      "name": "exhaustion sorts last however it arrives",
+      "input": ["Exhaustion 2", "Blinded", "Concentrating"],
+      "normalized": ["Concentrating", "Blinded", "Exhaustion 2"]
+    },
+    {
+      "name": "the full spread stays in canonical order",
+      "input": ["Stunned", "Exhaustion 6", "Charmed", "Concentrating", "Petrified"],
+      "normalized": ["Concentrating", "Charmed", "Petrified", "Stunned", "Exhaustion 6"]
+    },
+    {
+      "name": "a misspelling is refused rather than kept",
+      "input": ["Poisened"],
+      "invalid": true
+    },
+    {
+      "name": "an invented condition is refused",
+      "input": ["Prone", "On fire"],
+      "invalid": true
+    },
+    {
+      "name": "exhaustion without a level is not a level",
+      "input": ["Exhaustion"],
+      "invalid": true
+    },
+    {
+      "name": "exhaustion past death is refused",
+      "input": ["Exhaustion 7"],
+      "invalid": true
+    },
+    {
+      "name": "exhaustion below one is refused",
+      "input": ["Exhaustion 0"],
+      "invalid": true
+    },
+    {
+      "name": "an empty name is refused",
+      "input": ["Prone", "   "],
+      "invalid": true
+    }
+  ]
+}

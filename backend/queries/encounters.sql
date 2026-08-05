@@ -111,9 +111,34 @@ JOIN encounters e ON e.id = c.encounter_id
 WHERE c.id = $1;
 
 -- name: UpdateCombatant :one
+-- Healing a hero above 0 ends their death saves, so the reset rides on the
+-- write that raises the hit points rather than on the handler that asked for
+-- it. Every path that lifts a combatant off the floor goes through here — the
+-- DM's + button, and the Party roster mirroring back through syncSeatedHero —
+-- and a rule enforced in one of those two places is a rule that holds half the
+-- time. Conditions are deliberately untouched: being healed does not cure
+-- poison, and this query runs on every roster sync.
 UPDATE encounter_combatants
 SET label = $2, player_label = $3, initiative = $4, hp_current = $5,
-    hp_max = $6, ac = $7, hidden = $8
+    hp_max = $6, ac = $7, hidden = $8,
+    death_save_successes = CASE WHEN $5::int > 0 THEN 0 ELSE death_save_successes END,
+    death_save_failures  = CASE WHEN $5::int > 0 THEN 0 ELSE death_save_failures  END
+WHERE id = $1
+RETURNING *;
+
+-- name: SetCombatantConditions :one
+-- The conditions a combatant is under, in full. A replacement rather than an
+-- add/remove pair: the DM's editor holds the whole set and the list is at most
+-- fifteen long, so sending it whole costs nothing and spares us a merge that
+-- two people toggling at once would lose either way.
+UPDATE encounter_combatants SET conditions = $2 WHERE id = $1 RETURNING *;
+
+-- name: SetCombatantDeathSaves :one
+-- Pips only. Kept off UpdateCombatant so it cannot collide with the reset
+-- above: the handler refuses to set these on a combatant that is not at 0 hit
+-- points, which is the only state in which they mean anything.
+UPDATE encounter_combatants
+SET death_save_successes = $2, death_save_failures = $3
 WHERE id = $1
 RETURNING *;
 

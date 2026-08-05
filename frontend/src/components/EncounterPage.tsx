@@ -15,6 +15,7 @@ import { IconPlus, IconTrash } from "./ui/icons";
 import { EncounterRunner } from "./encounter/EncounterRunner";
 import { FilingBar } from "./encounter/FilingBar";
 import { PlaceSelect } from "./encounter/PlaceSelect";
+import { ConditionChips, DeathSavePips, shouldShowDeathSaves } from "./encounter/conditionParts";
 import { mobName, toEntries } from "./encounter/entries";
 import { HpStatePill, TurnMark } from "./encounter/rowParts";
 import { GROUP_MODES, shelve, type GroupMode } from "./encounter/filing";
@@ -251,8 +252,15 @@ function PlayerEncounter({ campaignId }: { campaignId: string }) {
   }
   if (!detail) {
     return (
+      /* Not "no encounter is running" — that asserts something this page cannot
+         know. A player is only ever shown the fight their own hero stands in
+         (encounters_run.go scopes it to their seat), so an empty payload means
+         "not your battle", which is also true while a fight rages three feet
+         away without them. The old copy told a benched player the table was
+         idle. */
       <div className="font-accent px-5 py-[60px] text-center text-base italic text-[#9c855e]">
-        No encounter is running. When your DM triggers one, the initiative order appears here.
+        Your hero stands in no battle right now. When your DM triggers one you are seated in, the initiative order
+        appears here.
       </div>
     );
   }
@@ -276,10 +284,16 @@ function PlayerEncounter({ campaignId }: { campaignId: string }) {
               ? e.members.some((m) => m.hpState !== "healthy") ? "bloodied" : "healthy"
               : e.members.every((m) => m.hpState === "down") ? "down" : "bloodied"
             : c.hpState;
+          // A mob shares one line, so its chips are the union of what its
+          // members carry — three skeletons where one is Prone still reads
+          // "Prone" on the single row the party sees.
+          const conditions = mob
+            ? [...new Set(e.members.flatMap((m) => m.conditions))]
+            : c.conditions;
           return (
             <div
               key={e.key}
-              className="flex items-center gap-3 rounded-[3px] px-3 py-2"
+              className="flex flex-wrap items-center gap-3 rounded-[3px] px-3 py-2"
               style={{
                 background: c.current ? "rgba(224,169,78,.12)" : "rgba(0,0,0,.14)",
                 boxShadow: c.current ? "inset 0 0 0 1px rgba(224,169,78,.5)" : "inset 0 0 0 1px rgba(201,162,39,.16)",
@@ -302,6 +316,19 @@ function PlayerEncounter({ campaignId }: { campaignId: string }) {
                 <button onClick={() => roll.mutate(c.id)} className="btn-base btn-wax h-7 px-2.5 text-[10px]">
                   🎲 Roll
                 </button>
+              )}
+
+              {/* Read-only, per the tracker's standing rule: players watch, the
+                  DM rules. Seeing them is the point though — "who is poisoned,
+                  who is down" is the question the party asks between turns, and
+                  a friend bleeding out is the table's business. */}
+              {(conditions.length > 0 || shouldShowDeathSaves(c)) && (
+                <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1">
+                  <ConditionChips conditions={conditions} />
+                  {shouldShowDeathSaves(c) && (
+                    <DeathSavePips c={c} campaignId={campaignId} encounterId={enc.id} editable={false} />
+                  )}
+                </div>
               )}
             </div>
           );
