@@ -152,6 +152,31 @@ func TestEligibleFormAppliesTypeCRAndFlight(t *testing.T) {
 	}
 }
 
+// Beast of the Land is a Beast printed at CR "None" — which reads as CR 0 and
+// therefore sits under every Wild Shape ceiling there is. It is also a Ranger's
+// Primal Companion, and a Druid turning into one is not a thing the rules allow.
+// What separates it from a badger is that its numbers are written against a
+// hero, so that is what the filter reads.
+func TestAFormCannotBeSomebodyElsesCompanion(t *testing.T) {
+	_, forms := GrantsIn([]byte(wildShape))
+	at2, _ := forms.At(2, ScopeFor(2, nil))
+	at20, _ := forms.At(20, ScopeFor(20, nil))
+
+	primal := []byte(`{"type": "Beast", "crValue": 0, "speed": "40 ft., Climb 40 ft.",
+	                   "scale": {"ac": "13 + wis", "hp": "5 + 5 * level"}}`)
+	badger := []byte(`{"type": "Beast", "crValue": 0, "speed": "20 ft."}`)
+
+	if at2.EligibleForm(primal) {
+		t.Error("a Ranger's Primal Companion is not a Druid's Wild Shape form")
+	}
+	if at20.EligibleForm(primal) {
+		t.Error("no level of Wild Shape admits a scaling companion block")
+	}
+	if !at2.EligibleForm(badger) {
+		t.Error("an ordinary CR 0 Beast is still a form")
+	}
+}
+
 func TestCompanionGrantsAreReadOffContent(t *testing.T) {
 	companions, forms := GrantsIn([]byte(`{
 	  "class": "Artificer",

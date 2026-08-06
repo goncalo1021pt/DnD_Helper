@@ -120,11 +120,21 @@ func (g *FormsGrant) At(level int, scope Scope) (FormAllowance, bool) {
 // creature type, within the CR ceiling, and grounded unless flight is allowed.
 func (a FormAllowance) EligibleForm(data []byte) bool {
 	var block struct {
-		Type    string  `json:"type"`
-		CRValue float64 `json:"crValue"`
-		Speed   string  `json:"speed"`
+		Type    string         `json:"type"`
+		CRValue float64        `json:"crValue"`
+		Speed   string         `json:"speed"`
+		Scale   map[string]any `json:"scale"`
 	}
 	if err := json.Unmarshal(data, &block); err != nil {
+		return false
+	}
+	// A block whose numbers scale off a hero is somebody's companion, not an
+	// animal in the woods. Beast of the Land is a Beast printed at CR "None",
+	// which reads as CR 0 and slipped under a level 2 Druid's ceiling — so a
+	// Druid was offered a Ranger's Primal Companion as a Wild Shape form. The
+	// scaling is the tell, and it needs no new field in the content: a wild
+	// badger's statistics do not depend on whose sheet is looking at them.
+	if len(block.Scale) > 0 {
 		return false
 	}
 	if a.Type != "" && !strings.Contains(strings.ToLower(block.Type), strings.ToLower(a.Type)) {
