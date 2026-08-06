@@ -2379,6 +2379,14 @@ export interface components {
              * @description Set when this combatant is one of a mob added together. Everything sharing a groupId is consecutive in the list and acts on a single turn; the tracker collapses the run into one entry.
              */
             groupId?: string | null;
+            /** @description What is riding on this combatant, by canonical name ("Poisoned", "Exhaustion 3"). Everyone sees these — a hidden combatant is dropped from a player's payload entirely, so anything they can see, they can see the state of. Always present; empty when nothing ails it. */
+            conditions: string[];
+            deathSaves?: components["schemas"]["DeathSaves"];
+        };
+        /** @description A dying hero's tally, 0–3 each. Present only on `pc` combatants — monsters here die when their hit points do. Party-visible: the table watches a friend bleed out together. Reset automatically the moment the hero is healed above 0. */
+        DeathSaves: {
+            successes: number;
+            failures: number;
         };
         EncounterDetail: {
             encounter: components["schemas"]["Encounter"];
@@ -2432,6 +2440,11 @@ export interface components {
             hpMax?: number;
             ac?: number;
             hidden?: boolean;
+            /** @description The conditions this combatant is under, in full — a replacement, not a patch, so an empty array clears them. Names are case-insensitive but closed: anything outside the vocabulary is a 400 rather than a chip nobody can filter on later. */
+            conditions?: string[];
+            /** @description Death-save pips, settable only on a `pc` that is at 0 hit points — the only state in which they mean anything. Healing above 0 clears both tallies on its own. */
+            deathSaveSuccesses?: number;
+            deathSaveFailures?: number;
         };
         BestiaryEntry: {
             /** Format: uuid */

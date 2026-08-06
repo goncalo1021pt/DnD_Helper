@@ -463,6 +463,8 @@ components:
       $ref: "./components/encounters.yaml#/Encounter"
     Combatant:
       $ref: "./components/encounters.yaml#/Combatant"
+    DeathSaves:
+      $ref: "./components/encounters.yaml#/DeathSaves"
     EncounterDetail:
       $ref: "./components/encounters.yaml#/EncounterDetail"
     CreateEncounterRequest:

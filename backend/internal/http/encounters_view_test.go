@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 )
 
@@ -211,5 +212,87 @@ func TestGroupIDReachesBothPayloads(t *testing.T) {
 	lone := db.EncounterCombatant{ID: uuid.New(), Kind: "monster", Label: "Goblin"}
 	if got := combatantForDM(lone, false).GroupId; got != nil {
 		t.Errorf("an ungrouped combatant should report no group, got %v", *got)
+	}
+}
+
+// Conditions reach both payloads unredacted, and that is the decision worth
+// pinning: a player who can see a creature at all can see what is riding on it.
+// Anything they must not know about never reaches these functions — hidden
+// combatants are dropped whole in assembleDetail, one layer up.
+func TestConditionsReachBothPayloads(t *testing.T) {
+	c := db.EncounterCombatant{
+		ID: uuid.New(), EncounterID: uuid.New(), Kind: "monster",
+		Label: "Ancient Red Dragon", PlayerLabel: "Looming Shape",
+		HpCurrent: 40, HpMax: 100, Ac: 22,
+		Conditions: []string{"Poisoned", "Exhaustion 2"},
+	}
+	for _, tc := range []struct {
+		role string
+		out  api.Combatant
+	}{
+		{"DM", combatantForDM(c, false)},
+		{"player", combatantForPlayer(c, false, false)},
+	} {
+		if len(tc.out.Conditions) != 2 || tc.out.Conditions[0] != "Poisoned" || tc.out.Conditions[1] != "Exhaustion 2" {
+			t.Errorf("%s payload conditions = %v; want both, in order", tc.role, tc.out.Conditions)
+		}
+	}
+}
+
+// A combatant with nothing on it must serialise as [] and never as null, or
+// every chip row on the client needs a guard it should not need.
+func TestConditionsAreAlwaysAListNeverNil(t *testing.T) {
+	bare := db.EncounterCombatant{ID: uuid.New(), Kind: "monster", Label: "Goblin"}
+	if got := combatantForDM(bare, false).Conditions; got == nil {
+		t.Error("DM payload conditions were nil; want an empty list")
+	}
+	if got := combatantForPlayer(bare, false, false).Conditions; got == nil {
+		t.Error("player payload conditions were nil; want an empty list")
+	}
+}
+
+// Death saves belong to heroes. A monster carrying a tally would be the tracker
+// promising pips it never draws, so the field is absent rather than zeroed.
+func TestDeathSavesOnlyExistForPlayerCharacters(t *testing.T) {
+	hero := db.EncounterCombatant{
+		ID: uuid.New(), Kind: "pc", Label: "Vex",
+		HpCurrent: 0, HpMax: 24, DeathSaveSuccesses: 1, DeathSaveFailures: 2,
+	}
+	// Party-visible on purpose: the table watches a friend bleed out together,
+	// so this is one of the few PC numbers a player sees on someone else's row.
+	for _, tc := range []struct {
+		role string
+		out  api.Combatant
+	}{
+		{"DM", combatantForDM(hero, false)},
+		{"player (not mine)", combatantForPlayer(hero, false, false)},
+	} {
+		if tc.out.DeathSaves == nil {
+			t.Fatalf("%s payload dropped a hero's death saves", tc.role)
+		}
+		if tc.out.DeathSaves.Successes != 1 || tc.out.DeathSaves.Failures != 2 {
+			t.Errorf("%s payload death saves = %+v; want 1 success, 2 failures", tc.role, *tc.out.DeathSaves)
+		}
+	}
+
+	monster := db.EncounterCombatant{ID: uuid.New(), Kind: "monster", Label: "Goblin"}
+	if got := combatantForDM(monster, false).DeathSaves; got != nil {
+		t.Errorf("a monster reported death saves %+v; monsters die when their HP does", *got)
+	}
+	if got := combatantForPlayer(monster, false, false).DeathSaves; got != nil {
+		t.Errorf("a monster reported death saves %+v in the player view", *got)
+	}
+}
+
+// A hero on their feet still carries the field, at 0/0. Presence is how the
+// client tells "not dying" from "no such concept" without inspecting kind.
+func TestAStandingHeroStillCarriesAnEmptyTally(t *testing.T) {
+	hero := db.EncounterCombatant{ID: uuid.New(), Kind: "pc", Label: "Vex", HpCurrent: 24, HpMax: 24}
+	got := combatantForDM(hero, false).DeathSaves
+	if got == nil {
+		t.Fatal("a standing hero should still carry a tally, at 0/0")
+	}
+	if got.Successes != 0 || got.Failures != 0 {
+		t.Errorf("death saves = %+v; want 0/0", *got)
 	}
 }

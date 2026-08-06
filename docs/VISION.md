@@ -764,6 +764,29 @@ Parked without a milestone, on purpose: character sharing (#180) until its
 design is sketched, and friends/chat (#181) until the table asks for it — the
 Chronicle's player channel already covers party chat.
 
+**Regrouped 2026-08-05, after v1.7 shipped.** The four waves above were cut by
+theme, and two of them grouped work that shares no code while splitting work
+that is nearly the same feature twice. Two moves, on the principle that a wave
+should be things that touch one part of the codebase:
+
+- **#176 (roll log) joined #177 (handouts) in v1.10.** Both are a new entry
+  kind in the Chronicle, revealed through the existing veil model and pushed on
+  `live.TopicChronicle`: one migration, one pass over
+  `openapi/components/chronicle.yaml`, one pass over the feed renderer. The
+  `kind` field is deliberately a plain string rather than an enum precisely so
+  kinds can be added, and #177's only extra is image bytes, which the map
+  upload path already solves. Together they cost far less than the sum.
+- **#173 (conditions + death saves) joined #175 (resource pools) in v1.8.**
+  What paired #173 with #176 was the SSE stream, which is the cheapest possible
+  link — the hub already fans out seven topics from sixteen call sites, and
+  riding it costs one `s.publish` line. What actually pairs #173 with #175 is
+  the shape: both are per-entity counters the server owns and the client spends
+  through ±, both modelled on `SetSpellSlots`, and both landing in `rest.go`,
+  since a long rest refills pools *and* is where exhaustion comes off.
+
+That leaves *v1.9 — running the fight* empty; it is retired rather than
+refilled.
+
 **Versioning, settled the same day: the v2 label is retired from planning
 vocabulary.** The *v2.0 — the world layer* milestone shipped inside the
 v1.6.0 release, which proved the milestone names and the tags had drifted

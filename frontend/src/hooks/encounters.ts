@@ -182,7 +182,18 @@ export function useUpdateCombatant(campaignId: string, encounterId: string) {
   return useMutation({
     mutationFn: async (vars: {
       combatantId: string;
-      body: { label?: string; playerLabel?: string; initiative?: number | null; hpCurrent?: number; hpMax?: number; ac?: number; hidden?: boolean };
+      body: {
+        label?: string;
+        playerLabel?: string;
+        initiative?: number | null;
+        hpCurrent?: number;
+        hpMax?: number;
+        ac?: number;
+        hidden?: boolean;
+        conditions?: string[];
+        deathSaveSuccesses?: number;
+        deathSaveFailures?: number;
+      };
     }) => {
       const { data, error } = await api.PATCH("/combatants/{combatantId}", {
         params: { path: { combatantId: vars.combatantId } },
