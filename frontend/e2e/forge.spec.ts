@@ -76,7 +76,14 @@ test("forges a hero through every step and lands on their sheet", async ({ page 
   await walkTheWizard(page, heroName);
   await forgeButton(page).click();
 
-  // The hero exists and their sheet reads back what we chose.
+  // Wait for the arrival, not the name. The wizard's summary rail prints the
+  // typed name and class as text, so on a slow forge both look-ups below can
+  // pass against the wizard itself while the POST is still in flight — and
+  // the goto further down then kills the request before onSuccess spends the
+  // draft. The navigation is the one signal that only success produces.
+  await expect(page).toHaveURL(/\/questboard\/profile/, { timeout: 20_000 });
+
+  // The hero exists and the shelf reads back what we chose.
   await expect(page.getByText(heroName)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Fighter/).first()).toBeVisible();
 
