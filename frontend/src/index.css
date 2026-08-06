@@ -18,7 +18,13 @@
   --color-ink-strong: #3a2616;
   --color-ink-value: #4a3320;
   --color-ink-body: #5c4528;
-  --color-ink-label: #9a703a;
+  /* Stamped labels — the smallest type in the app, at 8-9px uppercase with
+     wide tracking, which is exactly the size that needs the most contrast and
+     was getting the least. #9a703a measured 3.5:1 on the light end of the
+     parchment gradient and 2.7:1 on the dark end, both under the 4.5:1 small
+     text asks for. This clears it at both ends and stays a label rather than
+     becoming body copy. */
+  --color-ink-label: #6f4d24;
   --color-ink-faded: #8a6a3a;
 
   /* Cream + gold (text on dark) */
@@ -363,10 +369,16 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* Ghost with an inset ink hairline (secondary on parchment). */
+/* Ghost with an inset ink hairline (secondary on parchment).
+
+   The hairline is the only thing saying "this is a button" — the fill is 5%
+   ink, which is nearly the parchment itself. At rgba(120,80,30,.4) it composited
+   to 1.66:1 against the darker end of the parchment gradient, well under the
+   3:1 WCAG asks of a control boundary, and the button read as a label. The
+   ink-toned line at .65 lands at 3.1:1 without turning the ghost into a slab. */
 .btn-ghost-ink {
   background: rgba(43, 32, 24, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(120, 80, 30, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(74, 58, 36, 0.65);
   color: #4a3a24;
   border-radius: 2px;
 }
@@ -436,8 +448,13 @@ body {
 .input-parchment:focus {
   box-shadow: inset 0 0 0 1.5px #8b6a3a;
 }
+/* Placeholders sit on a translucent white wash over parchment, so the colour
+   that looks right against #efe3c6 in a swatch renders against ~#ebdec6 in
+   place. #9a855e composited there is 2.7:1 — a search field whose prompt you
+   have to hunt for. This clears AA at 5:1 and still reads as a hint. */
 .input-parchment::placeholder {
-  color: #9a855e;
+  color: #6d5a39;
+  font-style: italic;
 }
 
 /* Compact input for dense forms. */

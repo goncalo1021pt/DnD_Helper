@@ -331,7 +331,7 @@ function MoldModal({
       <input
         value={fields[key]}
         onChange={(e) => setFields({ ...fields, [key]: e.target.value })}
-        className="input-hall h-8 px-2 text-[12px]"
+        className="input-parchment h-8 px-2 text-[12px]"
       />
     </label>
   );
@@ -350,7 +350,7 @@ function MoldModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={80}
-          className="input-hall h-8 px-2 text-[12px]"
+          className="input-parchment h-8 px-2 text-[12px]"
         />
       </label>
 
@@ -369,7 +369,7 @@ function MoldModal({
           onChange={(e) => setNotes(e.target.value)}
           rows={2}
           maxLength={2000}
-          className="input-hall px-2 py-1.5 text-[12px]"
+          className="input-parchment h-auto px-2 py-1.5 text-[12px]"
         />
       </label>
 
@@ -479,7 +479,7 @@ function PickerModal({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search…"
-          className="input-hall mt-3 h-8 w-full px-2 text-[12px]"
+          className="input-parchment mt-3 h-8 w-full px-2 text-[12px]"
         />
       )}
 
@@ -520,19 +520,19 @@ function PickerModal({
             onChange={(e) => setByHand({ ...byHand, name: e.target.value })}
             placeholder="Name"
             maxLength={80}
-            className="input-hall h-8 min-w-[120px] flex-1 px-2 text-[12px]"
+            className="input-parchment h-8 min-w-[120px] flex-1 px-2 text-[12px]"
           />
           <input
             value={byHand.ac}
             onChange={(e) => setByHand({ ...byHand, ac: e.target.value.replace(/\D/g, "") })}
             placeholder="AC"
-            className="input-hall h-8 w-14 px-2 text-center text-[12px]"
+            className="input-parchment h-8 w-14 px-2 text-center text-[12px]"
           />
           <input
             value={byHand.hp}
             onChange={(e) => setByHand({ ...byHand, hp: e.target.value.replace(/\D/g, "") })}
             placeholder="HP"
-            className="input-hall h-8 w-14 px-2 text-center text-[12px]"
+            className="input-parchment h-8 w-14 px-2 text-center text-[12px]"
           />
           <button
             onClick={() =>
