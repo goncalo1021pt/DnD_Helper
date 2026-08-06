@@ -404,6 +404,21 @@ body {
   color: #8b2520;
   border-radius: 2px;
 }
+/* Ghost with an ember hairline (destructive on the dark hall). btn-ghost-red
+   is wax-red ink for parchment — on a hall panel its #8b2520 text sinks into
+   the dark and the button all but disappears, the same failure mode as
+   btn-ghost-ink there. Same cure: keep the red meaning, lift it to hall
+   luminance. */
+.btn-ghost-ember {
+  background: rgba(139, 37, 32, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(200, 92, 70, 0.45);
+  color: #dd9a86;
+  border-radius: 2px;
+}
+.btn-ghost-ember:hover:not(:disabled) {
+  background: rgba(139, 37, 32, 0.28);
+  filter: none;
+}
 .btn-ghost-red:hover:not(:disabled) {
   background: rgba(139, 37, 32, 0.12);
   filter: none;
@@ -427,6 +442,51 @@ body {
     inset 0 0 0 2px #8a6a3a,
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     0 4px 0 #b39564;
+}
+
+/* ---------- scrollbars ---------- */
+
+/* Nothing styled these, so every scroller wore the browser default: a pale
+   grey thumb that vanishes on parchment next to a mismatched one on the hall —
+   two kinds of scrollbar on one screen, neither of them ours. Two surfaces,
+   two inks, same as the buttons: gold on the dark hall, ink on parchment.
+   Firefox reads scrollbar-color (which inherits, so the .parchment override
+   reaches every list inside a parchment modal); WebKit reads the pseudo
+   elements, which don't inherit, so each rule is stated for the container and
+   its descendants both. */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 162, 39, 0.4) rgba(16, 9, 5, 0.35);
+}
+.parchment,
+.parchment * {
+  scrollbar-color: rgba(90, 60, 22, 0.5) rgba(120, 86, 42, 0.1);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(16, 9, 5, 0.35);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 162, 39, 0.4);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 162, 39, 0.6);
+}
+.parchment::-webkit-scrollbar-track,
+.parchment ::-webkit-scrollbar-track {
+  background: rgba(120, 86, 42, 0.1);
+}
+.parchment::-webkit-scrollbar-thumb,
+.parchment ::-webkit-scrollbar-thumb {
+  background: rgba(90, 60, 22, 0.5);
+}
+.parchment::-webkit-scrollbar-thumb:hover,
+.parchment ::-webkit-scrollbar-thumb:hover {
+  background: rgba(90, 60, 22, 0.7);
 }
 
 /* ---------- inputs ---------- */

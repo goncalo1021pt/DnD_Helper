@@ -548,12 +548,7 @@ function SummonControl({
           )
         }
         disabled={!choice || seat.isPending}
-        className="btn-base h-10 px-3 text-[10px]"
-        style={{
-          background: "rgba(16,9,5,.4)",
-          boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)",
-          color: "#e6d5af",
-        }}
+        className="btn-base btn-ghost-gold h-10 px-3 text-[10px]"
       >
         Summon
       </button>

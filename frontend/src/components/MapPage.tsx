@@ -173,8 +173,7 @@ export default function MapPage() {
                     setDropMode((d) => !d);
                     setStampMode(false);
                   }}
-                  className={`btn-base ${dropMode ? "btn-wax" : "btn-ghost-ink"} px-4 py-2.5 text-[11px]`}
-                  style={dropMode ? undefined : { color: "#cdba93" }}
+                  className={`btn-base ${dropMode ? "btn-wax" : "btn-ghost-gold"} px-4 py-2.5 text-[11px]`}
                 >
                   <IconMapPin size={13} strokeWidth={1.9} />
                   {dropMode ? "Tap the map…" : "Drop a pin"}
@@ -198,8 +197,8 @@ export default function MapPage() {
                       ? "Fog is on — players see only what you have revealed"
                       : "Fog is off — players see the whole map"
                   }
-                  className="btn-base btn-ghost-ink px-4 py-2.5 text-[11px]"
-                  style={{ color: map.fogEnabled ? "#9a86b8" : "#cdba93" }}
+                  className="btn-base btn-ghost-gold px-4 py-2.5 text-[11px]"
+                  style={map.fogEnabled ? { color: "#9a86b8" } : undefined}
                 >
                   {map.fogEnabled ? (
                     <IconEyeOff size={13} strokeWidth={1.9} />
@@ -216,16 +215,14 @@ export default function MapPage() {
                       setStampMode((s) => !s);
                       setDropMode(false);
                     }}
-                    className={`btn-base ${stampMode ? "btn-wax" : "btn-ghost-ink"} px-4 py-2.5 text-[11px]`}
-                    style={stampMode ? undefined : { color: "#cdba93" }}
+                    className={`btn-base ${stampMode ? "btn-wax" : "btn-ghost-gold"} px-4 py-2.5 text-[11px]`}
                   >
                     <IconEye size={13} strokeWidth={1.9} />
                     {stampMode ? "Stamping…" : "Lift the fog"}
                   </button>
                   <button
                     onClick={() => setLedgerOpen(true)}
-                    className="btn-base btn-ghost-ink px-4 py-2.5 text-[11px]"
-                    style={{ color: "#cdba93" }}
+                    className="btn-base btn-ghost-gold px-4 py-2.5 text-[11px]"
                   >
                     Ledger
                   </button>

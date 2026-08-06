@@ -856,8 +856,10 @@ export default function ForgeWizard() {
             {safeStep > 0 && (
               <button
                 onClick={() => setStep(safeStep - 1)}
-                className="btn-base btn-ghost-ink px-5 py-[11px] text-xs"
-                style={{ color: "#cdba93", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)", background: "rgba(16,9,5,.4)" }}
+                // The inline styles were btn-ghost-gold spelt out by hand, on
+                // top of a class meant for parchment — the step nav sits on
+                // the hall (#186).
+                className="btn-base btn-ghost-gold px-5 py-[11px] text-xs"
               >
                 ← Back
               </button>

@@ -115,12 +115,9 @@ export default function CreaturesPanel({
         {canEdit && (
           <button
             onClick={() => setPicking(true)}
-            className="label-stamp mb-2.5 flex cursor-pointer items-center gap-1 rounded-[2px] border-none px-2.5 py-1 text-[9px] tracking-[1px]"
-            style={{
-              background: "rgba(16,9,5,.4)",
-              color: "#cdba93",
-              boxShadow: "inset 0 0 0 1px rgba(201,162,39,.3)",
-            }}
+            // Same chip as "Change prepared spells": ghost-gold colors,
+            // stamp typography (#186).
+            className="label-stamp btn-ghost-gold mb-2.5 flex cursor-pointer items-center gap-1 border-none px-2.5 py-1 text-[9px] tracking-[1px]"
           >
             <IconPlus size={11} strokeWidth={2} />
             Add

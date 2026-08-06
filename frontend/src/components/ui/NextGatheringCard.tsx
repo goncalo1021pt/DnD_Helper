@@ -155,7 +155,7 @@ export default function NextGatheringCard({
                   type="button"
                   onClick={clear}
                   disabled={setSession.isPending}
-                  className="btn-base btn-ghost-red px-5 py-[11px] text-xs"
+                  className="btn-base btn-ghost-ember px-5 py-[11px] text-xs"
                 >
                   Clear
                 </button>
@@ -163,7 +163,7 @@ export default function NextGatheringCard({
               <button
                 type="button"
                 onClick={() => setEditing(false)}
-                className="btn-base btn-ghost-ink px-5 py-[11px] text-xs"
+                className="btn-base btn-ghost-gold px-5 py-[11px] text-xs"
               >
                 Cancel
               </button>

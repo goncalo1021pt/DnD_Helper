@@ -58,7 +58,12 @@ export default function ClassTablePanel({
                 key={name}
                 title={`Your ${name} at level ${level}`}
                 className="flex items-baseline gap-1.5 rounded-[2px] px-2.5 py-1.5"
-                style={{ background: "rgba(139,37,32,.10)", boxShadow: "inset 0 0 0 1px rgba(139,37,32,.3)" }}
+                // Gold for "this is yours now", not wax red — the seal ink at
+                // 10% reads as washed-out pink on parchment, and red is what
+                // this sheet uses for warnings. Same treatment as the active
+                // form on the creature panel, so "current" looks the same
+                // everywhere it appears.
+                style={{ background: "rgba(201,162,39,.14)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.4)" }}
               >
                 <span className="label-stamp text-[9px] tracking-[1px] text-ink-label">{name}</span>
                 <span className="font-heading text-[14px] font-bold tabular-nums text-ink">{value}</span>
@@ -91,7 +96,7 @@ export default function ClassTablePanel({
                 return (
                   <tr
                     key={lvl}
-                    style={here ? { background: "rgba(139,37,32,.12)" } : undefined}
+                    style={here ? { background: "rgba(201,162,39,.16)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.35)" } : undefined}
                     className={here ? "font-semibold text-ink" : "text-ink-body"}
                   >
                     <td className="px-1.5 py-[3px] tabular-nums">{lvl}</td>
