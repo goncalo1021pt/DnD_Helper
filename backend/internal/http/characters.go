@@ -69,6 +69,8 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			Feats:          row.Feats,
 			SpeciesChoices: row.SpeciesChoices,
 			SpellSlotsUsed: row.SpellSlotsUsed,
+			HitDiceUsed:    row.HitDiceUsed,
+			PoolsUsed:      row.PoolsUsed,
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
 			TableBorn:      row.TableBorn,

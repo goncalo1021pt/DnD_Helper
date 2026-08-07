@@ -361,6 +361,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/characters/{characterId}/pools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Set resource-pool uses spent (owner or DM) */
+        put: operations["setPools"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/characters/{characterId}/items": {
         parameters: {
             query?: never;
@@ -2013,6 +2032,8 @@ export interface components {
             spellcastingAbility?: string;
             /** @description Present on casters — max and used per spell level. */
             spellSlots?: components["schemas"]["SpellSlot"][];
+            /** @description The hero's resource pools — Rages, Channel Divinity, Focus Points — already resolved: max computed from the granting content and the hero's level, used read from what they have spent. */
+            pools?: components["schemas"]["ResourcePool"][];
         };
         /** @description Species picks keyed by the choice id declared in the species entry's data, each holding the chosen option names. */
         SpeciesChoices: {
@@ -2110,6 +2131,8 @@ export interface components {
             rolls: number[];
             /** @description Whether this hero's class may change its prepared spells now — the long-rest trigger the spell swap has been waiting for. */
             canSwapSpells: boolean;
+            /** @description Names of the resource pools this rest gave uses back to — empty when none moved, or the hero has none. */
+            poolsRestored: string[];
         };
         /** @description One spell traded for another; both must be the same kind (cantrip for cantrip). */
         SpellSwap: {
@@ -2180,6 +2203,25 @@ export interface components {
         SpellSlotsInput: {
             /** @description Slots spent per spell level (index 0 = level 1). */
             used: number[];
+        };
+        ResourcePool: {
+            /** @description The pool's name as the granting content declares it — "Rages". */
+            name: string;
+            max: number;
+            used: number;
+            /** @description Name of the content entry that grants this pool — "Barbarian". */
+            grantedBy: string;
+            /**
+             * @description What a short rest gives back — nothing, one use, or everything. A long rest always refills the pool.
+             * @enum {string}
+             */
+            shortRest: "none" | "one" | "all";
+        };
+        PoolsInput: {
+            /** @description Uses spent per pool, keyed by pool name. The map is the whole state — a pool missing from it is unspent. */
+            used: {
+                [key: string]: number;
+            };
         };
         InventoryItem: {
             /** Format: uuid */
@@ -3587,6 +3629,36 @@ export interface operations {
         };
         responses: {
             /** @description Hero with updated slots */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setPools: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PoolsInput"];
+            };
+        };
+        responses: {
+            /** @description Hero with updated pools */
             200: {
                 headers: {
                     [name: string]: unknown;

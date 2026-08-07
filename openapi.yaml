@@ -504,6 +504,33 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /characters/{characterId}/pools:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    put:
+      operationId: setPools
+      summary: Set resource-pool uses spent (owner or DM)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PoolsInput"
+      responses:
+        "200":
+          description: Hero with updated pools
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /characters/{characterId}/items:
     parameters:
       - $ref: "#/components/parameters/CharacterId"
@@ -3565,6 +3592,11 @@ components:
           description: Present on casters — max and used per spell level.
           items:
             $ref: "#/components/schemas/SpellSlot"
+        pools:
+          type: array
+          description: "The hero's resource pools — Rages, Channel Divinity, Focus Points — already resolved: max computed from the granting content and the hero's level, used read from what they have spent."
+          items:
+            $ref: "#/components/schemas/ResourcePool"
     SpeciesChoices:
       type: object
       description: Species picks keyed by the choice id declared in the species entry's data, each holding the chosen option names.
@@ -3787,6 +3819,7 @@ components:
         - slotsRestored
         - rolls
         - canSwapSpells
+        - poolsRestored
       properties:
         character:
           $ref: "#/components/schemas/Character"
@@ -3813,6 +3846,11 @@ components:
         canSwapSpells:
           type: boolean
           description: Whether this hero's class may change its prepared spells now — the long-rest trigger the spell swap has been waiting for.
+        poolsRestored:
+          type: array
+          description: Names of the resource pools this rest gave uses back to — empty when none moved, or the hero has none.
+          items:
+            type: string
     SpellSwap:
       type: object
       description: One spell traded for another; both must be the same kind (cantrip for cantrip).
@@ -3963,6 +4001,45 @@ components:
             type: integer
             minimum: 0
           description: Slots spent per spell level (index 0 = level 1).
+    ResourcePool:
+      type: object
+      required:
+        - name
+        - max
+        - used
+        - grantedBy
+        - shortRest
+      properties:
+        name:
+          type: string
+          description: The pool's name as the granting content declares it — "Rages".
+        max:
+          type: integer
+          minimum: 0
+        used:
+          type: integer
+          minimum: 0
+        grantedBy:
+          type: string
+          description: Name of the content entry that grants this pool — "Barbarian".
+        shortRest:
+          type: string
+          enum:
+            - none
+            - one
+            - all
+          description: What a short rest gives back — nothing, one use, or everything. A long rest always refills the pool.
+    PoolsInput:
+      type: object
+      required:
+        - used
+      properties:
+        used:
+          type: object
+          description: Uses spent per pool, keyed by pool name. The map is the whole state — a pool missing from it is unspent.
+          additionalProperties:
+            type: integer
+            minimum: 0
     InventoryItem:
       type: object
       required:

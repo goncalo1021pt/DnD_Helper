@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 
@@ -175,6 +176,78 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 	// after the switch rather than repeated inside five of its arms.
 	if msg := validateCreatureDeclarations(data); msg != "" {
 		return msg
+	}
+	// Resource pools too: a feat or an item may grant one as readily as a class.
+	if msg := validatePools(data); msg != "" {
+		return msg
+	}
+	return ""
+}
+
+/*
+Resource pools, as content declares them (#175).
+
+A pool's maximum is either a scale expression over the hero or a table of
+exactly twenty values, one per level — Rages follow no formula, Focus Points
+are just the level. Like `scale`, a bad declaration is refused at import
+rather than at the table: the alternative is a Barbarian who reads zero Rages
+mid-session with nothing anywhere saying why.
+*/
+func validatePools(data map[string]interface{}) string {
+	raw, present := data["pools"]
+	if !present {
+		return ""
+	}
+	list, ok := raw.([]interface{})
+	if !ok {
+		return "pools must be a list of {name, uses}"
+	}
+	seen := map[string]bool{}
+	for _, entry := range list {
+		pool, ok := entry.(map[string]interface{})
+		if !ok {
+			return "each pool must be an object with a name and uses"
+		}
+		name, ok := getStr(pool, "name")
+		if !ok || strings.TrimSpace(name) == "" {
+			return "each pool needs a name"
+		}
+		if seen[name] {
+			return "pools declares " + name + " twice"
+		}
+		seen[name] = true
+		switch uses := pool["uses"].(type) {
+		case string:
+			if err := rules.Check(uses); err != nil {
+				return "pool " + name + " uses: " + err.Error()
+			}
+		case []interface{}:
+			if len(uses) != 20 {
+				return "pool " + name + " needs one uses value per level — exactly 20"
+			}
+			for _, v := range uses {
+				n, ok := v.(float64)
+				if !ok || n < 0 || n != math.Trunc(n) {
+					return "pool " + name + " uses must be whole numbers, 0 or more"
+				}
+			}
+		default:
+			return "pool " + name + " needs uses: an expression or a table of 20 numbers"
+		}
+		if lvl, present := pool["level"]; present {
+			if n, ok := lvl.(float64); !ok || n < 1 || n > 20 {
+				return "pool " + name + " level must be between 1 and 20"
+			}
+		}
+		if sr, ok := getStr(pool, "shortRest"); ok && sr != "" &&
+			sr != rules.ShortRestNone && sr != rules.ShortRestOne && sr != rules.ShortRestAll {
+			return "pool " + name + " shortRest must be none, one or all"
+		}
+		if lvl, present := pool["shortRestLevel"]; present {
+			if n, ok := lvl.(float64); !ok || n < 1 || n > 20 {
+				return "pool " + name + " shortRestLevel must be between 1 and 20"
+			}
+		}
 	}
 	return ""
 }

@@ -112,6 +112,14 @@ CharacterSheet:
       description: Present on casters — max and used per spell level.
       items:
         $ref: "../openapi.yaml#/components/schemas/SpellSlot"
+    pools:
+      type: array
+      description: >-
+        The hero's resource pools — Rages, Channel Divinity, Focus Points —
+        already resolved: max computed from the granting content and the
+        hero's level, used read from what they have spent.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/ResourcePool"
 
 SpeciesChoices:
   type: object
@@ -130,6 +138,42 @@ SpellSlot:
     level: { type: integer, minimum: 1, maximum: 9 }
     max: { type: integer, minimum: 0 }
     used: { type: integer, minimum: 0 }
+
+ResourcePool:
+  type: object
+  required: [name, max, used, grantedBy, shortRest]
+  properties:
+    name:
+      type: string
+      description: The pool's name as the granting content declares it — "Rages".
+    max:
+      type: integer
+      minimum: 0
+    used:
+      type: integer
+      minimum: 0
+    grantedBy:
+      type: string
+      description: Name of the content entry that grants this pool — "Barbarian".
+    shortRest:
+      type: string
+      enum: [none, one, all]
+      description: >-
+        What a short rest gives back — nothing, one use, or everything.
+        A long rest always refills the pool.
+
+PoolsInput:
+  type: object
+  required: [used]
+  properties:
+    used:
+      type: object
+      description: >-
+        Uses spent per pool, keyed by pool name. The map is the whole
+        state — a pool missing from it is unspent.
+      additionalProperties:
+        type: integer
+        minimum: 0
 
 AbilityScores:
   type: object
@@ -421,7 +465,7 @@ RestReport:
   type: object
   required:
     [character, kind, hpRestored, hitDiceSpent, hitDiceRegained, hitDiceLeft,
-     slotsRestored, rolls, canSwapSpells]
+     slotsRestored, rolls, canSwapSpells, poolsRestored]
   properties:
     character:
       $ref: "../openapi.yaml#/components/schemas/Character"
@@ -452,3 +496,10 @@ RestReport:
       description: >-
         Whether this hero's class may change its prepared spells now — the
         long-rest trigger the spell swap has been waiting for.
+    poolsRestored:
+      type: array
+      description: >-
+        Names of the resource pools this rest gave uses back to — empty when
+        none moved, or the hero has none.
+      items:
+        type: string

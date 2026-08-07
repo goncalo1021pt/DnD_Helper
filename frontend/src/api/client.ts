@@ -94,6 +94,9 @@ export type InventoryItemInput =
 export type SpellSlot = NonNullable<
   NonNullable<Character["sheet"]>["spellSlots"]
 >[number];
+export type ResourcePool = NonNullable<
+  NonNullable<Character["sheet"]>["pools"]
+>[number];
 export type CharacterCreature = CharacterDetail["creatures"][number];
 export type CreatureRole = CharacterCreature["role"];
 export type CreatureInput =

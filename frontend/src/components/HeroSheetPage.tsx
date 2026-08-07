@@ -37,6 +37,7 @@ import SectionLabel, { type SpeciesChoice } from "./sheet/SectionLabel";
 import SkillsPanel from "./sheet/SkillsPanel";
 import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
+import PoolsPanel from "./sheet/PoolsPanel";
 import CreaturesPanel from "./sheet/CreaturesPanel";
 
 export default function HeroSheetPage() {
@@ -355,6 +356,15 @@ export default function HeroSheetPage() {
 
             {/* features */}
             <FeaturesPanel features={features} />
+
+            {/* Rages, Channel Divinity, Focus Points — the uses those
+                features spend (#175). Under Features for the same reason the
+                creatures are: the text granting them was just read. */}
+            <PoolsPanel
+              characterId={character.id}
+              pools={sheet.pools ?? []}
+              canEdit={canEdit}
+            />
 
             {/* The second stat block: what the hero turns into, and what
                 fights beside them. Sits under Features because that is where

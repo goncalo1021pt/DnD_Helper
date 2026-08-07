@@ -14,6 +14,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
+	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
 /*
@@ -32,19 +33,52 @@ otherwise a thing you can only test by running it and hoping.
 */
 
 // restOutcome is the whole of what a rest changes, decided before anything is
-// written. Hit points, spent slots and spent hit dice move together — a hero
-// left with their slots back and their wounds open has had half a rest, which
-// is not a state the rules have a name for.
+// written. Hit points, spent slots, spent hit dice and spent pool uses move
+// together — a hero left with their slots back and their wounds open has had
+// half a rest, which is not a state the rules have a name for.
 type restOutcome struct {
 	HP          int32
 	SlotsUsed   []int16
 	HitDiceUsed int32
+	PoolsUsed   map[string]int
 
 	HPRestored      int32
 	HitDiceSpent    int
 	HitDiceRegained int
 	Rolls           []int
 	SlotsRestored   bool
+	PoolsRestored   []string
+}
+
+// restPools applies a rest to the hero's pools: what remains spent, and which
+// pools got something back. A long rest clears everything; a short rest gives
+// each pool what its declaration says — nothing, one use, or all of them.
+func restPools(pools []resolvedPool, kind string) (map[string]int, []string) {
+	used := map[string]int{}
+	restored := []string{}
+	for _, p := range pools {
+		if p.Used == 0 {
+			continue
+		}
+		remaining := p.Used
+		if kind == "long" {
+			remaining = 0
+		} else {
+			switch p.ShortRest {
+			case rules.ShortRestAll:
+				remaining = 0
+			case rules.ShortRestOne:
+				remaining = p.Used - 1
+			}
+		}
+		if remaining != p.Used {
+			restored = append(restored, p.Name)
+		}
+		if remaining > 0 {
+			used[p.Name] = remaining
+		}
+	}
+	return used, restored
 }
 
 // noSlots is nine levels of "nothing spent".
@@ -58,7 +92,7 @@ Hit points to full, every slot back, and half the hero's hit dice returned —
 rather than none. Regaining is capped by what was actually spent; a rested hero
 cannot bank dice they never used.
 */
-func longRest(ch db.Character) restOutcome {
+func longRest(ch db.Character, pools []resolvedPool) restOutcome {
 	level := int(ch.Level)
 	if level < 1 {
 		level = 1
@@ -71,13 +105,16 @@ func longRest(ch db.Character) restOutcome {
 	if regain > used {
 		regain = used
 	}
+	poolsUsed, poolsRestored := restPools(pools, "long")
 	return restOutcome{
 		HP:              ch.HpMax,
 		SlotsUsed:       noSlots(),
 		HitDiceUsed:     int32(used - regain),
+		PoolsUsed:       poolsUsed,
 		HPRestored:      max32(0, ch.HpMax-ch.HpCurrent),
 		HitDiceRegained: regain,
 		SlotsRestored:   true,
+		PoolsRestored:   poolsRestored,
 	}
 }
 
@@ -92,7 +129,7 @@ A pact caster's slots come back here; everyone else's wait for the night. That
 is the whole of what makes a Warlock a Warlock at the table, and it is the
 reason `slotsRestored` is a field rather than an assumption.
 */
-func shortRest(ch db.Character, spend, hitDie, conMod int, pactCaster bool, roll func(sides int) int) restOutcome {
+func shortRest(ch db.Character, pools []resolvedPool, spend, hitDie, conMod int, pactCaster bool, roll func(sides int) int) restOutcome {
 	level := int(ch.Level)
 	if level < 1 {
 		level = 1
@@ -128,14 +165,17 @@ func shortRest(ch db.Character, spend, hitDie, conMod int, pactCaster bool, roll
 		hp = ch.HpMax
 	}
 
+	poolsUsed, poolsRestored := restPools(pools, "short")
 	out := restOutcome{
 		HP:            hp,
 		SlotsUsed:     ch.SpellSlotsUsed,
 		HitDiceUsed:   int32(int(ch.HitDiceUsed) + spend),
+		PoolsUsed:     poolsUsed,
 		HPRestored:    max32(0, hp-ch.HpCurrent),
 		HitDiceSpent:  spend,
 		Rolls:         rolls,
 		SlotsRestored: pactCaster,
+		PoolsRestored: poolsRestored,
 	}
 	if pactCaster {
 		out.SlotsUsed = noSlots()
@@ -195,10 +235,12 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 		conMod = abilityMod(int(*character.Constitution))
 	}
 
+	pools := s.resolvePools(ctx, character)
+
 	var outcome restOutcome
 	switch request.Body.Kind {
 	case "long":
-		outcome = longRest(character)
+		outcome = longRest(character, pools)
 	case "short":
 		spend := 0
 		if request.Body.HitDice != nil {
@@ -207,18 +249,23 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 		if spend > 0 && hitDie == 0 {
 			return badRequest("this hero has no class, so no hit dice to spend")
 		}
-		outcome = shortRest(character, spend, hitDie, conMod, cr.Spellcaster == "pact", func(sides int) int {
+		outcome = shortRest(character, pools, spend, hitDie, conMod, cr.Spellcaster == "pact", func(sides int) int {
 			return rollDie(sides)
 		})
 	default:
 		return badRequest("a rest is either long or short")
 	}
 
+	poolsUsed, err := json.Marshal(outcome.PoolsUsed)
+	if err != nil {
+		return nil, err
+	}
 	updated, err := s.queries.RestCharacter(ctx, db.RestCharacterParams{
 		ID:             character.ID,
 		HpCurrent:      outcome.HP,
 		SpellSlotsUsed: outcome.SlotsUsed,
 		HitDiceUsed:    int16(outcome.HitDiceUsed),
+		PoolsUsed:      poolsUsed,
 	})
 	if err != nil {
 		return nil, err
@@ -249,12 +296,20 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 	if rolls == nil {
 		rolls = []int{}
 	}
+	poolsRestored := outcome.PoolsRestored
+	if poolsRestored == nil {
+		poolsRestored = []string{}
+	}
 	ownerName, err := s.ownerName(ctx, updated.OwnerUserID)
 	if err != nil {
 		return nil, err
 	}
+	// The report's hero carries the sheet the rest just refilled — slots and
+	// pools included — rather than making the caller refetch to see it.
+	hero := toAPICharacterWithClass(updated, ownerName, actor, classData)
+	attachPools(&hero, s.resolvePools(ctx, updated))
 	return api.RestCharacter200JSONResponse(api.RestReport{
-		Character:       toAPICharacter(updated, ownerName, actor),
+		Character:       hero,
 		Kind:            string(request.Body.Kind),
 		HpRestored:      int(outcome.HPRestored),
 		HitDiceSpent:    outcome.HitDiceSpent,
@@ -263,6 +318,7 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 		SlotsRestored:   outcome.SlotsRestored,
 		Rolls:           rolls,
 		CanSwapSpells:   canSwap,
+		PoolsRestored:   poolsRestored,
 	}), nil
 }
 
