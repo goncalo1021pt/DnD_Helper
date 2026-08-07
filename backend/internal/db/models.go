@@ -543,6 +543,7 @@ type Character struct {
 	SpeciesChoices []byte             `json:"species_choices"`
 	ForgeKey       pgtype.UUID        `json:"forge_key"`
 	HitDiceUsed    int16              `json:"hit_dice_used"`
+	PoolsUsed      []byte             `json:"pools_used"`
 }
 
 type CharacterCreature struct {

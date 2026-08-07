@@ -211,6 +211,34 @@
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
 
+/characters/{characterId}/pools:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  put:
+    operationId: setPools
+    summary: Set resource-pool uses spent (owner or DM)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/PoolsInput"
+    responses:
+      "200":
+        description: Hero with updated pools
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
 /characters/{characterId}/items:
   parameters:
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"

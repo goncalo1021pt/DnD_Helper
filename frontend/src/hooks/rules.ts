@@ -86,6 +86,30 @@ export function useSetSpellSlots(characterId: string) {
 }
 
 /**
+ * Set uses spent per resource pool (#175). The map is the whole state, the
+ * same write-the-lot contract as spell slots — the server knows the maxima
+ * and refuses a spend past them.
+ */
+export function useSetPools(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (used: Record<string, number>) => {
+      const { data, error } = await api.PUT("/characters/{characterId}/pools", {
+        params: { path: { characterId } },
+        body: { used },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["character-detail", characterId] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+    },
+  });
+}
+
+/**
  * Trade prepared spells after a Long Rest. The server is the authority on
  * whether this hero's class may do it at all and how many — see the class
  * data's spellChanges rule.

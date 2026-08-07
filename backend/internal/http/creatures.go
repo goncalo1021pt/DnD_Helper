@@ -557,17 +557,58 @@ func (s *Server) UpdateCharacterCreature(ctx context.Context, request api.Update
 		}
 	}
 
-	// One shape at a time: taking a form releases whatever else was held.
-	if active && !row.Active && row.Role == db.CreatureRoleForm {
-		if err := s.queries.DeactivateCharacterForms(ctx, db.DeactivateCharacterFormsParams{
+	// Taking a form spends a use of the pool its feature keeps, when the hero
+	// has one — a Druid's Wild Shape rows and their Wild Shape pool share a
+	// name by declaration, not by code, so a pack's shapeshifter pays the same
+	// way. An empty pool refuses the change, which is the rule; a table that
+	// rules otherwise still has the pips to hand-edit. Dropping a form refunds
+	// nothing — a use spent is spent.
+	taking := active && !row.Active && row.Role == db.CreatureRoleForm
+	var spentPools []byte
+	if taking && row.GrantedBy != "" {
+		for _, pool := range s.resolvePools(ctx, character) {
+			if !strings.EqualFold(pool.Name, row.GrantedBy) {
+				continue
+			}
+			if pool.Used >= pool.Max {
+				return badRequest("no uses of " + pool.Name + " left — rest first")
+			}
+			used := poolsUsedIn(character)
+			used[pool.Name] = pool.Used + 1
+			raw, err := json.Marshal(used)
+			if err != nil {
+				return nil, err
+			}
+			spentPools = raw
+			break
+		}
+	}
+
+	// One shape at a time: taking a form releases whatever else was held. The
+	// release, the spend and the change move together or not at all.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+	if taking {
+		if err := qtx.DeactivateCharacterForms(ctx, db.DeactivateCharacterFormsParams{
 			CharacterID: character.ID,
 			ID:          row.ID,
 		}); err != nil {
 			return nil, err
 		}
 	}
-
-	if _, err := s.queries.UpdateCharacterCreature(ctx, db.UpdateCharacterCreatureParams{
+	if spentPools != nil {
+		if _, err := qtx.SetPoolsUsed(ctx, db.SetPoolsUsedParams{
+			ID:        character.ID,
+			PoolsUsed: spentPools,
+		}); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := qtx.UpdateCharacterCreature(ctx, db.UpdateCharacterCreatureParams{
 		ID:        row.ID,
 		Name:      name,
 		Overrides: overrides,
@@ -575,6 +616,9 @@ func (s *Server) UpdateCharacterCreature(ctx context.Context, request api.Update
 		Active:    active,
 		Notes:     notes,
 	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	return api.UpdateCharacterCreature200JSONResponse(s.freshCreature(ctx, character, row.ID)), nil

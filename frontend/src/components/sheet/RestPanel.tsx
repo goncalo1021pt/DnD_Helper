@@ -20,6 +20,7 @@ type Report = {
   slotsRestored: boolean;
   rolls: number[];
   canSwapSpells: boolean;
+  poolsRestored: string[];
 };
 
 /**
@@ -34,6 +35,9 @@ function restLine(kind: "long" | "short", r: Report, hasSlots: boolean): string 
   const parts: string[] = [];
   if (r.hpRestored > 0) parts.push(`${r.hpRestored} HP back`);
   if (r.slotsRestored && hasSlots) parts.push("spell slots restored");
+  // The server names only the pools that actually moved, so a Fighter's report
+  // never mentions pools they do not have.
+  if ((r.poolsRestored ?? []).length > 0) parts.push(`${r.poolsRestored.join(", ")} restored`);
   if (r.hitDiceRegained > 0) {
     parts.push(`${r.hitDiceRegained} hit ${r.hitDiceRegained === 1 ? "die" : "dice"} regained`);
   }

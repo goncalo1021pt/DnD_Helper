@@ -118,8 +118,10 @@ func (s *Server) GetCharacter(ctx context.Context, request api.GetCharacterReque
 		return nil, err
 	}
 
+	hero := toAPICharacterWithClass(character, ownerName, uid, s.classDataFor(ctx, character))
+	attachPools(&hero, s.resolvePools(ctx, character))
 	return api.GetCharacter200JSONResponse(api.CharacterDetail{
-		Character: toAPICharacterWithClass(character, ownerName, uid, s.classDataFor(ctx, character)),
+		Character: hero,
 		Spells:    spells,
 		Items:     items,
 		Creatures: creatures,
