@@ -18,7 +18,13 @@
   --color-ink-strong: #3a2616;
   --color-ink-value: #4a3320;
   --color-ink-body: #5c4528;
-  --color-ink-label: #9a703a;
+  /* Stamped labels — the smallest type in the app, at 8-9px uppercase with
+     wide tracking, which is exactly the size that needs the most contrast and
+     was getting the least. #9a703a measured 3.5:1 on the light end of the
+     parchment gradient and 2.7:1 on the dark end, both under the 4.5:1 small
+     text asks for. This clears it at both ends and stays a label rather than
+     becoming body copy. */
+  --color-ink-label: #6f4d24;
   --color-ink-faded: #8a6a3a;
 
   /* Cream + gold (text on dark) */
@@ -363,10 +369,16 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* Ghost with an inset ink hairline (secondary on parchment). */
+/* Ghost with an inset ink hairline (secondary on parchment).
+
+   The hairline is the only thing saying "this is a button" — the fill is 5%
+   ink, which is nearly the parchment itself. At rgba(120,80,30,.4) it composited
+   to 1.66:1 against the darker end of the parchment gradient, well under the
+   3:1 WCAG asks of a control boundary, and the button read as a label. The
+   ink-toned line at .65 lands at 3.1:1 without turning the ghost into a slab. */
 .btn-ghost-ink {
   background: rgba(43, 32, 24, 0.05);
-  box-shadow: inset 0 0 0 1px rgba(120, 80, 30, 0.4);
+  box-shadow: inset 0 0 0 1px rgba(74, 58, 36, 0.65);
   color: #4a3a24;
   border-radius: 2px;
 }
@@ -391,6 +403,21 @@ body {
   box-shadow: inset 0 0 0 1px rgba(139, 37, 32, 0.45);
   color: #8b2520;
   border-radius: 2px;
+}
+/* Ghost with an ember hairline (destructive on the dark hall). btn-ghost-red
+   is wax-red ink for parchment — on a hall panel its #8b2520 text sinks into
+   the dark and the button all but disappears, the same failure mode as
+   btn-ghost-ink there. Same cure: keep the red meaning, lift it to hall
+   luminance. */
+.btn-ghost-ember {
+  background: rgba(139, 37, 32, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(200, 92, 70, 0.45);
+  color: #dd9a86;
+  border-radius: 2px;
+}
+.btn-ghost-ember:hover:not(:disabled) {
+  background: rgba(139, 37, 32, 0.28);
+  filter: none;
 }
 .btn-ghost-red:hover:not(:disabled) {
   background: rgba(139, 37, 32, 0.12);
@@ -417,6 +444,51 @@ body {
     0 4px 0 #b39564;
 }
 
+/* ---------- scrollbars ---------- */
+
+/* Nothing styled these, so every scroller wore the browser default: a pale
+   grey thumb that vanishes on parchment next to a mismatched one on the hall —
+   two kinds of scrollbar on one screen, neither of them ours. Two surfaces,
+   two inks, same as the buttons: gold on the dark hall, ink on parchment.
+   Firefox reads scrollbar-color (which inherits, so the .parchment override
+   reaches every list inside a parchment modal); WebKit reads the pseudo
+   elements, which don't inherit, so each rule is stated for the container and
+   its descendants both. */
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201, 162, 39, 0.4) rgba(16, 9, 5, 0.35);
+}
+.parchment,
+.parchment * {
+  scrollbar-color: rgba(90, 60, 22, 0.5) rgba(120, 86, 42, 0.1);
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(16, 9, 5, 0.35);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(201, 162, 39, 0.4);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 162, 39, 0.6);
+}
+.parchment::-webkit-scrollbar-track,
+.parchment ::-webkit-scrollbar-track {
+  background: rgba(120, 86, 42, 0.1);
+}
+.parchment::-webkit-scrollbar-thumb,
+.parchment ::-webkit-scrollbar-thumb {
+  background: rgba(90, 60, 22, 0.5);
+}
+.parchment::-webkit-scrollbar-thumb:hover,
+.parchment ::-webkit-scrollbar-thumb:hover {
+  background: rgba(90, 60, 22, 0.7);
+}
+
 /* ---------- inputs ---------- */
 
 /* Ink-on-parchment input: square, inset hairline border. */
@@ -436,8 +508,13 @@ body {
 .input-parchment:focus {
   box-shadow: inset 0 0 0 1.5px #8b6a3a;
 }
+/* Placeholders sit on a translucent white wash over parchment, so the colour
+   that looks right against #efe3c6 in a swatch renders against ~#ebdec6 in
+   place. #9a855e composited there is 2.7:1 — a search field whose prompt you
+   have to hunt for. This clears AA at 5:1 and still reads as a hint. */
 .input-parchment::placeholder {
-  color: #9a855e;
+  color: #6d5a39;
+  font-style: italic;
 }
 
 /* Compact input for dense forms. */

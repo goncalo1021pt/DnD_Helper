@@ -526,6 +526,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/characters/{characterId}/creatures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give a hero a form, companion or summon (owner or DM) */
+        post: operations["addCharacterCreature"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/creatures/{creatureId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+                creatureId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Release a creature (owner or DM) */
+        delete: operations["deleteCharacterCreature"];
+        options?: never;
+        head?: never;
+        /** Mold a creature's numbers, track its hit points, or take the form (owner or DM) */
+        patch: operations["updateCharacterCreature"];
+        trace?: never;
+    };
+    "/characters/{characterId}/creature-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        /** The forms and companions this hero's own features grant */
+        get: operations["getCreatureOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/characters/{characterId}/levelup": {
         parameters: {
             query?: never;
@@ -2159,6 +2218,112 @@ export interface components {
             character: components["schemas"]["Character"];
             spells: components["schemas"]["RulesContent"][];
             items: components["schemas"]["InventoryItem"][];
+            /** @description The hero's second stat blocks — forms they take and companions that fight beside them — already resolved, so the sheet needs no second round trip and players need no reach into the Den. */
+            creatures: components["schemas"]["CharacterCreature"][];
+        };
+        /**
+         * @description What the second stat block is to the hero. A `form` replaces their statistics while keeping their hit points (Wild Shape); a `companion` is a separate creature with its own pool that stays between sessions (a Steel Defender, a familiar, a steed); a `summon` is the same but temporary.
+         * @enum {string}
+         */
+        CreatureRole: "form" | "companion" | "summon";
+        CharacterCreature: {
+            /** Format: uuid */
+            id: string;
+            role: components["schemas"]["CreatureRole"];
+            /** @description The player's name for it — a wolf companion is somebody's Grey. */
+            name: string;
+            /** @description The feature that granted it, for the stamp on the sheet. */
+            grantedBy?: string;
+            /** @description Currently shaped into, or currently on the field. */
+            active: boolean;
+            /** @description Damage tracked against `hpMax`. Null on a form, which has no pool of its own — in a form the hero keeps their own hit points and gains temporary ones instead. */
+            hpCurrent?: number | null;
+            /** @description Read-only, and read off the resolved block rather than stored: a companion whose pool is "five times your level" has to grow when the hero does. Houserule it by overriding `hp` like any other field. */
+            hpMax?: number | null;
+            notes?: string;
+            /**
+             * Format: uuid
+             * @description The library stat block behind it; null for one written by hand.
+             */
+            contentId?: string | null;
+            /**
+             * @description Where the numbers came from. `custom` means there is no library entry.
+             * @enum {string}
+             */
+            blockSource?: "srd" | "homebrew" | "custom";
+            /** @description The stat block as played: the library entry, with any `scale` expressions on it evaluated against this hero, with the player's overrides applied on top. */
+            block: {
+                [key: string]: unknown;
+            };
+            /** @description Which fields the player has set by hand. Everything else still tracks the library entry and re-scales when the hero levels. */
+            molded: string[];
+            /** @description The molded values themselves, unmerged. An editor needs these: `block` cannot tell a hand-set number from the book's, so building a patch from it would silently un-mold every field the player did not retype. */
+            overrides?: {
+                [key: string]: unknown;
+            };
+            /** @description Temporary hit points assuming this form grants, when the granting feature declares them. Forms only. */
+            tempHp?: number | null;
+        };
+        CreatureInput: {
+            role: components["schemas"]["CreatureRole"];
+            /**
+             * Format: uuid
+             * @description A stat block from the library. Omit and supply a name to write one by hand instead. A player may only draw on blocks their own features grant; a DM may draw on any the campaign admits.
+             */
+            contentId?: string;
+            /** @description Defaults to the library entry's name. */
+            name?: string;
+            grantedBy?: string;
+            /** @description Fields to mold from the outset. */
+            overrides?: {
+                [key: string]: unknown;
+            };
+            notes?: string;
+        };
+        CreaturePatch: {
+            name?: string;
+            /** @description Replaces the whole override map, so removing a field un-molds it and hands that number back to the library entry. */
+            overrides?: {
+                [key: string]: unknown;
+            };
+            /** @description Where the creature stands now, clamped to the block's hit points. The maximum is not settable here — override `hp` to change it. */
+            hpCurrent?: number;
+            /** @description Assuming a form drops any other form the hero is holding — one shape at a time. Companions and summons are independent of each other. */
+            active?: boolean;
+            notes?: string;
+        };
+        CreatureOption: {
+            /** Format: uuid */
+            contentId?: string;
+            name: string;
+            summary?: string;
+            role: components["schemas"]["CreatureRole"];
+            /** @description The feature offering it. */
+            grantedBy?: string;
+            /** @description Resolved for this hero, so the picker previews real numbers. */
+            block: {
+                [key: string]: unknown;
+            };
+        };
+        FormAllowance: {
+            /** @description The feature granting the forms, e.g. "Wild Shape". */
+            feature: string;
+            /** @description The creature type forms are drawn from, e.g. "Beast". */
+            creatureType?: string;
+            /** @description How many forms the hero may know at their level. */
+            known: number;
+            /** @description The Challenge Rating ceiling at their level. */
+            maxCR: number;
+            /** @description Whether a form with a Fly Speed is allowed yet. */
+            fly: boolean;
+            /** @description Temporary hit points assuming a form grants. */
+            tempHp: number;
+            options: components["schemas"]["CreatureOption"][];
+        };
+        /** @description What this hero's features actually grant. This is the only way a player reaches monster stat blocks — the Den stays a DM room, and this is narrowed to the creatures their own sheet entitles them to. */
+        CreatureOptions: {
+            forms: components["schemas"]["FormAllowance"][];
+            companions: components["schemas"]["CreatureOption"][];
         };
         Vendor: {
             /** Format: uuid */
@@ -3753,6 +3918,116 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addCharacterCreature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatureInput"];
+            };
+        };
+        responses: {
+            /** @description The new creature, resolved for this hero */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterCreature"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCharacterCreature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+                creatureId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCharacterCreature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+                creatureId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreaturePatch"];
+            };
+        };
+        responses: {
+            /** @description The updated creature */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacterCreature"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCreatureOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Everything the sheet entitles this hero to */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatureOptions"];
+                };
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];

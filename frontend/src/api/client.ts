@@ -94,6 +94,16 @@ export type InventoryItemInput =
 export type SpellSlot = NonNullable<
   NonNullable<Character["sheet"]>["spellSlots"]
 >[number];
+export type CharacterCreature = CharacterDetail["creatures"][number];
+export type CreatureRole = CharacterCreature["role"];
+export type CreatureInput =
+  paths["/characters/{characterId}/creatures"]["post"]["requestBody"]["content"]["application/json"];
+export type CreaturePatch =
+  paths["/characters/{characterId}/creatures/{creatureId}"]["patch"]["requestBody"]["content"]["application/json"];
+export type CreatureOptions =
+  paths["/characters/{characterId}/creature-options"]["get"]["responses"]["200"]["content"]["application/json"];
+export type CreatureOption = CreatureOptions["companions"][number];
+export type FormAllowance = CreatureOptions["forms"][number];
 export type ImportReport =
   paths["/rules/import"]["post"]["responses"]["200"]["content"]["application/json"];
 export type HomebrewImpact =

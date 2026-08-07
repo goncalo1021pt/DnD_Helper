@@ -37,6 +37,7 @@ import SectionLabel, { type SpeciesChoice } from "./sheet/SectionLabel";
 import SkillsPanel from "./sheet/SkillsPanel";
 import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
+import CreaturesPanel from "./sheet/CreaturesPanel";
 
 export default function HeroSheetPage() {
   const { heroId } = useParams<{ heroId: string }>();
@@ -262,7 +263,9 @@ export default function HeroSheetPage() {
               }
             }}
             title="Print this hero onto the official 2024 character sheet"
-            className="btn-base btn-ghost-ink h-10 gap-1.5 px-3 text-[10px]"
+            // Ghost-gold, not ghost-ink: this sits on the dark hall header,
+            // where ink-on-parchment colors read as a disabled button (#186).
+            className="btn-base btn-ghost-gold h-10 gap-1.5 px-3 text-[10px]"
           >
             <IconPrinter size={14} strokeWidth={1.8} />
             {printing ? "Setting the ink…" : "Print"}
@@ -353,6 +356,15 @@ export default function HeroSheetPage() {
             {/* features */}
             <FeaturesPanel features={features} />
 
+            {/* The second stat block: what the hero turns into, and what
+                fights beside them. Sits under Features because that is where
+                the feature granting it was just read. */}
+            <CreaturesPanel
+              characterId={character.id}
+              creatures={detail.creatures}
+              canEdit={canEdit}
+            />
+
             {/* One action instead of three chores (#118). */}
             <RestPanel
               character={character}
@@ -383,12 +395,10 @@ export default function HeroSheetPage() {
                   {canEdit && canSwapOn(klass, "long-rest") && (detail?.spells ?? []).length > 0 && (
                     <button
                       onClick={() => setSwapping(true)}
-                      className="label-stamp mb-2.5 cursor-pointer rounded-[2px] border-none px-2.5 py-1 text-[9px] tracking-[1px]"
-                      style={{
-                        background: "rgba(16,9,5,.4)",
-                        color: "#cdba93",
-                        boxShadow: "inset 0 0 0 1px rgba(201,162,39,.3)",
-                      }}
+                      // btn-ghost-gold without btn-base, so the chip keeps its
+                      // stamp typography — the class carries the surface
+                      // colors that were hand-rolled here before (#186).
+                      className="label-stamp btn-ghost-gold mb-2.5 cursor-pointer border-none px-2.5 py-1 text-[9px] tracking-[1px]"
                     >
                       Change prepared spells
                     </button>
