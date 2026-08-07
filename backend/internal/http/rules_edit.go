@@ -157,6 +157,10 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 			if dt, _ := getStr(data, "damageType"); dt == "" {
 				return "a weapon needs a damage type"
 			}
+			// The Versatile two-handed die, when the weapon has one (#189).
+			if d2, ok := getStr(data, "damage2"); ok && d2 != "" && !weaponDamageRe.MatchString(d2) {
+				return "damage2 must look like 1d10 (the two-handed die)"
+			}
 		case "gear":
 			// free-form; the summary carries the text
 		default:
@@ -164,6 +168,10 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 		}
 		// The fields every item may carry, whatever it does in a fight (#101).
 		if msg := validateItemTrappings(data); msg != "" {
+			return msg
+		}
+		// And the magic on top (#189): a worn kind, a +N bonus.
+		if msg := validateMagicItem(data); msg != "" {
 			return msg
 		}
 	case db.ContentKindFeat:
@@ -361,6 +369,42 @@ var itemRarities = map[string]bool{
 // — and nothing else, so a cost cannot quietly become prose the sheet then
 // prints as a number.
 var costRe = regexp.MustCompile(`^\d{1,3}(,\d{3})*(\.\d+)?\s?(cp|sp|ep|gp|pp)$`)
+
+/*
+The magic on an item (#189): where it is worn, and what its +N is worth.
+
+`wear` makes a gear item occupy a place on the body — a cloak, a ring — so a
+Cloak of Protection takes a slot the way armor does instead of lying in the
+pack as prose. `bonus` is the +1..+3 the engines actually apply: to AC on
+armor, shields and worn items, to attack and damage on weapons. Both engines
+read it (armor.go here, derive.ts in the client), so both are validated at
+the door like everything the sheet computes from.
+*/
+func validateMagicItem(data map[string]interface{}) string {
+	itemType, _ := getStr(data, "type")
+	if wear, ok := getStr(data, "wear"); ok && wear != "" {
+		if itemType != "gear" {
+			return "wear belongs on gear — armor, shields and weapons have their own slots"
+		}
+		if _, known := wearSlots[wear]; !known {
+			return "wear must be cloak, amulet, helm, belt, boots, gloves, bracers or ring"
+		}
+	}
+	if raw, present := data["bonus"]; present {
+		n, ok := raw.(float64)
+		if !ok || n < 1 || n > 3 || n != math.Trunc(n) {
+			return "a magic bonus is +1, +2 or +3"
+		}
+		wear, _ := getStr(data, "wear")
+		if itemType == "gear" && wear == "" {
+			return "a bonus needs somewhere to apply — armor, a shield, a weapon, or a worn item"
+		}
+		if rarity, _ := getStr(data, "rarity"); strings.TrimSpace(rarity) == "" {
+			return "only a magic item can carry a bonus — give it a rarity"
+		}
+	}
+	return ""
+}
 
 func validateItemTrappings(data map[string]interface{}) string {
 	if rarity, _ := getStr(data, "rarity"); !itemRarities[strings.ToLower(strings.TrimSpace(rarity))] {

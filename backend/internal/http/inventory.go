@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -16,7 +17,29 @@ import (
 )
 
 type itemData struct {
-	Type string `json:"type"`
+	Type       string   `json:"type"`
+	Wear       string   `json:"wear"`
+	Attunement bool     `json:"attunement"`
+	Properties []string `json:"properties"`
+}
+
+// slotConflicts says which occupancies collide: a two-handed grip owns both
+// hands, so it collides with either of them as well as with itself.
+func slotConflicts(a, b string) bool {
+	if a == b {
+		return true
+	}
+	hand := func(s string) bool { return s == "mainhand" || s == "offhand" }
+	return (a == "bothhands" && hand(b)) || (b == "bothhands" && hand(a))
+}
+
+// wearSlots is where each kind of worn item may sit. One slot per kind — a
+// hero wears one cloak, the rules and the mirror agree — except rings, which
+// get the classic two. Mirrored by slotsFor in frontend/src/components/sheet/items.ts.
+var wearSlots = map[string][]string{
+	"cloak": {"cloak"}, "amulet": {"amulet"}, "helm": {"helm"},
+	"belt": {"belt"}, "boots": {"boots"}, "gloves": {"gloves"},
+	"bracers": {"bracers"}, "ring": {"ring1", "ring2"},
 }
 
 func toAPIInventoryItem(row db.ListCharacterItemsRow, viewer uuid.UUID) api.InventoryItem {
@@ -26,6 +49,7 @@ func toAPIInventoryItem(row db.ListCharacterItemsRow, viewer uuid.UUID) api.Inve
 		Name:     row.Name,
 		Qty:      int(row.Qty),
 		Equipped: row.Equipped,
+		Attuned:  row.Attuned,
 		Slot:     &slot,
 	}
 	if row.ContentID.Valid && row.Kind != nil && row.Source != nil {
@@ -144,7 +168,7 @@ func (s *Server) freshInventoryItem(ctx context.Context, row db.CharacterItem, v
 			}
 		}
 	}
-	return api.InventoryItem{Id: row.ID, Name: row.Name, Qty: int(row.Qty), Equipped: row.Equipped}
+	return api.InventoryItem{Id: row.ID, Name: row.Name, Qty: int(row.Qty), Equipped: row.Equipped, Attuned: row.Attuned}
 }
 
 // UpdateInventoryItem changes quantity or equip state; equipping armor or a
@@ -187,17 +211,25 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 	if request.Body.Slot != nil {
 		// Equip into a named slot; the current occupant is displaced.
 		want := string(*request.Body.Slot)
-		itemType, ok := s.equipType(ctx, row)
+		d, ok := s.equipData(ctx, row)
 		if !ok {
-			return badRequest("only armor, shields and weapons can be equipped")
+			return badRequest("only armor, shields, weapons and worn items can be equipped")
 		}
+		twoHanded := slices.Contains(d.Properties, "Two-Handed")
+		versatile := slices.Contains(d.Properties, "Versatile")
 		switch {
-		case itemType == "armor" && want != "armor":
+		case d.Type == "armor" && want != "armor":
 			return badRequest("armor is worn, not held — it only fits the armor slot")
-		case itemType == "shield" && want != "offhand":
+		case d.Type == "shield" && want != "offhand":
 			return badRequest("a shield sits in the off-hand")
-		case itemType == "weapon" && want == "armor":
-			return badRequest("a weapon can't be worn as armor")
+		case d.Type == "weapon" && twoHanded && want != "bothhands":
+			return badRequest("that weapon takes both hands — there is no one-handed grip")
+		case d.Type == "weapon" && want == "bothhands" && !twoHanded && !versatile:
+			return badRequest("only a versatile or two-handed weapon fills both hands")
+		case d.Type == "weapon" && want != "mainhand" && want != "offhand" && want != "bothhands":
+			return badRequest("a weapon is held, not worn — main hand, off hand or both")
+		case d.Type == "gear" && !slices.Contains(wearSlots[d.Wear], want):
+			return badRequest("that is worn as a " + d.Wear + " — it fits no other place")
 		}
 		if err := s.clearSlot(ctx, character.ID, row.ID, want); err != nil {
 			return nil, err
@@ -207,20 +239,32 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 		equipped = *request.Body.Equipped
 		if equipped {
 			// Legacy equip without a slot: infer the natural one.
-			itemType, ok := s.equipType(ctx, row)
+			d, ok := s.equipData(ctx, row)
 			if !ok {
-				return badRequest("only armor, shields and weapons can be equipped")
+				return badRequest("only armor, shields, weapons and worn items can be equipped")
 			}
-			switch itemType {
-			case "armor":
+			switch {
+			case d.Type == "armor":
 				slot = "armor"
-			case "shield":
+			case d.Type == "shield":
 				slot = "offhand"
-			default:
+			case d.Type == "weapon":
 				slot = "mainhand"
-				if s.slotTaken(ctx, character.ID, row.ID, "mainhand") &&
+				if slices.Contains(d.Properties, "Two-Handed") {
+					slot = "bothhands"
+				} else if s.slotTaken(ctx, character.ID, row.ID, "mainhand") &&
 					!s.slotTaken(ctx, character.ID, row.ID, "offhand") {
 					slot = "offhand"
+				}
+			default:
+				// A worn kind's own slot; a ring takes the first free hand.
+				kinds := wearSlots[d.Wear]
+				slot = kinds[0]
+				for _, k := range kinds {
+					if !s.slotTaken(ctx, character.ID, row.ID, k) {
+						slot = k
+						break
+					}
 				}
 			}
 			if err := s.clearSlot(ctx, character.ID, row.ID, slot); err != nil {
@@ -232,11 +276,24 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 		slot = ""
 	}
 
+	// The bond is its own act, separate from where the item sits (#189).
+	attuned := row.Attuned
+	if request.Body.Attuned != nil && *request.Body.Attuned != row.Attuned {
+		if *request.Body.Attuned {
+			d, hasContent := s.equipContentData(ctx, row)
+			if msg := attuneRefusal(hasContent, d, s.attunedCount(ctx, character.ID, row.ID)); msg != "" {
+				return badRequest(msg)
+			}
+		}
+		attuned = *request.Body.Attuned
+	}
+
 	if _, err := s.queries.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
 		ID:       row.ID,
 		Qty:      qty,
 		Equipped: equipped,
 		Slot:     slot,
+		Attuned:  attuned,
 	}); err != nil {
 		return nil, err
 	}
@@ -252,27 +309,71 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 	return api.UpdateInventoryItem200JSONResponse(s.freshInventoryItem(ctx, updated, uid)), nil
 }
 
-// equipType resolves the item type behind a row; free-text rows can't equip.
-func (s *Server) equipType(ctx context.Context, row db.CharacterItem) (string, bool) {
+// equipContentData resolves the item data behind a row; false for free-text
+// rows and dangling references, which can neither equip nor attune.
+func (s *Server) equipContentData(ctx context.Context, row db.CharacterItem) (itemData, bool) {
 	if !row.ContentID.Valid {
-		return "", false
+		return itemData{}, false
 	}
 	content, err := s.queries.GetContent(ctx, uuid.UUID(row.ContentID.Bytes))
 	if err != nil {
-		return "", false
+		return itemData{}, false
 	}
 	var d itemData
 	if err := json.Unmarshal(content.Data, &d); err != nil {
-		return "", false
+		return itemData{}, false
+	}
+	return d, true
+}
+
+// equipData is equipContentData narrowed to what may occupy a slot: armor,
+// shields, weapons, and gear that declares a wear kind.
+func (s *Server) equipData(ctx context.Context, row db.CharacterItem) (itemData, bool) {
+	d, ok := s.equipContentData(ctx, row)
+	if !ok {
+		return itemData{}, false
 	}
 	switch d.Type {
 	case "armor", "shield", "weapon":
-		return d.Type, true
+		return d, true
+	case "gear":
+		if _, worn := wearSlots[d.Wear]; worn {
+			return d, true
+		}
 	}
-	return "", false
+	return itemData{}, false
 }
 
-// clearSlot stows whatever else occupies a slot, making room for keepID.
+// attuneRefusal is the whole of the attunement rule, kept pure so the tests
+// need no database: only a library item that asks for attunement can be
+// attuned to, and three bonds are the most a hero can hold (2024 rules).
+func attuneRefusal(hasContent bool, d itemData, attunedRows int) string {
+	if !hasContent || !d.Attunement {
+		return "only an item that requires attunement can be attuned to"
+	}
+	if attunedRows >= 3 {
+		return "three items are the most a hero can attune to"
+	}
+	return ""
+}
+
+// attunedCount counts the hero's attuned rows, besides the one asking.
+func (s *Server) attunedCount(ctx context.Context, characterID, keepID uuid.UUID) int {
+	items, err := s.queries.ListCharacterItems(ctx, characterID)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, it := range items {
+		if it.Attuned && it.ID != keepID {
+			n++
+		}
+	}
+	return n
+}
+
+// clearSlot stows whatever the incoming occupancy collides with, making room
+// for keepID — a two-handed grip empties both hands, sword and shield alike.
 func (s *Server) clearSlot(ctx context.Context, characterID, keepID uuid.UUID, slot string) error {
 	items, err := s.queries.ListCharacterItems(ctx, characterID)
 	if err != nil {
@@ -280,7 +381,7 @@ func (s *Server) clearSlot(ctx context.Context, characterID, keepID uuid.UUID, s
 	}
 	var displaced []uuid.UUID
 	for _, it := range items {
-		if it.Slot == slot && it.ID != keepID {
+		if it.Slot != "" && slotConflicts(it.Slot, slot) && it.ID != keepID {
 			displaced = append(displaced, it.ID)
 		}
 	}
@@ -293,14 +394,14 @@ func (s *Server) clearSlot(ctx context.Context, characterID, keepID uuid.UUID, s
 	})
 }
 
-// slotTaken reports whether another row already sits in a slot.
+// slotTaken reports whether another row already collides with a slot.
 func (s *Server) slotTaken(ctx context.Context, characterID, keepID uuid.UUID, slot string) bool {
 	items, err := s.queries.ListCharacterItems(ctx, characterID)
 	if err != nil {
 		return false
 	}
 	for _, it := range items {
-		if it.Slot == slot && it.ID != keepID {
+		if it.Slot != "" && slotConflicts(it.Slot, slot) && it.ID != keepID {
 			return true
 		}
 	}

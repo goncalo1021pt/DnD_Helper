@@ -14,6 +14,9 @@ should go on reading it as one.
 
 const RARITIES = ["", "common", "uncommon", "rare", "very rare", "legendary", "artifact"];
 
+// Where a worn thing hangs (#189) — mirrors wearSlots on the server.
+const WEAR_KINDS = ["", "cloak", "amulet", "helm", "belt", "boots", "gloves", "bracers", "ring"];
+
 export default function ItemFields({ data, set, strArr }: FieldProps) {
   const itemType = (data.type as string) ?? "gear";
   const rarity = (data.rarity as string) ?? "";
@@ -81,6 +84,13 @@ export default function ItemFields({ data, set, strArr }: FieldProps) {
               onChange={(e) => set("damage", e.target.value)} />
           </label>
           <label className="flex flex-col gap-1.5">
+            <span className="field-label">Two-handed die</span>
+            <input className={`${input} w-24`} placeholder="1d10"
+              title="Versatile weapons only — the die rolled when held in both hands"
+              value={(data.damage2 as string) ?? ""}
+              onChange={(e) => set("damage2", e.target.value === "" ? undefined : e.target.value)} />
+          </label>
+          <label className="flex flex-col gap-1.5">
             <span className="field-label">Damage type</span>
             <input className={`${input} w-36`} placeholder="slashing"
               value={(data.damageType as string) ?? ""}
@@ -140,6 +150,36 @@ export default function ItemFields({ data, set, strArr }: FieldProps) {
               checked={(data.attunement as boolean) ?? false}
               onChange={(e) => set("attunement", e.target.checked)} />
             <span className="field-label">Requires attunement</span>
+          </label>
+        )}
+        {itemType === "gear" && (
+          <label className="flex flex-col gap-1.5">
+            <span className="field-label">Worn as</span>
+            <select className={`${input} w-36 cursor-pointer`}
+              value={(data.wear as string) ?? ""}
+              onChange={(e) => set("wear", e.target.value === "" ? undefined : e.target.value)}>
+              {WEAR_KINDS.map((w) => (
+                <option key={w || "none"} value={w}>{w === "" ? "Carried" : w}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        {/* The +N the engines apply (#189): AC on armor, shields and worn
+            items, attack and damage on weapons. Magic only — the server
+            refuses a bonus without a rarity, so the form does not offer one. */}
+        {rarity !== "" && (itemType !== "gear" || Boolean(data.wear)) && (
+          <label className="flex flex-col gap-1.5">
+            <span className="field-label">Magic bonus</span>
+            <select className={`${input} w-28 cursor-pointer`}
+              value={typeof data.bonus === "number" ? String(data.bonus) : ""}
+              onChange={(e) =>
+                set("bonus", e.target.value === "" ? undefined : Number(e.target.value))
+              }>
+              <option value="">None</option>
+              <option value="1">+1</option>
+              <option value="2">+2</option>
+              <option value="3">+3</option>
+            </select>
           </label>
         )}
       </div>

@@ -345,6 +345,10 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
       "Rarity",
       rarity ? `${rarity}${d.attunement ? " · requires attunement" : ""}` : undefined,
     ],
+    // The magic the engines actually apply (#189): the +N, and where a worn
+    // item hangs — so the card says what equipping it will do, not just prose.
+    ["Bonus", typeof d.bonus === "number" ? `+${d.bonus}` : undefined],
+    ["Worn", str("wear") || undefined],
   ];
   return (
     <div className="text-[13px]">

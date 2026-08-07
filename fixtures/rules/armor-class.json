@@ -22,7 +22,13 @@
     "",
     "An unarmoredDefense replaces the unarmoured base and never lowers it. Its",
     "shield flag is a real tri-state: absent means the benefit survives carrying",
-    "a shield (the Barbarian's does), false means it does not (the Monk's)."
+    "a shield (the Barbarian's does), false means it does not (the Monk's).",
+    "",
+    "Magic (#189): an item may carry a `bonus` (+1..+3). Armor adds it after its",
+    "category's DEX rule, a shield adds it to its board, and a worn `gear` item",
+    "(`wear`: cloak, ring, ...) adds it to the wearer on top of everything. An",
+    "item that declares `attunement` contributes the bonus only while its row",
+    "is attuned — an unattuned Frost Brand is a well-made sword and no more."
   ],
   "cases": [
     {
@@ -275,6 +281,65 @@
       ],
       "items": [],
       "ac": 15
+    },
+    {
+      "name": "+1 Chain Mail is the mail and then the magic",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Heavy", "ac": 16, "bonus": 1 } }],
+      "ac": 17
+    },
+    {
+      "name": "+1 Medium armour adds its magic after the DEX cap",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 18, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Medium", "ac": 15, "bonus": 1 } }],
+      "ac": 18
+    },
+    {
+      "name": "a +3 shield stacks its magic on the board",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "shield", "acBonus": 2, "bonus": 3 } }],
+      "ac": 15
+    },
+    {
+      "name": "a bonded suit counts its magic",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "attuned": true, "data": { "type": "armor", "category": "Heavy", "ac": 18, "bonus": 1, "attunement": true } }],
+      "ac": 19
+    },
+    {
+      "name": "unattuned, the same suit is just steel",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Heavy", "ac": 18, "bonus": 1, "attunement": true } }],
+      "ac": 18
+    },
+    {
+      "name": "a worn cloak of protection guards over the armour",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 10, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [
+        { "equipped": true, "data": { "type": "armor", "category": "Heavy", "ac": 16 } },
+        { "equipped": true, "attuned": true, "data": { "type": "gear", "wear": "cloak", "bonus": 1, "attunement": true } }
+      ],
+      "ac": 17
+    },
+    {
+      "name": "an unattuned ring guards nothing",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 14, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "data": { "type": "gear", "wear": "ring", "bonus": 1, "attunement": true } }],
+      "ac": 12
     }
   ]
 }
