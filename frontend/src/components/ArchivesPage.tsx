@@ -74,6 +74,9 @@ function cardTagline(kind: RulesKind, e: RulesContent): string {
       if (str("prerequisite")) parts.push(str("prerequisite"));
       break;
     case "item":
+      // Magic leads (#189): "Rare · Longsword +1" reads as the item a DM is
+      // scanning the shelf for.
+      if (str("rarity")) parts.push(str("rarity"));
       if (str("type") === "armor") parts.push(`${str("category")} armor · AC ${d.ac as number}`);
       else if (str("type") === "shield") parts.push(`Shield · +${(d.acBonus as number) ?? 2} AC`);
       else if (str("type") === "weapon")

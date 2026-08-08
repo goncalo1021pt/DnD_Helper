@@ -2229,11 +2229,13 @@ export interface components {
             name: string;
             qty: number;
             equipped: boolean;
+            /** @description Whether this row holds one of the hero's three attunements. Per row regardless of qty — the same way a stack equipped in a hand fights as one weapon — and independent of equipped: stowing a ring does not break the bond. */
+            attuned: boolean;
             /**
-             * @description Where an equipped item sits; empty when stowed.
+             * @description Where an equipped item sits; empty when stowed. `bothhands` is a two-handed grip — it occupies main and off hand at once, and a versatile weapon held so rolls its bigger die. Beyond the battle slots, an item whose data declares a `wear` kind occupies the matching worn slot (rings get two).
              * @enum {string}
              */
-            slot?: "" | "armor" | "mainhand" | "offhand";
+            slot?: "" | "armor" | "mainhand" | "offhand" | "bothhands" | "cloak" | "amulet" | "helm" | "belt" | "boots" | "gloves" | "bracers" | "ring1" | "ring2";
             /** @description The rules entry behind this row; null for free-text gear. */
             content?: components["schemas"]["RulesContent"];
         };
@@ -2251,10 +2253,12 @@ export interface components {
             qty?: number;
             equipped?: boolean;
             /**
-             * @description Equip into a specific slot (implies equipped). Armor only fits the armor slot, shields only the off-hand; weapons fit either hand. Displaced occupants are unequipped in the same stroke. Use equipped:false to stow.
+             * @description Equip into a specific slot (implies equipped). Armor only fits the armor slot, shields only the off-hand; a one-handed weapon fits either hand; a Two-Handed weapon only `bothhands`, and a Versatile one may take `bothhands` for its bigger die; a worn item (its data declares `wear`) fits only its own kind's slot — rings either ring slot. A two-handed grip displaces whatever either hand held. Displaced occupants are unequipped in the same stroke. Use equipped:false to stow.
              * @enum {string}
              */
-            slot?: "armor" | "mainhand" | "offhand";
+            slot?: "armor" | "mainhand" | "offhand" | "bothhands" | "cloak" | "amulet" | "helm" | "belt" | "boots" | "gloves" | "bracers" | "ring1" | "ring2";
+            /** @description Form or break the bond. Only a library item whose data declares `attunement` can attune, and three attuned rows are the most a hero can hold; false always succeeds. Independent of equipped. */
+            attuned?: boolean;
         };
         CharacterDetail: {
             character: components["schemas"]["Character"];

@@ -133,6 +133,7 @@ func TestArmorClassMatchesTheSharedFixture(t *testing.T) {
 			Sources   []json.RawMessage `json:"sources"`
 			Items     []struct {
 				Equipped bool            `json:"equipped"`
+				Attuned  bool            `json:"attuned"`
 				Data     json.RawMessage `json:"data"`
 			} `json:"items"`
 			AC int `json:"ac"`
@@ -149,7 +150,7 @@ func TestArmorClassMatchesTheSharedFixture(t *testing.T) {
 		}
 		items := make([]wornItem, 0, len(c.Items))
 		for _, it := range c.Items {
-			items = append(items, wornItem{Equipped: it.Equipped, Data: it.Data})
+			items = append(items, wornItem{Equipped: it.Equipped, Attuned: it.Attuned, Data: it.Data})
 		}
 		if got := armorClass(items, c.Abilities, features); got != c.AC {
 			t.Errorf("%s: AC = %d, fixture says %d", c.Name, got, c.AC)

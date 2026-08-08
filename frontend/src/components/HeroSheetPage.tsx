@@ -31,7 +31,7 @@ import {
   IconPrinter,
   IconTrash,
 } from "./ui/icons";
-import { SLOT_LABEL, itemTypeOf, keyStat, slotsFor, type EquipSlot } from "./sheet/items";
+import { BATTLE_SLOTS, SLOT_LABEL, armoryGroups, itemTypeOf, keyStat, needsAttunement, slotsFor, type EquipSlot } from "./sheet/items";
 import ItemGlyph from "./sheet/ItemGlyph";
 import SectionLabel, { type SpeciesChoice } from "./sheet/SectionLabel";
 import SkillsPanel from "./sheet/SkillsPanel";
@@ -83,11 +83,17 @@ export default function HeroSheetPage() {
   // The rig: what sits where. Coin gets a purse, not a tile.
   const purse = detail?.items.find((i) => !i.content && i.name === "Gold Pieces");
   const packItems = (detail?.items ?? []).filter((i) => i.id !== purse?.id);
-  const bySlot: Record<EquipSlot, InventoryItem | undefined> = {
-    armor: detail?.items.find((i) => i.slot === "armor"),
-    mainhand: detail?.items.find((i) => i.slot === "mainhand"),
-    offhand: detail?.items.find((i) => i.slot === "offhand"),
-  };
+  const bySlot = Object.fromEntries(
+    (Object.keys(SLOT_LABEL) as EquipSlot[]).map((s) => [s, detail?.items.find((i) => i.slot === s)]),
+  ) as Record<EquipSlot, InventoryItem | undefined>;
+  // Worn slots only earn a tile once something hangs there — twelve empty
+  // boxes is a wardrobe, not a sheet. The two-handed grip is not worn either;
+  // it redraws the hand tiles below.
+  const gripped = bySlot["bothhands"];
+  const wornFilled = (Object.keys(SLOT_LABEL) as EquipSlot[]).filter(
+    (s) => !BATTLE_SLOTS.includes(s) && s !== "bothhands" && bySlot[s],
+  );
+  const attunedCount = (detail?.items ?? []).filter((i) => i.attuned).length;
   const openItem = detail?.items.find((i) => i.id === openItemId) ?? null;
 
   // Loot grows; the pack filters. Type chips + name search.
@@ -471,7 +477,17 @@ export default function HeroSheetPage() {
             {/* the rig: what's worn and held */}
             <section>
               <div className="mb-1.5 flex items-center justify-between">
-                <SectionLabel>Equipped</SectionLabel>
+                <div className="flex items-baseline gap-2.5">
+                  <SectionLabel>Equipped</SectionLabel>
+                  {attunedCount > 0 && (
+                    <span
+                      className="label-stamp mb-2.5 text-[9px] tracking-[1px] text-gold-muted tabular-nums"
+                      title="Three items are the most a hero can attune to"
+                    >
+                      Attuned {attunedCount}/3
+                    </span>
+                  )}
+                </div>
                 {purse && (
                   <button
                     onClick={() => canEdit && setOpenItemId(purse.id)}
@@ -484,7 +500,7 @@ export default function HeroSheetPage() {
                 )}
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {(Object.keys(SLOT_LABEL) as EquipSlot[]).map((slot) => {
+                {(gripped ? (["armor"] as EquipSlot[]) : BATTLE_SLOTS).map((slot) => {
                   const it = bySlot[slot];
                   return (
                     <button
@@ -511,7 +527,54 @@ export default function HeroSheetPage() {
                     </button>
                   );
                 })}
+                {/* Both hands on one weapon: one wide card where the two hand
+                    tiles were, so the grip is visible before any number is. */}
+                {gripped && (
+                  <button
+                    onClick={() => setOpenItemId(gripped.id)}
+                    className="parchment col-span-2 cursor-pointer px-3 pb-2.5 pt-2 text-left transition hover:-translate-y-0.5"
+                  >
+                    <div className="label-stamp text-[8px] tracking-[1.5px] text-ink-label">
+                      {SLOT_LABEL.bothhands}
+                    </div>
+                    <div className="font-heading mt-1 truncate text-[13px] font-bold text-ink">
+                      {gripped.name}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-ink-body">{keyStat(gripped)}</div>
+                  </button>
+                )}
               </div>
+              {/* What hangs on the body beyond the battle three (#189): only
+                  the filled places draw — an empty wardrobe is not a sheet. */}
+              {wornFilled.length > 0 && (
+                <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(min(132px,100%),1fr))] gap-2">
+                  {wornFilled.map((slot) => {
+                    const it = bySlot[slot]!;
+                    return (
+                      <button
+                        key={slot}
+                        onClick={() => setOpenItemId(it.id)}
+                        className="parchment cursor-pointer px-3 pb-2 pt-1.5 text-left transition hover:-translate-y-0.5"
+                      >
+                        <div className="flex items-baseline justify-between gap-1.5">
+                          <span className="label-stamp text-[8px] tracking-[1.5px] text-ink-label">
+                            {SLOT_LABEL[slot]}
+                          </span>
+                          {it.attuned && (
+                            <span className="label-stamp text-[8px] tracking-[1px]" style={{ color: "#8b2520" }}>
+                              attuned
+                            </span>
+                          )}
+                        </div>
+                        <div className="font-heading mt-0.5 truncate text-[12.5px] font-bold text-ink">
+                          {it.name}
+                        </div>
+                        <div className="mt-0.5 min-h-[13px] text-[10.5px] text-ink-body">{keyStat(it)}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {attacks.length > 0 && (
                 <div className="parchment mt-2 px-4 py-2.5">
                   {attacks.map((a) => (
@@ -603,11 +666,17 @@ export default function HeroSheetPage() {
                       className="input-parchment input-compact min-w-0 flex-1 cursor-pointer text-[12px]"
                     >
                       <option value="">Add from the armory…</option>
-                      {(itemLibrary ?? []).map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.name}
-                          {i.source === "homebrew" ? ` (${i.creatorName ?? "homebrew"})` : ""}
-                        </option>
+                      {/* The armory outgrew one flat list when the SRD's magic
+                          arrived (#189): mundane gear by type, magic by rarity. */}
+                      {armoryGroups(itemLibrary ?? []).map(([label, entries]) => (
+                        <optgroup key={label} label={label}>
+                          {entries.map((i) => (
+                            <option key={i.id} value={i.id}>
+                              {i.name}
+                              {i.source === "homebrew" ? ` (${i.creatorName ?? "homebrew"})` : ""}
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                     <button
@@ -674,7 +743,7 @@ export default function HeroSheetPage() {
                     onClick={() => updateItem.mutate({ itemId: openItem.id, slot })}
                     className="btn-base btn-wax px-3 py-2 text-[10.5px]"
                   >
-                    Equip · {SLOT_LABEL[slot]}
+                    {BATTLE_SLOTS.includes(slot) || slot === "bothhands" ? "Equip" : "Wear"} · {SLOT_LABEL[slot]}
                   </button>
                 ),
               )}
@@ -686,6 +755,26 @@ export default function HeroSheetPage() {
                   Stow
                 </button>
               )}
+              {/* The bond is its own act (#189): three at most, and the item
+                  behaves mundane until it is formed. */}
+              {needsAttunement(openItem) &&
+                (openItem.attuned ? (
+                  <button
+                    onClick={() => updateItem.mutate({ itemId: openItem.id, attuned: false })}
+                    className="btn-base btn-ghost-ink px-3 py-2 text-[10.5px]"
+                  >
+                    Break attunement
+                  </button>
+                ) : (
+                  <button
+                    disabled={attunedCount >= 3 || updateItem.isPending}
+                    title={attunedCount >= 3 ? "Three items are the most a hero can attune to" : undefined}
+                    onClick={() => updateItem.mutate({ itemId: openItem.id, attuned: true })}
+                    className="btn-base btn-wax px-3 py-2 text-[10.5px] disabled:opacity-40"
+                  >
+                    Attune
+                  </button>
+                ))}
               <div className="ml-auto flex items-center gap-1.5">
                 <button
                   disabled={openItem.qty <= 1 || updateItem.isPending}
@@ -728,19 +817,30 @@ export default function HeroSheetPage() {
           <h3 className="font-display m-0 mb-4 text-center text-xl font-bold text-ink">
             {SLOT_LABEL[slotPicker]}
           </h3>
-          {packItems.filter((i) => slotsFor(i).includes(slotPicker)).length === 0 ? (
+          {/* An empty hand also offers the two-handed weapons — picking one
+              takes the grip, both hands at once. */}
+          {packItems.filter((i) =>
+            slotsFor(i).includes(slotPicker) ||
+            ((slotPicker === "mainhand" || slotPicker === "offhand") && slotsFor(i).includes("bothhands")),
+          ).length === 0 ? (
             <div className="font-accent py-4 text-center text-[13px] italic text-ink-body">
               Nothing in the pack fits this slot.
             </div>
           ) : (
             <div className="flex flex-col gap-2">
               {packItems
-                .filter((i) => slotsFor(i).includes(slotPicker))
+                .filter((i) =>
+                  slotsFor(i).includes(slotPicker) ||
+                  ((slotPicker === "mainhand" || slotPicker === "offhand") && slotsFor(i).includes("bothhands")),
+                )
                 .map((i) => (
                   <button
                     key={i.id}
                     onClick={() => {
-                      updateItem.mutate({ itemId: i.id, slot: slotPicker });
+                      updateItem.mutate({
+                        itemId: i.id,
+                        slot: slotsFor(i).includes(slotPicker) ? slotPicker : "bothhands",
+                      });
                       setSlotPicker(null);
                     }}
                     className="parchment flex cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-left transition hover:-translate-y-0.5"

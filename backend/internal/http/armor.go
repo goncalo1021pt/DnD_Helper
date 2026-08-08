@@ -40,6 +40,21 @@ type armorData struct {
 	Category string `json:"category"`
 	AC       *int   `json:"ac"`
 	ACBonus  *int   `json:"acBonus"`
+	// The magic (#189): a +N on armor, a shield, or a worn item, applied only
+	// when the item's attunement demand — if it makes one — is met.
+	Bonus      *int   `json:"bonus"`
+	Attunement bool   `json:"attunement"`
+	Wear       string `json:"wear"`
+}
+
+// effectiveBonus is the +N an item actually contributes: its declared bonus,
+// gated behind attunement when the item demands it. An unattuned Frost Brand
+// is a well-made sword and nothing more.
+func (d armorData) effectiveBonus(attuned bool) int {
+	if d.Bonus == nil || (d.Attunement && !attuned) {
+		return 0
+	}
+	return *d.Bonus
 }
 
 // unarmoredDefense is a feature that replaces the unarmoured base formula.
@@ -96,6 +111,7 @@ func earnedFeatures(data []byte, level int) []heroFeature {
 // wornItem is one inventory row, as far as armour is concerned.
 type wornItem struct {
 	Equipped bool
+	Attuned  bool
 	Data     []byte
 }
 
@@ -118,6 +134,7 @@ func armorClass(items []wornItem, abilities map[string]int, features []heroFeatu
 	ac := 10 + dex
 	armored := false
 	shield := 0
+	worn := 0
 
 	for _, it := range items {
 		if !it.Equipped || len(it.Data) == 0 {
@@ -127,6 +144,7 @@ func armorClass(items []wornItem, abilities map[string]int, features []heroFeatu
 		if err := json.Unmarshal(it.Data, &d); err != nil {
 			continue
 		}
+		eff := d.effectiveBonus(it.Attuned)
 		switch {
 		case d.Type == "armor" && d.AC != nil:
 			armored = true
@@ -138,11 +156,17 @@ func armorClass(items []wornItem, abilities map[string]int, features []heroFeatu
 			default:
 				ac = *d.AC
 			}
+			ac += eff
 		case d.Type == "shield":
 			shield = 2
 			if d.ACBonus != nil {
 				shield = *d.ACBonus
 			}
+			shield += eff
+		case d.Type == "gear" && d.Wear != "":
+			// A Ring or Cloak of Protection: worn, and stacking on anything —
+			// its bonus is to the wearer, not to a suit of armor.
+			worn += eff
 		}
 	}
 
@@ -169,7 +193,7 @@ func armorClass(items []wornItem, abilities map[string]int, features []heroFeatu
 			}
 		}
 	}
-	return ac + shield
+	return ac + shield + worn
 }
 
 // characterAbilities reads a hero's scores into the shape the rule wants.
@@ -199,7 +223,7 @@ func (s *Server) heroArmorClass(ctx context.Context, ch db.Character) (int32, er
 	}
 	items := make([]wornItem, 0, len(rows))
 	for _, r := range rows {
-		items = append(items, wornItem{Equipped: r.Equipped, Data: r.Data})
+		items = append(items, wornItem{Equipped: r.Equipped, Attuned: r.Attuned, Data: r.Data})
 	}
 
 	var features []heroFeature
