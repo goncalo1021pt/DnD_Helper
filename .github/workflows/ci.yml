@@ -174,3 +174,26 @@ jobs:
             git status --porcelain
             exit 1
           fi
+  migrations:
+    name: Migrations · numbered after main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: New migrations must outnumber main's latest
+        run: |
+          git fetch origin main
+          new=$(git diff --name-only --diff-filter=A origin/main...HEAD -- backend/internal/db/migrations/)
+          if [ -z "$new" ]; then echo "no new migrations"; exit 0; fi
+          main_max=$(git ls-tree -r --name-only origin/main -- backend/internal/db/migrations/ \
+            | grep -oE '^backend/internal/db/migrations/[0-9]{6}' | grep -oE '[0-9]{6}' | sort -n | tail -1)
+          bad=0
+          for f in $new; do
+            n=$(basename "$f" | grep -oE '^[0-9]{6}')
+            if [ "$((10#$n))" -le "$((10#$main_max))" ]; then
+              echo "::error file=$f::migration $n collides with or precedes main's latest ($main_max) — renumber it"
+              bad=1
+            fi
+          done
+          exit $bad
