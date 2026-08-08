@@ -99,3 +99,26 @@ StockPatch:
       nullable: true
     revealed:
       type: boolean
+
+BuyRequest:
+  type: object
+  required: [characterId]
+  properties:
+    characterId:
+      type: string
+      format: uuid
+      description: The seated hero doing the buying — the coin and the goods are theirs.
+
+BuyReceipt:
+  type: object
+  required: [vendor, paidGp, goldRemaining]
+  properties:
+    vendor:
+      $ref: "../openapi.yaml#/components/schemas/Vendor"
+      description: The shop after the sale, as this viewer may see it.
+    paidGp:
+      type: integer
+      description: What was charged, in whole gold — sub-gp prices round up to the shopkeeper's favor.
+    goldRemaining:
+      type: integer
+      description: Gold left in the hero's purse; 0 when the purchase emptied it.

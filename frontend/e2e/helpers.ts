@@ -216,3 +216,34 @@ export async function forgeHero(
   expect(res.ok(), await res.text()).toBeTruthy();
   return (await res.json()).id as string;
 }
+
+/**
+ * Seat an account hero at a campaign. The door is open by default
+ * (require_seating_approval defaults false), so this lands the seat directly;
+ * a test that bars the door must handle the 202 itself.
+ */
+export async function seatHero(
+  request: APIRequestContext,
+  characterId: string,
+  campaignId: string,
+): Promise<void> {
+  const res = await request.put(`/api/characters/${characterId}/seat`, {
+    data: { campaignId },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+}
+
+/**
+ * Coin for a hero: a free-text "Gold Pieces" row, the same shape the forge
+ * stocks and the same name the sheet and the till read the purse by.
+ */
+export async function fundHero(
+  request: APIRequestContext,
+  characterId: string,
+  gold: number,
+): Promise<void> {
+  const res = await request.post(`/api/characters/${characterId}/items`, {
+    data: { name: "Gold Pieces", qty: gold },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+}

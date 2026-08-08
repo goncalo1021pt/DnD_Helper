@@ -243,6 +243,29 @@ func (q *Queries) ListCharacterSpells(ctx context.Context, characterID uuid.UUID
 	return items, nil
 }
 
+const lockCharacterItem = `-- name: LockCharacterItem :one
+SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned FROM character_items WHERE id = $1 FOR UPDATE
+`
+
+// The purse under lock: a buy reads the balance and spends it as one act, so
+// two purchases cannot both spend the same coin.
+func (q *Queries) LockCharacterItem(ctx context.Context, id uuid.UUID) (CharacterItem, error) {
+	row := q.db.QueryRow(ctx, lockCharacterItem, id)
+	var i CharacterItem
+	err := row.Scan(
+		&i.ID,
+		&i.CharacterID,
+		&i.ContentID,
+		&i.Name,
+		&i.Qty,
+		&i.Equipped,
+		&i.CreatedAt,
+		&i.Slot,
+		&i.Attuned,
+	)
+	return i, err
+}
+
 const removeCharacterSpells = `-- name: RemoveCharacterSpells :exec
 DELETE FROM character_spells
 WHERE character_id = $1 AND content_id = ANY($2::uuid[])

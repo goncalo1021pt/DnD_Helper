@@ -1,5 +1,5 @@
 /*
- * The shops of a campaign (#102).
+ * The shops of a campaign (#102), and the till that takes money (#174).
  *
  * Every write answers with the whole shop rather than the row it touched, so
  * there is one shape to cache and one to render — a reveal that came back as a
@@ -103,5 +103,30 @@ export function useDeleteStock(campaignId: string) {
       params: { path: { stockId } },
     });
     if (error) throw error;
+  });
+}
+
+/**
+ * Buy one of a line (#174). Stands apart from the shared wrapper because a
+ * purchase moves more than the shop: the buyer's purse and pack change too,
+ * so their character caches refresh alongside the shelves.
+ */
+export function useBuyStock(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { stockId: string; characterId: string }) => {
+      const { data, error } = await api.POST("/stock/{stockId}/buy", {
+        params: { path: { stockId: vars.stockId } },
+        body: { characterId: vars.characterId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["vendors", campaignId] });
+      qc.invalidateQueries({ queryKey: ["character-detail", vars.characterId] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+    },
   });
 }
