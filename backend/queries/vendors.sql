@@ -65,3 +65,12 @@ RETURNING *;
 
 -- name: DeleteStock :execrows
 DELETE FROM vendor_stock WHERE id = $1;
+
+-- name: SellStock :one
+-- One unit off the shelf. NULL qty is "as many as you like" and stays NULL;
+-- no row back means the shelf emptied under the buyer's hand (sold out). The
+-- UPDATE takes the row lock either way, so same-line buys serialize.
+UPDATE vendor_stock
+SET qty = CASE WHEN qty IS NULL THEN NULL ELSE qty - 1 END
+WHERE id = $1 AND (qty IS NULL OR qty > 0)
+RETURNING *;

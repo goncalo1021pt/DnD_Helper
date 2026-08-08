@@ -171,6 +171,8 @@ paths:
     $ref: "./paths/vendors.yaml#/~1vendors~1{vendorId}~1stock"
   /stock/{stockId}:
     $ref: "./paths/vendors.yaml#/~1stock~1{stockId}"
+  /stock/{stockId}/buy:
+    $ref: "./paths/vendors.yaml#/~1stock~1{stockId}~1buy"
 
   /campaigns/{campaignId}/bestiary:
     $ref: "./paths/bestiary.yaml#/~1campaigns~1{campaignId}~1bestiary"
@@ -464,6 +466,10 @@ components:
       $ref: "./components/vendors.yaml#/StockInput"
     StockPatch:
       $ref: "./components/vendors.yaml#/StockPatch"
+    BuyRequest:
+      $ref: "./components/vendors.yaml#/BuyRequest"
+    BuyReceipt:
+      $ref: "./components/vendors.yaml#/BuyReceipt"
 
     BestiaryNote:
       $ref: "./components/bestiary.yaml#/BestiaryNote"

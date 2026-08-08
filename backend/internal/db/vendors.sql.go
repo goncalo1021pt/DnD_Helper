@@ -347,6 +347,33 @@ func (q *Queries) ListVendors(ctx context.Context, campaignID uuid.UUID) ([]List
 	return items, nil
 }
 
+const sellStock = `-- name: SellStock :one
+UPDATE vendor_stock
+SET qty = CASE WHEN qty IS NULL THEN NULL ELSE qty - 1 END
+WHERE id = $1 AND (qty IS NULL OR qty > 0)
+RETURNING id, vendor_id, content_id, name, price, qty, revealed, sort_order, created_at
+`
+
+// One unit off the shelf. NULL qty is "as many as you like" and stays NULL;
+// no row back means the shelf emptied under the buyer's hand (sold out). The
+// UPDATE takes the row lock either way, so same-line buys serialize.
+func (q *Queries) SellStock(ctx context.Context, id uuid.UUID) (VendorStock, error) {
+	row := q.db.QueryRow(ctx, sellStock, id)
+	var i VendorStock
+	err := row.Scan(
+		&i.ID,
+		&i.VendorID,
+		&i.ContentID,
+		&i.Name,
+		&i.Price,
+		&i.Qty,
+		&i.Revealed,
+		&i.SortOrder,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const updateStock = `-- name: UpdateStock :one
 UPDATE vendor_stock
 SET price = $2, qty = $3, revealed = $4

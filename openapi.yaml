@@ -2311,6 +2311,44 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /stock/{stockId}/buy:
+    parameters:
+      - name: stockId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: buyStock
+      summary: "Buy one of a line (members). Gold only: the price parses to whole gp, rounding up in the shopkeeper's favor; the hero must be seated at this campaign, and the coin and the goods move together or not at all."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuyRequest"
+      responses:
+        "200":
+          description: The receipt — what was paid, what remains, and the shelf as it stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuyReceipt"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Sold out — the shelf emptied under your hand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /campaigns/{campaignId}/bestiary:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -4441,6 +4479,31 @@ components:
           nullable: true
         revealed:
           type: boolean
+    BuyRequest:
+      type: object
+      required:
+        - characterId
+      properties:
+        characterId:
+          type: string
+          format: uuid
+          description: The seated hero doing the buying — the coin and the goods are theirs.
+    BuyReceipt:
+      type: object
+      required:
+        - vendor
+        - paidGp
+        - goldRemaining
+      properties:
+        vendor:
+          $ref: "#/components/schemas/Vendor"
+          description: The shop after the sale, as this viewer may see it.
+        paidGp:
+          type: integer
+          description: What was charged, in whole gold — sub-gp prices round up to the shopkeeper's favor.
+        goldRemaining:
+          type: integer
+          description: Gold left in the hero's purse; 0 when the purchase emptied it.
     BestiaryNote:
       type: object
       required:

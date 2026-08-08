@@ -165,3 +165,45 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/stock/{stockId}/buy:
+  parameters:
+    - name: stockId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: buyStock
+    summary: >-
+      Buy one of a line (members). Gold only: the price parses to whole gp,
+      rounding up in the shopkeeper's favor; the hero must be seated at this
+      campaign, and the coin and the goods move together or not at all.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/BuyRequest"
+    responses:
+      "200":
+        description: The receipt — what was paid, what remains, and the shelf as it stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/BuyReceipt"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+      "409":
+        description: Sold out — the shelf emptied under your hand
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Error"

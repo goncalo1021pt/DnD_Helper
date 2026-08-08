@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -24,8 +25,11 @@ meets it at the table. So it is filed under a place the same way an encounter
 is, and the places tree does the rest — a smith in Phandalin turns up when the
 party is in Phandalin.
 
-No money moves. Buying is a conversation at the table; this holds the list the
-DM reads from.
+Money moves (#174). A revealed, priced line has a Buy: the till reads the
+price as whole gold (money.go), the coin leaves the hero's purse and the item
+lands in their pack in one transaction, and the chronicle says so. Prices stay
+free text — "a favor owed" is a legal thing for a trader to ask; it simply is
+not something the till can charge.
 
 The part worth reading is the redaction. A shop is revealed deliberately, one at
 a time, and its shelves are revealed line by line — so a DM can show the party
@@ -114,10 +118,16 @@ func (s *Server) loadVendors(ctx context.Context, campaignID uuid.UUID, isDM boo
 	return out, nil
 }
 
-// oneVendor re-reads a single shop after a change, so every write answers with
-// the same shape the list does.
+// oneVendor re-reads a single shop after a DM's change, so every write answers
+// with the same shape the list does.
 func (s *Server) oneVendor(ctx context.Context, campaignID, vendorID, viewer uuid.UUID) (api.Vendor, error) {
-	all, err := s.loadVendors(ctx, campaignID, true, viewer)
+	return s.oneVendorFor(ctx, campaignID, vendorID, true, viewer)
+}
+
+// oneVendorFor is oneVendor with the viewer's real role — a player's buy
+// receipt must be built with it, or the receipt would carry hidden shelves.
+func (s *Server) oneVendorFor(ctx context.Context, campaignID, vendorID uuid.UUID, isDM bool, viewer uuid.UUID) (api.Vendor, error) {
+	all, err := s.loadVendors(ctx, campaignID, isDM, viewer)
 	if err != nil {
 		return api.Vendor{}, err
 	}
@@ -212,6 +222,7 @@ func (s *Server) CreateVendor(ctx context.Context, request api.CreateVendorReque
 	if err != nil {
 		return nil, err
 	}
+	s.publish(request.CampaignId, live.TopicVendors)
 	return api.CreateVendor201JSONResponse(out), nil
 }
 
@@ -289,6 +300,7 @@ func (s *Server) DeleteVendor(ctx context.Context, request api.DeleteVendorReque
 	if _, err := s.queries.DeleteVendor(ctx, v.ID); err != nil {
 		return nil, err
 	}
+	s.publish(v.CampaignID, live.TopicVendors)
 	return api.DeleteVendor204Response{}, nil
 }
 
@@ -363,6 +375,7 @@ func (s *Server) AddStock(ctx context.Context, request api.AddStockRequestObject
 	if err != nil {
 		return nil, err
 	}
+	s.publish(v.CampaignID, live.TopicVendors)
 	return api.AddStock201JSONResponse(out), nil
 }
 
@@ -432,7 +445,192 @@ func (s *Server) DeleteStock(ctx context.Context, request api.DeleteStockRequest
 	if _, err := s.queries.DeleteStock(ctx, row.ID); err != nil {
 		return nil, err
 	}
+	s.publish(row.CampaignID, live.TopicVendors)
 	return api.DeleteStock204Response{}, nil
+}
+
+// --- the till (#174) --------------------------------------------------------
+
+// pickPurse finds the hero's Gold Pieces: the first content-less row bearing
+// exactly that name, which is the same rule the sheet reads it by
+// (HeroSheetPage.tsx) — the two must agree or the Buy button and the till
+// would argue about the same purse.
+func pickPurse(items []db.ListCharacterItemsRow) *db.ListCharacterItemsRow {
+	for i := range items {
+		if !items[i].ContentID.Valid && items[i].Name == "Gold Pieces" {
+			return &items[i]
+		}
+	}
+	return nil
+}
+
+// pickMergeTarget finds the pack row a purchase stacks onto: same armory
+// entry (or exact name, for written-in lines), not equipped, not attuned, not
+// full, and never the purse itself — a shelf line literally named "Gold
+// Pieces" must not merge into the coin that just paid for it.
+func pickMergeTarget(items []db.ListCharacterItemsRow, contentID pgtype.UUID, name string, skipID uuid.UUID) *db.ListCharacterItemsRow {
+	for i := range items {
+		it := &items[i]
+		if it.ID == skipID || it.Equipped || it.Attuned || it.Qty >= 999 {
+			continue
+		}
+		if contentID.Valid {
+			if it.ContentID.Valid && it.ContentID.Bytes == contentID.Bytes {
+				return it
+			}
+			continue
+		}
+		if !it.ContentID.Valid && it.Name == name {
+			return it
+		}
+	}
+	return nil
+}
+
+// BuyStock: one of a line, bought by a seated hero. The coin and the goods
+// move together or not at all.
+func (s *Server) BuyStock(ctx context.Context, request api.BuyStockRequestObject) (api.BuyStockResponseObject, error) {
+	row, err := s.queries.GetStock(ctx, request.StockId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.BuyStock404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	vendor, err := s.queries.GetVendor(ctx, row.VendorID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.BuyStock404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	member, err := s.requireMember(ctx, row.CampaignID)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.BuyStock401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.BuyStock403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	isDM := member.Role == db.MembershipRoleDm
+	// A shelf a player was never shown cannot be bought from, even by guessing
+	// its id — 404, not 403, or the redaction leaks by probe (like ClaimQuest).
+	if !isDM && (!vendor.Revealed || !row.Revealed) {
+		return api.BuyStock404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+	}
+	badRequest := func(msg string) (api.BuyStockResponseObject, error) {
+		return api.BuyStock400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: msg}}, nil
+	}
+	if request.Body == nil {
+		return badRequest("a buyer is required")
+	}
+	ch, err := s.queries.GetCharacter(ctx, request.Body.CharacterId)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.BuyStock404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	if seatedAt, seated := seatedCampaign(ch); !seated || seatedAt != row.CampaignID {
+		return badRequest("that hero is not seated at this table")
+	}
+	if ch.OwnerUserID != member.UserID && !isDM {
+		return api.BuyStock403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+	}
+	gp, ok := priceGP(row.Price)
+	if !ok {
+		return badRequest("this line has no price the till can take")
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+
+	if _, err := qtx.SellStock(ctx, row.ID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.BuyStock409JSONResponse{Error: "sold out — the shelf emptied under your hand"}, nil
+		}
+		return nil, err
+	}
+	items, err := qtx.ListCharacterItems(ctx, ch.ID)
+	if err != nil {
+		return nil, err
+	}
+	purse := pickPurse(items)
+	goldRemaining := 0
+	if purse != nil {
+		goldRemaining = int(purse.Qty)
+	}
+	if gp > 0 {
+		if purse == nil {
+			return badRequest("the purse is empty and the trader asks " + strconv.Itoa(gp) + " gp")
+		}
+		// Under lock: two purchases must not both spend the same coin.
+		locked, err := qtx.LockCharacterItem(ctx, purse.ID)
+		if err != nil {
+			return nil, err
+		}
+		if int(locked.Qty) < gp {
+			return badRequest("the purse holds " + strconv.Itoa(int(locked.Qty)) +
+				" gp and the trader asks " + strconv.Itoa(gp) + " gp")
+		}
+		if int(locked.Qty) == gp {
+			// The schema forbids a zero-quantity row; an emptied purse is gone.
+			if err := qtx.DeleteCharacterItem(ctx, locked.ID); err != nil {
+				return nil, err
+			}
+		} else if _, err := qtx.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
+			ID: locked.ID, Qty: locked.Qty - int32(gp),
+			Equipped: locked.Equipped, Slot: locked.Slot, Attuned: locked.Attuned,
+		}); err != nil {
+			return nil, err
+		}
+		goldRemaining = int(locked.Qty) - gp
+	}
+	// No codex check, deliberately: the DM shelving this line IS the world
+	// admitting the item (contrast AddInventoryItem, where the player brings
+	// something in from outside).
+	purseID := uuid.Nil
+	if purse != nil {
+		purseID = purse.ID
+	}
+	if target := pickMergeTarget(items, row.ContentID, row.Name, purseID); target != nil {
+		if _, err := qtx.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
+			ID: target.ID, Qty: target.Qty + 1,
+			Equipped: target.Equipped, Slot: target.Slot, Attuned: target.Attuned,
+		}); err != nil {
+			return nil, err
+		}
+	} else if _, err := qtx.AddCharacterItem(ctx, db.AddCharacterItemParams{
+		CharacterID: ch.ID, ContentID: row.ContentID, Name: row.Name, Qty: 1,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	// A bought shield mid-fight moves the number the DM rolls against.
+	if err := s.syncCombatantAC(ctx, ch); err != nil {
+		return nil, err
+	}
+	s.logEvent(ctx, row.CampaignID, member.UserID, "purchase",
+		ch.Name+" buys "+row.Name+" from "+vendor.Name+" for "+strconv.Itoa(gp)+" gp")
+	s.publish(row.CampaignID, live.TopicVendors)
+	s.publish(row.CampaignID, live.TopicParty)
+
+	out, err := s.oneVendorFor(ctx, row.CampaignID, row.VendorID, isDM, member.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return api.BuyStock200JSONResponse(api.BuyReceipt{
+		Vendor: out, PaidGp: gp, GoldRemaining: goldRemaining,
+	}), nil
 }
 
 // The stock count crosses two type systems: the spec says integer (int) and
