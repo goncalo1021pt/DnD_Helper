@@ -570,6 +570,7 @@ type CharacterItem struct {
 	Equipped    bool               `json:"equipped"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	Slot        string             `json:"slot"`
+	Attuned     bool               `json:"attuned"`
 }
 
 type CharacterNode struct {

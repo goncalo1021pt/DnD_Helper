@@ -11,6 +11,17 @@ interface ArmorData {
   category?: string;
   ac?: number;
   acBonus?: number;
+  bonus?: number;
+  attunement?: boolean;
+  wear?: string;
+}
+
+/** The +N an item actually contributes: its declared bonus, gated behind
+ * attunement when the item demands it. An unattuned Frost Brand is a
+ * well-made sword and nothing more. Mirrors effectiveBonus in armor.go. */
+function effBonus(d: { bonus?: number; attunement?: boolean }, attuned: boolean): number {
+  if (typeof d.bonus !== "number" || (d.attunement && !attuned)) return 0;
+  return d.bonus;
 }
 
 /**
@@ -65,16 +76,23 @@ export function acFromEquipment(
   let ac = 10 + dex;
   let armored = false;
   let shield = 0;
+  let worn = 0;
   for (const it of items) {
     if (!it.equipped || !it.content) continue;
     const d = it.content.data as ArmorData;
+    const eff = effBonus(d, it.attuned);
     if (d.type === "armor" && typeof d.ac === "number") {
       armored = true;
       if (d.category === "Light") ac = d.ac + dex;
       else if (d.category === "Medium") ac = d.ac + Math.min(dex, 2);
       else ac = d.ac;
+      ac += eff;
     } else if (d.type === "shield") {
-      shield = d.acBonus ?? 2;
+      shield = (d.acBonus ?? 2) + eff;
+    } else if (d.type === "gear" && d.wear) {
+      // A Ring or Cloak of Protection: worn, stacking on anything — its
+      // bonus is to the wearer, not to a suit of armor.
+      worn += eff;
     }
   }
   if (!armored) {
@@ -88,15 +106,18 @@ export function acFromEquipment(
       if (base > ac) ac = base;
     }
   }
-  return ac + shield;
+  return ac + shield + worn;
 }
 
 interface WeaponData {
   type?: string;
   damage?: string;
+  damage2?: string; // the Versatile two-handed die
   damageType?: string;
   properties?: string[];
   ranged?: boolean;
+  bonus?: number;
+  attunement?: boolean;
 }
 
 export interface WeaponAttack {
@@ -124,11 +145,15 @@ export function weaponAttacks(
     const finesse = d.properties?.includes("Finesse") ?? false;
     const useDex = d.ranged || (finesse && dex >= str);
     const mod = useDex ? dex : str;
-    const sign = mod >= 0 ? `+${mod}` : `${mod}`;
+    // The magic rides in both numbers: +1 to swing, +1 to what lands.
+    const total = mod + effBonus(d, it.attuned);
+    const sign = total >= 0 ? `+${total}` : `${total}`;
+    // A versatile weapon held in both hands rolls its bigger die.
+    const die = it.slot === "bothhands" && d.damage2 ? d.damage2 : d.damage;
     out.push({
       name: it.name,
-      bonus: mod + prof,
-      damage: mod !== 0 ? `${d.damage}${sign}` : d.damage,
+      bonus: total + prof,
+      damage: total !== 0 ? `${die}${sign}` : die,
       damageType: d.damageType ?? "",
     });
   }

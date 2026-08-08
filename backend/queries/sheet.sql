@@ -37,7 +37,7 @@ SELECT * FROM character_items WHERE id = $1;
 
 -- name: UpdateCharacterItem :one
 UPDATE character_items
-SET qty = $2, equipped = $3, slot = $4
+SET qty = $2, equipped = $3, slot = $4, attuned = $5
 WHERE id = $1
 RETURNING *;
 
@@ -47,6 +47,7 @@ DELETE FROM character_items WHERE id = $1;
 -- name: ListCharacterItems :many
 -- Inventory with live content; a snapshot name covers deleted content.
 SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped, ci.slot,
+       ci.attuned,
        COALESCE(rc.name, ci.name) AS name,
        rc.kind, rc.source, rc.summary, rc.data, rc.created_by,
        u.name AS creator_name

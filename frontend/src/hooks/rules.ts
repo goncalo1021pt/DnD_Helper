@@ -14,6 +14,7 @@ import type {
   RulesContentInput,
   RulesKind,
 } from "../api/client";
+import type { EquipSlot } from "../components/sheet/items";
 
 export function useRules(kind: RulesKind, enabled = true) {
   return useQuery({
@@ -186,13 +187,14 @@ export function useUpdateItem(characterId: string) {
       itemId: string;
       qty?: number;
       equipped?: boolean;
-      slot?: "armor" | "mainhand" | "offhand";
+      slot?: EquipSlot;
+      attuned?: boolean;
     }) => {
       const { data, error } = await api.PATCH(
         "/characters/{characterId}/items/{itemId}",
         {
           params: { path: { characterId, itemId: vars.itemId } },
-          body: { qty: vars.qty, equipped: vars.equipped, slot: vars.slot },
+          body: { qty: vars.qty, equipped: vars.equipped, slot: vars.slot, attuned: vars.attuned },
         },
       );
       if (error) throw error;
