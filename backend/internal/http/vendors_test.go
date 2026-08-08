@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
@@ -115,4 +116,55 @@ func namesOf(lines []api.VendorStock) []string {
 		out = append(out, l.Name)
 	}
 	return out
+}
+
+/*
+The till's pickers (#174), pure and DB-free like the rest of this file.
+*/
+
+func purseRow(id uuid.UUID, name string, qty int32) db.ListCharacterItemsRow {
+	return db.ListCharacterItemsRow{ID: id, Name: name, Qty: qty}
+}
+
+func TestThePurseIsTheFirstContentlessGoldPieces(t *testing.T) {
+	first, second := uuid.New(), uuid.New()
+	items := []db.ListCharacterItemsRow{
+		{ID: uuid.New(), Name: "Gold Pieces", Qty: 5, ContentID: pgUUID(uuid.New())}, // a shelf item, not coin
+		purseRow(first, "Gold Pieces", 10),
+		purseRow(second, "Gold Pieces", 99),
+	}
+	got := pickPurse(items)
+	if got == nil || got.ID != first {
+		t.Fatalf("expected the first content-less Gold Pieces row, got %+v", got)
+	}
+	if pickPurse(nil) != nil {
+		t.Error("no rows should mean no purse")
+	}
+}
+
+func TestAPurchaseStacksOntoTheRightRow(t *testing.T) {
+	content := pgUUID(uuid.New())
+	purse := uuid.New()
+	equipped := db.ListCharacterItemsRow{ID: uuid.New(), ContentID: content, Name: "Longsword", Qty: 1, Equipped: true}
+	full := db.ListCharacterItemsRow{ID: uuid.New(), ContentID: content, Name: "Longsword", Qty: 999}
+	loose := db.ListCharacterItemsRow{ID: uuid.New(), ContentID: content, Name: "Longsword", Qty: 1}
+	items := []db.ListCharacterItemsRow{equipped, full, loose}
+
+	got := pickMergeTarget(items, content, "Longsword", purse)
+	if got == nil || got.ID != loose.ID {
+		t.Fatalf("expected the loose unequipped stack, got %+v", got)
+	}
+
+	// A written-in line matches by exact name among content-less rows only.
+	rations := db.ListCharacterItemsRow{ID: uuid.New(), Name: "Rations", Qty: 3}
+	if got := pickMergeTarget([]db.ListCharacterItemsRow{rations}, pgtype.UUID{}, "Rations", purse); got == nil || got.ID != rations.ID {
+		t.Fatal("a written-in purchase should stack onto its namesake")
+	}
+
+	// Never the purse: a shelf line named "Gold Pieces" must not merge into
+	// the coin that just paid for it.
+	coin := purseRow(purse, "Gold Pieces", 10)
+	if got := pickMergeTarget([]db.ListCharacterItemsRow{coin}, pgtype.UUID{}, "Gold Pieces", purse); got != nil {
+		t.Fatalf("the purchase merged into the purse: %+v", got)
+	}
 }

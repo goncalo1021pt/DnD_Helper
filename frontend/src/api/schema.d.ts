@@ -1405,6 +1405,25 @@ export interface paths {
         patch: operations["updateStock"];
         trace?: never;
     };
+    "/stock/{stockId}/buy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stockId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Buy one of a line (members). Gold only: the price parses to whole gp, rounding up in the shopkeeper's favor; the hero must be seated at this campaign, and the coin and the goods move together or not at all. */
+        post: operations["buyStock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/bestiary": {
         parameters: {
             query?: never;
@@ -2422,6 +2441,21 @@ export interface components {
             price?: string;
             qty?: number | null;
             revealed?: boolean;
+        };
+        BuyRequest: {
+            /**
+             * Format: uuid
+             * @description The seated hero doing the buying — the coin and the goods are theirs.
+             */
+            characterId: string;
+        };
+        BuyReceipt: {
+            /** @description The shop after the sale, as this viewer may see it. */
+            vendor: components["schemas"]["Vendor"];
+            /** @description What was charged, in whole gold — sub-gp prices round up to the shopkeeper's favor. */
+            paidGp: number;
+            /** @description Gold left in the hero's purse; 0 when the purchase emptied it. */
+            goldRemaining: number;
         };
         BestiaryNote: {
             /** Format: uuid */
@@ -5743,6 +5777,45 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    buyStock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                stockId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuyRequest"];
+            };
+        };
+        responses: {
+            /** @description The receipt — what was paid, what remains, and the shelf as it stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuyReceipt"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Sold out — the shelf emptied under your hand */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     listBestiary: {

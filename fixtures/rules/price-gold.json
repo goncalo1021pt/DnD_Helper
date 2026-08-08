@@ -1,0 +1,39 @@
+{
+  "_note": [
+    "The till's half of the Bazaar (#174): what a free-text price is worth in",
+    "whole gold pieces. Implemented twice — backend/internal/http/money.go so",
+    "the server can charge, frontend/src/lib/money.ts so the Buy button knows",
+    "affordability without a round trip — and this file keeps them honest.",
+    "",
+    "Gold only, by decision: sub-gold remainders round UP, the shopkeeper's",
+    "handling fee. A null gp means the till refuses — prose prices (\"a favor",
+    "owed\") are legal on a shelf and simply not buyable. Real denominations",
+    "and DM-invented currency are #195's business."
+  ],
+  "cases": [
+    { "name": "the plain case", "price": "15 gp", "gp": 15 },
+    { "name": "no space is how half the books write it", "price": "15gp", "gp": 15 },
+    { "name": "thousands keep their commas", "price": "5,000 gp", "gp": 5000 },
+    { "name": "a copper rounds up to the fee", "price": "1 cp", "gp": 1 },
+    { "name": "two hundred coppers are two gold", "price": "200 cp", "gp": 2 },
+    { "name": "two hundred fifty coppers round to three", "price": "250 cp", "gp": 3 },
+    { "name": "a silver rounds up", "price": "1 sp", "gp": 1 },
+    { "name": "ten silver are one gold exactly", "price": "10 sp", "gp": 1 },
+    { "name": "eleven silver round to two", "price": "11 sp", "gp": 2 },
+    { "name": "one electrum rounds up", "price": "1 ep", "gp": 1 },
+    { "name": "two electrum are one gold exactly", "price": "2 ep", "gp": 1 },
+    { "name": "three electrum round to two", "price": "3 ep", "gp": 2 },
+    { "name": "platinum is ten to one", "price": "1 pp", "gp": 10 },
+    { "name": "a fractional platinum lands whole", "price": "1.5 pp", "gp": 15 },
+    { "name": "a fraction of platinum rounds up", "price": "1.25 pp", "gp": 13 },
+    { "name": "half a gold rounds up", "price": "0.5 gp", "gp": 1 },
+    { "name": "free is free", "price": "0 gp", "gp": 0 },
+    { "name": "case and padding are the scribe's business", "price": "  15 GP  ", "gp": 15 },
+    { "name": "a blank price is not a price", "price": "", "gp": null },
+    { "name": "prose is for the table, not the till", "price": "a favor owed", "gp": null },
+    { "name": "malformed commas are refused", "price": "1,00 gp", "gp": null },
+    { "name": "debt is not a price", "price": "-5 gp", "gp": null },
+    { "name": "trailing words spoil the number", "price": "15 gp each", "gp": null },
+    { "name": "two coins are one coin too many", "price": "1 gp 5 sp", "gp": null }
+  ]
+}

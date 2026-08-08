@@ -62,3 +62,8 @@ ORDER BY ci.equipped DESC, ci.created_at ASC;
 UPDATE character_items
 SET equipped = false, slot = ''
 WHERE character_id = $1 AND id = ANY($2::uuid[]);
+
+-- name: LockCharacterItem :one
+-- The purse under lock: a buy reads the balance and spends it as one act, so
+-- two purchases cannot both spend the same coin.
+SELECT * FROM character_items WHERE id = $1 FOR UPDATE;
