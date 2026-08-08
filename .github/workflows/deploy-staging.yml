@@ -21,6 +21,10 @@ on:
         description: "Branch/tag/SHA to deploy (blank = the branch selected above)"
         required: false
         default: ""
+      wipe:
+        description: "Wipe the staging database first (fresh migrations + seed)"
+        type: boolean
+        default: false
 
 # Only the repo owner can deploy. workflow_dispatch already requires write
 # access, and self-hosted runners only pick up jobs from this repo — this actor
@@ -49,6 +53,13 @@ jobs:
           git reset --hard "origin/${{ steps.target.outputs.ref }}"
           git log --oneline -1
 
+      - name: Wipe the staging database (when asked)
+        if: inputs.wipe
+        run: |
+          cd ~/DnD_Helper
+          docker compose --profile full down -v
+          echo "::notice::staging database wiped — migrations will run from zero"
+
       - name: Build & deploy (make deploy)
         run: |
           cd ~/DnD_Helper
@@ -58,16 +69,32 @@ jobs:
           # (provision-staging.sh), so no sudo needed.
           make deploy
 
-      - name: Wait for health
+      - name: Wait for health (self-healing)
         run: |
           cd ~/DnD_Helper
-          for _ in $(seq 1 60); do
-            if curl -sf http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
-              echo "HEALTHY — deployed ${{ steps.target.outputs.ref }} to staging"
+          wait_healthy() {
+            for _ in $(seq 1 60); do
+              curl -sf http://127.0.0.1:8080/api/health >/dev/null 2>&1 && return 0
+              sleep 5
+            done
+            return 1
+          }
+          if wait_healthy; then
+            echo "HEALTHY — deployed ${{ steps.target.outputs.ref }} to staging"
+            exit 0
+          fi
+          # Staging deploys feature branches onto a persistent DB, so schema
+          # drift (a renumbered migration meeting its own leftovers) is a known
+          # failure. Staging data is disposable; recover rather than strand.
+          if docker compose --profile full logs --tail 100 app | grep -qE "Dirty database version|already exists \(SQLSTATE"; then
+            echo "::warning::migration drift detected — wiping the staging database and retrying once"
+            docker compose --profile full down -v
+            make deploy
+            if wait_healthy; then
+              echo "HEALTHY after wipe — deployed ${{ steps.target.outputs.ref }} to staging"
               exit 0
             fi
-            sleep 5
-          done
+          fi
           echo "::error::staging did not become healthy in time"
           docker compose --profile full logs --tail 50 app || true
           exit 1
