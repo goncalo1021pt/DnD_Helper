@@ -170,3 +170,36 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
       "403":
         $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/rolls:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: rollInTheOpen
+    summary: Roll dice where the table can see them (any member)
+    description: >
+      The server rolls the pool and writes the result into the chronicle's
+      rolls channel. Public rolls are rolled here rather than posted from the
+      browser: a shared log that takes the roller's word for the number is not
+      a record of anything.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/RollRequest"
+    responses:
+      "201":
+        description: What the dice did
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/RollResult"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

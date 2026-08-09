@@ -199,7 +199,7 @@ export default function QuestBoard() {
         </ParchmentModal>
       )}
 
-      <FloatingDiceTray />
+      <FloatingDiceTray campaignId={campaign.id} />
     </div>
   );
 }

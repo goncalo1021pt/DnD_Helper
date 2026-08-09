@@ -1,0 +1,110 @@
+{
+  "_comment": "The dice pool's shared contract (#176). Go: backend/internal/http/dice_test.go · TS: frontend/src/lib/dice.test.ts. A pool is die groups plus a flat modifier; both engines must name it the same way, because the roller composes the pool in the browser and the server is what rolls it in the open — a disagreement would put one expression on your screen and a different one in the log.",
+  "cases": [
+    {
+      "name": "a lone d20",
+      "pool": { "groups": [{ "count": 1, "sides": 20 }], "modifier": 0 },
+      "expression": "1d20",
+      "min": 1,
+      "max": 20
+    },
+    {
+      "name": "a d20 with a modifier",
+      "pool": { "groups": [{ "count": 1, "sides": 20 }], "modifier": 5 },
+      "expression": "1d20 + 5",
+      "min": 6,
+      "max": 25
+    },
+    {
+      "name": "a negative modifier",
+      "pool": { "groups": [{ "count": 1, "sides": 20 }], "modifier": -2 },
+      "expression": "1d20 − 2",
+      "min": -1,
+      "max": 18
+    },
+    {
+      "name": "a fistful of d6 — the fireball",
+      "pool": { "groups": [{ "count": 8, "sides": 6 }], "modifier": 0 },
+      "expression": "8d6",
+      "min": 8,
+      "max": 48
+    },
+    {
+      "name": "the combo from the issue — entered as 1d4 + 2d8, named largest first",
+      "pool": { "groups": [{ "count": 1, "sides": 4 }, { "count": 2, "sides": 8 }], "modifier": 0 },
+      "expression": "2d8 + 1d4",
+      "min": 3,
+      "max": 20
+    },
+    {
+      "name": "mixed dice and a modifier",
+      "pool": { "groups": [{ "count": 2, "sides": 6 }, { "count": 1, "sides": 8 }], "modifier": 3 },
+      "expression": "1d8 + 2d6 + 3",
+      "min": 6,
+      "max": 23
+    },
+    {
+      "name": "groups are named largest die first, however they were added",
+      "pool": { "groups": [{ "count": 1, "sides": 4 }, { "count": 3, "sides": 12 }], "modifier": 0 },
+      "expression": "3d12 + 1d4",
+      "min": 4,
+      "max": 40
+    },
+    {
+      "name": "the same die twice is one group",
+      "pool": { "groups": [{ "count": 2, "sides": 6 }, { "count": 4, "sides": 6 }], "modifier": 0 },
+      "expression": "6d6",
+      "min": 6,
+      "max": 36
+    },
+    {
+      "name": "a coin is a d2",
+      "pool": { "groups": [{ "count": 1, "sides": 2 }], "modifier": 0 },
+      "expression": "1d2",
+      "min": 1,
+      "max": 2
+    },
+    {
+      "name": "percentile",
+      "pool": { "groups": [{ "count": 1, "sides": 100 }], "modifier": 0 },
+      "expression": "1d100",
+      "min": 1,
+      "max": 100
+    },
+    {
+      "name": "a modifier with no dice is not a roll",
+      "pool": { "groups": [], "modifier": 3 },
+      "expression": "",
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "a zero-count group is not a group",
+      "pool": { "groups": [{ "count": 0, "sides": 6 }], "modifier": 0 },
+      "expression": "",
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "a die the tower does not carry is refused",
+      "pool": { "groups": [{ "count": 1, "sides": 7 }], "modifier": 0 },
+      "expression": "",
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "more dice than a table can hold is refused",
+      "pool": { "groups": [{ "count": 101, "sides": 6 }], "modifier": 0 },
+      "expression": "",
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "a modifier beyond the tower's reach is refused",
+      "pool": { "groups": [{ "count": 1, "sides": 20 }], "modifier": 1000 },
+      "expression": "",
+      "min": null,
+      "max": null
+    }
+  ]
+}

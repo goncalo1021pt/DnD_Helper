@@ -1,63 +1,153 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRollInTheOpen } from "../../hooks";
+import {
+  DIE_SIDES,
+  MAX_DICE,
+  diceExpression,
+  facesOf,
+  poolIsRollable,
+  rollPool,
+  type DicePool,
+  type PoolResult,
+} from "../../lib/dice";
 import { IconDie, IconX } from "./icons";
 
 /**
  * The Dice Tower. `DiceTowerPanel` is the tray itself — embedded as a
  * dashboard block. `FloatingDiceTray` (default) wraps it in a corner
  * button + pop-up for the solo pages, so dice stay one click away mid-game.
- * Pure client-side: d4–d100 plus a coin, modifier, d20 crit/fail call-outs,
- * and a short roll history.
+ *
+ * A roll is a *pool* (#176): tap d6 six times for a fireball, add a d4 and a
+ * d8 for whatever the DM just invented, roll the lot at once. A pool is built
+ * in the moment and never saved — a combo is what this spell needs right now,
+ * not a thing to name and keep.
+ *
+ * Given a campaign, the tower can also roll **in the open**: the server rolls
+ * that one and writes it into the chronicle for the whole table to read. The
+ * private roll stays here in the browser, which is the point of the toggle.
  */
 
 const COIN = 2;
-const DICE = [4, 6, 8, 10, 12, 20, 100, COIN];
 
-interface Roll {
-  die: number;
-  base: number;
-  total: number;
-  crit: boolean;
-  fail: boolean;
-}
-
-function dieLabel(die: number): string {
-  return die === COIN ? "Coin" : `d${die}`;
+function dieLabel(sides: number): string {
+  return sides === COIN ? "Coin" : `d${sides}`;
 }
 
 function signed(n: number): string {
   return n < 0 ? `−${Math.abs(n)}` : `+${n}`;
 }
 
-function rollColor(r: Roll): string {
+function rollColor(r: { crit: boolean; fail: boolean }): string {
   if (r.crit) return "#4d6b39";
   if (r.fail) return "#8b2520";
   return "#2e1d0f";
 }
 
-export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
-  const [die, setDie] = useState(20);
+/** A coin is a d2; the tower calls its faces by name. */
+function isCoinFlip(r: PoolResult): boolean {
+  return r.groups.length === 1 && r.groups[0].sides === COIN && r.groups[0].results.length === 1;
+}
+
+interface HistoryLine {
+  expression: string;
+  total: number;
+  crit: boolean;
+  fail: boolean;
+  open: boolean;
+  coin: PoolResult | null;
+}
+
+export function DiceTowerPanel({
+  onClose,
+  campaignId,
+}: {
+  onClose?: () => void;
+  campaignId?: string;
+}) {
+  const [counts, setCounts] = useState<Record<number, number>>({});
   const [mod, setMod] = useState(0);
+  const [inTheOpen, setInTheOpen] = useState(false);
   const [rolling, setRolling] = useState(false);
-  const [result, setResult] = useState<Roll | null>(null);
-  const [history, setHistory] = useState<Roll[]>([]);
+  const [result, setResult] = useState<PoolResult | null>(null);
+  const [wasOpen, setWasOpen] = useState(false);
+  const [refusal, setRefusal] = useState("");
+  const [history, setHistory] = useState<HistoryLine[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const openRoll = useRollInTheOpen(campaignId ?? "");
+
+  const groups = DIE_SIDES.filter((s) => (counts[s] ?? 0) > 0).map((sides) => ({
+    sides,
+    count: counts[sides],
+  }));
+  const pool: DicePool = { groups, modifier: mod };
+  const expression = diceExpression(pool);
+  const diceCount = groups.reduce((n, g) => n + g.count, 0);
+  const rollable = poolIsRollable(pool);
+
+  function add(sides: number) {
+    setCounts((c) => {
+      const total = Object.values(c).reduce((n, v) => n + v, 0);
+      if (total >= MAX_DICE) return c;
+      return { ...c, [sides]: (c[sides] ?? 0) + 1 };
+    });
+  }
+
+  function drop(sides: number) {
+    setCounts((c) => {
+      const next = { ...c, [sides]: (c[sides] ?? 0) - 1 };
+      if (next[sides] <= 0) delete next[sides];
+      return next;
+    });
+  }
+
+  function clearPool() {
+    setCounts({});
+    setMod(0);
+  }
+
+  function remember(line: HistoryLine) {
+    setHistory((h) => [line, ...h].slice(0, 7));
+  }
 
   function roll() {
-    if (rolling) return;
+    if (rolling || !rollable) return;
+    setRefusal("");
     setRolling(true);
     clearTimeout(timer.current);
+
+    // In the open, the server is the one that rolls — a shared log that takes
+    // the roller's word for the number is not a record of anything. The tumble
+    // still plays, so both kinds of roll feel the same in the hand.
+    if (inTheOpen && campaignId) {
+      openRoll.mutate(
+        { groups, modifier: mod },
+        {
+          onSuccess: (data) => {
+            timer.current = setTimeout(() => {
+              const r = data as PoolResult;
+              setResult(r);
+              setWasOpen(true);
+              remember({ ...r, open: true, coin: isCoinFlip(r) ? r : null });
+              setRolling(false);
+            }, 220);
+          },
+          onError: () => {
+            setRolling(false);
+            setRefusal("the table did not hear that roll — try again");
+          },
+        },
+      );
+      return;
+    }
+
     timer.current = setTimeout(() => {
-      const base = 1 + Math.floor(Math.random() * die);
-      const r: Roll = {
-        die,
-        base,
-        total: die === COIN ? base : base + mod,
-        crit: die === 20 && base === 20,
-        fail: die === 20 && base === 1,
-      };
-      setResult(r);
-      setHistory((h) => [r, ...h].slice(0, 7));
+      const r = rollPool(pool);
+      if (r) {
+        setResult(r);
+        setWasOpen(false);
+        remember({ ...r, open: false, coin: isCoinFlip(r) ? r : null });
+      }
       setRolling(false);
     }, 480);
   }
@@ -81,7 +171,7 @@ export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
 
       {/* result face */}
       <div
-        className="mb-3.5 flex h-[104px] flex-col items-center justify-center rounded-[2px]"
+        className="mb-3 flex h-[104px] flex-col items-center justify-center rounded-[2px] px-3"
         style={{
           background: "rgba(120,86,42,.1)",
           boxShadow: "inset 0 0 0 1px rgba(120,80,30,.3)",
@@ -103,16 +193,25 @@ export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
               className="anim-pop font-heading text-[44px] font-bold leading-none tabular-nums"
               style={{ color: rollColor(result) }}
             >
-              {result.die === COIN ? (result.base === 1 ? "Heads" : "Tails") : result.total}
+              {isCoinFlip(result)
+                ? result.groups[0].results[0] === 1
+                  ? "Heads"
+                  : "Tails"
+                : result.total}
             </div>
-            <div className="font-accent mt-1 text-[12.5px] italic text-ink-body">
+            <div className="font-accent mt-1 text-center text-[12.5px] italic text-ink-body">
               {result.crit
                 ? "Critical! Natural 20"
                 : result.fail
                   ? "Critical miss — natural 1"
-                  : result.die === COIN
+                  : isCoinFlip(result)
                     ? "The coin has spoken"
-                    : `d${result.die}: ${result.base} ${signed(result.total - result.base)}`}
+                    : `${result.expression}: ${facesOf(result)}`}
+              {wasOpen && (
+                <span className="label-stamp ml-1.5 text-[8px] tracking-[1px] text-[#8b2520]">
+                  in the open
+                </span>
+              )}
             </div>
           </>
         ) : (
@@ -121,20 +220,58 @@ export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
               —
             </div>
             <div className="font-accent mt-1 text-[12.5px] italic text-ink-label">
-              Choose a die and roll
+              Tap dice to build a roll
             </div>
           </>
         )}
       </div>
 
-      {/* die selector */}
+      {/* the pool being built */}
+      <div className="mb-2.5 flex min-h-[26px] flex-wrap items-center gap-1.5">
+        {groups.length === 0 ? (
+          <span className="font-accent text-[11.5px] italic text-ink-label">
+            No dice in the pool yet
+          </span>
+        ) : (
+          <>
+            {groups.map((g) => (
+              <button
+                key={g.sides}
+                onClick={() => drop(g.sides)}
+                title={`Take one ${dieLabel(g.sides)} out`}
+                aria-label={`Remove a ${dieLabel(g.sides)}`}
+                className="rounded-[2px] border-none px-2 py-1 text-[11px] font-semibold tabular-nums"
+                style={{
+                  cursor: "pointer",
+                  color: "#4a3320",
+                  background: "rgba(124,90,46,.14)",
+                  boxShadow: "inset 0 0 0 1px rgba(120,80,30,.4)",
+                }}
+              >
+                {g.count}
+                {dieLabel(g.sides) === "Coin" ? " × Coin" : `d${g.sides}`} ×
+              </button>
+            ))}
+            <button
+              onClick={clearPool}
+              className="font-accent border-none bg-transparent p-0 text-[11px] italic text-ink-faded underline hover:text-ink"
+              style={{ cursor: "pointer" }}
+            >
+              clear
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* die selector — tapping adds one to the pool */}
       <div className="mb-3 grid grid-cols-4 gap-1.5">
-        {DICE.map((d) => (
+        {DIE_SIDES.map((d) => (
           <button
             key={d}
-            onClick={() => setDie(d)}
+            onClick={() => add(d)}
+            aria-label={`Add a ${dieLabel(d)}`}
             className={`btn-base h-9 text-[11px] ${
-              die === d ? "btn-wax" : "btn-ghost-ink"
+              (counts[d] ?? 0) > 0 ? "btn-wax" : "btn-ghost-ink"
             }`}
           >
             {dieLabel(d)}
@@ -143,25 +280,19 @@ export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
       </div>
 
       {/* modifier + roll */}
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-2 flex items-center gap-2">
         <button
           onClick={() => setMod((m) => Math.max(m - 1, -20))}
-          disabled={die === COIN}
           title="Lower modifier"
           className="btn-base btn-ghost-ink h-9 w-10 text-base"
         >
           −
         </button>
-        <span
-          className={`font-heading w-12 text-center text-sm font-bold tabular-nums ${
-            die === COIN ? "text-ink-label opacity-50" : "text-ink-value"
-          }`}
-        >
+        <span className="font-heading w-12 text-center text-sm font-bold tabular-nums text-ink-value">
           {signed(mod)}
         </span>
         <button
           onClick={() => setMod((m) => Math.min(m + 1, 20))}
-          disabled={die === COIN}
           title="Raise modifier"
           className="btn-base btn-ghost-ink h-9 w-10 text-base"
         >
@@ -169,21 +300,51 @@ export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
         </button>
         <button
           onClick={roll}
-          disabled={rolling}
+          disabled={rolling || !rollable}
           className="btn-base btn-wax clip-octagon h-10 flex-1 text-xs"
         >
-          Roll {dieLabel(die)}
+          {expression ? `Roll ${expression}` : "Roll"}
         </button>
       </div>
+
+      {diceCount >= MAX_DICE && (
+        <p className="font-body m-0 mb-2 text-[11.5px] italic text-[#8b2520]">
+          A hundred dice is all the tower holds.
+        </p>
+      )}
+      {refusal && (
+        <p role="status" className="font-body m-0 mb-2 text-[11.5px] italic text-[#8b2520]">
+          {refusal}
+        </p>
+      )}
+
+      {/* in the open — only where there is a table to see it */}
+      {campaignId && (
+        <label className="mb-1 flex cursor-pointer items-center gap-2 text-[11.5px] text-ink-body">
+          <input
+            type="checkbox"
+            checked={inTheOpen}
+            onChange={(e) => setInTheOpen(e.target.checked)}
+            className="cursor-pointer"
+          />
+          <span>
+            Roll in the open
+            <span className="font-accent ml-1 italic text-ink-faded">
+              — the table sees it in the chronicle
+            </span>
+          </span>
+        </label>
+      )}
 
       {/* history */}
       {history.length > 0 && (
         <>
-          <div className="torn-divider mb-2.5" />
+          <div className="torn-divider mb-2.5 mt-2" />
           <div className="flex flex-wrap gap-1.5">
             {history.map((r, i) => (
               <span
                 key={i}
+                title={`${r.expression}${r.open ? " · rolled in the open" : ""}`}
                 className="rounded-[2px] px-2 py-1 text-[11px] font-semibold tabular-nums"
                 style={{
                   color: r.crit ? "#2e4221" : r.fail ? "#5e1611" : "#4a3320",
@@ -201,7 +362,10 @@ export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
                   }`,
                 }}
               >
-                {dieLabel(r.die)} › {r.die === COIN ? (r.base === 1 ? "H" : "T") : r.total}
+                {r.open && "◈ "}
+                {r.coin
+                  ? `Coin › ${r.coin.groups[0].results[0] === 1 ? "H" : "T"}`
+                  : `${r.expression} › ${r.total}`}
               </span>
             ))}
           </div>
@@ -217,8 +381,11 @@ export function DiceTowerPanel({ onClose }: { onClose?: () => void }) {
  * with the modals (which also portal there); otherwise it stays trapped inside
  * the page's transformed/z-indexed <main> and a modal paints over it — leaving
  * the dice unreachable exactly when you need them, e.g. rolling HP on level-up.
+ *
+ * `campaignId` is what turns on rolling in the open, so the forge and the
+ * hero list — which belong to no table — simply never offer it.
  */
-export default function FloatingDiceTray() {
+export default function FloatingDiceTray({ campaignId }: { campaignId?: string }) {
   const [open, setOpen] = useState(false);
 
   const node = !open ? (
@@ -231,7 +398,7 @@ export default function FloatingDiceTray() {
     </button>
   ) : (
     <div className="anim-rise-fast fixed bottom-6 right-6 z-[70] w-[330px] max-w-[calc(100vw-3rem)]">
-      <DiceTowerPanel onClose={() => setOpen(false)} />
+      <DiceTowerPanel onClose={() => setOpen(false)} campaignId={campaignId} />
     </div>
   );
 

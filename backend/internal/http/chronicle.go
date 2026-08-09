@@ -58,6 +58,8 @@ func eventCategory(kind string) string {
 		return "rules"
 	case kind == "player_note":
 		return "player"
+	case kind == "roll":
+		return "rolls"
 	default:
 		return "log"
 	}
@@ -65,7 +67,7 @@ func eventCategory(kind string) string {
 
 func validFilterCategory(c string) bool {
 	switch c {
-	case "all", "dm", "rules", "player", "log":
+	case "all", "dm", "rules", "player", "rolls", "log":
 		return true
 	}
 	return false
@@ -461,4 +463,69 @@ func (s *Server) SetMaxLevel(ctx context.Context, request api.SetMaxLevelRequest
 			"The table's ceiling returns to the standard 20")
 	}
 	return api.SetMaxLevel200JSONResponse(toAPICampaign(updated)), nil
+}
+
+// RollInTheOpen rolls a pool of dice where the whole table can see them.
+//
+// The server rolls rather than accepting a number the browser worked out: a
+// shared log that takes the roller's word for the result records nothing. The
+// tower still rolls privately in the client — that roll is nobody's business
+// but the roller's, and this endpoint is the opt-in that makes it everyone's.
+func (s *Server) RollInTheOpen(ctx context.Context, request api.RollInTheOpenRequestObject) (api.RollInTheOpenResponseObject, error) {
+	campaignID := uuid.UUID(request.CampaignId)
+	member, err := s.requireMember(ctx, campaignID)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.RollInTheOpen401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.RollInTheOpen403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		default:
+			return nil, err
+		}
+	}
+	if request.Body == nil || len(request.Body.Groups) == 0 {
+		return api.RollInTheOpen400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "there are no dice in that pool",
+		}}, nil
+	}
+
+	pool := dicePool{}
+	if request.Body.Modifier != nil {
+		pool.Modifier = *request.Body.Modifier
+	}
+	for _, g := range request.Body.Groups {
+		pool.Groups = append(pool.Groups, dieGroup{Count: g.Count, Sides: g.Sides})
+	}
+	result, ok := rollPool(pool)
+	if !ok {
+		return api.RollInTheOpen400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "the tower does not carry that pool — check the dice, the count and the modifier",
+		}}, nil
+	}
+
+	label := ""
+	if request.Body.Label != nil {
+		label = strings.TrimSpace(*request.Body.Label)
+	}
+	actor, _ := s.ownerName(ctx, member.UserID)
+	if strings.TrimSpace(actor) == "" {
+		actor = "Someone"
+	}
+	// logEvent publishes the chronicle topic, so every screen at the table
+	// refetches the feed the moment the dice land (#109).
+	s.logEvent(ctx, campaignID, member.UserID, "roll", rollLine(actor, label, result))
+
+	groups := make([]api.RolledGroup, 0, len(result.Groups))
+	for _, g := range result.Groups {
+		groups = append(groups, api.RolledGroup{Sides: g.Sides, Results: g.Results})
+	}
+	return api.RollInTheOpen201JSONResponse(api.RollResult{
+		Expression: result.Expression,
+		Groups:     groups,
+		Modifier:   result.Modifier,
+		Total:      result.Total,
+		Crit:       result.Crit,
+		Fail:       result.Fail,
+	}), nil
 }
