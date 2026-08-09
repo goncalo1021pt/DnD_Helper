@@ -89,6 +89,8 @@ paths:
 
   /campaigns/{campaignId}/events:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1events"
+  /campaigns/{campaignId}/rolls:
+    $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1rolls"
   /campaigns/{campaignId}/xp:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1xp"
   /campaigns/{campaignId}/milestone:
@@ -530,6 +532,14 @@ components:
 
     ChronicleEvent:
       $ref: "./components/chronicle.yaml#/ChronicleEvent"
+    DieGroup:
+      $ref: "./components/chronicle.yaml#/DieGroup"
+    RollRequest:
+      $ref: "./components/chronicle.yaml#/RollRequest"
+    RolledGroup:
+      $ref: "./components/chronicle.yaml#/RolledGroup"
+    RollResult:
+      $ref: "./components/chronicle.yaml#/RollResult"
 
     NodeRarity:
       $ref: "./components/trees.yaml#/NodeRarity"

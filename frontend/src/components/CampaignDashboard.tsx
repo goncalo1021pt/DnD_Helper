@@ -516,7 +516,7 @@ export default function CampaignDashboard() {
           )}
         </section>
 
-        <DiceTowerPanel />
+        <DiceTowerPanel campaignId={campaign.id} />
 
         {isDM ? <DMScreenPanel /> : <PlayerScreenPanel />}
       </div>

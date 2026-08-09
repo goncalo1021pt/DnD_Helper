@@ -706,7 +706,7 @@ export default function PartyRoster() {
         </ParchmentModal>
       )}
 
-      <FloatingDiceTray />
+      <FloatingDiceTray campaignId={campaign.id} />
     </div>
   );
 }

@@ -53,6 +53,7 @@ WITH ev AS (
                 WHEN e.kind = 'ruling'      THEN 'rules'
                 WHEN e.kind LIKE 'codex%'   THEN 'rules'
                 WHEN e.kind = 'player_note' THEN 'player'
+                WHEN e.kind = 'roll'        THEN 'rolls'
                 ELSE 'log'
             END)::text AS category
     FROM campaign_events e

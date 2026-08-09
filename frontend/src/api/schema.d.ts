@@ -681,6 +681,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/rolls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Roll dice where the table can see them (any member)
+         * @description The server rolls the pool and writes the result into the chronicle's rolls channel. Public rolls are rolled here rather than posted from the browser: a shared log that takes the roller's word for the number is not a record of anything.
+         */
+        post: operations["rollInTheOpen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/xp": {
         parameters: {
             query?: never;
@@ -2775,12 +2797,41 @@ export interface components {
             id: string;
             /** @description quest_posted, hero_seated, level_up, codex_enabled, xp, milestone, note… */
             kind: string;
-            /** @description The channel a line belongs to (plain string, not an enum, to avoid a codegen name clash): dm (the DM's story notes), rules (rulings + codex changes), player (player posts), log (system happenings). Derived from kind. */
+            /** @description The channel a line belongs to (plain string, not an enum, to avoid a codegen name clash): dm (the DM's story notes), rules (rulings + codex changes), player (player posts), rolls (dice rolled in the open), log (system happenings). Derived from kind. */
             category: string;
             message: string;
             actorName?: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        DieGroup: {
+            /** @description How many of this die are in the pool. */
+            count: number;
+            /** @description 2 (a coin), 4, 6, 8, 10, 12, 20 or 100. */
+            sides: number;
+        };
+        RollRequest: {
+            groups: components["schemas"]["DieGroup"][];
+            /** @default 0 */
+            modifier: number;
+            /** @description What the roll is for — "Fireball", "a Stealth check". Optional. */
+            label?: string;
+        };
+        RolledGroup: {
+            sides: number;
+            /** @description Every face that came up, in the order rolled. */
+            results: number[];
+        };
+        RollResult: {
+            /** @description How the pool is written — "2d6 + 1d8 + 3". */
+            expression: string;
+            groups: components["schemas"]["RolledGroup"][];
+            modifier: number;
+            total: number;
+            /** @description A lone d20 that landed on 20. */
+            crit: boolean;
+            /** @description A lone d20 that landed on 1. */
+            fail: boolean;
         };
         /** @enum {string} */
         NodeRarity: "minor" | "keystone";
@@ -4293,6 +4344,36 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    rollInTheOpen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RollRequest"];
+            };
+        };
+        responses: {
+            /** @description What the dice did */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RollResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     grantXP: {

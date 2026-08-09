@@ -79,8 +79,9 @@ test("a DM founds a table and posts a quest; a player joins and claims it", asyn
   // nailed to the board" line, and matching those is not the same claim.
   await expect(playerPage.getByRole("heading", { name: "The Quest Board" })).toBeVisible();
 
-  // The notice the DM revealed is on the player's board too.
-  const notice = playerPage.getByText(questTitle);
+  // The notice the DM revealed is on the player's board too — the card, not
+  // the Chronicle line announcing it, which the board also carries.
+  const notice = playerPage.getByText(questTitle).first();
   await expect(notice).toBeVisible();
 
   // And they can take it.

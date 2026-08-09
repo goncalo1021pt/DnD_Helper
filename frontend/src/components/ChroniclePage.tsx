@@ -5,11 +5,12 @@ import { useAddNote, useEvents } from "../hooks";
 import { formatWhen } from "../lib/dates";
 import type { CampaignContext } from "./CampaignView";
 
-/** Channel → accent + label, for the written entries (dm/rules/player). */
+/** Channel → accent + label, for the written entries (dm/rules/player/rolls). */
 const CATEGORY_META: Record<string, { label: string; tone: string }> = {
   dm: { label: "DM", tone: "#d0a75a" },
   rules: { label: "Ruling", tone: "#c96a5a" },
   player: { label: "Player", tone: "#6fa8c9" },
+  rolls: { label: "Roll", tone: "#9d86c4" },
   log: { label: "", tone: "#a8967a" },
 };
 
@@ -51,6 +52,7 @@ const FILTERS: Array<[string, string]> = [
   ["dm", "DM notes"],
   ["rules", "Rulings"],
   ["player", "Player chat"],
+  ["rolls", "Rolls"],
   ["log", "Happenings"],
 ];
 

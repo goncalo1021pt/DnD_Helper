@@ -13,8 +13,8 @@ ChronicleEvent:
       description: >
         The channel a line belongs to (plain string, not an enum, to avoid
         a codegen name clash): dm (the DM's story notes), rules (rulings +
-        codex changes), player (player posts), log (system happenings).
-        Derived from kind.
+        codex changes), player (player posts), rolls (dice rolled in the
+        open), log (system happenings). Derived from kind.
     message:
       type: string
     actorName:
@@ -23,3 +23,70 @@ ChronicleEvent:
     createdAt:
       type: string
       format: date-time
+
+DieGroup:
+  type: object
+  required: [count, sides]
+  properties:
+    count:
+      type: integer
+      minimum: 1
+      maximum: 100
+      description: How many of this die are in the pool.
+    sides:
+      type: integer
+      description: 2 (a coin), 4, 6, 8, 10, 12, 20 or 100.
+
+RollRequest:
+  type: object
+  required: [groups]
+  properties:
+    groups:
+      type: array
+      minItems: 1
+      maxItems: 8
+      items:
+        $ref: "../openapi.yaml#/components/schemas/DieGroup"
+    modifier:
+      type: integer
+      minimum: -100
+      maximum: 100
+      default: 0
+    label:
+      type: string
+      maxLength: 60
+      description: What the roll is for — "Fireball", "a Stealth check". Optional.
+
+RolledGroup:
+  type: object
+  required: [sides, results]
+  properties:
+    sides:
+      type: integer
+    results:
+      type: array
+      items:
+        type: integer
+      description: Every face that came up, in the order rolled.
+
+RollResult:
+  type: object
+  required: [expression, groups, modifier, total, crit, fail]
+  properties:
+    expression:
+      type: string
+      description: How the pool is written — "2d6 + 1d8 + 3".
+    groups:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/RolledGroup"
+    modifier:
+      type: integer
+    total:
+      type: integer
+    crit:
+      type: boolean
+      description: A lone d20 that landed on 20.
+    fail:
+      type: boolean
+      description: A lone d20 that landed on 1.

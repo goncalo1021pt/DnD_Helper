@@ -89,3 +89,35 @@ export function useRevokeMilestone(campaignId: string) {
     },
   });
 }
+
+/**
+ * Roll dice where the table can see them (#176). The server rolls and writes
+ * the result into the chronicle's rolls channel; the feed refreshes through
+ * the same invalidation any chronicle entry uses.
+ *
+ * Quiet on failure: the tower shows its own refusal beside the dice, and a
+ * notice sliding in over the tray would say the same thing twice.
+ */
+export function useRollInTheOpen(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      groups: Array<{ count: number; sides: number }>;
+      // Required, not optional: the schema gives it a default, which openapi
+      // -typescript reads as "always present in the body".
+      modifier: number;
+      label?: string;
+    }) => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/rolls", {
+        params: { path: { campaignId } },
+        body: vars,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["events"] });
+    },
+    meta: { quiet: true },
+  });
+}
