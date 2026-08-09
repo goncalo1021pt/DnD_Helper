@@ -3071,6 +3071,7 @@ components:
           - spell
           - item
           - monster
+          - rule
     NodeId:
       name: nodeId
       in: path
@@ -3795,6 +3796,7 @@ components:
             - spell
             - item
             - monster
+            - rule
         source:
           type: string
           enum:
@@ -5085,6 +5087,7 @@ components:
             - spell
             - item
             - monster
+            - rule
         name:
           type: string
           minLength: 1

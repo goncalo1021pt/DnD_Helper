@@ -12,6 +12,7 @@ import { useState } from "react";
 import type { Combatant } from "../../api/client";
 import { useUpdateCombatant } from "../../hooks";
 import { CONDITION_NAMES, MAX_EXHAUSTION, exhaustionLevel } from "../../lib/conditions";
+import { RuleTerm } from "../ui/RulePopover";
 
 /* Conditions read as a muted violet so they never compete with the two things
    already coloured on the row: the gold of whose turn it is, and the red/green
@@ -27,13 +28,16 @@ export function ConditionChips({ conditions }: { conditions: string[] }) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {conditions.map((name) => (
-        <span
+        // A chip that names a rule entry opens the actual text (#199) —
+        // "what does Restrained do again?" without leaving the fight.
+        <RuleTerm
           key={name}
+          term={name}
           className="label-stamp rounded-[2px] px-1.5 py-0.5 text-[8.5px] font-bold tracking-[1px]"
           style={{ color: COND_TONE, background: `${COND_TONE}1c`, boxShadow: `inset 0 0 0 1px ${COND_TONE}55` }}
         >
           {name}
-        </span>
+        </RuleTerm>
       ))}
     </div>
   );

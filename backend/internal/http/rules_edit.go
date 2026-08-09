@@ -179,6 +179,10 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 	case db.ContentKindMonster:
 		// Free-form: stat blocks vary too much to gate; the Den renders
 		// whatever facts are present.
+	case db.ContentKindRule:
+		// Free-form: a keyword's rules text lives in the description, and a
+		// pack's subsystem (Circle Magic, Renown) is prose too. `category` is
+		// uncurated on purpose — the codex groups by whatever is there.
 	}
 	// Creature grants and scaling ride on every kind, so they are checked
 	// after the switch rather than repeated inside five of its arms.
@@ -690,7 +694,7 @@ func validContentKind(k db.ContentKind) bool {
 	switch k {
 	case db.ContentKindClass, db.ContentKindSpecies, db.ContentKindBackground,
 		db.ContentKindSubclass, db.ContentKindFeat, db.ContentKindSpell,
-		db.ContentKindItem, db.ContentKindMonster:
+		db.ContentKindItem, db.ContentKindMonster, db.ContentKindRule:
 		return true
 	}
 	return false

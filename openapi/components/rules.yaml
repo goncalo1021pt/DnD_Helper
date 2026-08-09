@@ -7,7 +7,7 @@ RulesContent:
       format: uuid
     kind:
       type: string
-      enum: [class, species, background, subclass, feat, spell, item, monster]
+      enum: [class, species, background, subclass, feat, spell, item, monster, rule]
     source:
       type: string
       enum: [srd, homebrew]
@@ -61,7 +61,7 @@ PackEntry:
   properties:
     kind:
       type: string
-      enum: [class, species, background, subclass, feat, spell, item, monster]
+      enum: [class, species, background, subclass, feat, spell, item, monster, rule]
     name:
       type: string
       minLength: 1

@@ -7,6 +7,7 @@ import ClassFields from "./content/fields/ClassFields";
 import FeatFields from "./content/fields/FeatFields";
 import ItemFields from "./content/fields/ItemFields";
 import MonsterFields from "./content/fields/MonsterFields";
+import RuleFields from "./content/fields/RuleFields";
 import SpeciesFields from "./content/fields/SpeciesFields";
 import SpellFields from "./content/fields/SpellFields";
 import SubclassFields from "./content/fields/SubclassFields";
@@ -53,6 +54,8 @@ function GuidedFields({
       return <ItemFields {...props} />;
     case "monster":
       return <MonsterFields {...props} />;
+    case "rule":
+      return <RuleFields {...props} />;
     default:
       return <FeatFields {...props} />;
   }
@@ -72,6 +75,7 @@ export const KIND_DEFAULTS: Record<RulesKind, DataObj> = {
   feat: { category: "general" },
   spell: { level: 1, school: "", classes: [] },
   item: { type: "gear" },
+  rule: { category: "glossary", description: "" },
   monster: {
     size: "Medium", type: "Beast", alignment: "Unaligned",
     ac: 12, hp: 11, speed: "30 ft.", cr: "1/4", crValue: 0.25,

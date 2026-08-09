@@ -261,7 +261,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [class, species, background, subclass, feat, spell, item, monster]
+        enum: [class, species, background, subclass, feat, spell, item, monster, rule]
     NodeId:
       name: nodeId
       in: path
