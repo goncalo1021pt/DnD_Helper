@@ -60,7 +60,9 @@ test("a DM founds a table and posts a quest; a player joins and claims it", asyn
 
   await dmPage.getByRole("button", { name: "Nail it to the board" }).click();
 
-  await expect(dmPage.getByText(questTitle)).toBeVisible();
+  // The board card, not the Chronicle line that announces the same title —
+  // under load the live update lands before this settles and matches both.
+  await expect(dmPage.getByText(questTitle).first()).toBeVisible();
 
   // --- the player's side ---------------------------------------------------
   const playerCtx = await browser.newContext();

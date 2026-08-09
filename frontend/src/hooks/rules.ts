@@ -32,7 +32,7 @@ export function useRules(kind: RulesKind, enabled = true) {
 }
 
 const ALL_KINDS: RulesKind[] = [
-  "class", "subclass", "species", "background", "feat", "spell", "item",
+  "class", "subclass", "species", "background", "feat", "spell", "item", "rule",
 ];
 
 /** Every visible rules entry across all kinds — for codex-wide rulings. */

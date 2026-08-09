@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { RulesContent, RulesKind } from "../../api/client";
 import { originStamp } from "../../lib/content";
 import type { SpeciesChoice } from "../../lib/species";
+import { RuleTermList } from "./RulePopover";
 import SpellEntry, { Blocks } from "./SpellEntry";
 
 /**
@@ -27,6 +28,14 @@ export const FEAT_CATEGORY_LABEL: Record<string, string> = {
 
 // Categories that read as their own kind of option, not a "<Cat> Feat".
 const STANDALONE_FEAT_CATEGORY = new Set(["fighting-style", "invocation", "metamagic"]);
+
+export const RULE_CATEGORY_LABEL: Record<string, string> = {
+  "weapon-property": "Weapon property",
+  mastery: "Weapon mastery",
+  condition: "Condition",
+  action: "Action",
+  glossary: "Rules glossary",
+};
 
 function SourceStamp({ entry }: { entry: RulesContent }) {
   const stamp = originStamp(entry);
@@ -314,6 +323,22 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
     );
   }
 
+  if (kind === "rule") {
+    const category = str("category") ?? "";
+    return (
+      <div className="text-[13px]">
+        <Header entry={entry} tagline={entry.summary} />
+        <Facts
+          rows={[
+            ["Category", RULE_CATEGORY_LABEL[category] ?? category],
+            ["Source", book],
+          ]}
+        />
+        <Description text={str("description")} />
+      </div>
+    );
+  }
+
   // item
   const itemType = str("type") ?? "gear";
   const typeRows: Array<[string, ReactNode]> =
@@ -329,7 +354,13 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
           ? [
               ["Weapon", `${str("category") ?? ""}${d.ranged ? ", ranged" : ", melee"}`],
               ["Damage", `${str("damage") ?? ""} ${str("damageType") ?? ""}`],
-              ["Properties", arr("properties").join(", ")],
+              // Each property that names a rule entry opens it (#199).
+              [
+                "Properties",
+                arr("properties").length > 0 ? (
+                  <RuleTermList terms={arr("properties")} />
+                ) : undefined,
+              ],
             ]
           : [["Type", "Gear"]];
 

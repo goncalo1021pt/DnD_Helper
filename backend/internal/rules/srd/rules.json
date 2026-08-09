@@ -1,0 +1,498 @@
+[
+ {
+  "name": "Ammunition",
+  "summary": "Firing needs ammunition to expend; half of it survives the fight.",
+  "data": {
+   "category": "weapon-property",
+   "description": "You can use a weapon that has the Ammunition property to make a ranged attack only if you have ammunition to fire from it. The type of ammunition required is specified with the weapon's range. Each attack expends one piece of ammunition. Drawing the ammunition is part of the attack; you need a free hand to load a one-handed weapon.\n\nAt the end of a fight, you can spend 1 minute to recover half the ammunition (round down) you used in the fight; the rest is lost."
+  }
+ },
+ {
+  "name": "Finesse",
+  "summary": "Attack and damage with Strength or Dexterity — your pick, same for both.",
+  "data": {
+   "category": "weapon-property",
+   "description": "When making an attack roll with a weapon that has the Finesse property, use your choice of your Strength or Dexterity modifier for the attack and damage rolls. You must use the same modifier for both rolls."
+  }
+ },
+ {
+  "name": "Heavy",
+  "summary": "Disadvantage on attacks unless you have the muscle (STR 13) or the eye (DEX 13).",
+  "data": {
+   "category": "weapon-property",
+   "description": "You have Disadvantage on attack rolls with a Heavy weapon if it's a Melee weapon and your Strength score isn't at least 13, or if it's a Ranged weapon and your Dexterity score isn't at least 13."
+  }
+ },
+ {
+  "name": "Light",
+  "summary": "A second, off-hand attack as a Bonus Action — with a different Light weapon.",
+  "data": {
+   "category": "weapon-property",
+   "description": "When you take the Attack action on your turn and attack with a Light weapon, you can make one extra attack as a Bonus Action later on the same turn. That extra attack must be made with a different Light weapon, and you don't add your ability modifier to the extra attack's damage unless that modifier is negative.\n\nFor example, you can attack with a Shortsword in one hand and a Dagger in the other using the Attack action and a Bonus Action, but you don't add your Strength or Dexterity modifier to the damage roll of the Bonus Action attack unless that modifier is negative."
+  }
+ },
+ {
+  "name": "Loading",
+  "summary": "One shot per action, Bonus Action or Reaction, however many attacks you have.",
+  "data": {
+   "category": "weapon-property",
+   "description": "You can fire only one piece of ammunition from a Loading weapon when you use an action, a Bonus Action, or a Reaction to fire it, regardless of the number of attacks you can normally make."
+  }
+ },
+ {
+  "name": "Range",
+  "summary": "Two numbers: normal range, and long range at Disadvantage.",
+  "data": {
+   "category": "weapon-property",
+   "description": "A weapon that can be used to make a ranged attack has a range in parentheses after the Ammunition or Thrown property. The range lists two numbers. The first is the weapon's normal range in feet, and the second is the weapon's long range. When attacking a target beyond normal range, you have Disadvantage on the attack roll. You can't attack a target beyond the long range."
+  }
+ },
+ {
+  "name": "Reach",
+  "summary": "Five extra feet of reach — for your attacks and your Opportunity Attacks.",
+  "data": {
+   "category": "weapon-property",
+   "description": "A Reach weapon adds 5 feet to your reach when you attack with it, as well as when determining your reach for Opportunity Attacks with it."
+  }
+ },
+ {
+  "name": "Thrown",
+  "summary": "Throw it as a ranged attack; a thrown Melee weapon keeps its usual modifier.",
+  "data": {
+   "category": "weapon-property",
+   "description": "If a weapon has the Thrown property, you can throw the weapon to make a ranged attack, and you can draw that weapon as part of the attack. If the weapon is a Melee weapon, use the same ability modifier for the attack and damage rolls that you use for a melee attack with the weapon."
+  }
+ },
+ {
+  "name": "Two-Handed",
+  "summary": "Both hands, whenever you attack with it.",
+  "data": {
+   "category": "weapon-property",
+   "description": "A Two-Handed weapon requires two hands when you attack with it."
+  }
+ },
+ {
+  "name": "Versatile",
+  "summary": "One hand or two — the damage in parentheses is the two-handed grip.",
+  "data": {
+   "category": "weapon-property",
+   "description": "A Versatile weapon can be used with one or two hands. A damage value in parentheses appears with the property. The weapon deals that damage when used with two hands to make a melee attack."
+  }
+ },
+ {
+  "name": "Cleave",
+  "summary": "A hit carries into a second creature within reach — weapon dice only.",
+  "data": {
+   "category": "mastery",
+   "description": "If you hit a creature with a melee attack roll using this weapon, you can make a melee attack roll with the weapon against a second creature within 5 feet of the first that is also within your reach. On a hit, the second creature takes the weapon's damage, but don't add your ability modifier to that damage unless that modifier is negative. You can make this extra attack only once per turn."
+  }
+ },
+ {
+  "name": "Graze",
+  "summary": "Even a miss deals your ability modifier in damage.",
+  "data": {
+   "category": "mastery",
+   "description": "If your attack roll with this weapon misses a creature, you can deal damage to that creature equal to the ability modifier you used to make the attack roll. This damage is the same type dealt by the weapon, and the damage can be increased only by increasing the ability modifier."
+  }
+ },
+ {
+  "name": "Nick",
+  "summary": "The Light property's extra attack folds into the Attack action itself.",
+  "data": {
+   "category": "mastery",
+   "description": "When you make the extra attack of the Light property, you can make it as part of the Attack action instead of as a Bonus Action. You can make this extra attack only once per turn."
+  }
+ },
+ {
+  "name": "Push",
+  "summary": "A hit shoves the target up to 10 feet straight away (Large or smaller).",
+  "data": {
+   "category": "mastery",
+   "description": "If you hit a creature with this weapon, you can push the creature up to 10 feet straight away from yourself if it is Large or smaller."
+  }
+ },
+ {
+  "name": "Sap",
+  "summary": "A hit sours the target's next attack roll with Disadvantage.",
+  "data": {
+   "category": "mastery",
+   "description": "If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn."
+  }
+ },
+ {
+  "name": "Slow",
+  "summary": "A damaging hit drags 10 feet off the target's Speed for a round.",
+  "data": {
+   "category": "mastery",
+   "description": "If you hit a creature with this weapon and deal damage to it, you can reduce its Speed by 10 feet until the start of your next turn. If you hit the creature more than once with weapons that have this property, the Speed reduction doesn't exceed 10 feet."
+  }
+ },
+ {
+  "name": "Topple",
+  "summary": "A hit can drop the target Prone — Constitution save or fall.",
+  "data": {
+   "category": "mastery",
+   "description": "If you hit a creature with this weapon, you can force the creature to make a Constitution saving throw (DC 8 plus the ability modifier used to make the attack roll and your Proficiency Bonus). On a failed save, the creature has the Prone condition."
+  }
+ },
+ {
+  "name": "Vex",
+  "summary": "A damaging hit hands you Advantage on your next swing at the same target.",
+  "data": {
+   "category": "mastery",
+   "description": "If you hit a creature with this weapon and deal damage to the creature, you have Advantage on your next attack roll against that creature before the end of your next turn."
+  }
+ },
+ {
+  "name": "Blinded",
+  "summary": "You can't see: sight checks auto-fail, foes swing with Advantage, you without.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Blinded condition, you experience the following effects.\n\n_Can't See._ You can't see and automatically fail any ability check that requires sight.\n\n_Attacks Affected._ Attack rolls against you have Advantage, and your attack rolls have Disadvantage."
+  }
+ },
+ {
+  "name": "Charmed",
+  "summary": "You can't harm your charmer, and they check social rolls against you with Advantage.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Charmed condition, you experience the following effects.\n\n_Can't Harm the Charmer._ You can't attack the charmer or target the charmer with damaging abilities or magical effects.\n\n_Social Advantage._ The charmer has Advantage on any ability check to interact with you socially."
+  }
+ },
+ {
+  "name": "Deafened",
+  "summary": "You can't hear; hearing checks fail automatically.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Deafened condition, you experience the following effect.\n\n_Can't Hear._ You can't hear and automatically fail any ability check that requires hearing."
+  }
+ },
+ {
+  "name": "Exhaustion",
+  "summary": "Cumulative levels: −2 per level on every d20, −5 ft Speed per level; six kills.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Exhaustion condition, you experience the following effects.\n\n_Exhaustion Levels._ This condition is cumulative. Each time you receive it, you gain 1 Exhaustion level. You die if your Exhaustion level reaches 6.\n\n_D20 Tests Affected._ When you make a D20 Test, the roll is reduced by 2 times your Exhaustion level.\n\n_Speed Reduced._ Your Speed is reduced by a number of feet equal to 5 times your Exhaustion level.\n\n_Removing Exhaustion Levels._ Finishing a Long Rest removes 1 of your Exhaustion levels. When your Exhaustion level reaches 0, the condition ends."
+  }
+ },
+ {
+  "name": "Frightened",
+  "summary": "Disadvantage on checks and attacks while the fear is in sight; no moving closer.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Frightened condition, you experience the following effects.\n\n_Ability Checks and Attacks Affected._ You have Disadvantage on ability checks and attack rolls while the source of fear is within line of sight.\n\n_Can't Approach._ You can't willingly move closer to the source of fear."
+  }
+ },
+ {
+  "name": "Grappled",
+  "summary": "Speed 0, Disadvantage against anyone but the grappler, and they can drag you.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Grappled condition, you experience the following effects.\n\n_Speed 0._ Your Speed is 0 and can't increase.\n\n_Attacks Affected._ You have Disadvantage on attack rolls against any target other than the grappler.\n\n_Movable._ The grappler can drag or carry you when it moves, but every foot of movement costs it 1 extra foot, unless you are Tiny or two or more sizes smaller than it."
+  }
+ },
+ {
+  "name": "Incapacitated",
+  "summary": "No actions, no Concentration, no speech; Initiative at Disadvantage.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Incapacitated condition, you experience the following effects.\n\n_Inactive._ You can't take any action, Bonus Action, or Reaction.\n\n_No Concentration._ Your Concentration is broken.\n\n_Speechless._ You can't speak.\n\n_Surprised._ If you're Incapacitated when you roll Initiative, you have Disadvantage on the roll."
+  }
+ },
+ {
+  "name": "Invisible",
+  "summary": "Unseen: Advantage on your attacks and Initiative, Disadvantage against you.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Invisible condition, you experience the following effects.\n\n_Surprise._ If you're Invisible when you roll Initiative, you have Advantage on the roll.\n\n_Concealed._ You aren't affected by any effect that requires its target to be seen unless the effect's creator can somehow see you. Any equipment you are wearing or carrying is also concealed.\n\n_Attacks Affected._ Attack rolls against you have Disadvantage, and your attack rolls have Advantage. If a creature can somehow see you, you don't gain this benefit against that creature."
+  }
+ },
+ {
+  "name": "Paralyzed",
+  "summary": "Frozen: incapacitated, auto-fail STR/DEX saves, hits within 5 feet crit.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Paralyzed condition, you experience the following effects.\n\n_Incapacitated._ You have the Incapacitated condition.\n\n_Speed 0._ Your Speed is 0 and can't increase.\n\n_Saving Throws Affected._ You automatically fail Strength and Dexterity saving throws.\n\n_Attacks Affected._ Attack rolls against you have Advantage.\n\n_Automatic Critical Hits._ Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you."
+  }
+ },
+ {
+  "name": "Petrified",
+  "summary": "Stone: incapacitated, resistant to all damage, immune to poison, ageless.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Petrified condition, you experience the following effects.\n\n_Turned to Inanimate Substance._ You are transformed, along with any nonmagical objects you are wearing and carrying, into a solid inanimate substance (usually stone). Your weight increases by a factor of ten, and you cease aging.\n\n_Incapacitated._ You have the Incapacitated condition.\n\n_Speed 0._ Your Speed is 0 and can't increase.\n\n_Attacks Affected._ Attack rolls against you have Advantage.\n\n_Saving Throws Affected._ You automatically fail Strength and Dexterity saving throws.\n\n_Resist Damage._ You have Resistance to all damage.\n\n_Poison Immunity._ You have Immunity to the Poisoned condition."
+  }
+ },
+ {
+  "name": "Poisoned",
+  "summary": "Disadvantage on attack rolls and ability checks.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Poisoned condition, you experience the following effect.\n\n_Ability Checks and Attacks Affected._ You have Disadvantage on attack rolls and ability checks."
+  }
+ },
+ {
+  "name": "Prone",
+  "summary": "On the ground: crawl or spend half your Speed to rise; melee hits you easier.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Prone condition, you experience the following effects.\n\n_Restricted Movement._ Your only movement options are to crawl or to spend an amount of movement equal to half your Speed (round down) to right yourself and thereby end the condition. If your Speed is 0, you can't right yourself.\n\n_Attacks Affected._ You have Disadvantage on attack rolls. An attack roll against you has Advantage if the attacker is within 5 feet of you. Otherwise, that attack roll has Disadvantage."
+  }
+ },
+ {
+  "name": "Restrained",
+  "summary": "Held fast: Speed 0, foes swing with Advantage, DEX saves at Disadvantage.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Restrained condition, you experience the following effects.\n\n_Speed 0._ Your Speed is 0 and can't increase.\n\n_Attacks Affected._ Attack rolls against you have Advantage, and your attack rolls have Disadvantage.\n\n_Saving Throws Affected._ You have Disadvantage on Dexterity saving throws."
+  }
+ },
+ {
+  "name": "Stunned",
+  "summary": "Reeling: incapacitated, auto-fail STR/DEX saves, foes swing with Advantage.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Stunned condition, you experience the following effects.\n\n_Incapacitated._ You have the Incapacitated condition.\n\n_Saving Throws Affected._ You automatically fail Strength and Dexterity saving throws.\n\n_Attacks Affected._ Attack rolls against you have Advantage."
+  }
+ },
+ {
+  "name": "Unconscious",
+  "summary": "Out cold: incapacitated and Prone, nearby hits crit, you drop what you hold.",
+  "data": {
+   "category": "condition",
+   "description": "While you have the Unconscious condition, you experience the following effects.\n\n_Inert._ You have the Incapacitated and Prone conditions, and you drop whatever you're holding. When this condition ends, you remain Prone.\n\n_Speed 0._ Your Speed is 0 and can't increase.\n\n_Attacks Affected._ Attack rolls against you have Advantage.\n\n_Saving Throws Affected._ You automatically fail Strength and Dexterity saving throws.\n\n_Automatic Critical Hits._ Any attack roll that hits you is a Critical Hit if the attacker is within 5 feet of you.\n\n_Unaware._ You're unaware of your surroundings."
+  }
+ },
+ {
+  "name": "Attack (action)",
+  "summary": "Make an attack roll — and swap a weapon or split your movement between blows.",
+  "data": {
+   "category": "action",
+   "description": "When you take the Attack action, you can make one attack roll with a weapon or an Unarmed Strike.\n\n_Equipping and Unequipping Weapons._ You can either equip or unequip one weapon when you make an attack as part of this action.\n\n_Moving Between Attacks._ If you move on your turn and have a feature, such as Extra Attack, that gives you more than one attack as part of the Attack action, you can use some or all of that movement to move between those attacks."
+  }
+ },
+ {
+  "name": "Dash",
+  "summary": "Extra movement equal to your Speed, after modifiers.",
+  "data": {
+   "category": "action",
+   "description": "When you take the Dash action, you gain extra movement for the current turn. The increase equals your Speed after applying any modifiers. With a Speed of 30 feet, for example, you can move up to 60 feet on your turn if you Dash. If your Speed of 30 feet is reduced to 15 feet, you can move up to 30 feet this turn if you Dash."
+  }
+ },
+ {
+  "name": "Disengage",
+  "summary": "Your movement provokes no Opportunity Attacks this turn.",
+  "data": {
+   "category": "action",
+   "description": "If you take the Disengage action, your movement doesn't provoke Opportunity Attacks for the rest of the current turn."
+  }
+ },
+ {
+  "name": "Dodge",
+  "summary": "Attackers you can see roll with Disadvantage; your DEX saves gain Advantage.",
+  "data": {
+   "category": "action",
+   "description": "If you take the Dodge action, you gain the following benefits: until the start of your next turn, any attack roll made against you has Disadvantage if you can see the attacker, and you make Dexterity saving throws with Advantage. You lose these benefits if you have the Incapacitated condition or if your Speed is 0."
+  }
+ },
+ {
+  "name": "Help",
+  "summary": "Hand an ally Advantage — on a skill you know, or on a swing at a foe beside you.",
+  "data": {
+   "category": "action",
+   "description": "When you take the Help action, you do one of the following.\n\n_Assist an Ability Check._ Choose one of your skill or tool proficiencies and one ally who is close enough for you to assist verbally or physically when they make an ability check. That ally has Advantage on the next ability check they make with the chosen skill or tool. This benefit expires if the ally doesn't use it before the start of your next turn.\n\n_Assist an Attack Roll._ You momentarily distract an enemy within 5 feet of you, giving Advantage to the next attack roll by one of your allies against that enemy. This benefit expires at the start of your next turn."
+  }
+ },
+ {
+  "name": "Hide",
+  "summary": "DC 15 Stealth behind cover or obscurement — success makes you Invisible.",
+  "data": {
+   "category": "action",
+   "description": "With the Hide action, you try to conceal yourself. To do so, you must succeed on a DC 15 Dexterity (Stealth) check while you're Heavily Obscured or behind Three-Quarters Cover or Total Cover, and you must be out of any enemy's line of sight; if you can see a creature, you can discern whether it can see you.\n\nOn a successful check, you have the Invisible condition. Make note of your check's total, which is the DC for a creature to find you with a Wisdom (Perception) check.\n\nThe condition ends on you immediately after any of the following occurs: you make a sound louder than a whisper, an enemy finds you, you make an attack roll, or you cast a spell with a Verbal component."
+  }
+ },
+ {
+  "name": "Influence",
+  "summary": "Urge a monster to act: attitude decides whether words alone need a roll.",
+  "data": {
+   "category": "action",
+   "description": "With the Influence action, you urge a monster to do something. Describe or roleplay how you're doing it: a willing monster simply does as urged, an unwilling one refuses, and a hesitant one calls for an ability check.\n\nThe check is Charisma (Deception, Intimidation, Performance, or Persuasion) or Wisdom (Animal Handling), whichever fits the approach, against a DC of 15 or the monster's Intelligence score, whichever is higher. On a success, the monster does as urged; on a failure, you must wait 24 hours (or a duration set by the DM) before urging it in the same way again."
+  }
+ },
+ {
+  "name": "Magic (action)",
+  "summary": "Cast a spell, or activate a feature or item that asks for a Magic action.",
+  "data": {
+   "category": "action",
+   "description": "When you take the Magic action, you cast a spell that has a casting time of an action or use a feature or magic item that requires a Magic action to be activated.\n\nIf you cast a spell that has a casting time of 1 minute or longer, you must take the Magic action on each turn of that casting, and you must maintain Concentration while you do so. If your Concentration is broken, the spell fails, but you don't expend a spell slot."
+  }
+ },
+ {
+  "name": "Ready",
+  "summary": "Name a trigger, hold your response — spend your Reaction when it happens.",
+  "data": {
+   "category": "action",
+   "description": "You take the Ready action to wait for a particular circumstance before you act. First, you decide what perceivable circumstance will trigger your Reaction, then you choose the action you will take in response to that trigger, or you choose to move up to your Speed in response to it. When the trigger occurs, you can either take your Reaction right after the trigger finishes or ignore the trigger.\n\nWhen you Ready a spell, you cast it as normal (expending any resources used to cast it) but hold its energy, which you release with your Reaction when the trigger occurs. To be readied, a spell must have a casting time of an action, and holding on to the spell's magic requires Concentration, which you can maintain until the start of your next turn."
+  }
+ },
+ {
+  "name": "Search",
+  "summary": "A Wisdom check to notice what isn't obvious — Insight, Medicine, Perception or Survival.",
+  "data": {
+   "category": "action",
+   "description": "When you take the Search action, you make a Wisdom check to discern something that isn't obvious. Which skill applies depends on what you look for: Insight for a creature's state of mind, Medicine for ailments or cause of death, Perception for concealed creatures and objects, and Survival for tracks or food."
+  }
+ },
+ {
+  "name": "Study",
+  "summary": "An Intelligence check to recall or work out lore — Arcana, History, Investigation, Nature or Religion.",
+  "data": {
+   "category": "action",
+   "description": "When you take the Study action, you make an Intelligence check to study your memory, a book, a clue, or another source of knowledge and call to mind an important piece of information about it.\n\nWhich skill applies depends on the knowledge: Arcana for spells, magic items and the planes; History for historic events and people; Investigation for traps, ciphers, riddles and gadgetry; Nature for terrain, flora, fauna and weather; Religion for deities, rites, holy symbols and cults."
+  }
+ },
+ {
+  "name": "Utilize",
+  "summary": "Use an object that demands your full action.",
+  "data": {
+   "category": "action",
+   "description": "You normally interact with an object while doing something else, such as when you draw a sword as part of an attack. When an object requires an action for its use, you take the Utilize action."
+  }
+ },
+ {
+  "name": "Advantage",
+  "summary": "Roll two d20s, keep the higher; never stacks, and Disadvantage cancels it.",
+  "data": {
+   "category": "glossary",
+   "description": "When you have Advantage on a D20 Test, roll two d20s and use the higher roll.\n\nIf multiple situations affect a roll and each one grants Advantage, you still roll only two d20s. If a roll has both Advantage and Disadvantage, the roll has neither of them, and you roll one d20."
+  }
+ },
+ {
+  "name": "Disadvantage",
+  "summary": "Roll two d20s, keep the lower; never stacks, and Advantage cancels it.",
+  "data": {
+   "category": "glossary",
+   "description": "When you have Disadvantage on a D20 Test, roll two d20s and use the lower roll.\n\nIf multiple situations affect a roll and each one imposes Disadvantage, you still roll only two d20s. If a roll has both Advantage and Disadvantage, the roll has neither of them, and you roll one d20."
+  }
+ },
+ {
+  "name": "Concentration",
+  "summary": "One held effect at a time — broken by a failed CON save, another such spell, or going down.",
+  "data": {
+   "category": "glossary",
+   "description": "Some spells and other effects require Concentration to remain active; if the effect's creator loses Concentration, the effect ends. If an effect requires Concentration, its duration entry says so.\n\nYou lose Concentration on an effect when any of the following happens.\n\n_Another Concentration Effect._ You start casting another spell or using another effect that requires Concentration.\n\n_Damage._ Whenever you take damage, you make a Constitution saving throw to maintain Concentration. The DC is 10 or half the damage taken, whichever is higher.\n\n_Incapacitated or Dead._ Your Concentration ends if you have the Incapacitated condition or you die.\n\nYou can end Concentration at any time, no action required."
+  }
+ },
+ {
+  "name": "Cover",
+  "summary": "Half: +2 AC and DEX saves. Three-quarters: +5. Total: can't be targeted directly.",
+  "data": {
+   "category": "glossary",
+   "description": "Cover protects a target from harm; a target can benefit only from the most protective degree of cover it has.\n\n_Half Cover._ An obstacle blocks at least half the body: +2 bonus to AC and Dexterity saving throws.\n\n_Three-Quarters Cover._ About three-quarters covered: +5 bonus to AC and Dexterity saving throws.\n\n_Total Cover._ Concealed entirely: the target can't be targeted directly by attacks or spells, although some spells reach it by including it in an area of effect."
+  }
+ },
+ {
+  "name": "Difficult Terrain",
+  "summary": "Every foot of movement costs one extra foot; it never stacks.",
+  "data": {
+   "category": "glossary",
+   "description": "If a space is Difficult Terrain, every foot of movement in that space costs 1 extra foot. For example, moving 5 feet through Difficult Terrain costs 10 feet of movement. Difficult Terrain isn't cumulative; either a space is Difficult Terrain or it isn't."
+  }
+ },
+ {
+  "name": "Emanation",
+  "summary": "An area radiating from a creature or object, moving with its origin.",
+  "data": {
+   "category": "glossary",
+   "description": "An Emanation is an area of effect that extends in straight lines from a creature or an object in all directions. The effect's description specifies the distance it extends.\n\nAn Emanation moves with the creature or object that is its origin unless it is an instantaneous or a stationary effect.\n\nAn Emanation's origin (creature or object) isn't included in the area of effect unless its creator decides otherwise."
+  }
+ },
+ {
+  "name": "Opportunity Attack",
+  "summary": "Your Reaction, one melee attack, when a creature leaves your reach.",
+  "data": {
+   "category": "glossary",
+   "description": "You can make an Opportunity Attack when a creature you can see leaves your reach. To make the attack, take a Reaction to make one melee attack with a weapon or an Unarmed Strike against that creature. The attack occurs right before it leaves your reach.\n\nYou don't provoke an Opportunity Attack when you Teleport, when something moves you without using your movement, action, Bonus Action, or Reaction, or when your movement is part of the Disengage action."
+  }
+ },
+ {
+  "name": "Short Rest",
+  "summary": "One quiet hour: spend Hit Point Dice, recharge what asks for a Short Rest.",
+  "data": {
+   "category": "glossary",
+   "description": "A Short Rest is a 1-hour period of downtime, during which a creature does nothing more strenuous than reading, talking, eating, or standing watch. To start one, you must have at least 1 Hit Point.\n\nWhen you finish the rest, you can spend one or more Hit Point Dice to regain Hit Points — for each one spent, roll the die and add your Constitution modifier, regaining that many Hit Points — and features that recharge on a Short Rest do so.\n\nThe rest is interrupted, and grants no benefits, if broken by rolling Initiative, casting a spell with a spell slot, or taking any damage. You can start it over once the interruption passes."
+  }
+ },
+ {
+  "name": "Long Rest",
+  "summary": "Eight hours: all Hit Points back, half your Hit Point Dice, one Exhaustion level off.",
+  "data": {
+   "category": "glossary",
+   "description": "A Long Rest is a period of extended downtime — at least 8 hours — during which you sleep for at least 6 hours and perform no more than 2 hours of light activity, such as reading, talking, eating, or standing watch.\n\nWhen you finish, you regain all your Hit Points and all spent Hit Point Dice up to a number of dice equal to half your maximum (minimum of 1 die), your Exhaustion level decreases by 1 if you have any, and features that recharge on a Long Rest do so.\n\nAn hour of strenuous activity — walking, fighting, casting spells — interrupts the rest, as does rolling Initiative, casting a spell with a spell slot, or taking damage, unless you resume sleeping within an hour. An interrupted Long Rest grants no benefits, and you can gain the benefits of one only once per 24 hours."
+  }
+ },
+ {
+  "name": "Critical Hit",
+  "summary": "A natural 20 always hits and rolls the damage dice twice.",
+  "data": {
+   "category": "glossary",
+   "description": "If you roll a 20 on the d20 for an attack roll, you score a Critical Hit, and the attack hits regardless of any modifiers or the target's AC. When you score a Critical Hit, roll the attack's damage dice twice, add the rolls together, then add any relevant modifiers as normal."
+  }
+ },
+ {
+  "name": "D20 Test",
+  "summary": "The three big rolls — ability checks, attack rolls, saving throws.",
+  "data": {
+   "category": "glossary",
+   "description": "D20 Tests are the three main d20 rolls of the game: ability checks, attack rolls, and saving throws. Whenever you make one, roll a d20 and add the relevant modifiers; if the total equals or exceeds the target number — a Difficulty Class, or Armor Class for an attack — the roll succeeds."
+  }
+ },
+ {
+  "name": "Heroic Inspiration",
+  "summary": "Reroll any die you just rolled — then it's spent, and you keep the new roll.",
+  "data": {
+   "category": "glossary",
+   "description": "If you have Heroic Inspiration, you can expend it to reroll any die immediately after rolling it, and you must use the new roll.\n\nYou can never have more than one instance of Heroic Inspiration. If something gives it to you while you already have it, you can give the new one to a player character in your group who lacks it."
+  }
+ },
+ {
+  "name": "Unarmed Strike",
+  "summary": "Punch for 1 + STR damage — or grapple or shove instead (DC 8 + STR + PB).",
+  "data": {
+   "category": "glossary",
+   "description": "Instead of using a weapon, you can make an Unarmed Strike: a punch, kick, headbutt, or similar forceful blow. On your turn, you choose one of the following.\n\n_Damage._ Make an attack roll of d20 plus your Strength modifier and Proficiency Bonus. On a hit, the target takes Bludgeoning damage equal to 1 plus your Strength modifier.\n\n_Grapple._ The target must succeed on a Strength or Dexterity saving throw (it chooses which; DC 8 plus your Strength modifier and Proficiency Bonus), or it has the Grappled condition. This is possible only if the target is no more than one size larger than you and within your reach.\n\n_Shove._ The same saving throw; on a failure, you either push the target 5 feet away or give it the Prone condition. The same size and reach limits apply."
+  }
+ },
+ {
+  "name": "Bright Light",
+  "summary": "Normal illumination — most creatures see normally in it.",
+  "data": {
+   "category": "glossary",
+   "description": "Bright Light is normal illumination, cast by daylight, a campfire, a lit lantern, and the like. Most creatures see normally in Bright Light."
+  }
+ },
+ {
+  "name": "Dim Light",
+  "summary": "Shadows: a Lightly Obscured area, where sight-based Perception suffers.",
+  "data": {
+   "category": "glossary",
+   "description": "Dim Light, also called shadows, creates a Lightly Obscured area. Within it, a creature has Disadvantage on Wisdom (Perception) checks that rely on sight."
+  }
+ },
+ {
+  "name": "Darkness",
+  "summary": "A Heavily Obscured area — trying to see into it is being Blinded.",
+  "data": {
+   "category": "glossary",
+   "description": "Darkness creates a Heavily Obscured area. A creature effectively has the Blinded condition when trying to see something in that area."
+  }
+ },
+ {
+  "name": "Darkvision",
+  "summary": "See Dim Light as Bright and Darkness as Dim (in shades of gray) within a range.",
+  "data": {
+   "category": "glossary",
+   "description": "If you have Darkvision, you can see in Dim Light within a specified range as if it were Bright Light and in Darkness within that range as if it were Dim Light. You discern colors in that Darkness only as shades of gray."
+  }
+ }
+]
