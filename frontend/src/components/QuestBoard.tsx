@@ -29,7 +29,7 @@ export default function QuestBoard() {
   const createQuest = useCreateQuest(campaign.id);
   const [posting, setPosting] = useState(false);
 
-  // The place filter lives in the URL rather than in state, so the Places page
+  // The place filter lives in the URL rather than in state, so the World page
   // can hand someone a board already narrowed to one corner of the map — and so
   // that corner survives a reload or a shared link.
   const [params, setParams] = useSearchParams();
@@ -71,14 +71,14 @@ export default function QuestBoard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          {/* Places have their own room now — the board keeps a door to it
+          {/* The world has its own room now — the board keeps a door to it
               because filing a notice is where you notice a place is missing. */}
           <Link
-            to={`/questboard/campaigns/${campaign.id}/places`}
+            to={`/questboard/campaigns/${campaign.id}/world`}
             className="btn-base btn-ghost-gold clip-octagon h-10 px-4 text-[13px] no-underline"
           >
             <IconMapPin size={15} strokeWidth={2} />
-            Places
+            The World
           </Link>
           {isDM ? (
             <button

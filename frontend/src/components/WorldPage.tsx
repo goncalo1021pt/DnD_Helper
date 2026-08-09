@@ -69,7 +69,7 @@ function Gazetteer({
   );
 }
 
-export default function PlacesPage() {
+export default function WorldPage() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
   const { data: locations, isLoading } = useLocations(campaign.id);
@@ -98,7 +98,7 @@ export default function PlacesPage() {
             className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            Places
+            The World
           </h2>
           <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
             {isDM

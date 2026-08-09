@@ -15,7 +15,7 @@ import ArchivesPage from "./components/ArchivesPage";
 import RulesPage from "./components/RulesPage";
 import CodexPage from "./components/CodexPage";
 import MapPage from "./components/MapPage";
-import PlacesPage from "./components/PlacesPage";
+import WorldPage from "./components/WorldPage";
 import DenPage from "./components/DenPage";
 import VendorsPage from "./components/VendorsPage";
 import BestiaryPage from "./components/BestiaryPage";
@@ -79,7 +79,10 @@ export default function App() {
           <Route path="codex" element={<CodexPage />} />
           <Route path="map" element={<MapPage />} />
           <Route path="map/:mapId" element={<MapPage />} />
-          <Route path="places" element={<PlacesPage />} />
+          <Route path="world" element={<WorldPage />} />
+          {/* "Places" was the old name (#196); a bookmarked link still lands.
+              Relative, because the campaign id is in the path. */}
+          <Route path="places" element={<Navigate to="../world" replace />} />
           <Route path="den" element={<DenPage />} />
           <Route path="bestiary" element={<BestiaryPage />} />
           <Route path="vendors" element={<VendorsPage />} />

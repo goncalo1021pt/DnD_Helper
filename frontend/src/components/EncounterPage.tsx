@@ -37,7 +37,7 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
   const [groupBy, setGroupBy] = useState<GroupMode>("tag");
   const places = useMemo(() => locations ?? [], [locations]);
 
-  // Arriving from a place on the Places page: the library opens showing only
+  // Arriving from a place on the World page: the library opens showing only
   // the fights prepared there. By id rather than by search text, because two
   // districts in different cities are allowed to share a name.
   const [params, setParams] = useSearchParams();
