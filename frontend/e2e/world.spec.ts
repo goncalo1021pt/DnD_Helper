@@ -12,7 +12,7 @@ import {
 } from "./helpers";
 
 /*
-Places, in the room of their own they got in #103.
+The World — the room the places got in #103, renamed from "Places" in #196.
 
 The issue asked for two things, and only one of them was missing code. The
 place tree has always supported reparenting — `PATCH /locations/{id}` checks
@@ -38,8 +38,8 @@ test("a city charted before its country can be moved into it", async ({ page }) 
   await createLocation(page.request, campaign.id, "Redwater");
   const bel = await createLocation(page.request, campaign.id, "Kingdom of Bel");
 
-  await page.goto(`/questboard/campaigns/${campaign.id}/places`);
-  await expect(page.getByRole("heading", { name: "Places" })).toBeVisible();
+  await page.goto(`/questboard/campaigns/${campaign.id}/world`);
+  await expect(page.getByRole("heading", { name: "The World" })).toBeVisible();
   // Located by the row's own control rather than by name: every place name is
   // also an <option> in two parent pickers, so text alone matches three times.
   await expect(page.getByRole("button", { name: "Edit Redwater" })).toBeVisible();
@@ -65,7 +65,7 @@ test("a place refuses to be moved inside itself", async ({ page }) => {
   const realm = await createLocation(page.request, campaign.id, "Kingdom of Aur");
   await createLocation(page.request, campaign.id, "Aurhold", realm);
 
-  await page.goto(`/questboard/campaigns/${campaign.id}/places`);
+  await page.goto(`/questboard/campaigns/${campaign.id}/world`);
   await page.getByRole("button", { name: "Edit Kingdom of Aur" }).click();
 
   // The parent picker drops the place being edited, so the only way to ask for
@@ -148,7 +148,7 @@ test("the description a place has always had can finally be written", async ({ p
   const campaign = await createCampaign(page.request, unique("The Gazetteer "));
   await createLocation(page.request, campaign.id, "Saltmarch");
 
-  await page.goto(`/questboard/campaigns/${campaign.id}/places`);
+  await page.goto(`/questboard/campaigns/${campaign.id}/world`);
   await page.getByRole("button", { name: "Edit Saltmarch" }).click();
   await page
     .getByLabel("What is known of it")
@@ -173,7 +173,7 @@ test("a place hands the board the notices hanging in it", async ({ page }) => {
   await postQuest(page.request, campaign.id, "Wolves at the north gate", north);
   await postQuest(page.request, campaign.id, "Smugglers in the south docks", south);
 
-  await page.goto(`/questboard/campaigns/${campaign.id}/places`);
+  await page.goto(`/questboard/campaigns/${campaign.id}/world`);
 
   // The count is a door, not a decoration — that is the whole argument for
   // places being a hub rather than a filing dropdown on the board.
@@ -203,7 +203,7 @@ test("the party's gazetteer holds only what the DM has revealed", async ({ brows
   await registerViaAPI(plPage.request, player);
   await joinCampaign(plPage.request, campaign.inviteCode);
 
-  await plPage.goto(`/questboard/campaigns/${campaign.id}/places`);
+  await plPage.goto(`/questboard/campaigns/${campaign.id}/world`);
   await expect(plPage.getByText("Havenport")).toBeVisible();
   await expect(plPage.getByText("The Drowned Vault")).toBeHidden();
 
@@ -213,4 +213,60 @@ test("the party's gazetteer holds only what the DM has revealed", async ({ brows
 
   await dmCtx.close();
   await plCtx.close();
+});
+
+/*
+The ladder (#196): a place sits under its own parent.
+
+The page indents by depth, so ORDER is what says whose child a row is. The
+old ordering sorted by depth and then by name, which banded the list — every
+kingdom in the world together, alphabetically across unrelated continents —
+and two kingdoms with different parents rendered as adjacent, equally
+indented rows under whichever continent happened to sort last.
+*/
+test("a place is listed under its own parent, not banded with its depth", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("ladder"));
+  const campaign = await createCampaign(page.request, unique("Six Faced "));
+
+  // The issue's own world, built out of order on purpose.
+  const world = await createLocation(page.request, campaign.id, "6 Faced World");
+  const milis = await createLocation(page.request, campaign.id, "Milis Continent", world);
+  const human = await createLocation(page.request, campaign.id, "Human Continent", world);
+  await createLocation(page.request, campaign.id, "Demon Continent", world);
+  // Alphabetically first among the kingdoms, but it belongs to Human.
+  await createLocation(page.request, campaign.id, "Asura Kingdom", human);
+  await createLocation(page.request, campaign.id, "Holy Milis Empire", milis);
+
+  const order = ((await (
+    await page.request.get(`/api/campaigns/${campaign.id}/locations`)
+  ).json()) as Array<{ name: string }>).map((l) => l.name);
+
+  expect(order).toEqual([
+    "6 Faced World",
+    "Demon Continent",
+    "Human Continent",
+    "Asura Kingdom", // inside Human — and now sitting under it
+    "Milis Continent",
+    "Holy Milis Empire", // inside Milis
+  ]);
+
+  // And that is the order the page draws. Scoped to the row titles: the
+  // "Move inside" select lists every place too, and matching those would be
+  // asserting the dropdown, not the ladder.
+  await page.goto(`/questboard/campaigns/${campaign.id}/world`);
+  await expect(page.getByRole("heading", { name: "The World" })).toBeVisible();
+  const drawn = await page.locator("span.font-heading.truncate").allTextContents();
+  expect(drawn.map((t) => t.trim()).filter((t) => order.includes(t))).toEqual(order);
+});
+
+/* A link someone bookmarked when this room was called Places still lands. */
+test("the old /places address still finds the world", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("oldlink"));
+  const campaign = await createCampaign(page.request, unique("Bookmark "));
+
+  await page.goto(`/questboard/campaigns/${campaign.id}/places`);
+  await expect(page.getByRole("heading", { name: "The World" })).toBeVisible({ timeout: 20_000 });
+  await expect(page).toHaveURL(new RegExp(`/campaigns/${campaign.id}/world$`));
 });

@@ -87,14 +87,72 @@ func (s *Server) buildLocations(ctx context.Context, campaignID uuid.UUID, isDM 
 		out = append(out, loc)
 	}
 
-	// Parents before children, then alphabetical — a stable tree order.
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Depth != out[j].Depth {
-			return out[i].Depth < out[j].Depth
+	return treeOrder(out), nil
+}
+
+/*
+treeOrder walks the places depth-first — each one immediately followed by
+what is inside it, siblings alphabetical (#196).
+
+The old order sorted by depth and then by name, which banded the list: every
+continent together, then every kingdom in the world together, alphabetically
+across unrelated parents. The page indents by depth, so two kingdoms with
+different parents rendered as adjacent, equally indented rows under whichever
+continent happened to sort last — and nothing on screen said which was whose.
+
+A place whose parent is missing from this slice is a root here. That is the
+normal case for a player, who is shown a revealed place while an ancestor
+above it stays veiled; dropping it would hide a place the server just decided
+they may see.
+*/
+func treeOrder(places []api.Location) []api.Location {
+	children := make(map[uuid.UUID][]api.Location, len(places))
+	present := make(map[uuid.UUID]bool, len(places))
+	for _, l := range places {
+		present[l.Id] = true
+	}
+	var roots []api.Location
+	for _, l := range places {
+		if l.ParentId != nil && present[*l.ParentId] {
+			children[*l.ParentId] = append(children[*l.ParentId], l)
+			continue
 		}
-		return out[i].Name < out[j].Name
-	})
-	return out, nil
+		roots = append(roots, l)
+	}
+	byName := func(s []api.Location) {
+		sort.Slice(s, func(i, j int) bool { return s[i].Name < s[j].Name })
+	}
+	byName(roots)
+	for _, kids := range children {
+		byName(kids)
+	}
+
+	out := make([]api.Location, 0, len(places))
+	// `seen` is a cycle guard, not bookkeeping: the depth cap is enforced on
+	// write, but this walks a slice the caller assembled, and a loop that ever
+	// slipped through would otherwise recurse until the request died.
+	seen := make(map[uuid.UUID]bool, len(places))
+	var walk func(l api.Location)
+	walk = func(l api.Location) {
+		if seen[l.Id] {
+			return
+		}
+		seen[l.Id] = true
+		out = append(out, l)
+		for _, kid := range children[l.Id] {
+			walk(kid)
+		}
+	}
+	for _, r := range roots {
+		walk(r)
+	}
+	// Anything a cycle kept out of the walk still belongs in the answer.
+	for _, l := range places {
+		if !seen[l.Id] {
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 // buildOneLocation returns a single assembled place, from the DM's view.

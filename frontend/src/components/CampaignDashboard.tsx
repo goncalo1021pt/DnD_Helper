@@ -453,7 +453,7 @@ export default function CampaignDashboard() {
             all hang off, so it is a block rather than a DM-screen row */}
         <section className="panel-hall px-6 pb-6 pt-5">
           <BlockHeader
-            title="Places"
+            title="The World"
             meta={
               placeCount > 0
                 ? `${placeCount} charted`
@@ -461,7 +461,7 @@ export default function CampaignDashboard() {
                   ? "nothing charted yet"
                   : undefined
             }
-            to="places"
+            to="world"
             linkLabel="Open the gazetteer"
           />
           <div className="font-accent py-1 text-[14px] italic text-cream-muted">
