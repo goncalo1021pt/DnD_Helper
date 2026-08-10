@@ -61,6 +61,15 @@ jobs:
       # A release is a promise that this commit is good. main is protected and
       # CI runs on every push to it, so the honest check is "did the CI run for
       # THIS commit succeed" — not "is there a green run somewhere on main".
+      #
+      # It WAITS for that answer. Merging a PR and cutting the release are
+      # seconds apart in practice, and CI takes about six minutes, so the run is
+      # normally still going when we first look. "Not finished" is not "not
+      # good" — reading a null conclusion as failure made this refuse the very
+      # flow it exists to serve.
+      #
+      # Any CI run for the commit counts, not just the push-triggered one, so a
+      # manual re-run after a flake also satisfies the gate.
       - name: Require CI to be green on this commit
         env:
           GH_TOKEN: ${{ github.token }}
@@ -69,13 +78,43 @@ jobs:
           SHA="$(git rev-parse HEAD)"
           echo "Commit: $(git log --oneline -1)"
 
-          CONCLUSION="$(gh api "repos/${{ github.repository }}/actions/runs?head_sha=$SHA&event=push" \
-            --jq '[.workflow_runs[] | select(.name == "CI")] | first | .conclusion // "none"')"
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "::error::CI on $SHA is '$CONCLUSION', not success — refusing to tag a commit that is not known good"
-            exit 1
-          fi
-          echo "CI is green on $SHA"
+          BUDGET=900   # 15 minutes — CI is ~6, with room for a busy queue
+          WAITED=0
+          while :; do
+            RUNS="$(gh api "repos/${{ github.repository }}/actions/runs?head_sha=$SHA&per_page=100" \
+              --jq '[.workflow_runs[] | select(.name == "CI")]')"
+            TOTAL="$(printf '%s' "$RUNS" | jq 'length')"
+            GREEN="$(printf '%s' "$RUNS" | jq '[.[] | select(.conclusion == "success")] | length')"
+            PENDING="$(printf '%s' "$RUNS" | jq '[.[] | select(.status != "completed")] | length')"
+
+            if [ "$GREEN" -gt 0 ]; then
+              echo "CI is green on $SHA"
+              break
+            fi
+
+            # Every run finished and none passed: waiting longer cannot help.
+            if [ "$TOTAL" -gt 0 ] && [ "$PENDING" -eq 0 ]; then
+              echo "::error::CI on $SHA concluded $(printf '%s' "$RUNS" | jq -r '[.[].conclusion] | join(", ")') — refusing to tag a commit that is not known good"
+              exit 1
+            fi
+
+            if [ "$WAITED" -ge "$BUDGET" ]; then
+              if [ "$TOTAL" -eq 0 ]; then
+                echo "::error::no CI run found for $SHA after ${BUDGET}s — is this commit on main?"
+              else
+                echo "::error::CI on $SHA was still running after ${BUDGET}s — re-run this once it finishes"
+              fi
+              exit 1
+            fi
+
+            if [ "$TOTAL" -eq 0 ]; then
+              echo "waiting for CI to start… (${WAITED}s/${BUDGET}s)"
+            else
+              echo "CI is still running… (${WAITED}s/${BUDGET}s)"
+            fi
+            sleep 15
+            WAITED=$((WAITED + 15))
+          done
 
       - name: Work out the next version
         id: next
