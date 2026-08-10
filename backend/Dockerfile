@@ -22,7 +22,12 @@ COPY backend ./
 COPY --from=frontend /app/frontend/dist/index.html ./internal/static/index.html
 COPY --from=frontend /app/frontend/dist/favicon.svg ./internal/static/favicon.svg
 COPY --from=frontend /app/frontend/dist/assets/ ./internal/static/assets/
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /server ./cmd/server
+# The version is the git tag, stamped in at build time rather than committed
+# (#208). Unset, the binary reports 0.0.0-dev — see internal/version.
+ARG VERSION=0.0.0-dev
+RUN CGO_ENABLED=0 go build -trimpath \
+    -ldflags="-s -w -X github.com/goncalo1021pt/questboard/backend/internal/version.Current=${VERSION}" \
+    -o /server ./cmd/server
 
 # --- Stage 3: minimal runtime ---
 FROM alpine:3.24

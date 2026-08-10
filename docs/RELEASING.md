@@ -1,93 +1,82 @@
 # Releasing
 
-The release process, start to finish. `backend/internal/version/version.go`
-(`version.Current`) is the single source of truth — the git tag, GitHub release,
-and landing-page footer must all match it.
+**The git tag is the version.** There is no version file to bump, no release PR
+to merge, and nothing to keep in sync — the build stamps the tag into the binary
+(`backend/internal/version`), so what the app reports and what the tag says can
+never disagree.
 
-## 1. Decide the version (semver)
+Cutting a release and putting it in front of players are two separate taps, on
+purpose: you can cut a release for the record and deploy it after a session
+rather than mid-game.
 
-Compare `main` against the last release tag:
+## 1. Cut the release
 
-```bash
-git log --oneline v1.0.0..main
-```
+> GitHub → this repo → **Actions** → **Cut a release** → **Run workflow** →
+> pick `patch` / `minor` / `major` → **Run**.
+
+That is the whole thing. `.github/workflows/release.yml` reads the last tag,
+raises the part you chose, and — after checking that **CI is green on the exact
+commit** it is about to tag — creates the annotated tag and publishes a GitHub
+release whose notes are built from the merged PR titles since the last one.
+
+Which part to raise:
 
 - **Patch** (1.0.x) — only bug fixes.
 - **Minor** (1.x.0) — any new user-facing feature, backward compatible.
-- **Major** (x.0.0) — breaking change (players/DMs must relearn something,
+- **Major** (x.0.0) — breaking change (players or DMs must relearn something,
   or data/API compatibility breaks).
 
-## 2. Open the release PR
+Tick **dry run** to see the version it would pick and the commits it would cover
+without creating anything.
 
-`main` is protected — every change lands via PR, releases included.
+It refuses to tag when CI is not green on that commit, when nothing has landed
+since the last tag, or when the version already exists.
 
-```bash
-git checkout -b release/X.Y.Z main
-# edit backend/internal/version/version.go → Current = "X.Y.Z"
-git commit -am "release: vX.Y.Z"
-git push -u origin release/X.Y.Z
-gh pr create --base main --title "release: vX.Y.Z"
-```
+## 2. Deploy it
 
-Wait for the three CI checks, then merge on GitHub.
+> GitHub → **Actions** → **Deploy to production** → **Run workflow** → type the
+> tag (`vX.Y.Z`) → **Run**.
 
-## 3. Tag the merge commit
+That workflow snapshots the database before migrating, waits for health, checks
+the public URL, and rolls the code back on its own if the deploy fails. Details
+and the manual fallback live in `docs/DEPLOY.md`.
 
-The tag must point at the commit on `main` that contains the version bump —
-never at the branch tip that got squashed away.
+Deploying an older tag is also the deliberate rollback path.
 
-```bash
-git checkout main && git pull
-git tag vX.Y.Z        # annotate if you like: -a vX.Y.Z -m "..."
-git push origin vX.Y.Z
-```
-
-Mind the `v` — the tag is `v1.2.0`, not `1.2.0`. Pushing a name that doesn't
-exist locally fails with `src refspec … does not match any`; if you mistyped it,
-`git tag -d <wrong>` and re-tag (an unpushed tag is free to delete).
-
-## 4. Publish the GitHub release
-
-```bash
-gh release create vX.Y.Z --title "vX.Y.Z" --generate-notes
-```
-
-`--generate-notes` builds the changelog from merged PR titles since the last
-tag; edit afterwards on GitHub if the wording needs love.
-
-## 5. Deploy to production
-
-**The one-tap way (preferred).** `.github/workflows/deploy-prod.yml` runs on a
-self-hosted runner inside the prod VM, so no SSH and no VPN are needed — the box
-dials out to GitHub. From a phone or a browser:
-
-> GitHub → this repo → **Actions** → **Deploy to production** → **Run workflow**
-> → type the tag (`vX.Y.Z`), or leave the ref box empty for `main` → **Run**.
-
-It accepts only `main` or a `vX.Y.Z` tag; an unreviewed branch has to go to
-staging instead (`deploy-staging.yml`, see `docs/STAGING.md`). Deploying an
-older tag is also the deliberate rollback path.
-
-**The manual way**, if the runner is down (see `docs/DEPLOY.md`; VPN must be up):
-
-```bash
-ssh goncalo@<vm-host>
-cd DnD_Helper
-git pull        # now on the tagged main
-make prod       # docker compose --profile full up -d --build
-```
-
-`COMPOSE_FILE` in the server's `.env` applies the production override, so no
-`-f` flags are needed. The build takes a few minutes and the old container keeps
-serving the whole time; the only downtime is the few seconds of the container
-swap at the end.
-
-## 6. Verify live
+## 3. Verify live
 
 ```bash
 curl -s https://<your-domain>/api/auth/config   # "version":"X.Y.Z"
-curl -sI https://<your-domain> | grep -i strict-transport-security
 ```
 
-Also eyeball the footer (shows vX.Y.Z on every page) and `make ps` on the VM
-(app healthy, backup running).
+Also eyeball the footer (shows the version on every page) and `make ps` on the
+VM (app healthy, backup running).
+
+## How the version reaches the binary
+
+`make` computes it from `git describe --tags --always --dirty` and passes it to
+the Go linker; `backend/Dockerfile` takes the same value as a `VERSION` build
+arg, which `docker-compose.yml` feeds from the environment.
+
+```bash
+make version    # what this tree would build as
+```
+
+- On a release tag: `1.7.0`
+- On main, past a tag: `1.7.0-12-gabc1234` — honest about not being a release
+- With uncommitted edits: `…-dirty`
+- Unstamped (`go run ./cmd/server`, or a build that skipped the flag):
+  `0.0.0-dev`, which is meant to look wrong rather than quietly claim to be
+  last year's release
+
+## Why no release bot
+
+`release-please` and friends work by opening a release PR. A PR opened with the
+default `GITHUB_TOKEN` never triggers CI, so its required checks would sit
+pending forever against the **Main** ruleset, which has no bypass actors. The
+fix is handing a bot a long-lived token that can write to `main` — a bigger
+price than a version file is worth. Tagging needs none of that.
+
+If this ever publishes artifacts (binaries, a registry image, a Homebrew tap),
+[goreleaser](https://goreleaser.com) is the natural next step: it consumes tags,
+so this arrangement is already the on-ramp.

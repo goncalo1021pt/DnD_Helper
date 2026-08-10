@@ -1,0 +1,176 @@
+# Cut a release (#208).
+#
+# A release is one action: tag a commit on main and publish notes for it. There
+# is no version file to bump, no release PR to merge, and nothing to keep in
+# sync — the build stamps the tag into the binary (see internal/version), so the
+# tag IS the version and the two cannot disagree.
+#
+# How to run it from a phone:
+#   GitHub app → this repo → Actions → "Cut a release" → Run workflow →
+#   pick patch / minor / major → Run.
+#
+# It does NOT deploy. Cutting a release and putting it in front of players are
+# two decisions, so when this finishes, run "Deploy to production" and give it
+# the tag it just made. That workflow snapshots the database, health-checks and
+# rolls back on its own.
+#
+# Why no release bot: release-please and friends work by opening a PR, and a PR
+# opened with the default GITHUB_TOKEN never triggers CI — its required checks
+# would sit pending forever against the Main ruleset, which has no bypass
+# actors. Handing a bot a token that can write to main is a bigger price than a
+# version file is worth. Tagging needs none of that.
+name: Cut a release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Which part of the version to raise"
+        required: true
+        type: choice
+        default: minor
+        options: [patch, minor, major]
+      dry_run:
+        description: "Work out the version and stop (no tag, no release)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    # Only the repo owner cuts releases — workflow_dispatch already requires
+    # write access; this is the same defence-in-depth guard deploy-prod uses.
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main in full
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          # Tags and the whole history: the next version is read from the last
+          # tag, and the notes are the range since it.
+          fetch-depth: 0
+
+      # A release is a promise that this commit is good. main is protected and
+      # CI runs on every push to it, so the honest check is "did the CI run for
+      # THIS commit succeed" — not "is there a green run somewhere on main".
+      - name: Require CI to be green on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHA="$(git rev-parse HEAD)"
+          echo "Commit: $(git log --oneline -1)"
+
+          CONCLUSION="$(gh api "repos/${{ github.repository }}/actions/runs?head_sha=$SHA&event=push" \
+            --jq '[.workflow_runs[] | select(.name == "CI")] | first | .conclusion // "none"')"
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::CI on $SHA is '$CONCLUSION', not success — refusing to tag a commit that is not known good"
+            exit 1
+          fi
+          echo "CI is green on $SHA"
+
+      - name: Work out the next version
+        id: next
+        run: |
+          set -euo pipefail
+          LAST="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)"
+          if [ -z "$LAST" ]; then
+            LAST="v0.0.0"
+            echo "::notice::no release tags yet — starting from v0.0.0"
+          fi
+          echo "Last release: $LAST"
+
+          BARE="${LAST#v}"
+          MAJOR="${BARE%%.*}"
+          REST="${BARE#*.}"
+          MINOR="${REST%%.*}"
+          PATCH="${REST#*.}"
+
+          case "${{ inputs.bump }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          NEXT="v${MAJOR}.${MINOR}.${PATCH}"
+
+          if git rev-parse -q --verify "refs/tags/$NEXT" >/dev/null; then
+            echo "::error::$NEXT already exists"
+            exit 1
+          fi
+          if [ "$LAST" = "v0.0.0" ]; then
+            COUNT="$(git rev-list --count HEAD)"
+          else
+            COUNT="$(git rev-list --count "$LAST..HEAD")"
+          fi
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::nothing has landed since $LAST — there is no release to cut"
+            exit 1
+          fi
+
+          {
+            echo "last=$LAST"
+            echo "next=$NEXT"
+            echo "count=$COUNT"
+          } >> "$GITHUB_OUTPUT"
+          echo "Next release: $NEXT ($COUNT commits since $LAST)"
+
+      - name: What would be released
+        run: |
+          set -euo pipefail
+          {
+            echo "### ${{ steps.next.outputs.next }}"
+            echo ""
+            echo "${{ steps.next.outputs.count }} commits since ${{ steps.next.outputs.last }}:"
+            echo ""
+            echo '```'
+            git log --oneline "${{ steps.next.outputs.last }}..HEAD" 2>/dev/null \
+              || git log --oneline -20
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop here (dry run)
+        if: inputs.dry_run
+        run: |
+          {
+            echo ""
+            echo "**Dry run** — no tag was created and nothing was published."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tag and publish
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NEXT="${{ steps.next.outputs.next }}"
+
+          # Annotated, so `git describe` on the deploy box names the tag rather
+          # than walking past it.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEXT" -m "$NEXT"
+          git push origin "$NEXT"
+
+          # --generate-notes builds the changelog from merged PR titles since
+          # the last tag, which is why those titles are worth writing well.
+          gh release create "$NEXT" \
+            --title "$NEXT" \
+            --target "$(git rev-parse HEAD)" \
+            --generate-notes
+
+          URL="$(gh release view "$NEXT" --json url --jq .url)"
+          {
+            echo ""
+            echo "🏷️ Tagged **$NEXT** and published $URL"
+            echo ""
+            echo "It is **not deployed**. To put it in front of players: Actions →"
+            echo "\"Deploy to production\" → Run workflow → ref \`$NEXT\`."
+          } >> "$GITHUB_STEP_SUMMARY"

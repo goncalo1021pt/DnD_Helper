@@ -26,6 +26,10 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      args:
+        # Set by the Makefile from `git describe`; a build that bypasses make
+        # falls back to the Dockerfile's own 0.0.0-dev.
+        VERSION: ${VERSION:-0.0.0-dev}
     restart: unless-stopped
     depends_on:
       postgres:
