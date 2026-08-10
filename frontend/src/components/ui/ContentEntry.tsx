@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { RulesContent, RulesKind } from "../../api/client";
 import { originStamp } from "../../lib/content";
 import type { SpeciesChoice } from "../../lib/species";
-import { RuleTermList } from "./RulePopover";
+import { RuleTerm, RuleTermList } from "./RulePopover";
 import SpellEntry, { Blocks } from "./SpellEntry";
 
 /**
@@ -34,6 +34,7 @@ export const RULE_CATEGORY_LABEL: Record<string, string> = {
   mastery: "Weapon mastery",
   condition: "Condition",
   action: "Action",
+  equipment: "Equipment",
   glossary: "Rules glossary",
 };
 
@@ -341,18 +342,33 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
 
   // item
   const itemType = str("type") ?? "gear";
+  // "Martial" and "Light armor" are jargon on a card a new player is reading
+  // to find out what a thing does, so the category opens its rule the way a
+  // weapon property does — the Rulebook carries the equipment vocabulary too.
+  const category = str("category") ?? "";
   const typeRows: Array<[string, ReactNode]> =
     itemType === "armor"
       ? [
-          ["Armor", `${str("category") ?? ""} armor`],
+          [
+            "Armor",
+            category ? <RuleTerm term={`${category} Armor`}>{`${category} armor`}</RuleTerm> : "",
+          ],
           ["AC", String(d.ac ?? "")],
           ["Stealth", d.stealthDisadvantage ? "disadvantage" : undefined],
         ]
       : itemType === "shield"
-        ? [["AC bonus", `+${String(d.acBonus ?? 2)}`]]
+        ? [["AC bonus", <RuleTerm term="Shield">{`+${String(d.acBonus ?? 2)}`}</RuleTerm>]]
         : itemType === "weapon"
           ? [
-              ["Weapon", `${str("category") ?? ""}${d.ranged ? ", ranged" : ", melee"}`],
+              [
+                "Weapon",
+                <>
+                  {category ? (
+                    <RuleTerm term={`${category} Weapons`}>{category}</RuleTerm>
+                  ) : null}
+                  {d.ranged ? ", ranged" : ", melee"}
+                </>,
+              ],
               ["Damage", `${str("damage") ?? ""} ${str("damageType") ?? ""}`],
               // Each property that names a rule entry opens it (#199).
               [
@@ -374,7 +390,17 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
     ["Weight", typeof d.weight === "number" ? `${d.weight} lb` : undefined],
     [
       "Rarity",
-      rarity ? `${rarity}${d.attunement ? " · requires attunement" : ""}` : undefined,
+      rarity ? (
+        <>
+          <RuleTerm term="Rarity">{rarity}</RuleTerm>
+          {d.attunement ? (
+            <>
+              {" · "}
+              <RuleTerm term="Attunement">requires attunement</RuleTerm>
+            </>
+          ) : null}
+        </>
+      ) : undefined,
     ],
     // The magic the engines actually apply (#189): the +N, and where a worn
     // item hangs — so the card says what equipping it will do, not just prose.

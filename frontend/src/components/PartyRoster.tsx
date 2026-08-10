@@ -521,7 +521,7 @@ function SummonControl({
       <select
         value={choice}
         onChange={(e) => setChoice(e.target.value)}
-        className="input-parchment input-compact w-44 cursor-pointer text-[13px]"
+        className="input-hall input-compact w-44 cursor-pointer text-[13px]"
       >
         <option value="">Summon a hero…</option>
         {resting.map((h) => (

@@ -336,18 +336,91 @@ body {
   cursor: default;
 }
 
-/* Octagonal corner cut for gold/wax buttons. */
+/* Octagonal corner cut for gold/wax buttons. --cut is the bite taken out of
+   each corner; the outline below reads it too, so the two never disagree. */
 .clip-octagon {
+  --cut: 10px;
   clip-path: polygon(
-    10px 0,
-    calc(100% - 10px) 0,
-    100% 10px,
-    100% calc(100% - 10px),
-    calc(100% - 10px) 100%,
-    10px 100%,
-    0 calc(100% - 10px),
-    0 10px
+    var(--cut) 0,
+    calc(100% - var(--cut)) 0,
+    100% var(--cut),
+    100% calc(100% - var(--cut)),
+    calc(100% - var(--cut)) 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut)),
+    0 var(--cut)
   );
+}
+/* The outline the cut corners were missing.
+
+   A hairline drawn with `inset 0 0 0 1px` only ever paints the four straight
+   edges of the box. clip-path then slices the corners off, so the diagonals
+   are left bare — which is what made a clipped ghost button read as chipped
+   rather than bevelled.
+
+   The straight edges are fine, so this adds only what was absent: four short
+   45° lines, one per corner, drawn as background layers. Painting them as
+   background (rather than a fill layer under a rim) is what keeps the button
+   translucent — these sit over whatever wash the variant sets, instead of
+   replacing it with an opaque colour that would have to match every surface
+   the button lands on.
+
+   Each layer is a --cut sized square pinned to one corner; the corner's cut
+   edge is that square's anti-diagonal, which is exactly the 50% line of a
+   gradient running across it. 135deg draws "/" (top-left, bottom-right),
+   45deg draws "\" (top-right, bottom-left). */
+.btn-ghost-gold.clip-octagon,
+.btn-ghost-ember.clip-octagon,
+.btn-ghost-ink.clip-octagon,
+.btn-ghost-red.clip-octagon {
+  background-image:
+    linear-gradient(
+      135deg,
+      transparent calc(50% - 0.5px),
+      var(--rim) calc(50% - 0.5px),
+      var(--rim) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.5px),
+      var(--rim) calc(50% - 0.5px),
+      var(--rim) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    linear-gradient(
+      135deg,
+      transparent calc(50% - 0.5px),
+      var(--rim) calc(50% - 0.5px),
+      var(--rim) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    linear-gradient(
+      45deg,
+      transparent calc(50% - 0.5px),
+      var(--rim) calc(50% - 0.5px),
+      var(--rim) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
+  background-size: var(--cut) var(--cut);
+  background-position: top left, top right, bottom right, bottom left;
+  background-repeat: no-repeat;
+}
+
+/* Each ghost's rim is its own hairline colour, so the diagonals match the
+   straight edges they meet. Wiring this to the pairing rather than to each
+   call site means a new octagon button gets it for free. */
+.btn-ghost-gold.clip-octagon {
+  --rim: rgba(201, 162, 39, 0.4);
+}
+.btn-ghost-ember.clip-octagon {
+  --rim: rgba(200, 92, 70, 0.45);
+}
+.btn-ghost-ink.clip-octagon {
+  --rim: rgba(74, 58, 36, 0.65);
+}
+.btn-ghost-red.clip-octagon {
+  --rim: rgba(139, 37, 32, 0.45);
 }
 
 /* Solid gold primary (dark backgrounds). Pair with .clip-octagon. */

@@ -254,10 +254,10 @@ export function DiceTowerPanel({
             ))}
             <button
               onClick={clearPool}
-              className="font-accent border-none bg-transparent p-0 text-[11px] italic text-ink-faded underline hover:text-ink"
-              style={{ cursor: "pointer" }}
+              aria-label="Clear the pool"
+              className="btn-base btn-ghost-ink h-7 px-2.5 text-[10px]"
             >
-              clear
+              Clear
             </button>
           </>
         )}

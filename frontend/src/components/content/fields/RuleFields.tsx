@@ -15,6 +15,7 @@ export default function RuleFields({ data, set }: FieldProps) {
           <option value="condition">Condition</option>
           <option value="weapon-property">Weapon property</option>
           <option value="mastery">Weapon mastery</option>
+          <option value="equipment">Equipment</option>
           <option value="action">Action</option>
         </select>
       </label>

@@ -494,5 +494,77 @@
    "category": "glossary",
    "description": "If you have Darkvision, you can see in Dim Light within a specified range as if it were Bright Light and in Darkness within that range as if it were Dim Light. You discern colors in that Darkness only as shades of gray."
   }
+ },
+ {
+  "name": "Simple Weapons",
+  "summary": "The plain arms anyone can pick up — clubs, spears, daggers, light crossbows.",
+  "data": {
+   "category": "equipment",
+   "description": "Weapons are grouped into two categories, Simple and Martial, and a weapon's category tells you who can use it well.\n\nSimple weapons are the ones that need no special training: clubs, daggers, handaxes, javelins, maces, quarterstaffs, sickles, spears, darts, light crossbows, shortbows and slings. Most characters have proficiency with all of them, and a spellcaster who has proficiency with no other weapon usually has proficiency with these.\n\nProficiency is what the category decides. You add your Proficiency Bonus to attack rolls made with a weapon you are proficient with, and you do not with one you are not — the damage is the same either way."
+  }
+ },
+ {
+  "name": "Martial Weapons",
+  "summary": "The trained arms — longswords, greataxes, longbows, rapiers and their kin.",
+  "data": {
+   "category": "equipment",
+   "description": "Weapons are grouped into two categories, Simple and Martial, and a weapon's category tells you who can use it well.\n\nMartial weapons require more training to use: battleaxes, flails, glaives, greataxes, greatswords, halberds, lances, longswords, mauls, morningstars, pikes, rapiers, scimitars, shortswords, tridents, war picks, warhammers, whips, blowguns, hand crossbows, heavy crossbows, longbows, muskets, pistols and nets.\n\nWarriors — Fighters, Paladins, Barbarians, Rangers and the like — typically have proficiency with all of them. Everyone else has proficiency only with the particular martial weapons their class, species or a feat grants.\n\nProficiency is what the category decides. You add your Proficiency Bonus to attack rolls made with a weapon you are proficient with, and you do not with one you are not."
+  }
+ },
+ {
+  "name": "Light Armor",
+  "summary": "Made for speed — your whole Dexterity modifier adds to your AC.",
+  "data": {
+   "category": "equipment",
+   "description": "Light Armor is made for the nimble: Padded, Leather, and Studded Leather.\n\nWhile you wear it, your Armor Class equals the armor's base AC plus your **whole** Dexterity modifier, however high that is. Nothing about Light Armor caps it.\n\nWearing armor you lack proficiency with gives you Disadvantage on any ability check, saving throw, or attack roll that uses Strength or Dexterity, and you can't cast spells."
+  }
+ },
+ {
+  "name": "Medium Armor",
+  "summary": "A compromise — Dexterity helps your AC, but only up to +2.",
+  "data": {
+   "category": "equipment",
+   "description": "Medium Armor is the middle ground: Hide, Chain Shirt, Scale Mail, Breastplate, and Half Plate.\n\nWhile you wear it, your Armor Class equals the armor's base AC plus your Dexterity modifier, **to a maximum of +2**. A Dexterity of 20 helps you no more than a Dexterity of 14 does.\n\nSome Medium Armor gives you Disadvantage on Dexterity (Stealth) checks; the armor's entry says so. Wearing armor you lack proficiency with gives you Disadvantage on any ability check, saving throw, or attack roll that uses Strength or Dexterity, and you can't cast spells."
+  }
+ },
+ {
+  "name": "Heavy Armor",
+  "summary": "The thickest protection — Dexterity does nothing for your AC, and it is loud.",
+  "data": {
+   "category": "equipment",
+   "description": "Heavy Armor is the thickest protection there is: Ring Mail, Chain Mail, Splint, and Plate.\n\nWhile you wear it, your Armor Class is the armor's base AC and **your Dexterity modifier does not apply at all**.\n\nHeavy Armor also gives you Disadvantage on Dexterity (Stealth) checks, and the heaviest sets ask for a Strength score — if yours is lower than the armor requires, your Speed is reduced by 10 feet. Wearing armor you lack proficiency with gives you Disadvantage on any ability check, saving throw, or attack roll that uses Strength or Dexterity, and you can't cast spells."
+  }
+ },
+ {
+  "name": "Shield",
+  "summary": "One hand, +2 Armor Class — and only ever one at a time.",
+  "data": {
+   "category": "equipment",
+   "description": "A Shield is carried in one hand, and while you hold it you gain a **+2 bonus to Armor Class**.\n\nYou benefit from only one Shield at a time, and wielding one occupies a hand — a weapon with the Two-Handed property and a Shield cannot both be in use. Taking a Shield on or off costs an action.\n\nAs with armor, you need proficiency with Shields to use one without penalty."
+  }
+ },
+ {
+  "name": "Armor Class",
+  "summary": "How hard you are to hit: an attack roll must equal or beat it.",
+  "data": {
+   "category": "equipment",
+   "description": "Your Armor Class (AC) is the number an attack roll must equal or beat to hit you.\n\nWith no armor, your AC is **10 plus your Dexterity modifier**. Armor replaces that base with its own, and how much of your Dexterity still counts depends on the armor's category — all of it for Light Armor, up to +2 for Medium Armor, none for Heavy Armor. A Shield adds 2 on top, and a magic item's bonus adds after that.\n\nOnly one base AC calculation applies at a time. If something else sets your AC — a Barbarian's Unarmored Defense, a Draconic Sorcerer's scales — you choose which to use, and you cannot add two of them together."
+  }
+ },
+ {
+  "name": "Attunement",
+  "summary": "A bond with a magic item, formed over a Short Rest — three at most.",
+  "data": {
+   "category": "equipment",
+   "description": "Some magic items work for anyone who holds them. Others must be **attuned** to before they give up anything beyond their mundane properties — a +1 sword still cuts, but its magic sleeps until the bond is made.\n\nAttuning takes a Short Rest spent focused on the item and nothing else, and some items further require you to be a spellcaster, or of a particular class. You can be attuned to **no more than three magic items at once**, and to only one copy of an item.\n\nThe bond ends if you spend another Short Rest breaking it, if the item is more than 100 feet away for 24 hours, if you die, or if someone else attunes to it."
+  }
+ },
+ {
+  "name": "Rarity",
+  "summary": "How scarce a magic item is — Common up to Legendary and Artifact.",
+  "data": {
+   "category": "equipment",
+   "description": "Every magic item carries a rarity, which is what marks it as magical at all: Common, Uncommon, Rare, Very Rare, Legendary, and — rarest of all, usually unique — Artifact.\n\nRarity is a rough measure of power and of what a party ought to be finding at a given point in a campaign; it is guidance for the DM rather than a rule that does anything on its own. An item with no rarity is ordinary gear."
+  }
  }
 ]
