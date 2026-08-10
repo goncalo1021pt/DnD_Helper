@@ -43,7 +43,7 @@ func TestSeededRulesAreLegalContent(t *testing.T) {
 	}
 	categories := map[string]bool{
 		"weapon-property": true, "mastery": true, "condition": true,
-		"action": true, "glossary": true,
+		"action": true, "glossary": true, "equipment": true,
 	}
 	seen := map[string]bool{}
 	for _, e := range entries {
