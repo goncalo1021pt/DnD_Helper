@@ -15,9 +15,14 @@ rather than mid-game.
 > pick `patch` / `minor` / `major` → **Run**.
 
 That is the whole thing. `.github/workflows/release.yml` reads the last tag,
-raises the part you chose, and — after checking that **CI is green on the exact
-commit** it is about to tag — creates the annotated tag and publishes a GitHub
-release whose notes are built from the merged PR titles since the last one.
+raises the part you chose, and — once **CI is green on the exact commit** it is
+about to tag — creates the annotated tag and publishes a GitHub release whose
+notes are built from the merged PR titles since the last one.
+
+You can run it the moment a PR merges: CI on that commit is usually still going,
+and the workflow **waits** for it (up to 15 minutes) rather than treating
+"unfinished" as "failed". Any CI run on the commit counts, so a manual re-run
+after a flake satisfies it too.
 
 Which part to raise:
 
