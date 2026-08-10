@@ -10,7 +10,19 @@ STATIC := backend/internal/static
 PLAYWRIGHT_VERSION := v1.62.1
 E2E_BASE_URL ?= http://localhost:8080
 
-.PHONY: help generate gen-spec gen-backend gen-frontend frontend embed backend build run test e2e prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
+# The version is the git tag, stamped into the binary at build time rather than
+# committed (#208) — so cutting a release is one action (push vX.Y.Z) and the
+# tag can never disagree with what the app reports.
+#
+# `git describe` gives the tag exactly on a release build (1.7.0) and how far
+# past it a main build is (1.7.0-12-gabc1234); --dirty marks an uncommitted
+# tree, which is how you spot a "release" built from someone's scratch edits.
+# Outside a git checkout it falls back to the same 0.0.0-dev the code does.
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo 0.0.0-dev)
+export VERSION
+GO_LDFLAGS := -X github.com/goncalo1021pt/questboard/backend/internal/version.Current=$(VERSION)
+
+.PHONY: help version generate gen-spec gen-backend gen-frontend frontend embed backend build run test e2e prod deploy down restart ps logs dev-server tools clean count countFrontend countBackend countDB
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -54,12 +66,15 @@ embed: frontend ## Build the SPA and copy it into the Go embed directory
 	cp frontend/dist/favicon.svg $(STATIC)/favicon.svg
 
 backend: ## Build the Go server binary (embeds whatever is in internal/static)
-	cd backend && go build -o ../bin/server ./cmd/server
+	cd backend && go build -ldflags="$(GO_LDFLAGS)" -o ../bin/server ./cmd/server
 
 build: embed backend ## Full production build: SPA -> embed -> single Go binary
 
 run: ## Run the server from source (uses .env)
-	cd backend && go run ./cmd/server
+	cd backend && go run -ldflags="$(GO_LDFLAGS)" ./cmd/server
+
+version: ## Print the version this tree would build as
+	@echo $(VERSION)
 
 test: ## Run the WHOLE app locally in containers at http://localhost:8080 (no tunnel)
 	APP_ENV=development BASE_URL=http://localhost:8080 \
