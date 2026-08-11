@@ -8,8 +8,9 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// inviteAlphabet excludes visually ambiguous characters (0/O, 1/I/L) so codes
-// are easy to read aloud and type.
+// inviteAlphabet excludes the characters that get misread when a code is
+// spoken across a table or copied off a screen: 0/O and 1/I. L stays — it is
+// only confusable in lower case, and codes are stored and shown upper-case.
 const inviteAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 const inviteCodeLength = 6

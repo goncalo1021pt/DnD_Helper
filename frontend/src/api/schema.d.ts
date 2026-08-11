@@ -1969,8 +1969,8 @@ export interface components {
             ownerUserId: string;
             /** Format: date-time */
             createdAt: string;
-            /** @description Shareable code players use to join the campaign. */
-            inviteCode: string;
+            /** @description DM-only. The code that admits anyone holding it, so it reaches the DM's payloads and nobody else's — it used to be required, which meant every player read their table's code out of `GET /campaigns` however carefully the screen hid it, and could hand it on after being kicked or banned (#207). Absent, not blank: a player has no invite code, they are not holding an empty one. */
+            inviteCode?: string;
             /**
              * Format: date-time
              * @description When the table gathers next; null when unscheduled.

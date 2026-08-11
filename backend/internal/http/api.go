@@ -109,7 +109,8 @@ func (s *Server) CreateCampaign(ctx context.Context, request api.CreateCampaignR
 			return nil, err
 		}
 		metrics.CampaignCreated()
-		return api.CreateCampaign201JSONResponse(toAPICampaign(campaign)), nil
+		// Whoever creates a table is its DM, and needs the code to fill it.
+		return api.CreateCampaign201JSONResponse(toAPICampaign(campaign, true)), nil
 	}
 	return nil, errors.New("could not generate a unique invite code")
 }
@@ -181,8 +182,10 @@ func (s *Server) JoinCampaign(ctx context.Context, request api.JoinCampaignReque
 	if err != nil {
 		return nil, err
 	}
+	// A player walks in holding the code; that is not a reason to hand them a
+	// copy of it to keep and pass on.
 	return api.JoinCampaign200JSONResponse{
-		Campaign: toAPICampaign(campaign),
+		Campaign: toAPICampaign(campaign, false),
 		Role:     toAPIRole(m.Role),
 	}, nil
 }
@@ -217,7 +220,8 @@ func (s *Server) RegenerateInvite(ctx context.Context, request api.RegenerateInv
 			}
 			return nil, err
 		}
-		return api.RegenerateInvite200JSONResponse(toAPICampaign(campaign)), nil
+		// Gated on requireDM above, and the new code is the whole answer.
+		return api.RegenerateInvite200JSONResponse(toAPICampaign(campaign, true)), nil
 	}
 	return nil, errors.New("could not generate a unique invite code")
 }
@@ -281,6 +285,10 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 	}
 	out := make([]api.CampaignMembership, 0, len(rows))
 	for _, row := range rows {
+		// The call this issue was about: one listing serving both roles, per
+		// row. A player's row carries no code — which is what makes a ban
+		// mean something, since a banned member cannot hand on what they were
+		// never given.
 		out = append(out, api.CampaignMembership{
 			Campaign: toAPICampaign(db.Campaign{
 				ID:                     row.ID,
@@ -294,7 +302,7 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 				RequireSeatingApproval: row.RequireSeatingApproval,
 				MaxSeatedPerPlayer:     row.MaxSeatedPerPlayer,
 				HiddenSheets:           row.HiddenSheets,
-			}),
+			}, row.Role == db.MembershipRoleDm),
 			Role: toAPIRole(row.Role),
 		})
 	}
@@ -322,19 +330,27 @@ func toAPIUser(u db.User) api.User {
 	}
 }
 
-func toAPICampaign(c db.Campaign) api.Campaign {
+// toAPICampaign renders a campaign for one reader.
+//
+// forDM is a required argument rather than a default, and that is the whole
+// point of it: the invite code used to ride along unconditionally, so every
+// player's GET /campaigns carried the code that admits anyone holding it. The
+// UI only drew it for the DM, which reads as safe and is not — a kicked or
+// banned player still had it out of the payload, which made the ban partly
+// decorative (#207). Making the caller say who is reading turns "did anyone
+// think about this call site?" into a compile error.
+func toAPICampaign(c db.Campaign, forDM bool) api.Campaign {
 	var maxLevel *int
 	if c.MaxLevel != nil {
 		v := int(*c.MaxLevel)
 		maxLevel = &v
 	}
 	maxSeated := int(c.MaxSeatedPerPlayer)
-	return api.Campaign{
+	out := api.Campaign{
 		Id:                     c.ID,
 		Name:                   c.Name,
 		OwnerUserId:            c.OwnerUserID,
 		CreatedAt:              c.CreatedAt.Time,
-		InviteCode:             c.InviteCode,
 		NextSessionAt:          tsPtr(c.NextSessionAt),
 		Progression:            (*api.CampaignProgression)(ptrString(string(c.Progression))),
 		MaxLevel:               maxLevel,
@@ -342,6 +358,11 @@ func toAPICampaign(c db.Campaign) api.Campaign {
 		MaxSeatedPerPlayer:     &maxSeated,
 		HiddenSheets:           &c.HiddenSheets,
 	}
+	if forDM {
+		code := c.InviteCode
+		out.InviteCode = &code
+	}
+	return out
 }
 
 // campaignCeiling is the highest level heroes may reach at this table.

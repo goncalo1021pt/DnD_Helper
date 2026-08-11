@@ -62,6 +62,15 @@ export const IconCopy = (p: IconProps) => (
   </Icon>
 );
 
+export const IconKey = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="7.5" cy="15.5" r="4.5" />
+    <path d="m10.7 12.3 8.3-8.3" />
+    <path d="m17 5 2.5 2.5" />
+    <path d="m14.5 7.5 2.5 2.5" />
+  </Icon>
+);
+
 export const IconRefresh = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />

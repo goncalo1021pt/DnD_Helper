@@ -434,7 +434,7 @@ func (s *Server) SetProgression(ctx context.Context, request api.SetProgressionR
 	}
 	s.logEvent(ctx, campaignID, member.UserID, "progression",
 		fmt.Sprintf("The table now advances by %s", request.Body.Mode))
-	return api.SetProgression200JSONResponse(toAPICampaign(updated)), nil
+	return api.SetProgression200JSONResponse(toAPICampaign(updated, true)), nil
 }
 
 // SetMaxLevel sets or clears the DM's level ceiling for the table.
@@ -476,7 +476,7 @@ func (s *Server) SetMaxLevel(ctx context.Context, request api.SetMaxLevelRequest
 		s.logEvent(ctx, campaignID, member.UserID, "progression",
 			"The table's ceiling returns to the standard 20")
 	}
-	return api.SetMaxLevel200JSONResponse(toAPICampaign(updated)), nil
+	return api.SetMaxLevel200JSONResponse(toAPICampaign(updated, true)), nil
 }
 
 // RollInTheOpen rolls a pool of dice where the whole table can see them.
