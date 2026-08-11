@@ -21,6 +21,7 @@ export * from "./live";
 export * from "./rules";
 export * from "./vendors";
 export * from "./chronicle";
+export * from "./handouts";
 export * from "./packs";
 export * from "./codex";
 export * from "./trees";

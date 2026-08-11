@@ -20,6 +20,14 @@ ChronicleEvent:
     actorName:
       type: string
       nullable: true
+    handoutId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >
+        Set on a `handout` line: the prop the DM handed over, rendered inline
+        in the feed. A line whose handout is veiled from the reader is not in
+        their feed at all, so this is always something they may look at.
     createdAt:
       type: string
       format: date-time

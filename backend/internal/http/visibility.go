@@ -238,6 +238,71 @@ func (v *veil) overridesFor(overrides map[uuid.UUID]bool) []api.VisibilityOverri
 	return out
 }
 
+// handoutVeil answers "may this hero look at that prop?" for a campaign's
+// handouts.
+//
+// Its own loader rather than a fourth map on veil: a handout hangs inside
+// nothing, so the ancestor walk a notice needs has no meaning here, and the
+// quest board would pay for a table it never reads. What is shared is the rule
+// itself — resolve() below is the same two layers the places use.
+type handoutVeil struct {
+	// handout id -> character id -> visible
+	overrides map[uuid.UUID]map[uuid.UUID]bool
+	charNames map[uuid.UUID]string
+}
+
+func (s *Server) loadHandoutVeil(ctx context.Context, campaignID uuid.UUID) (*handoutVeil, error) {
+	rows, err := s.queries.ListHandoutVisibilityByCampaign(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	v := &handoutVeil{
+		overrides: map[uuid.UUID]map[uuid.UUID]bool{},
+		charNames: map[uuid.UUID]string{},
+	}
+	for _, r := range rows {
+		if v.overrides[r.HandoutID] == nil {
+			v.overrides[r.HandoutID] = map[uuid.UUID]bool{}
+		}
+		v.overrides[r.HandoutID][r.CharacterID] = r.Visible
+		v.charNames[r.CharacterID] = r.CharacterName
+	}
+	return v, nil
+}
+
+// visibleTo resolves one handout for one hero.
+func (v *handoutVeil) visibleTo(handoutID uuid.UUID, partyFlag bool, charID uuid.UUID) bool {
+	return resolve(partyFlag, v.overrides[handoutID], charID)
+}
+
+// visibleToAny reports whether any of a member's heroes may look at it. A
+// member with no seated hero is judged by the party-wide veil alone.
+func (v *handoutVeil) visibleToAny(handoutID uuid.UUID, partyFlag bool, charIDs []uuid.UUID) bool {
+	if len(charIDs) == 0 {
+		return v.visibleTo(handoutID, partyFlag, uuid.Nil)
+	}
+	for _, id := range charIDs {
+		if v.visibleTo(handoutID, partyFlag, id) {
+			return true
+		}
+	}
+	return false
+}
+
+// overridesFor renders the DM-facing list of heroes singled out on a handout.
+func (v *handoutVeil) overridesFor(handoutID uuid.UUID) []api.VisibilityOverride {
+	out := make([]api.VisibilityOverride, 0, len(v.overrides[handoutID]))
+	for charID, visible := range v.overrides[handoutID] {
+		out = append(out, api.VisibilityOverride{
+			CharacterId:   charID,
+			CharacterName: v.charNames[charID],
+			Visible:       visible,
+		})
+	}
+	sortOverrides(out)
+	return out
+}
+
 // seatedCharacterIDs lists the heroes a member has seated at a campaign. The
 // DM never needs this — they see the whole board regardless.
 func (s *Server) seatedCharacterIDs(ctx context.Context, campaignID, userID uuid.UUID) ([]uuid.UUID, error) {

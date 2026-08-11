@@ -38,7 +38,7 @@ func (s *Server) logEvent(ctx context.Context, campaignID, actorID uuid.UUID, ki
 }
 
 func toAPIEvent(row db.ListEventsRow) api.ChronicleEvent {
-	return api.ChronicleEvent{
+	out := api.ChronicleEvent{
 		Id:        row.ID,
 		Kind:      row.Kind,
 		Category:  row.Category,
@@ -46,6 +46,11 @@ func toAPIEvent(row db.ListEventsRow) api.ChronicleEvent {
 		ActorName: row.ActorName,
 		CreatedAt: row.CreatedAt.Time,
 	}
+	if row.HandoutID.Valid {
+		id := uuid.UUID(row.HandoutID.Bytes)
+		out.HandoutId = &id
+	}
+	return out
 }
 
 // eventCategory derives a line's channel from its kind, mirroring the CASE in
@@ -56,6 +61,8 @@ func eventCategory(kind string) string {
 		return "dm"
 	case kind == "ruling", strings.HasPrefix(kind, "codex"):
 		return "rules"
+	case kind == "handout":
+		return "dm"
 	case kind == "player_note":
 		return "player"
 	case kind == "roll":
@@ -76,7 +83,8 @@ func validFilterCategory(c string) bool {
 // ListEvents returns the chronicle, newest first (members).
 func (s *Server) ListEvents(ctx context.Context, request api.ListEventsRequestObject) (api.ListEventsResponseObject, error) {
 	campaignID := uuid.UUID(request.CampaignId)
-	if _, err := s.requireMember(ctx, campaignID); err != nil {
+	member, err := s.requireMember(ctx, campaignID)
+	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.ListEvents401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -99,6 +107,12 @@ func (s *Server) ListEvents(ctx context.Context, request api.ListEventsRequestOb
 		Column2:    category,
 		Limit:      limit,
 	})
+	if err != nil {
+		return nil, err
+	}
+	// A handout line is only in your chronicle if the prop it names is yours
+	// to look at — the feed must not announce what the veil is still hiding.
+	rows, err = s.filterHandoutEvents(ctx, member, rows)
 	if err != nil {
 		return nil, err
 	}

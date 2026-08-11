@@ -35,11 +35,12 @@ can retry what is safe to replay and leave alone what is not.
 const BUDGET_MS = 20_000;
 
 /**
- * Map images ride as base64 up to 10 MB and packs export whole libraries; a
- * twenty-second budget would fail them on a perfectly good connection.
+ * Map and handout images ride as base64 up to 10 MB and packs export whole
+ * libraries; a twenty-second budget would fail them on a perfectly good
+ * connection.
  */
 const HEAVY_BUDGET_MS = 120_000;
-const HEAVY_PATHS = [/\/maps(\/|$|\?)/, /\/rules\/(import|export)\b/];
+const HEAVY_PATHS = [/\/maps(\/|$|\?)/, /\/handouts(\/|$|\?)/, /\/rules\/(import|export)\b/];
 
 /** Attempts in total, not retries after the first. Fewer than the budget allows. */
 const ATTEMPTS = 3;

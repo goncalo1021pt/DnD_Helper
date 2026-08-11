@@ -25,7 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 /** Which cached queries each topic makes stale. */
 const KEYS: Record<string, string[][]> = {
   encounter: [["encounter-active"], ["encounters"], ["encounter"]],
-  chronicle: [["events"]],
+  chronicle: [["events"], ["handouts"]],
   quests: [["quests"]],
   map: [["reveals"], ["map"], ["maps"]],
   party: [["characters"], ["character-detail"], ["my-characters"]],

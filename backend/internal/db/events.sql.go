@@ -15,7 +15,7 @@ import (
 const addEvent = `-- name: AddEvent :one
 INSERT INTO campaign_events (campaign_id, actor_user_id, kind, message)
 VALUES ($1, $2, $3, $4)
-RETURNING id, campaign_id, actor_user_id, kind, message, created_at
+RETURNING id, campaign_id, actor_user_id, kind, message, created_at, handout_id
 `
 
 type AddEventParams struct {
@@ -40,6 +40,7 @@ func (q *Queries) AddEvent(ctx context.Context, arg AddEventParams) (CampaignEve
 		&i.Kind,
 		&i.Message,
 		&i.CreatedAt,
+		&i.HandoutID,
 	)
 	return i, err
 }
@@ -47,11 +48,13 @@ func (q *Queries) AddEvent(ctx context.Context, arg AddEventParams) (CampaignEve
 const listEvents = `-- name: ListEvents :many
 WITH ev AS (
     SELECT e.id, e.campaign_id, e.actor_user_id, e.kind, e.message, e.created_at,
+           e.handout_id,
            u.name AS actor_name,
            (CASE
                 WHEN e.kind = 'note'        THEN 'dm'
                 WHEN e.kind = 'ruling'      THEN 'rules'
                 WHEN e.kind LIKE 'codex%'   THEN 'rules'
+                WHEN e.kind = 'handout'     THEN 'dm'
                 WHEN e.kind = 'player_note' THEN 'player'
                 WHEN e.kind = 'roll'        THEN 'rolls'
                 ELSE 'log'
@@ -60,7 +63,7 @@ WITH ev AS (
     LEFT JOIN users u ON u.id = e.actor_user_id
     WHERE e.campaign_id = $1
 )
-SELECT id, campaign_id, actor_user_id, kind, message, created_at, actor_name, category FROM ev
+SELECT id, campaign_id, actor_user_id, kind, message, created_at, handout_id, actor_name, category FROM ev
 WHERE $2::text = 'all' OR category = $2::text
 ORDER BY created_at DESC
 LIMIT $3
@@ -79,6 +82,7 @@ type ListEventsRow struct {
 	Kind        string             `json:"kind"`
 	Message     string             `json:"message"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	HandoutID   pgtype.UUID        `json:"handout_id"`
 	ActorName   *string            `json:"actor_name"`
 	Category    string             `json:"category"`
 }
@@ -102,6 +106,7 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListE
 			&i.Kind,
 			&i.Message,
 			&i.CreatedAt,
+			&i.HandoutID,
 			&i.ActorName,
 			&i.Category,
 		); err != nil {

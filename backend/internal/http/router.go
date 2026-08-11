@@ -43,8 +43,10 @@ func NewRouter(deps Deps) http.Handler {
 
 		ar.Route("/auth", deps.OAuth.Routes)
 
-		// Map images stream outside the JSON contract (binary, cacheable).
+		// Map and handout images stream outside the JSON contract (binary,
+		// cacheable), each re-checking its own veil before writing bytes.
 		ar.Get("/maps/{mapID}/image", srv.ServeMapImage)
+		ar.Get("/handouts/{handoutID}/image", srv.ServeHandoutImage)
 
 		// The live nudge stream (#109). Outside the contract for the same
 		// reason: a strict handler returns a typed object and is done, and a
