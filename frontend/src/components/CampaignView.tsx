@@ -1,9 +1,10 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
-import { useCampaigns, useLiveCampaign, useRegenerateInvite } from "../hooks";
+import { useCampaigns, useLiveCampaign } from "../hooks";
+import InviteModal from "./InviteModal";
 import RoleBadge from "./ui/RoleBadge";
-import { IconCopy, IconRefresh } from "./ui/icons";
+import { IconKey } from "./ui/icons";
 
 /** Context handed to the campaign pages (dashboard, board, party). */
 export interface CampaignContext {
@@ -68,38 +69,21 @@ function SectionRail({ role }: { role: Role }) {
   );
 }
 
-/* Invite-code plate: click to copy, with a transient confirmation. */
-function InviteChip({ campaign }: { campaign: Campaign }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  function copy() {
-    navigator.clipboard?.writeText(campaign.inviteCode).catch(() => {});
-    setCopied(true);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setCopied(false), 1600);
-  }
-
+/* The door to the invite (#207) — a button, never the code itself. What sits
+   behind it, including forging a new one, lives in InviteModal. */
+function InviteButton({ onOpen }: { onOpen: () => void }) {
   return (
     <button
-      onClick={copy}
-      title="Copy invite code"
+      onClick={onOpen}
+      title="The invite code"
       className="chip-hall cursor-pointer border-none px-3.5 py-[9px] transition hover:brightness-125"
     >
-      <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">
+      <span className="text-gold-hair">
+        <IconKey strokeWidth={1.8} />
+      </span>
+      <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
         Invite
       </span>
-      <span className="font-heading text-sm font-bold tracking-[2px] text-ember-bright">
-        {campaign.inviteCode}
-      </span>
-      <span className="text-gold-hair">
-        <IconCopy strokeWidth={1.8} />
-      </span>
-      {copied && (
-        <span className="label-stamp text-[10px] tracking-[1px] text-[#8fb15f]">
-          Copied
-        </span>
-      )}
     </button>
   );
 }
@@ -116,7 +100,7 @@ export default function CampaignView() {
   // route — the tracker, the chronicle, the board (#109). The 8-second poll
   // underneath stays as the fallback.
   useLiveCampaign(id);
-  const regenerate = useRegenerateInvite(id ?? "");
+  const [inviting, setInviting] = useState(false);
 
   if (isLoading) {
     return (
@@ -172,18 +156,12 @@ export default function CampaignView() {
 
         {role === "dm" && (
           <div className="flex flex-wrap items-center gap-3.5">
-            <InviteChip campaign={campaign} />
-            <button
-              onClick={() => regenerate.mutate()}
-              disabled={regenerate.isPending}
-              title="Forge a new invite code (the old one stops working)"
-              className="chip-hall cursor-pointer border-none p-[9px] text-gold-hair transition hover:brightness-125 disabled:opacity-55"
-            >
-              <IconRefresh strokeWidth={1.8} />
-            </button>
+            <InviteButton onOpen={() => setInviting(true)} />
           </div>
         )}
       </div>
+
+      {inviting && <InviteModal campaign={campaign} onClose={() => setInviting(false)} />}
 
       <SectionRail role={role} />
 

@@ -43,7 +43,7 @@ func (s *Server) SetSeatingApproval(ctx context.Context, request api.SetSeatingA
 		s.logEvent(ctx, campaignID, member.UserID, "table_rules",
 			"The DM opens the door — heroes seat themselves freely")
 	}
-	return api.SetSeatingApproval200JSONResponse(toAPICampaign(updated)), nil
+	return api.SetSeatingApproval200JSONResponse(toAPICampaign(updated, true)), nil
 }
 
 // seatCapMessage words the refusal when a player already fills their seats.
@@ -91,7 +91,7 @@ func (s *Server) SetMaxSeatedPerPlayer(ctx context.Context, request api.SetMaxSe
 		s.logEvent(ctx, campaignID, member.UserID, "table_rules",
 			fmt.Sprintf("The DM grants each player %d seats at the table", v))
 	}
-	return api.SetMaxSeatedPerPlayer200JSONResponse(toAPICampaign(updated)), nil
+	return api.SetMaxSeatedPerPlayer200JSONResponse(toAPICampaign(updated, true)), nil
 }
 
 // ListSeatRequests returns the heroes waiting at the door (DM only).

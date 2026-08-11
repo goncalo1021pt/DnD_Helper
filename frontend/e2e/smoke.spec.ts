@@ -30,10 +30,18 @@ test("a DM founds a table and posts a quest; a player joins and claims it", asyn
   await dmPage.getByText(campaignName, { exact: false }).first().click();
   await expect(dmPage.getByRole("heading", { name: "The Quest Board" })).toBeVisible();
 
-  // Lift the invite code out of the header for the player.
-  const inviteButton = dmPage.locator('button[title*="Copy invite code" i]').first();
-  const invite = ((await inviteButton.textContent()) ?? "").replace(/invite/i, "").trim();
+  // Fetch the invite code for the player. Since #207 the header carries a
+  // door rather than the code — it opens the invite, and the code is only
+  // painted after a deliberate Reveal, which is the behaviour being relied on
+  // here as much as the code itself.
+  await dmPage.getByRole("button", { name: "Invite" }).click();
+  const inviteDialog = dmPage.getByRole("dialog");
+  await expect(inviteDialog.getByText("••••••")).toBeVisible();
+  await inviteDialog.getByRole("button", { name: "Reveal it" }).click();
+
+  const invite = ((await inviteDialog.getByText(/^[A-Z0-9]{6}$/).textContent()) ?? "").trim();
   expect(invite).toMatch(/^[A-Z0-9]{6}$/);
+  await inviteDialog.getByRole("button", { name: "Done" }).click();
 
   // Nail up a notice. Wait for the board itself: the hall also shows the quest
   // title (in its board preview) *and* the Chronicle line announcing it, so

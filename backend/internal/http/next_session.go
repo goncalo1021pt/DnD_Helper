@@ -50,5 +50,5 @@ func (s *Server) SetNextSession(ctx context.Context, request api.SetNextSessionR
 		s.logEvent(ctx, campaign.ID, dm.UserID, "session_set",
 			"The next gathering is set for "+campaign.NextSessionAt.Time.Format("02/01/2006 15:04"))
 	}
-	return api.SetNextSession200JSONResponse(toAPICampaign(campaign)), nil
+	return api.SetNextSession200JSONResponse(toAPICampaign(campaign, true)), nil
 }
