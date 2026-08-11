@@ -166,7 +166,7 @@ func (s *Server) SetPools(ctx context.Context, request api.SetPoolsRequestObject
 		return nil, err
 	}
 	uid, _ := auth.UserID(ctx)
-	out := toAPICharacterWithClass(updated, ownerName, uid, s.classDataFor(ctx, updated))
+	out := toAPICharacterWithClass(updated, ownerName, uid, s.classDataFor(ctx, updated), s.classesFor(ctx, updated))
 	attachPools(&out, s.resolvePools(ctx, updated))
 	return api.SetPools200JSONResponse(out), nil
 }

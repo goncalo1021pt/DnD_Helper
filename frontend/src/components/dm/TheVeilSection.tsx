@@ -1,4 +1,5 @@
 import type { Campaign } from "../../api/client";
+import { classLine } from "../../lib/classes";
 import { useCharacters, useRevealCharacter } from "../../hooks";
 
 /*
@@ -57,7 +58,7 @@ export default function TheVeilSection({ campaign }: { campaign: Campaign }) {
                 <div className="font-heading truncate text-[15px] font-bold text-cream">
                   {c.name}
                   <span className="font-accent ml-2 text-[12.5px] font-normal italic text-cream-muted">
-                    {c.class || "Adventurer"} · Lv {c.level}
+                    {classLine(c)} · Lv {c.level}
                   </span>
                 </div>
                 <div className="label-stamp text-[10px] tracking-[1px] text-gold-muted">

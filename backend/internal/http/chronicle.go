@@ -259,7 +259,7 @@ func (s *Server) GrantXP(ctx context.Context, request api.GrantXPRequestObject) 
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, toAPICharacterWithClass(c, name, member.UserID, s.classDataFor(ctx, c)))
+		out = append(out, toAPICharacterWithClass(c, name, member.UserID, s.classDataFor(ctx, c), s.classesFor(ctx, c)))
 	}
 	return api.GrantXP200JSONResponse(out), nil
 }

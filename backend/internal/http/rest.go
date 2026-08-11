@@ -306,7 +306,7 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 	}
 	// The report's hero carries the sheet the rest just refilled — slots and
 	// pools included — rather than making the caller refetch to see it.
-	hero := toAPICharacterWithClass(updated, ownerName, actor, classData)
+	hero := toAPICharacterWithClass(updated, ownerName, actor, classData, s.classesFor(ctx, updated))
 	attachPools(&hero, s.resolvePools(ctx, updated))
 	return api.RestCharacter200JSONResponse(api.RestReport{
 		Character:       hero,

@@ -189,7 +189,7 @@ func (s *Server) RevealCharacter(ctx context.Context, request api.RevealCharacte
 	if err != nil {
 		return nil, err
 	}
-	out := toAPICharacterWithClass(character, ownerName, member.UserID, s.classDataFor(ctx, character))
+	out := toAPICharacterWithClass(character, ownerName, member.UserID, s.classDataFor(ctx, character), s.classesFor(ctx, character))
 	out.Revealed = &revealed
 	s.publish(member.CampaignID, live.TopicParty)
 	return api.RevealCharacter200JSONResponse(out), nil

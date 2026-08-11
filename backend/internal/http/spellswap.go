@@ -82,7 +82,7 @@ func (s *Server) SwapCharacterSpells(ctx context.Context, request api.SwapCharac
 		return nil, err
 	}
 	return api.SwapCharacterSpells200JSONResponse(
-		toAPICharacterWithClass(character, ownerName, uid, class.Data)), nil
+		toAPICharacterWithClass(character, ownerName, uid, class.Data, s.classesFor(ctx, character))), nil
 }
 
 // applySpellSwaps removes what the hero gave up and adds what it took, in that

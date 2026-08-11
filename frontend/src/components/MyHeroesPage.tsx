@@ -10,6 +10,7 @@ import {
   useSeatCharacter,
   useUpdateCharacter,
 } from "../hooks";
+import { classLine } from "../lib/classes";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import { levelUpHold } from "../lib/progression";
 import CharacterForm, { emptyHero } from "./CharacterForm";
@@ -76,7 +77,7 @@ function HeroCard({
             {character.name}
           </Link>
           <div className="truncate text-[12.5px] text-ink-body">
-            {character.class || "Adventurer"}
+            {classLine(character)}
           </div>
         </div>
       </div>

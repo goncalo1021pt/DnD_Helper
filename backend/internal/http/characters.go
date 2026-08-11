@@ -54,6 +54,14 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 	if err != nil {
 		return nil, err
 	}
+	// Every seated hero's classes in one read (#190) — a roster of six should
+	// not cost six extra queries to say "Rogue 5 / Wizard 3".
+	classRows, err := s.queries.ListCharacterClassesForCampaign(ctx, pgUUID(campaignID))
+	if err != nil {
+		return nil, err
+	}
+	classesOf := byCharacter(classesFromCampaign(classRows))
+
 	isDM := member.Role == db.MembershipRoleDm
 	out := make([]api.Character, 0, len(rows))
 	for _, row := range rows {
@@ -74,7 +82,7 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
 			TableBorn:      row.TableBorn,
-		}, row.OwnerName, member.UserID, row.ClassData)
+		}, row.OwnerName, member.UserID, row.ClassData, classesOf[row.ID])
 		if veil.concealsFrom(row.ID, row.OwnerUserID, member.UserID, isDM) {
 			character = conceal(character)
 		}
@@ -179,7 +187,7 @@ func (s *Server) UpdateCharacter(ctx context.Context, request api.UpdateCharacte
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateCharacter200JSONResponse(toAPICharacterWithClass(updated, ownerName, member.UserID, s.classDataFor(ctx, updated))), nil
+	return api.UpdateCharacter200JSONResponse(toAPICharacterWithClass(updated, ownerName, member.UserID, s.classDataFor(ctx, updated), s.classesFor(ctx, updated))), nil
 }
 
 // DeleteCharacter removes a character (its owner or the DM).
@@ -342,12 +350,24 @@ func (s *Server) ownerName(ctx context.Context, ownerID uuid.UUID) (string, erro
 
 // toAPICharacterWithClass enriches a caster's sheet with slot state derived
 // from the class data (nil classData = no enrichment).
-func toAPICharacterWithClass(c db.Character, ownerName string, viewer uuid.UUID, classData []byte) api.Character {
+// toAPICharacterWithClass renders a hero with everything their class implies.
+//
+// `classes` is an argument rather than something looked up in here because the
+// roster reads all of them in one query and a single-hero endpoint reads one —
+// and because making it explicit means a new call site cannot quietly serve a
+// multiclassed hero as though they had one class. Pass nil only for a hero who
+// genuinely has none (quick-add), or where the caller has already established
+// there are none to show.
+func toAPICharacterWithClass(c db.Character, ownerName string, viewer uuid.UUID, classData []byte, classes []heroClass) api.Character {
 	out := toAPICharacter(c, ownerName, viewer)
 	if out.Sheet != nil && classData != nil {
 		ability, slots := spellSlotsFor(classData, c.Level, c.SpellSlotsUsed)
 		out.Sheet.SpellcastingAbility = ability
 		out.Sheet.SpellSlots = slots
+	}
+	if out.Sheet != nil && len(classes) > 0 {
+		list := toAPICharacterClasses(classes, c.ClassID)
+		out.Sheet.Classes = &list
 	}
 	return out
 }

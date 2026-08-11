@@ -339,6 +339,30 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	if err != nil {
 		return nil, err
 	}
+	// Keep the class rows level with the hero (#190). Today every hero has one
+	// class, so the level they gained is a level in it; once a second class can
+	// be taken, this is the line that learns which one was chosen.
+	if err := s.queries.UpsertCharacterClass(ctx, db.UpsertCharacterClassParams{
+		CharacterID: updated.ID,
+		ClassID:     class.ID,
+		SubclassID:  subclassID,
+		Level:       int16(newLevel),
+		Position:    0,
+	}); err != nil {
+		return nil, err
+	}
+	// The upsert deliberately does not touch subclass_id — a level-up that
+	// makes no subclass choice must not erase the one already there — so a
+	// choice made now is written on its own.
+	if subclassID.Valid {
+		if err := s.queries.SetCharacterClassSubclass(ctx, db.SetCharacterClassSubclassParams{
+			CharacterID: updated.ID,
+			ClassID:     class.ID,
+			SubclassID:  subclassID,
+		}); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.applySpellSwaps(ctx, updated.ID, swaps); err != nil {
 		return nil, err
 	}
@@ -364,5 +388,5 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	if err != nil {
 		return nil, err
 	}
-	return api.LevelUpCharacter200JSONResponse(toAPICharacterWithClass(updated, ownerName, uid, class.Data)), nil
+	return api.LevelUpCharacter200JSONResponse(toAPICharacterWithClass(updated, ownerName, uid, class.Data, s.classesFor(ctx, updated))), nil
 }

@@ -1,3 +1,33 @@
+CharacterClass:
+  type: object
+  required: [classId, className, level]
+  description: |
+    One class a hero holds levels in. A Rogue 5 / Wizard 3 has two of these,
+    each with its own subclass — a roguish archetype and an arcane tradition
+    are not interchangeable, so the subclass belongs to the class rather than
+    to the hero.
+  properties:
+    classId:
+      type: string
+      format: uuid
+    className:
+      type: string
+    level:
+      type: integer
+      minimum: 1
+      maximum: 20
+      description: Levels in THIS class, not the hero's total.
+    subclassId:
+      type: string
+      format: uuid
+      nullable: true
+    subclassName:
+      type: string
+      nullable: true
+    starting:
+      type: boolean
+      description: True for the class the hero began as — the one granting full starting proficiencies.
+
 Character:
   type: object
   required:
@@ -85,6 +115,11 @@ CharacterSheet:
       type: string
       format: uuid
       nullable: true
+      description: >
+        The class this hero *started* as — the one they take full starting
+        proficiencies from (PHB 2024, p.44). For everything level-related see
+        `classes`, which is the whole list; this is not a copy of its first
+        entry, it is a different fact that happens to agree on day one.
     speciesId:
       type: string
       format: uuid
@@ -97,6 +132,15 @@ CharacterSheet:
       type: string
       format: uuid
       nullable: true
+      description: The starting class's subclass. Per-class subclasses are in `classes`.
+    classes:
+      type: array
+      description: >
+        Every class this hero holds levels in, starting class first. Their
+        levels sum to `level`. Empty for a quick-add hero, who has a freeform
+        `class` line and no content behind it.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/CharacterClass"
     feats:
       type: array
       items:

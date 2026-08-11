@@ -64,6 +64,10 @@ export type Character =
   paths["/campaigns/{campaignId}/characters"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type CharacterInput =
   paths["/campaigns/{campaignId}/characters"]["post"]["requestBody"]["content"]["application/json"];
+/** One class a hero holds levels in — a Rogue 5 / Wizard 3 has two (#190). */
+export type CharacterClass = NonNullable<
+  NonNullable<Character["sheet"]>["classes"]
+>[number];
 
 export type SkillTree =
   paths["/campaigns/{campaignId}/trees"]["get"]["responses"]["200"]["content"]["application/json"][number];

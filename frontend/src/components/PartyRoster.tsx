@@ -14,6 +14,7 @@ import {
   useTrees,
   useUpdateCharacter,
 } from "../hooks";
+import { classLine } from "../lib/classes";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import { nextLevelXP, readyToLevel } from "../lib/progression";
 import AbilityRow from "./ui/AbilityRow";
@@ -294,7 +295,7 @@ function CharacterCard({
             {character.name}
           </Link>
           <div className="truncate text-[12.5px] text-ink-body">
-            {character.class || "Adventurer"}
+            {classLine(character)}
             <span className="font-accent italic text-ink-label">
               {" "}
               · played by {character.ownerName}

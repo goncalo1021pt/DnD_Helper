@@ -408,6 +408,8 @@ components:
 
     Character:
       $ref: "./components/characters.yaml#/Character"
+    CharacterClass:
+      $ref: "./components/characters.yaml#/CharacterClass"
     CharacterSheet:
       $ref: "./components/characters.yaml#/CharacterSheet"
     SpeciesChoices:

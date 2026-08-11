@@ -548,6 +548,14 @@ type Character struct {
 	PoolsUsed      []byte             `json:"pools_used"`
 }
 
+type CharacterClass struct {
+	CharacterID uuid.UUID   `json:"character_id"`
+	ClassID     uuid.UUID   `json:"class_id"`
+	SubclassID  pgtype.UUID `json:"subclass_id"`
+	Level       int16       `json:"level"`
+	Position    int16       `json:"position"`
+}
+
 type CharacterCreature struct {
 	ID          uuid.UUID          `json:"id"`
 	CharacterID uuid.UUID          `json:"character_id"`
