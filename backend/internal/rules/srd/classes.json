@@ -986,6 +986,14 @@
     "STR",
     "DEX"
    ],
+   "multiclass": {
+    "prerequisite": {
+     "any": [
+      "STR",
+      "DEX"
+     ]
+    }
+   },
    "saves": [
     "STR",
     "CON"

@@ -2118,8 +2118,8 @@ export interface components {
             name: string;
             /** @description Freeform class/ancestry line, e.g. "Half-Elf Bard". */
             class: string;
-            /** @description Hit dice already spent. The total is the hero's level, so what is left to spend on a short rest is level minus this. */
-            hitDiceUsed?: number;
+            /** @description Hit dice by die type, already resolved: the maximum from the hero's class levels, used from what they have spent. Pooled per die, because a level 5 Cleric / level 5 Paladin has five d8 and five d10 and spending one must not consume the other (PHB 2024, p.44). A hero with no class content has their level in d8. */
+            hitDice?: components["schemas"]["HitDicePool"][];
             level: number;
             hpCurrent: number;
             hpMax: number;
@@ -2265,8 +2265,10 @@ export interface components {
         RestRequest: {
             /** @enum {string} */
             kind: "long" | "short";
-            /** @description Short rest only: how many hit dice to spend healing. Ignored on a long rest, which spends none. */
-            hitDice?: number;
+            /** @description Short rest only: how many hit dice to spend healing, keyed by die size ("10": 2). A map rather than a count because a multiclassed hero holds more than one kind and may spend any mix of them — and because it has to be one request: a short rest also restores pact slots and pools, so taking two rests to spend two kinds of die would hand those back twice. Ignored on a long rest, which spends none. */
+            hitDice?: {
+                [key: string]: number;
+            };
         };
         RestReport: {
             character: components["schemas"]["Character"];
@@ -2302,7 +2304,18 @@ export interface components {
         SpellSwapRequest: {
             swaps: components["schemas"]["SpellSwap"][];
         };
+        HitDicePool: {
+            /** @description The die size — 6, 8, 10 or 12. */
+            die: number;
+            max: number;
+            used: number;
+        };
         LevelUpRequest: {
+            /**
+             * Format: uuid
+             * @description Which class takes the level. Omit to advance the hero's only class; required once they hold more than one. Naming a class they do not yet have is how a hero multiclasses, and is refused unless they meet its prerequisite — 13+ in the primary ability of the new class and of every class they already hold (PHB 2024, p.44).
+             */
+            classId?: string;
             /** @enum {string} */
             hpMode: "average" | "roll";
             /** @description The hit-die result when hpMode is roll. */

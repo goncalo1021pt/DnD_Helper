@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -37,10 +38,11 @@ otherwise a thing you can only test by running it and hoping.
 // together — a hero left with their slots back and their wounds open has had
 // half a rest, which is not a state the rules have a name for.
 type restOutcome struct {
-	HP          int32
-	SlotsUsed   []int16
-	HitDiceUsed int32
-	PoolsUsed   map[string]int
+	HP        int32
+	SlotsUsed []int16
+	// Spent hit dice keyed by die size, the shape the column stores (#190).
+	HitDiceSpentMap map[int]int
+	PoolsUsed       map[string]int
 
 	HPRestored      int32
 	HitDiceSpent    int
@@ -92,24 +94,17 @@ Hit points to full, every slot back, and half the hero's hit dice returned —
 rather than none. Regaining is capped by what was actually spent; a rested hero
 cannot bank dice they never used.
 */
-func longRest(ch db.Character, pools []resolvedPool) restOutcome {
+func longRest(ch db.Character, pools []resolvedPool, dice []rules.HitDicePool) restOutcome {
 	level := int(ch.Level)
 	if level < 1 {
 		level = 1
 	}
-	regain := level / 2
-	if regain < 1 {
-		regain = 1
-	}
-	used := int(ch.HitDiceUsed)
-	if regain > used {
-		regain = used
-	}
+	spent, regain := rules.RegainHitDice(dice, level)
 	poolsUsed, poolsRestored := restPools(pools, "long")
 	return restOutcome{
 		HP:              ch.HpMax,
 		SlotsUsed:       noSlots(),
-		HitDiceUsed:     int32(used - regain),
+		HitDiceSpentMap: spent,
 		PoolsUsed:       poolsUsed,
 		HPRestored:      max32(0, ch.HpMax-ch.HpCurrent),
 		HitDiceRegained: regain,
@@ -129,35 +124,41 @@ A pact caster's slots come back here; everyone else's wait for the night. That
 is the whole of what makes a Warlock a Warlock at the table, and it is the
 reason `slotsRestored` is a field rather than an assumption.
 */
-func shortRest(ch db.Character, pools []resolvedPool, spend, hitDie, conMod int, pactCaster bool, roll func(sides int) int) restOutcome {
-	level := int(ch.Level)
-	if level < 1 {
-		level = 1
-	}
-	available := level - int(ch.HitDiceUsed)
-	if available < 0 {
-		available = 0
-	}
-	if spend < 0 {
-		spend = 0
-	}
-	if spend > available {
-		spend = available
-	}
-	if hitDie < 1 {
-		hitDie = 8
-	}
+// `want` is how many of each die size to spend, keyed by die. It arrives from
+// the request and is clamped to what each pool actually has left, so asking
+// for five d10 with three remaining spends three and heals for three.
+func shortRest(
+	ch db.Character,
+	pools []resolvedPool,
+	dice []rules.HitDicePool,
+	want map[int]int,
+	conMod int,
+	pactCaster bool,
+	roll func(sides int) int,
+) restOutcome {
+	spentMap, taken := rules.SpendHitDice(dice, want)
 
-	healed := 0
-	rolls := make([]int, 0, spend)
-	for i := 0; i < spend; i++ {
-		r := roll(hitDie)
-		rolls = append(rolls, r)
-		gain := r + conMod
-		if gain < 0 {
-			gain = 0
+	// Largest die first, so the rolls read in the order a player would spend
+	// them and the report is reproducible rather than map-ordered.
+	sizes := make([]int, 0, len(taken))
+	for die := range taken {
+		sizes = append(sizes, die)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(sizes)))
+
+	healed, spend := 0, 0
+	rolls := []int{}
+	for _, die := range sizes {
+		for i := 0; i < taken[die]; i++ {
+			r := roll(die)
+			rolls = append(rolls, r)
+			gain := r + conMod
+			if gain < 0 {
+				gain = 0
+			}
+			healed += gain
+			spend++
 		}
-		healed += gain
 	}
 
 	hp := ch.HpCurrent + int32(healed)
@@ -167,15 +168,15 @@ func shortRest(ch db.Character, pools []resolvedPool, spend, hitDie, conMod int,
 
 	poolsUsed, poolsRestored := restPools(pools, "short")
 	out := restOutcome{
-		HP:            hp,
-		SlotsUsed:     ch.SpellSlotsUsed,
-		HitDiceUsed:   int32(int(ch.HitDiceUsed) + spend),
-		PoolsUsed:     poolsUsed,
-		HPRestored:    max32(0, hp-ch.HpCurrent),
-		HitDiceSpent:  spend,
-		Rolls:         rolls,
-		SlotsRestored: pactCaster,
-		PoolsRestored: poolsRestored,
+		HP:              hp,
+		SlotsUsed:       ch.SpellSlotsUsed,
+		HitDiceSpentMap: spentMap,
+		PoolsUsed:       poolsUsed,
+		HPRestored:      max32(0, hp-ch.HpCurrent),
+		HitDiceSpent:    spend,
+		Rolls:           rolls,
+		SlotsRestored:   pactCaster,
+		PoolsRestored:   poolsRestored,
 	}
 	if pactCaster {
 		out.SlotsUsed = noSlots()
@@ -217,17 +218,12 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 		return badRequest("a rest body is required")
 	}
 
-	// The class says how big the hero's hit die is and whether their slots are
-	// the kind that come back over an hour. A hero with no class — quick-added
-	// to the roster by name — still rests; they simply have nothing to spend.
+	// The class says whether their slots are the kind that come back over an
+	// hour. Hit dice now come from every class the hero holds (#190), pooled
+	// by die size — a hero with no class at all still rests, on d8s.
 	classData := s.classDataFor(ctx, character)
 	var cr castingRules
-	hitDie := 0
 	if classData != nil {
-		var lu levelUpClassRules
-		if json.Unmarshal(classData, &lu) == nil {
-			hitDie = lu.HitDie
-		}
 		_ = json.Unmarshal(classData, &cr)
 	}
 	conMod := 0
@@ -236,20 +232,18 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 	}
 
 	pools := s.resolvePools(ctx, character)
+	dice := s.hitDiceFor(ctx, character)
 
 	var outcome restOutcome
 	switch request.Body.Kind {
 	case "long":
-		outcome = longRest(character, pools)
+		outcome = longRest(character, pools, dice)
 	case "short":
-		spend := 0
-		if request.Body.HitDice != nil {
-			spend = *request.Body.HitDice
+		want, errMsg := parseHitDiceRequest(request.Body.HitDice, dice)
+		if errMsg != "" {
+			return badRequest(errMsg)
 		}
-		if spend > 0 && hitDie == 0 {
-			return badRequest("this hero has no class, so no hit dice to spend")
-		}
-		outcome = shortRest(character, pools, spend, hitDie, conMod, cr.Spellcaster == "pact", func(sides int) int {
+		outcome = shortRest(character, pools, dice, want, conMod, cr.Spellcaster == "pact", func(sides int) int {
 			return rollDie(sides)
 		})
 	default:
@@ -260,11 +254,15 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 	if err != nil {
 		return nil, err
 	}
+	hitDiceSpent, err := encodeHitDiceSpent(outcome.HitDiceSpentMap)
+	if err != nil {
+		return nil, err
+	}
 	updated, err := s.queries.RestCharacter(ctx, db.RestCharacterParams{
 		ID:             character.ID,
 		HpCurrent:      outcome.HP,
 		SpellSlotsUsed: outcome.SlotsUsed,
-		HitDiceUsed:    int16(outcome.HitDiceUsed),
+		HitDiceSpent:   hitDiceSpent,
 		PoolsUsed:      poolsUsed,
 	})
 	if err != nil {
@@ -314,7 +312,7 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 		HpRestored:      int(outcome.HPRestored),
 		HitDiceSpent:    outcome.HitDiceSpent,
 		HitDiceRegained: outcome.HitDiceRegained,
-		HitDiceLeft:     int(updated.Level) - int(updated.HitDiceUsed),
+		HitDiceLeft:     rules.TotalHitDiceLeft(s.hitDiceFor(ctx, updated)),
 		SlotsRestored:   outcome.SlotsRestored,
 		Rolls:           rolls,
 		CanSwapSpells:   canSwap,

@@ -147,7 +147,9 @@ export function useSwapSpells(characterId: string) {
 export function useRest(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { kind: "long" | "short"; hitDice?: number }) => {
+    // hitDice is keyed by die size since #190 — {"10": 2} — so a multiclassed
+    // hero can spend a mix in the one request a short rest has to be.
+    mutationFn: async (body: { kind: "long" | "short"; hitDice?: Record<number, number> }) => {
       const { data, error } = await api.POST("/characters/{characterId}/rest", {
         params: { path: { characterId } },
         body,

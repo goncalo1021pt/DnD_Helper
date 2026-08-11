@@ -54,17 +54,65 @@ export default function LevelUpModal({
   }, [character.campaignId, codex]);
 
   const sheet = character.sheet!;
-  const klass = classes?.find((c) => c.id === sheet.classId);
+
+  /*
+    Which class takes this level (#190).
+
+    Defaults to the one they started as, which for almost every hero is the
+    only one they have — the picker below only appears once there is a choice
+    to make. Everything after this reads the CHOSEN class: its hit die, its
+    subclass level, its ASI levels, all indexed by the hero's level in that
+    class rather than their total (PHB 2024, p.44).
+  */
+  const held = sheet.classes ?? [];
+  const [takingIn, setTakingIn] = useState<string>(sheet.classId ?? "");
+  const klass = classes?.find((c) => c.id === takingIn);
   const classData = klass?.data as
-    | { hitDie?: number; subclassLevel?: number; asiLevels?: number[]; features?: Feature[] }
+    | {
+        hitDie?: number;
+        subclassLevel?: number;
+        asiLevels?: number[];
+        features?: Feature[];
+        primaryAbility?: string[];
+        multiclass?: { prerequisite?: { any?: string[]; all?: string[] } };
+      }
     | undefined;
 
   const newLevel = character.level + 1;
+  // The level in the chosen class — 1 when it is a class they do not yet hold.
+  const classLevel = (held.find((k) => k.classId === takingIn)?.level ?? 0) + 1;
   const hitDie = classData?.hitDie ?? 8;
   const subclassLevel = classData?.subclassLevel ?? 3;
   const asiLevels = classData?.asiLevels?.length ? classData.asiLevels : [4, 8, 12, 16, 19];
-  const needsSubclass = newLevel === subclassLevel;
-  const isASILevel = asiLevels.includes(newLevel);
+  const needsSubclass = classLevel === subclassLevel;
+  const isASILevel = asiLevels.includes(classLevel);
+
+  // Every class the hero could put this level into: the ones they hold, plus
+  // any whose prerequisite they meet. The server checks this again — this is
+  // so the list does not offer a door that will be shut in their face.
+  const openClasses = useMemo(() => {
+    const scores = sheet.abilities as unknown as Record<string, number>;
+    const meets = (r: { data: unknown }) => {
+      const d = r.data as {
+        primaryAbility?: string[];
+        multiclass?: { prerequisite?: { any?: string[]; all?: string[] } };
+      };
+      const any = d.multiclass?.prerequisite?.any ?? [];
+      const all = d.multiclass?.prerequisite?.all ?? (any.length ? [] : d.primaryAbility ?? []);
+      const at13 = (a: string) => (scores[a.slice(0, 3).toLowerCase()] ?? 0) >= 13;
+      if (any.length) return any.some(at13);
+      return all.every(at13);
+    };
+    // Multiclassing also asks it of what they already are.
+    const currentHold = held.every((k) => {
+      const entry = classes?.find((c) => c.id === k.classId);
+      return entry ? meets(entry) : true;
+    });
+    return (classes ?? []).filter((c) => {
+      if (held.some((k) => k.classId === c.id)) return true;
+      return currentHold && meets(c) && codexLegal(c);
+    });
+  }, [classes, held, sheet.abilities, codexLegal]);
 
   const [hpMode, setHpMode] = useState<"average" | "roll">("average");
   const [hpRoll, setHpRoll] = useState(0);
@@ -135,15 +183,18 @@ export default function LevelUpModal({
   const cantripRoom = casting ? Math.max(casting.cantrips[newLevel - 1] - ownedCantrips, 0) : 0;
   const preparedRoom = casting ? Math.max(casting.prepared[newLevel - 1] - ownedLeveled, 0) : 0;
 
-  // What this level grants, from class + chosen subclass data.
+  // What this level grants, from class + chosen subclass data. Indexed by the
+  // level in THIS class, not the hero's total — a Rogue 5 taking their first
+  // Wizard level gets Wizard 1's features (#190).
   const gained: Feature[] = useMemo(() => {
-    const own = (classData?.features ?? []).filter((f) => f.level === newLevel);
-    const sub = classSubclasses.find((s) => s.id === (subclassId || sheet.subclassId));
+    const own = (classData?.features ?? []).filter((f) => f.level === classLevel);
+    const heldSubclass = held.find((k) => k.classId === takingIn)?.subclassId;
+    const sub = classSubclasses.find((s) => s.id === (subclassId || heldSubclass));
     const subFeatures = sub
-      ? ((sub.data as { features?: Feature[] }).features ?? []).filter((f) => f.level === newLevel)
+      ? ((sub.data as { features?: Feature[] }).features ?? []).filter((f) => f.level === classLevel)
       : [];
     return [...own, ...subFeatures];
-  }, [classData, newLevel, classSubclasses, subclassId, sheet.subclassId]);
+  }, [classData, classLevel, classSubclasses, subclassId, held, takingIn]);
 
   const conMod = abilityMod(
     sheet.abilities.con +
@@ -167,6 +218,10 @@ export default function LevelUpModal({
 
   function submit() {
     const body: LevelUpRequest = { hpMode };
+    // Always named, even when there is only one: the server would guess right,
+    // but a level going into the wrong class is not a mistake worth risking on
+    // an inference (#190).
+    if (takingIn) body.classId = takingIn;
     if (hpMode === "roll") body.hpRoll = hpRoll;
     if (needsSubclass) body.subclassId = subclassId;
     if (newSpellIds.length > 0) body.spells = newSpellIds;
@@ -197,9 +252,48 @@ export default function LevelUpModal({
 
       <div className="flex flex-col gap-5 text-ink-strong">
         {/* what the level grants */}
+        {/* Which class takes the level. Hidden when there is nothing to
+            choose — a hero with one class and no door open to a second sees
+            the level-up they always saw. */}
+        {openClasses.length > 1 && (
+          <label className="block">
+            <span className="field-label mb-1.5 block">This level goes to</span>
+            <select
+              value={takingIn}
+              onChange={(e) => {
+                setTakingIn(e.target.value);
+                // The new class has its own subclass level and ASI levels, so
+                // anything chosen against the old one is no longer an answer.
+                setSubclassId("");
+                setFeatId("");
+                setNewSpellIds([]);
+              }}
+              className="input-parchment input-compact w-full cursor-pointer"
+            >
+              {openClasses.map((c) => {
+                const have = held.find((k) => k.classId === c.id);
+                return (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {have ? `${have.level} → ${have.level + 1}` : "— a new calling"}
+                  </option>
+                );
+              })}
+            </select>
+            {!held.some((k) => k.classId === takingIn) && (
+              <div className="font-body mt-1.5 text-[12px] italic text-ink-faded">
+                Multiclassing. You gain {klass?.name}'s level 1 features and only
+                part of its starting proficiencies — your total level is what
+                sets your proficiency bonus.
+              </div>
+            )}
+          </label>
+        )}
+
         {gained.length > 0 && (
           <div>
-            <div className="field-label mb-1.5">Gained at level {newLevel}</div>
+            <div className="field-label mb-1.5">
+              Gained at {klass?.name} level {classLevel}
+            </div>
             <div className="flex max-h-64 flex-col gap-2.5 overflow-y-auto pr-1">
               {gained.map((f, i) => (
                 <div key={i} className="text-[13px]">

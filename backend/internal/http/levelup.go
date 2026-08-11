@@ -9,18 +9,89 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
 // The class-data slice level-up needs. Defaults follow the 2024 rules:
 // subclass at 3, ASIs at 4/8/12/16/19.
 type levelUpClassRules struct {
-	HitDie        int   `json:"hitDie"`
-	SubclassLevel int   `json:"subclassLevel"`
-	AsiLevels     []int `json:"asiLevels"`
+	HitDie         int                   `json:"hitDie"`
+	SubclassLevel  int                   `json:"subclassLevel"`
+	AsiLevels      []int                 `json:"asiLevels"`
+	PrimaryAbility []string              `json:"primaryAbility"`
+	Multiclass     *rules.MulticlassData `json:"multiclass"`
+}
+
+/*
+takingLevelIn works out which class this level goes into, and whether the hero
+is allowed to put it there (#190).
+
+Three cases. Say nothing and a single-classed hero advances the class they
+have — the old behaviour, and what every existing client sends. Say nothing
+with two classes and it is a question only the player can answer, so it is
+refused rather than guessed. Name a class they do not hold and they are
+multiclassing, which the 2024 prerequisite gates: 13+ in the primary ability
+of the new class AND of every class they already hold (PHB 2024, p.44).
+*/
+func (s *Server) takingLevelIn(
+	ctx context.Context,
+	character db.Character,
+	held []heroClass,
+	asked *uuid.UUID,
+	scores map[string]int,
+) (classID uuid.UUID, fresh bool, errMsg string) {
+	if asked == nil {
+		switch len(held) {
+		case 1:
+			return held[0].ClassID, false, ""
+		case 0:
+			// Backfilled rows cover every forged hero, so this is a hero whose
+			// class rows never arrived — fall back to the column.
+			if character.ClassID.Valid {
+				return uuid.UUID(character.ClassID.Bytes), false, ""
+			}
+			return uuid.Nil, false, "this hero has no class to advance"
+		default:
+			return uuid.Nil, false, "say which class takes this level"
+		}
+	}
+
+	want := uuid.UUID(*asked)
+	for _, k := range held {
+		if k.ClassID == want {
+			return want, false, "" // another level in a class they already have
+		}
+	}
+
+	// A class they do not hold: the door, and its price.
+	entry, err := s.fetchContent(ctx, want, db.ContentKindClass)
+	if err != nil {
+		return uuid.Nil, false, "that class is not in this world's library"
+	}
+	var cr levelUpClassRules
+	if err := json.Unmarshal(entry.Data, &cr); err != nil {
+		return uuid.Nil, false, fmt.Sprintf("malformed class data for %s", entry.Name)
+	}
+	if ok, missing := rules.MeetsPrereq(cr.PrimaryAbility, cr.Multiclass, scores); !ok {
+		return uuid.Nil, false, fmt.Sprintf("%s asks for %s before it will take you", entry.Name, missing)
+	}
+	// And what they already are has to hold up its end.
+	for _, k := range held {
+		var have levelUpClassRules
+		if json.Unmarshal(k.ClassData, &have) != nil {
+			continue
+		}
+		if ok, missing := rules.MeetsPrereq(have.PrimaryAbility, have.Multiclass, scores); !ok {
+			return uuid.Nil, false, fmt.Sprintf(
+				"multiclassing asks %s of your %s levels too", missing, k.ClassName)
+		}
+	}
+	return want, true, ""
 }
 
 type subclassRules struct {
@@ -95,7 +166,21 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	}
 	newLevel := int(character.Level) + 1
 
-	class, err := s.fetchContent(ctx, uuid.UUID(character.ClassID.Bytes), db.ContentKindClass)
+	abilities := map[string]int{
+		"str": int(*character.Strength), "dex": int(*character.Dexterity),
+		"con": int(*character.Constitution), "int": int(*character.Intelligence),
+		"wis": int(*character.Wisdom), "cha": int(*character.Charisma),
+	}
+	conModBefore := abilityMod(abilities["con"])
+
+	// Which class takes this level, and may it (#190).
+	held := s.classesFor(ctx, character)
+	classID, freshClass, errMsg := s.takingLevelIn(ctx, character, held, body.ClassId, abilities)
+	if errMsg != "" {
+		return badRequest(errMsg)
+	}
+
+	class, err := s.fetchContent(ctx, classID, db.ContentKindClass)
 	if err != nil {
 		return nil, fmt.Errorf("hero's class vanished: %w", err)
 	}
@@ -110,17 +195,27 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		cr.AsiLevels = []int{4, 8, 12, 16, 19}
 	}
 
-	// --- Ability increases / feat (ASI levels only) ---
-	abilities := map[string]int{
-		"str": int(*character.Strength), "dex": int(*character.Dexterity),
-		"con": int(*character.Constitution), "int": int(*character.Intelligence),
-		"wis": int(*character.Wisdom), "cha": int(*character.Charisma),
-	}
-	conModBefore := abilityMod(abilities["con"])
+	/*
+		The level within THIS class, which is what the class's own tables are
+		indexed by — its subclass level, its ASIs, its features. A Rogue 5
+		taking a first Wizard level gets Wizard 1, not Wizard 6: "when you gain
+		a new level in a class, you get its features for that level"
+		(PHB 2024, p.44).
 
+		Total character level still governs proficiency bonus, XP and cantrip
+		scaling, and stays `newLevel`.
+	*/
+	classLevel := 1
+	for _, k := range held {
+		if k.ClassID == classID {
+			classLevel = int(k.Level) + 1
+		}
+	}
+
+	// --- Ability increases / feat (ASI levels only) ---
 	asiLevel := false
 	for _, lv := range cr.AsiLevels {
-		if lv == newLevel {
+		if lv == classLevel {
 			asiLevel = true
 		}
 	}
@@ -142,7 +237,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	hasFeat := body.FeatId != nil
 
 	if !asiLevel && (hasASI || hasFeat) {
-		return badRequest(fmt.Sprintf("%s gains no ability increase at level %d", class.Name, newLevel))
+		return badRequest(fmt.Sprintf("%s gains no ability increase at %s level %d", class.Name, class.Name, classLevel))
 	}
 	if asiLevel && hasASI == hasFeat {
 		return badRequest("an ASI level takes either ability increases or a feat — exactly one")
@@ -186,11 +281,17 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		feats = append(feats, feat.Name)
 	}
 
-	// --- Subclass (exactly at the class's subclass level) ---
-	subclassID := character.SubclassID
-	if newLevel == cr.SubclassLevel {
+	// --- Subclass (exactly at the class's subclass level, counted in that
+	// class's own levels — each class a hero holds picks its own) ---
+	subclassID := pgtype.UUID{}
+	for _, k := range held {
+		if k.ClassID == classID {
+			subclassID = k.SubclassID
+		}
+	}
+	if classLevel == cr.SubclassLevel {
 		if body.SubclassId == nil {
-			return badRequest(fmt.Sprintf("%s chooses a subclass at level %d", class.Name, newLevel))
+			return badRequest(fmt.Sprintf("%s chooses a subclass at %s level %d", class.Name, class.Name, classLevel))
 		}
 		sub, err := s.fetchVisibleContent(ctx, uuid.UUID(*body.SubclassId), db.ContentKindSubclass, uid)
 		if err != nil {
@@ -205,7 +306,8 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		}
 		subclassID = pgUUID(sub.ID)
 	} else if body.SubclassId != nil {
-		return badRequest(fmt.Sprintf("%s chooses a subclass at level %d, not %d", class.Name, cr.SubclassLevel, newLevel))
+		return badRequest(fmt.Sprintf("%s chooses a subclass at %s level %d, not %d",
+			class.Name, class.Name, cr.SubclassLevel, classLevel))
 	}
 
 	// --- New spells (casters only, additions validated against the new level) ---
@@ -321,6 +423,14 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	retro := (conModAfter - conModBefore) * int(character.Level)
 	delta := int32(gain + retro)
 
+	// characters.subclass_id belongs to the STARTING class (#190). A Wizard
+	// tradition picked by a Rogue 5 / Wizard 3 lives on the Wizard's row and
+	// must not overwrite the Thief on the character.
+	characterSubclass := character.SubclassID
+	if character.ClassID.Valid && uuid.UUID(character.ClassID.Bytes) == classID {
+		characterSubclass = subclassID
+	}
+
 	s16 := func(v int) *int16 { x := int16(v); return &x }
 	updated, err := s.queries.LevelUpCharacter(ctx, db.LevelUpCharacterParams{
 		ID:           character.ID,
@@ -333,21 +443,26 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		Intelligence: s16(abilities["int"]),
 		Wisdom:       s16(abilities["wis"]),
 		Charisma:     s16(abilities["cha"]),
-		SubclassID:   subclassID,
+		SubclassID:   characterSubclass,
 		Feats:        feats,
 	})
 	if err != nil {
 		return nil, err
 	}
-	// Keep the class rows level with the hero (#190). Today every hero has one
-	// class, so the level they gained is a level in it; once a second class can
-	// be taken, this is the line that learns which one was chosen.
+	// The level goes into the class that took it (#190). A class taken for the
+	// first time joins the list at the end; the order is how they were taken.
+	position := int16(0)
+	if freshClass {
+		if next, err := s.queries.NextCharacterClassPosition(ctx, updated.ID); err == nil {
+			position = next
+		}
+	}
 	if err := s.queries.UpsertCharacterClass(ctx, db.UpsertCharacterClassParams{
 		CharacterID: updated.ID,
 		ClassID:     class.ID,
 		SubclassID:  subclassID,
-		Level:       int16(newLevel),
-		Position:    0,
+		Level:       int16(classLevel),
+		Position:    position,
 	}); err != nil {
 		return nil, err
 	}
