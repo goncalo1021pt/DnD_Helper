@@ -512,6 +512,7 @@ type CampaignEvent struct {
 	Kind        string             `json:"kind"`
 	Message     string             `json:"message"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	HandoutID   pgtype.UUID        `json:"handout_id"`
 }
 
 type Character struct {
@@ -640,6 +641,26 @@ type EncounterCombatant struct {
 	Conditions         []string           `json:"conditions"`
 	DeathSaveSuccesses int16              `json:"death_save_successes"`
 	DeathSaveFailures  int16              `json:"death_save_failures"`
+}
+
+type Handout struct {
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	Title          string             `json:"title"`
+	Caption        string             `json:"caption"`
+	Image          []byte             `json:"image"`
+	ContentType    string             `json:"content_type"`
+	Width          int32              `json:"width"`
+	Height         int32              `json:"height"`
+	VisibleToParty bool               `json:"visible_to_party"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type HandoutVisibility struct {
+	HandoutID   uuid.UUID          `json:"handout_id"`
+	CharacterID uuid.UUID          `json:"character_id"`
+	Visible     bool               `json:"visible"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type KnowledgePool struct {

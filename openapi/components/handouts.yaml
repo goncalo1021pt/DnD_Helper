@@ -1,0 +1,72 @@
+Handout:
+  type: object
+  required: [id, campaignId, title, caption, width, height, createdAt]
+  description: |
+    Something the DM hands the table — a letter, a torn map corner, a sigil.
+    The image itself is never in this payload: it streams from
+    `GET /api/handouts/{handoutId}/image`, which applies the same veil.
+
+    A player only ever receives handouts they can see, so `visibleToParty`
+    and `visibility` are absent from their copy — a veiled handout is not a
+    handout with a flag, it is a handout they never hear about.
+  properties:
+    id:
+      type: string
+      format: uuid
+    campaignId:
+      type: string
+      format: uuid
+    title:
+      type: string
+    caption:
+      type: string
+      description: The line under it — what the players are looking at.
+    width:
+      type: integer
+    height:
+      type: integer
+    createdAt:
+      type: string
+      format: date-time
+    visibleToParty:
+      type: boolean
+      description: DM-only. The party-wide veil on this handout.
+    visibility:
+      type: array
+      description: DM-only. Per-hero exceptions to visibleToParty.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/VisibilityOverride"
+
+CreateHandoutRequest:
+  type: object
+  required: [title, imageBase64]
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    caption:
+      type: string
+      maxLength: 500
+    imageBase64:
+      type: string
+      description: JPEG or PNG, up to 10 MB. A data-URL prefix is tolerated.
+    visibleToParty:
+      type: boolean
+      default: false
+      description: >
+        New handouts start veiled so the DM can prepare the prop before the
+        moment it is handed over.
+
+UpdateHandoutRequest:
+  type: object
+  required: [title, caption]
+  description: A handout's words, replaced. The image itself cannot be swapped — hand over a new one.
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 200
+    caption:
+      type: string
+      maxLength: 500

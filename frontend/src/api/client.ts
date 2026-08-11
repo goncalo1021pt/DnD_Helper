@@ -134,6 +134,12 @@ export type MapPinInput =
 export type RevealCircle = MapDetail["revealed"][number];
 export type RevealBatch =
   paths["/maps/{mapId}/reveals"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type Handout =
+  paths["/campaigns/{campaignId}/handouts"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type CreateHandoutInput =
+  paths["/campaigns/{campaignId}/handouts"]["post"]["requestBody"]["content"]["application/json"];
+export type UpdateHandoutInput =
+  paths["/handouts/{handoutId}"]["patch"]["requestBody"]["content"]["application/json"];
 export type Encounter =
   paths["/campaigns/{campaignId}/encounters"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type EncounterDetail =

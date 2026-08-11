@@ -198,6 +198,15 @@ paths:
   /pins/{pinId}:
     $ref: "./paths/maps.yaml#/~1pins~1{pinId}"
 
+  /campaigns/{campaignId}/handouts:
+    $ref: "./paths/handouts.yaml#/~1campaigns~1{campaignId}~1handouts"
+  /handouts/{handoutId}:
+    $ref: "./paths/handouts.yaml#/~1handouts~1{handoutId}"
+  /handouts/{handoutId}/visibility:
+    $ref: "./paths/handouts.yaml#/~1handouts~1{handoutId}~1visibility"
+  /handouts/{handoutId}/visibility/{characterId}:
+    $ref: "./paths/handouts.yaml#/~1handouts~1{handoutId}~1visibility~1{characterId}"
+
   /campaigns/{campaignId}/encounters:
     $ref: "./paths/encounters.yaml#/~1campaigns~1{campaignId}~1encounters"
   /campaigns/{campaignId}/encounters/active:
@@ -308,6 +317,13 @@ components:
         format: uuid
     LocationId:
       name: locationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    HandoutId:
+      name: handoutId
       in: path
       required: true
       schema:
@@ -587,6 +603,13 @@ components:
       $ref: "./components/locations.yaml#/UpdateLocationRequest"
     MoveLocationRequest:
       $ref: "./components/locations.yaml#/MoveLocationRequest"
+
+    Handout:
+      $ref: "./components/handouts.yaml#/Handout"
+    CreateHandoutRequest:
+      $ref: "./components/handouts.yaml#/CreateHandoutRequest"
+    UpdateHandoutRequest:
+      $ref: "./components/handouts.yaml#/UpdateHandoutRequest"
 
 security:
   - sessionCookie: []

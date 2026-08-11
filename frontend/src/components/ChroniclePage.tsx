@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
-import type { ChronicleEvent } from "../api/client";
-import { useAddNote, useEvents } from "../hooks";
+import type { ChronicleEvent, Handout } from "../api/client";
+import { handoutImageUrl, useAddNote, useCharacters, useEvents, useHandouts } from "../hooks";
 import { formatWhen } from "../lib/dates";
 import type { CampaignContext } from "./CampaignView";
+import HandoutForm from "./chronicle/HandoutForm";
+import HandoutLightbox from "./chronicle/HandoutLightbox";
+import HandoutManageModal from "./chronicle/HandoutManageModal";
+import HandoutStrip from "./chronicle/HandoutStrip";
 
 /** Channel → accent + label, for the written entries (dm/rules/player/rolls). */
 const CATEGORY_META: Record<string, { label: string; tone: string }> = {
@@ -56,11 +60,36 @@ const FILTERS: Array<[string, string]> = [
   ["log", "Happenings"],
 ];
 
-export function EventLine({ event }: { event: ChronicleEvent }) {
+/**
+ * One line of the ledger.
+ *
+ * A handout line carries its prop inline: the feed is where the party is
+ * looking when the DM hands something over, and a line saying a letter arrived
+ * without showing it is the wrong half of the moment. `onOpenHandout` is
+ * optional because the dashboard's recent-events list has nowhere to put a
+ * lightbox — there the thumbnail simply sits and looks like what it is.
+ */
+export function EventLine({
+  event,
+  onOpenHandout,
+}: {
+  event: ChronicleEvent;
+  onOpenHandout?: (handoutId: string) => void;
+}) {
   const written = event.category !== "log";
   const tone = written
     ? CATEGORY_META[event.category]?.tone ?? "#a8967a"
     : KIND_TONE[event.kind] ?? "#a8967a";
+
+  const thumb = event.handoutId ? (
+    <img
+      src={handoutImageUrl(event.handoutId)}
+      alt=""
+      loading="lazy"
+      className="h-[74px] w-[110px] rounded-[3px] object-cover"
+      style={{ boxShadow: "inset 0 0 0 1px rgba(201,162,39,.3)" }}
+    />
+  ) : null;
 
   return (
     <div className="flex items-baseline gap-3">
@@ -70,6 +99,18 @@ export function EventLine({ event }: { event: ChronicleEvent }) {
       />
       <div className="min-w-0 flex-1">
         <div className="text-[13.5px] leading-snug text-cream-soft">{event.message}</div>
+        {thumb &&
+          (onOpenHandout ? (
+            <button
+              onClick={() => onOpenHandout(event.handoutId as string)}
+              title="Look at it"
+              className="mt-1.5 block cursor-pointer overflow-hidden rounded-[3px] border-none bg-transparent p-0 transition hover:brightness-110"
+            >
+              {thumb}
+            </button>
+          ) : (
+            <div className="mt-1.5">{thumb}</div>
+          ))}
         <div className="label-stamp mt-0.5 text-[8.5px] tracking-[1.5px] text-gold-muted">
           {written ? (
             <>
@@ -92,10 +133,20 @@ export default function ChroniclePage() {
   const isDM = role === "dm";
   const [filter, setFilter] = useState("all");
   const { data: events, isLoading } = useEvents(campaign.id, filter, 200);
+  const { data: handouts } = useHandouts(campaign.id);
+  // The roster, for the DM's hero-by-hero reveal controls.
+  const { data: characters } = useCharacters(campaign.id);
   const addNote = useAddNote(campaign.id);
   const [note, setNote] = useState("");
   // The DM's compose channel: a story note (dm) or a ruling (rules).
   const [channel, setChannel] = useState<"dm" | "rules">("dm");
+  const [handing, setHanding] = useState(false);
+  const [looking, setLooking] = useState<Handout | null>(null);
+  const [managing, setManaging] = useState<Handout | null>(null);
+
+  // The satchel is the source of truth for both surfaces, so a lightbox opened
+  // from a feed thumbnail shows the same title and caption the strip does.
+  const handoutById = (id: string) => (handouts ?? []).find((h) => h.id === id) ?? null;
 
   function post() {
     const message = note.trim();
@@ -124,6 +175,16 @@ export default function ChroniclePage() {
           </div>
         </div>
       </div>
+
+      {/* the satchel — what the table has been handed, still findable */}
+      <HandoutStrip
+        handouts={handouts ?? []}
+        isDM={isDM}
+        characters={characters ?? []}
+        onOpen={setLooking}
+        onManage={setManaging}
+        onAdd={() => setHanding(true)}
+      />
 
       {/* channel filter */}
       <div className="mb-5 flex flex-wrap gap-1.5">
@@ -207,9 +268,26 @@ export default function ChroniclePage() {
       ) : (
         <div className="flex max-w-[720px] flex-col gap-4">
           {(events ?? []).map((e) => (
-            <EventLine key={e.id} event={e} />
+            <EventLine
+              key={e.id}
+              event={e}
+              onOpenHandout={(id) => setLooking(handoutById(id))}
+            />
           ))}
         </div>
+      )}
+
+      {handing && <HandoutForm campaignId={campaign.id} onClose={() => setHanding(false)} />}
+      {looking && <HandoutLightbox handout={looking} onClose={() => setLooking(null)} />}
+      {managing && (
+        <HandoutManageModal
+          campaignId={campaign.id}
+          // Re-read from the satchel so the modal shows the veil as it is now,
+          // not as it was when the card was tapped.
+          handout={handoutById(managing.id) ?? managing}
+          characters={characters ?? []}
+          onClose={() => setManaging(null)}
+        />
       )}
     </div>
   );

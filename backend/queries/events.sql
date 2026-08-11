@@ -9,11 +9,13 @@ RETURNING *;
 -- channel (filtering on the computed column so it survives the LIMIT).
 WITH ev AS (
     SELECT e.id, e.campaign_id, e.actor_user_id, e.kind, e.message, e.created_at,
+           e.handout_id,
            u.name AS actor_name,
            (CASE
                 WHEN e.kind = 'note'        THEN 'dm'
                 WHEN e.kind = 'ruling'      THEN 'rules'
                 WHEN e.kind LIKE 'codex%'   THEN 'rules'
+                WHEN e.kind = 'handout'     THEN 'dm'
                 WHEN e.kind = 'player_note' THEN 'player'
                 WHEN e.kind = 'roll'        THEN 'rolls'
                 ELSE 'log'

@@ -1,0 +1,138 @@
+/campaigns/{campaignId}/handouts:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listHandouts
+    summary: The campaign's handouts, newest first (members see only what is theirs to see)
+    description: >
+      The DM receives every handout with its veil state; a player receives
+      only the handouts revealed to the party or to one of their seated
+      heroes. Image bytes are not included — see the image route.
+    responses:
+      "200":
+        description: Handouts
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Handout"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createHandout
+    summary: Bring something to the table (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CreateHandoutRequest"
+    responses:
+      "201":
+        description: The new handout
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Handout"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/handouts/{handoutId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/HandoutId"
+  patch:
+    operationId: updateHandout
+    summary: Retitle or recaption a handout (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/UpdateHandoutRequest"
+    responses:
+      "200":
+        description: The handout after the edit
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Handout"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteHandout
+    summary: Take it back off the table (DM only) — its chronicle line goes with it
+    responses:
+      "204":
+        description: Struck
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/handouts/{handoutId}/visibility:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/HandoutId"
+  put:
+    operationId: setHandoutVisibility
+    summary: Hand it over, or take it back — party-wide or one hero (DM only)
+    description: >
+      The first reveal writes the chronicle line that hands it to the table.
+      Revealing to a further hero afterwards lights up that same line for
+      them rather than writing a second one.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetVisibilityRequest"
+    responses:
+      "200":
+        description: The handout after the veil moved
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Handout"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/handouts/{handoutId}/visibility/{characterId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/HandoutId"
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  delete:
+    operationId: clearHandoutVisibilityOverride
+    summary: Drop one hero's exception so they follow the party again (DM only)
+    responses:
+      "200":
+        description: The handout after the exception was dropped
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Handout"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

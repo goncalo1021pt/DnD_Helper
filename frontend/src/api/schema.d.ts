@@ -1647,6 +1647,91 @@ export interface paths {
         patch: operations["updateMapPin"];
         trace?: never;
     };
+    "/campaigns/{campaignId}/handouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The campaign's handouts, newest first (members see only what is theirs to see)
+         * @description The DM receives every handout with its veil state; a player receives only the handouts revealed to the party or to one of their seated heroes. Image bytes are not included — see the image route.
+         */
+        get: operations["listHandouts"];
+        put?: never;
+        /** Bring something to the table (DM only) */
+        post: operations["createHandout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/handouts/{handoutId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handoutId: components["parameters"]["HandoutId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take it back off the table (DM only) — its chronicle line goes with it */
+        delete: operations["deleteHandout"];
+        options?: never;
+        head?: never;
+        /** Retitle or recaption a handout (DM only) */
+        patch: operations["updateHandout"];
+        trace?: never;
+    };
+    "/handouts/{handoutId}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handoutId: components["parameters"]["HandoutId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Hand it over, or take it back — party-wide or one hero (DM only)
+         * @description The first reveal writes the chronicle line that hands it to the table. Revealing to a further hero afterwards lights up that same line for them rather than writing a second one.
+         */
+        put: operations["setHandoutVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/handouts/{handoutId}/visibility/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handoutId: components["parameters"]["HandoutId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop one hero's exception so they follow the party again (DM only) */
+        delete: operations["clearHandoutVisibilityOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/encounters": {
         parameters: {
             query?: never;
@@ -2801,6 +2886,11 @@ export interface components {
             category: string;
             message: string;
             actorName?: string | null;
+            /**
+             * Format: uuid
+             * @description Set on a `handout` line: the prop the DM handed over, rendered inline in the feed. A line whose handout is veiled from the reader is not in their feed at all, so this is always something they may look at.
+             */
+            handoutId?: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -3039,6 +3129,48 @@ export interface components {
              */
             parentId: string | null;
         };
+        /**
+         * @description Something the DM hands the table — a letter, a torn map corner, a sigil.
+         *     The image itself is never in this payload: it streams from
+         *     `GET /api/handouts/{handoutId}/image`, which applies the same veil.
+         *
+         *     A player only ever receives handouts they can see, so `visibleToParty`
+         *     and `visibility` are absent from their copy — a veiled handout is not a
+         *     handout with a flag, it is a handout they never hear about.
+         */
+        Handout: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaignId: string;
+            title: string;
+            /** @description The line under it — what the players are looking at. */
+            caption: string;
+            width: number;
+            height: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description DM-only. The party-wide veil on this handout. */
+            visibleToParty?: boolean;
+            /** @description DM-only. Per-hero exceptions to visibleToParty. */
+            visibility?: components["schemas"]["VisibilityOverride"][];
+        };
+        CreateHandoutRequest: {
+            title: string;
+            caption?: string;
+            /** @description JPEG or PNG, up to 10 MB. A data-URL prefix is tolerated. */
+            imageBase64: string;
+            /**
+             * @description New handouts start veiled so the DM can prepare the prop before the moment it is handed over.
+             * @default false
+             */
+            visibleToParty: boolean;
+        };
+        /** @description A handout's words, replaced. The image itself cannot be swapped — hand over a new one. */
+        UpdateHandoutRequest: {
+            title: string;
+            caption: string;
+        };
     };
     responses: {
         /** @description Not authenticated */
@@ -3091,6 +3223,7 @@ export interface components {
         CombatantId: string;
         UserId: string;
         LocationId: string;
+        HandoutId: string;
     };
     requestBodies: never;
     headers: never;
@@ -6352,6 +6485,168 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listHandouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Handouts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Handout"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createHandout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateHandoutRequest"];
+            };
+        };
+        responses: {
+            /** @description The new handout */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Handout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteHandout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handoutId: components["parameters"]["HandoutId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Struck */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateHandout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handoutId: components["parameters"]["HandoutId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateHandoutRequest"];
+            };
+        };
+        responses: {
+            /** @description The handout after the edit */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Handout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setHandoutVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handoutId: components["parameters"]["HandoutId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description The handout after the veil moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Handout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearHandoutVisibilityOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handoutId: components["parameters"]["HandoutId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The handout after the exception was dropped */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Handout"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
