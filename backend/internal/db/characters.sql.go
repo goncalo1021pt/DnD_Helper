@@ -574,6 +574,168 @@ func (q *Queries) LevelUpCharacter(ctx context.Context, arg LevelUpCharacterPara
 	return i, err
 }
 
+const listCharacterClasses = `-- name: ListCharacterClasses :many
+
+SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
+       cls.name AS class_name, cls.data AS class_data,
+       sub.name AS subclass_name
+FROM character_classes cc
+JOIN rules_content cls ON cls.id = cc.class_id
+LEFT JOIN rules_content sub ON sub.id = cc.subclass_id
+WHERE cc.character_id = $1
+ORDER BY cc.position, cls.name
+`
+
+type ListCharacterClassesRow struct {
+	CharacterID  uuid.UUID   `json:"character_id"`
+	ClassID      uuid.UUID   `json:"class_id"`
+	SubclassID   pgtype.UUID `json:"subclass_id"`
+	Level        int16       `json:"level"`
+	Position     int16       `json:"position"`
+	ClassName    string      `json:"class_name"`
+	ClassData    []byte      `json:"class_data"`
+	SubclassName *string     `json:"subclass_name"`
+}
+
+// Multiclassing (#190). A hero's classes, starting class first. Joined to
+// their content rows because every caller that wants the levels also wants
+// the names to print and the data to resolve rules from.
+func (q *Queries) ListCharacterClasses(ctx context.Context, characterID uuid.UUID) ([]ListCharacterClassesRow, error) {
+	rows, err := q.db.Query(ctx, listCharacterClasses, characterID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCharacterClassesRow
+	for rows.Next() {
+		var i ListCharacterClassesRow
+		if err := rows.Scan(
+			&i.CharacterID,
+			&i.ClassID,
+			&i.SubclassID,
+			&i.Level,
+			&i.Position,
+			&i.ClassName,
+			&i.ClassData,
+			&i.SubclassName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCharacterClassesForCampaign = `-- name: ListCharacterClassesForCampaign :many
+SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
+       cls.name AS class_name, cls.data AS class_data,
+       sub.name AS subclass_name
+FROM character_classes cc
+JOIN characters c ON c.id = cc.character_id
+JOIN rules_content cls ON cls.id = cc.class_id
+LEFT JOIN rules_content sub ON sub.id = cc.subclass_id
+WHERE c.campaign_id = $1
+ORDER BY cc.character_id, cc.position, cls.name
+`
+
+type ListCharacterClassesForCampaignRow struct {
+	CharacterID  uuid.UUID   `json:"character_id"`
+	ClassID      uuid.UUID   `json:"class_id"`
+	SubclassID   pgtype.UUID `json:"subclass_id"`
+	Level        int16       `json:"level"`
+	Position     int16       `json:"position"`
+	ClassName    string      `json:"class_name"`
+	ClassData    []byte      `json:"class_data"`
+	SubclassName *string     `json:"subclass_name"`
+}
+
+// Every seated hero's classes in one read, so a roster of six does not cost
+// six round trips.
+func (q *Queries) ListCharacterClassesForCampaign(ctx context.Context, campaignID pgtype.UUID) ([]ListCharacterClassesForCampaignRow, error) {
+	rows, err := q.db.Query(ctx, listCharacterClassesForCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCharacterClassesForCampaignRow
+	for rows.Next() {
+		var i ListCharacterClassesForCampaignRow
+		if err := rows.Scan(
+			&i.CharacterID,
+			&i.ClassID,
+			&i.SubclassID,
+			&i.Level,
+			&i.Position,
+			&i.ClassName,
+			&i.ClassData,
+			&i.SubclassName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCharacterClassesForOwner = `-- name: ListCharacterClassesForOwner :many
+SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
+       cls.name AS class_name, cls.data AS class_data,
+       sub.name AS subclass_name
+FROM character_classes cc
+JOIN characters c ON c.id = cc.character_id
+JOIN rules_content cls ON cls.id = cc.class_id
+LEFT JOIN rules_content sub ON sub.id = cc.subclass_id
+WHERE c.owner_user_id = $1
+ORDER BY cc.character_id, cc.position, cls.name
+`
+
+type ListCharacterClassesForOwnerRow struct {
+	CharacterID  uuid.UUID   `json:"character_id"`
+	ClassID      uuid.UUID   `json:"class_id"`
+	SubclassID   pgtype.UUID `json:"subclass_id"`
+	Level        int16       `json:"level"`
+	Position     int16       `json:"position"`
+	ClassName    string      `json:"class_name"`
+	ClassData    []byte      `json:"class_data"`
+	SubclassName *string     `json:"subclass_name"`
+}
+
+// The same, for the My Heroes shelf.
+func (q *Queries) ListCharacterClassesForOwner(ctx context.Context, ownerUserID uuid.UUID) ([]ListCharacterClassesForOwnerRow, error) {
+	rows, err := q.db.Query(ctx, listCharacterClassesForOwner, ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCharacterClassesForOwnerRow
+	for rows.Next() {
+		var i ListCharacterClassesForOwnerRow
+		if err := rows.Scan(
+			&i.CharacterID,
+			&i.ClassID,
+			&i.SubclassID,
+			&i.Level,
+			&i.Position,
+			&i.ClassName,
+			&i.ClassData,
+			&i.SubclassName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCharacterReveals = `-- name: ListCharacterReveals :many
 SELECT character_id FROM character_reveals WHERE campaign_id = $1
 `
@@ -796,6 +958,19 @@ func (q *Queries) ListCharactersByOwner(ctx context.Context, ownerUserID uuid.UU
 	return items, nil
 }
 
+const nextCharacterClassPosition = `-- name: NextCharacterClassPosition :one
+SELECT COALESCE(MAX(position) + 1, 0)::smallint
+FROM character_classes WHERE character_id = $1
+`
+
+// Where a newly taken class sits in the list; 0 when it is the first.
+func (q *Queries) NextCharacterClassPosition(ctx context.Context, characterID uuid.UUID) (int16, error) {
+	row := q.db.QueryRow(ctx, nextCharacterClassPosition, characterID)
+	var column_1 int16
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const restCharacter = `-- name: RestCharacter :one
 UPDATE characters
 SET hp_current = $2,
@@ -958,6 +1133,23 @@ func (q *Queries) SeatCharacter(ctx context.Context, arg SeatCharacterParams) (C
 		&i.PoolsUsed,
 	)
 	return i, err
+}
+
+const setCharacterClassSubclass = `-- name: SetCharacterClassSubclass :exec
+UPDATE character_classes
+SET subclass_id = $3
+WHERE character_id = $1 AND class_id = $2
+`
+
+type SetCharacterClassSubclassParams struct {
+	CharacterID uuid.UUID   `json:"character_id"`
+	ClassID     uuid.UUID   `json:"class_id"`
+	SubclassID  pgtype.UUID `json:"subclass_id"`
+}
+
+func (q *Queries) SetCharacterClassSubclass(ctx context.Context, arg SetCharacterClassSubclassParams) error {
+	_, err := q.db.Exec(ctx, setCharacterClassSubclass, arg.CharacterID, arg.ClassID, arg.SubclassID)
+	return err
 }
 
 const setPoolsUsed = `-- name: SetPoolsUsed :one
@@ -1146,4 +1338,31 @@ func (q *Queries) UpdateCharacter(ctx context.Context, arg UpdateCharacterParams
 		&i.PoolsUsed,
 	)
 	return i, err
+}
+
+const upsertCharacterClass = `-- name: UpsertCharacterClass :exec
+INSERT INTO character_classes (character_id, class_id, subclass_id, level, position)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (character_id, class_id)
+DO UPDATE SET level = EXCLUDED.level
+`
+
+type UpsertCharacterClassParams struct {
+	CharacterID uuid.UUID   `json:"character_id"`
+	ClassID     uuid.UUID   `json:"class_id"`
+	SubclassID  pgtype.UUID `json:"subclass_id"`
+	Level       int16       `json:"level"`
+	Position    int16       `json:"position"`
+}
+
+// Taking a level: the first in a class inserts it, every one after raises it.
+func (q *Queries) UpsertCharacterClass(ctx context.Context, arg UpsertCharacterClassParams) error {
+	_, err := q.db.Exec(ctx, upsertCharacterClass,
+		arg.CharacterID,
+		arg.ClassID,
+		arg.SubclassID,
+		arg.Level,
+		arg.Position,
+	)
+	return err
 }

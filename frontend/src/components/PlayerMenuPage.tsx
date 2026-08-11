@@ -8,6 +8,7 @@ import {
   useSeatCharacter,
 } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
+import { classLine } from "../lib/classes";
 import ParchmentModal from "./ui/ParchmentModal";
 
 /**
@@ -78,7 +79,7 @@ export default function PlayerMenuPage() {
                   {c.name}
                 </Link>
                 <span className="label-stamp text-[10px] tracking-[1px] text-cream-soft">
-                  Lv {c.level} · {c.class || "Adventurer"}
+                  Lv {c.level} · {classLine(c)}
                 </span>
                 <span className="ml-auto flex flex-none items-center gap-2">
                   <Link

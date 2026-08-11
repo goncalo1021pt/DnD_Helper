@@ -11,6 +11,7 @@ import {
   useSwapSpells,
   useUpdateItem,
 } from "../hooks";
+import { classLine } from "../lib/classes";
 import { levelUpHold } from "../lib/progression";
 import { acFromEquipment, featuresOf, profBonus, weaponAttacks, type Feature } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
@@ -238,7 +239,7 @@ export default function HeroSheetPage() {
               {character.name}
             </h2>
             <div className="font-accent text-[13.5px] italic text-cream-soft">
-              Level {character.level} {character.class || "Adventurer"}
+              Level {character.level} {classLine(character)}
               {subclass && ` · ${subclass.name}`}
               {character.campaignName && ` · seated at ${character.campaignName}`}
             </div>

@@ -1,4 +1,5 @@
 import type { CharacterDetail, InventoryItem, RulesContent } from "../../api/client";
+import { isMulticlass, multiclassLine } from "../classes";
 import { abilityMod } from "../abilities";
 import { acFromEquipment, featuresOf, profBonus, weaponAttacks } from "../derive";
 import {
@@ -142,8 +143,12 @@ export function buildSheetValues({
   // — identity —
   v.charName = character.name;
   // The Forge writes "Half-Elf Bard" into class; prefer the real entry when we
-  // have one, and fall back to that freeform line for hand-rolled heroes.
-  v.class = klass?.name ?? character.class;
+  // have one, and fall back to that freeform line for hand-rolled heroes. A
+  // multiclassed hero gets the breakdown instead (#190) — the box is labelled
+  // "Class & Level" on the real sheet, and one class name there would be a lie.
+  v.class = isMulticlass(character)
+    ? multiclassLine(character)
+    : klass?.name ?? character.class;
   v.level = String(character.level);
   v.background = background?.name ?? "";
   v.species = race?.name ?? "";

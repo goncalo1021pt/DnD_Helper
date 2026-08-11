@@ -2139,18 +2139,44 @@ export interface components {
             revealed?: boolean;
             sheet?: components["schemas"]["CharacterSheet"];
         };
+        /**
+         * @description One class a hero holds levels in. A Rogue 5 / Wizard 3 has two of these,
+         *     each with its own subclass — a roguish archetype and an arcane tradition
+         *     are not interchangeable, so the subclass belongs to the class rather than
+         *     to the hero.
+         */
+        CharacterClass: {
+            /** Format: uuid */
+            classId: string;
+            className: string;
+            /** @description Levels in THIS class, not the hero's total. */
+            level: number;
+            /** Format: uuid */
+            subclassId?: string | null;
+            subclassName?: string | null;
+            /** @description True for the class the hero began as — the one granting full starting proficiencies. */
+            starting?: boolean;
+        };
         /** @description Present only on wizard-forged heroes. */
         CharacterSheet: {
             abilities: components["schemas"]["AbilityScores"];
             skills: string[];
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The class this hero *started* as — the one they take full starting proficiencies from (PHB 2024, p.44). For everything level-related see `classes`, which is the whole list; this is not a copy of its first entry, it is a different fact that happens to agree on day one.
+             */
             classId?: string | null;
             /** Format: uuid */
             speciesId?: string | null;
             /** Format: uuid */
             backgroundId?: string | null;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description The starting class's subclass. Per-class subclasses are in `classes`.
+             */
             subclassId?: string | null;
+            /** @description Every class this hero holds levels in, starting class first. Their levels sum to `level`. Empty for a quick-add hero, who has a freeform `class` line and no content behind it. */
+            classes?: components["schemas"]["CharacterClass"][];
             feats?: string[];
             /** @description The species picks made at creation, keyed by choice id. */
             speciesChoices?: components["schemas"]["SpeciesChoices"];

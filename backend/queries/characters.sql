@@ -182,3 +182,59 @@ ON CONFLICT (campaign_id, character_id) DO NOTHING;
 
 -- name: ConcealCharacter :exec
 DELETE FROM character_reveals WHERE campaign_id = $1 AND character_id = $2;
+
+-- Multiclassing (#190). A hero's classes, starting class first. Joined to
+-- their content rows because every caller that wants the levels also wants
+-- the names to print and the data to resolve rules from.
+
+-- name: ListCharacterClasses :many
+SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
+       cls.name AS class_name, cls.data AS class_data,
+       sub.name AS subclass_name
+FROM character_classes cc
+JOIN rules_content cls ON cls.id = cc.class_id
+LEFT JOIN rules_content sub ON sub.id = cc.subclass_id
+WHERE cc.character_id = $1
+ORDER BY cc.position, cls.name;
+
+-- name: ListCharacterClassesForCampaign :many
+-- Every seated hero's classes in one read, so a roster of six does not cost
+-- six round trips.
+SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
+       cls.name AS class_name, cls.data AS class_data,
+       sub.name AS subclass_name
+FROM character_classes cc
+JOIN characters c ON c.id = cc.character_id
+JOIN rules_content cls ON cls.id = cc.class_id
+LEFT JOIN rules_content sub ON sub.id = cc.subclass_id
+WHERE c.campaign_id = $1
+ORDER BY cc.character_id, cc.position, cls.name;
+
+-- name: ListCharacterClassesForOwner :many
+-- The same, for the My Heroes shelf.
+SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
+       cls.name AS class_name, cls.data AS class_data,
+       sub.name AS subclass_name
+FROM character_classes cc
+JOIN characters c ON c.id = cc.character_id
+JOIN rules_content cls ON cls.id = cc.class_id
+LEFT JOIN rules_content sub ON sub.id = cc.subclass_id
+WHERE c.owner_user_id = $1
+ORDER BY cc.character_id, cc.position, cls.name;
+
+-- name: UpsertCharacterClass :exec
+-- Taking a level: the first in a class inserts it, every one after raises it.
+INSERT INTO character_classes (character_id, class_id, subclass_id, level, position)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (character_id, class_id)
+DO UPDATE SET level = EXCLUDED.level;
+
+-- name: SetCharacterClassSubclass :exec
+UPDATE character_classes
+SET subclass_id = $3
+WHERE character_id = $1 AND class_id = $2;
+
+-- name: NextCharacterClassPosition :one
+-- Where a newly taken class sits in the list; 0 when it is the first.
+SELECT COALESCE(MAX(position) + 1, 0)::smallint
+FROM character_classes WHERE character_id = $1;

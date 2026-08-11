@@ -118,7 +118,7 @@ func (s *Server) GetCharacter(ctx context.Context, request api.GetCharacterReque
 		return nil, err
 	}
 
-	hero := toAPICharacterWithClass(character, ownerName, uid, s.classDataFor(ctx, character))
+	hero := toAPICharacterWithClass(character, ownerName, uid, s.classDataFor(ctx, character), s.classesFor(ctx, character))
 	attachPools(&hero, s.resolvePools(ctx, character))
 	return api.GetCharacter200JSONResponse(api.CharacterDetail{
 		Character: hero,
@@ -183,5 +183,5 @@ func (s *Server) SetSpellSlots(ctx context.Context, request api.SetSpellSlotsReq
 		return nil, err
 	}
 	uid, _ := auth.UserID(ctx)
-	return api.SetSpellSlots200JSONResponse(toAPICharacterWithClass(updated, ownerName, uid, classData)), nil
+	return api.SetSpellSlots200JSONResponse(toAPICharacterWithClass(updated, ownerName, uid, classData, s.classesFor(ctx, updated))), nil
 }

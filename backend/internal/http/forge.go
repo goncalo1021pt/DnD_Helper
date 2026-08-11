@@ -395,6 +395,17 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 	if err != nil {
 		return nil, err
 	}
+	// Their first and, for now, only class (#190). Written in the same
+	// transaction as the hero: a forged hero without a class row would read as
+	// a quick-add on every sheet that asks what they are.
+	if err := qtx.UpsertCharacterClass(ctx, db.UpsertCharacterClassParams{
+		CharacterID: hero.ID,
+		ClassID:     class.ID,
+		Level:       1,
+		Position:    0,
+	}); err != nil {
+		return nil, err
+	}
 	if len(spellIDs) > 0 {
 		if err := qtx.AddCharacterSpells(ctx, db.AddCharacterSpellsParams{
 			CharacterID: hero.ID,
@@ -481,5 +492,5 @@ func (s *Server) forgedResponse(ctx context.Context, hero db.Character, uid uuid
 		}
 		classData = class.Data
 	}
-	return api.ForgeCharacter201JSONResponse(toAPICharacterWithClass(hero, me.Name, uid, classData)), nil
+	return api.ForgeCharacter201JSONResponse(toAPICharacterWithClass(hero, me.Name, uid, classData, s.classesFor(ctx, hero))), nil
 }

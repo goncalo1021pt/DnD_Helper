@@ -30,6 +30,12 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 	if err != nil {
 		return nil, err
 	}
+	// One read for the whole shelf's classes (#190), as the roster does.
+	classRows, err := s.queries.ListCharacterClassesForOwner(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	classesOf := byCharacter(classesFromOwner(classRows))
 	out := make([]api.Character, 0, len(rows))
 	for _, row := range rows {
 		c := toAPICharacterWithClass(db.Character{
@@ -49,7 +55,7 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
 			TableBorn:      row.TableBorn,
-		}, me.Name, uid, row.ClassData)
+		}, me.Name, uid, row.ClassData, classesOf[row.ID])
 		c.CampaignName = row.CampaignName
 		out = append(out, c)
 	}
@@ -212,7 +218,7 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 		}
 		s.logEvent(ctx, prevCampaign, uid, "hero_unseated", msg)
 	}
-	out := toAPICharacterWithClass(updated, owner.Name, uid, s.classDataFor(ctx, updated))
+	out := toAPICharacterWithClass(updated, owner.Name, uid, s.classDataFor(ctx, updated), s.classesFor(ctx, updated))
 	out.CampaignName = campaignName
 	return api.SeatCharacter200JSONResponse(out), nil
 }
