@@ -100,7 +100,7 @@ function SlotPips({ character, canEdit }: { character: Character; canEdit: boole
     const arr = new Array(9).fill(0);
     for (const s of slots) arr[s.level - 1] = s.used;
     arr[level - 1] = next;
-    setSlots.mutate(arr.slice(0, Math.max(...slots.map((s) => s.level))));
+    setSlots.mutate({ used: arr.slice(0, Math.max(...slots.map((s) => s.level))) });
   }
   return (
     <div className="mt-2 flex flex-col gap-1">

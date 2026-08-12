@@ -70,10 +70,12 @@ export function useCharacterDetail(characterId: string | undefined) {
 export function useSetSpellSlots(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (used: number[]) => {
+    // pactUsed is optional and separate — Pact Magic is its own pool, and
+    // ticking one must not restate the other (#190).
+    mutationFn: async ({ used, pactUsed }: { used: number[]; pactUsed?: number }) => {
       const { data, error } = await api.PUT("/characters/{characterId}/slots", {
         params: { path: { characterId } },
-        body: { used },
+        body: { used, ...(pactUsed === undefined ? {} : { pactUsed }) },
       });
       if (error) throw error;
       return data;

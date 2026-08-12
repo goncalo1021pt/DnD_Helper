@@ -87,6 +87,106 @@ func SlotTable(kind string, level int) [9]int {
 	return [9]int{}
 }
 
+/*
+Multiclass casting (PHB 2024, p.44), which is two separate questions.
+
+	"You determine your available spell slots by adding together the following:
+	 • All your levels in the Bard, Cleric, Druid, Sorcerer, and Wizard classes
+	 • Half your levels (round up) in the Paladin and Ranger classes
+	 • One third of your Fighter or Rogue levels (round down) if you have the
+	   Eldritch Knight or Arcane Trickster subclass."
+
+Two things about that are easy to get wrong from memory. Half-casters round
+**up** in 2024 — it was down in 2014, so a Paladin 1 already counts as caster
+level 1. And Warlocks are absent from the list entirely: Pact Magic is its own
+pool, and the two can cast each other's prepared spells but never merge.
+
+The table the total is looked up in is the full-caster table, which is why
+this returns the same rows SlotTable("full", …) does rather than a second copy
+that could drift from it.
+*/
+
+// CasterClass is one class's contribution to the combined caster level: the
+// kind of caster it is ("full" | "half" | "third" | "pact" | ""), and how many
+// levels the hero holds in it.
+type CasterClass struct {
+	Kind   string
+	Levels int
+}
+
+// CasterLevel is the level the Multiclass Spellcaster table is read at. Pact
+// and non-casting levels contribute nothing.
+func CasterLevel(classes []CasterClass) int {
+	total := 0
+	for _, c := range classes {
+		if c.Levels < 1 {
+			continue
+		}
+		switch c.Kind {
+		case "full":
+			total += c.Levels
+		case "half":
+			// Round UP — the 2024 change. Paladin 1 is caster level 1.
+			total += (c.Levels + 1) / 2
+		case "third":
+			total += c.Levels / 3
+		}
+	}
+	return total
+}
+
+// PactLevels totals a hero's levels in pact-magic classes, which drive their
+// own separate pool.
+func PactLevels(classes []CasterClass) int {
+	total := 0
+	for _, c := range classes {
+		if c.Kind == "pact" && c.Levels > 0 {
+			total += c.Levels
+		}
+	}
+	return total
+}
+
+/*
+MulticlassSlots is the shared pool: the Multiclass Spellcaster table at the
+combined caster level.
+
+A hero with levels in exactly one casting class is deliberately NOT special-
+cased. "If you multiclass but have the Spellcasting feature from only one
+class, follow the rules for that class" — and for a full caster the two agree
+exactly, while a lone half-caster's own table is the one thing that differs.
+So a single casting class uses its own table and anything more uses this one.
+*/
+func MulticlassSlots(classes []CasterClass) [9]int {
+	casting := make([]CasterClass, 0, len(classes))
+	for _, c := range classes {
+		if c.Levels > 0 && (c.Kind == "full" || c.Kind == "half" || c.Kind == "third") {
+			casting = append(casting, c)
+		}
+	}
+	switch len(casting) {
+	case 0:
+		return [9]int{}
+	case 1:
+		// Their own class's table, which for a half-caster is not the shared one.
+		return SlotTable(casting[0].Kind, casting[0].Levels)
+	default:
+		return SlotTable("full", CasterLevel(casting))
+	}
+}
+
+// PactSlotsFor returns how many pact slots a hero has and what level they are.
+// Zero count when they have no pact levels.
+func PactSlotsFor(pactLevels int) (count, level int) {
+	if pactLevels < 1 {
+		return 0, 0
+	}
+	if pactLevels > 20 {
+		pactLevels = 20
+	}
+	return pactCount[pactLevels-1], pactLevel[pactLevels-1]
+}
+
 // MaxSpellLevel is the highest spell level with at least one slot.
 func MaxSpellLevel(kind string, level int) int {
 	table := SlotTable(kind, level)

@@ -546,6 +546,7 @@ type Character struct {
 	ForgeKey       pgtype.UUID        `json:"forge_key"`
 	PoolsUsed      []byte             `json:"pools_used"`
 	HitDiceSpent   []byte             `json:"hit_dice_spent"`
+	PactSlotsUsed  int16              `json:"pact_slots_used"`
 }
 
 type CharacterClass struct {
@@ -599,6 +600,7 @@ type CharacterSpell struct {
 	CharacterID uuid.UUID          `json:"character_id"`
 	ContentID   uuid.UUID          `json:"content_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ClassID     pgtype.UUID        `json:"class_id"`
 }
 
 type CharacterTree struct {

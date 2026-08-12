@@ -104,8 +104,12 @@ WHERE id = $1
 RETURNING *;
 
 -- name: SetSpellSlotsUsed :one
+-- The two pools are written together but counted apart (#190): Pact Magic
+-- has its own column so a spent pact slot never shows as a Wizard's.
 UPDATE characters
-SET spell_slots_used = $2, updated_at = now()
+SET spell_slots_used = $2,
+    pact_slots_used = GREATEST(sqlc.arg(pact_slots_used)::smallint, 0),
+    updated_at = now()
 WHERE id = $1
 RETURNING *;
 
@@ -123,6 +127,7 @@ RETURNING *;
 UPDATE characters
 SET hp_current = $2,
     spell_slots_used = $3,
+    pact_slots_used = GREATEST(sqlc.arg(pact_slots_used)::smallint, 0),
     hit_dice_spent = sqlc.arg(hit_dice_spent),
     pools_used = sqlc.arg(pools_used),
     updated_at = now()

@@ -190,13 +190,35 @@ func TestOnlyAPactCasterGetsSlotsBackOnAShortRest(t *testing.T) {
 		t.Errorf("slots = %v; want them left exactly as they were", wizard.SlotsUsed)
 	}
 
-	warlock := shortRest(spent, nil, []rules.HitDicePool{pool(8, 5, 0)}, none, 1, true, always(3))
+	// Since #190 pact slots have their own counter, so what comes back over an
+	// hour is that — and only that. A Warlock 3 / Wizard 3 keeps their Wizard
+	// slots spent, which sharing one array could not express.
+	pactSpent := hero(5, 30, 30)
+	pactSpent.PactSlotsUsed = 2
+	warlock := shortRest(pactSpent, nil, []rules.HitDicePool{pool(8, 5, 0)}, none, 1, true, always(3))
 	if !warlock.SlotsRestored {
 		t.Error("a pact caster's slots come back on a short rest")
 	}
-	for i, u := range warlock.SlotsUsed {
+	if warlock.PactUsed != 0 {
+		t.Errorf("pact slots still show %d spent after an hour", warlock.PactUsed)
+	}
+	if len(warlock.SlotsUsed) == 0 || warlock.SlotsUsed[0] != 2 {
+		t.Errorf("the shared pool = %v; a short rest must leave it alone", warlock.SlotsUsed)
+	}
+}
+
+// And the night returns both.
+func TestALongRestReturnsThePactPoolToo(t *testing.T) {
+	ch := hero(5, 10, 30)
+	ch.PactSlotsUsed = 2
+	out := longRest(ch, nil, []rules.HitDicePool{pool(8, 5, 0)})
+
+	if out.PactUsed != 0 {
+		t.Errorf("pact slots still show %d spent after a long rest", out.PactUsed)
+	}
+	for i, u := range out.SlotsUsed {
 		if u != 0 {
-			t.Errorf("pact slot level %d still shows %d spent", i+1, u)
+			t.Errorf("shared slot level %d still shows %d spent", i+1, u)
 		}
 	}
 }

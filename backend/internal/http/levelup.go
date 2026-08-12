@@ -478,13 +478,15 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 			return nil, err
 		}
 	}
-	if err := s.applySpellSwaps(ctx, updated.ID, swaps); err != nil {
+	if err := s.applySpellSwaps(ctx, updated.ID, pgUUID(class.ID), swaps); err != nil {
 		return nil, err
 	}
 	if len(newSpells) > 0 {
 		if err := s.queries.AddCharacterSpells(ctx, db.AddCharacterSpellsParams{
 			CharacterID: updated.ID,
 			Column2:     newSpells,
+			// Spells gained with this level belong to the class that took it.
+			ClassID:     pgUUID(class.ID),
 		}); err != nil {
 			return nil, err
 		}

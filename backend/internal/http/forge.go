@@ -410,6 +410,8 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		if err := qtx.AddCharacterSpells(ctx, db.AddCharacterSpellsParams{
 			CharacterID: hero.ID,
 			Column2:     spellIDs,
+			// The class they are prepared from (#190).
+			ClassID:     pgUUID(class.ID),
 		}); err != nil {
 			return nil, err
 		}

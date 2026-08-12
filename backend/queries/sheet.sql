@@ -1,7 +1,9 @@
 -- name: AddCharacterSpells :exec
--- Add spell picks; re-adding an existing spell is a no-op.
-INSERT INTO character_spells (character_id, content_id)
-SELECT $1, unnest($2::uuid[])
+-- Add spell picks; re-adding an existing spell is a no-op. class_id records
+-- which class the spell is prepared from — a Ranger 4 / Sorcerer 3 prepares
+-- for each separately and casts each off that class's ability (#190).
+INSERT INTO character_spells (character_id, content_id, class_id)
+SELECT $1, unnest($2::uuid[]), sqlc.narg(class_id)
 ON CONFLICT DO NOTHING;
 
 -- name: RemoveCharacterSpells :exec
@@ -12,7 +14,7 @@ WHERE character_id = $1 AND content_id = ANY($2::uuid[]);
 
 -- name: ListCharacterSpells :many
 -- A hero's spells with their content and author, cantrips first.
-SELECT rc.*, u.name AS creator_name
+SELECT rc.*, u.name AS creator_name, cs.class_id
 FROM character_spells cs
 JOIN rules_content rc ON rc.id = cs.content_id
 LEFT JOIN users u ON u.id = rc.created_by

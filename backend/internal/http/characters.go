@@ -361,10 +361,11 @@ func (s *Server) ownerName(ctx context.Context, ownerID uuid.UUID) (string, erro
 // there are none to show.
 func toAPICharacterWithClass(c db.Character, ownerName string, viewer uuid.UUID, classData []byte, classes []heroClass) api.Character {
 	out := toAPICharacter(c, ownerName, viewer)
-	if out.Sheet != nil && classData != nil {
-		ability, slots := spellSlotsFor(classData, c.Level, c.SpellSlotsUsed)
+	if out.Sheet != nil && (classData != nil || len(classes) > 0) {
+		ability, slots, pact := spellSlotsFor(classData, classes, c.Level, c.SpellSlotsUsed, c.PactSlotsUsed)
 		out.Sheet.SpellcastingAbility = ability
 		out.Sheet.SpellSlots = slots
+		out.Sheet.PactSlots = pact
 	}
 	if out.Sheet != nil && len(classes) > 0 {
 		list := toAPICharacterClasses(classes, c.ClassID)
