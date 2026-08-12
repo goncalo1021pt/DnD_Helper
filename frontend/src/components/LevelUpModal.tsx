@@ -74,7 +74,7 @@ export default function LevelUpModal({
         asiLevels?: number[];
         features?: Feature[];
         primaryAbility?: string[];
-        multiclass?: { prerequisite?: { any?: string[]; all?: string[] } };
+        multiclass?: { prerequisite?: { any?: string[]; all?: string[] }; proficiencies?: string[] };
       }
     | undefined;
 
@@ -284,6 +284,16 @@ export default function LevelUpModal({
                 Multiclassing. You gain {klass?.name}'s level 1 features and only
                 part of its starting proficiencies — your total level is what
                 sets your proficiency bonus.
+                {(classData?.multiclass?.proficiencies ?? []).length > 0 && (
+                  <>
+                    {" "}
+                    From {klass?.name} you gain its hit die,{" "}
+                    {(classData?.multiclass?.proficiencies ?? [])
+                      .map((p) => p.toLowerCase())
+                      .join(", ")}
+                    .
+                  </>
+                )}
               </div>
             )}
           </label>

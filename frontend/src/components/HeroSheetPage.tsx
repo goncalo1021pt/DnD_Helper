@@ -121,12 +121,44 @@ export default function HeroSheetPage() {
   const features: Array<Feature & { from: string }> = useMemo(() => {
     if (!character) return [];
     const level = character.level;
-    const from = (src: RulesContent | undefined) =>
-      featuresOf(src, level).map((f) => ({ ...f, from: src?.name ?? "" }));
+    const from = (src: RulesContent | undefined, at = level) =>
+      featuresOf(src, at).map((f) => ({ ...f, from: src?.name ?? "" }));
 
-    const earned = [...from(klass), ...from(subclass)].sort(
-      (a, b) => (a.level ?? 1) - (b.level ?? 1),
-    );
+    /*
+      Every class the hero holds, each read at their level IN that class
+      (#190). This used to read the starting class alone, so a Rogue 5 /
+      Wizard 3 was shown their Thief features and told nothing whatsoever
+      about being a Wizard.
+
+      A hero with one class takes the same path — their one entry, at their
+      only level — so nothing changes for almost everyone.
+    */
+    const held = sheet?.classes ?? [];
+    const perClass = held.length
+      ? held.flatMap((k) => [
+          ...from(classes?.find((c) => c.id === k.classId), k.level),
+          ...from(subclasses?.find((s) => s.id === k.subclassId), k.level),
+        ])
+      : [...from(klass), ...from(subclass)];
+
+    /*
+      Some features arrive from more than one class and do not stack: "if you
+      gain the Extra Attack feature from more than one class, the features
+      don't stack" (PHB 2024, p.44). Listing it twice would read as two extra
+      attacks. Shown once, from the class that granted it first, and said out
+      loud rather than silently dropped.
+    */
+    const seen = new Map<string, Feature & { from: string }>();
+    for (const f of perClass) {
+      const key = f.name?.toLowerCase() ?? "";
+      const already = seen.get(key);
+      if (!already) {
+        seen.set(key, f);
+        continue;
+      }
+      already.from = `${already.from} · also ${f.from}, and does not stack`;
+    }
+    const earned = [...seen.values()].sort((a, b) => (a.level ?? 1) - (b.level ?? 1));
 
     // Species traits, and what a lineage pick turned into. The trait says
     // "choose one of the following"; the sheet should say which one you chose.
@@ -164,7 +196,10 @@ export default function HeroSheetPage() {
       : [];
 
     return [...earned, ...innate, ...taken, ...trained];
-  }, [character, klass, subclass, species, background, feats, sheet?.feats, sheet?.speciesChoices]);
+  }, [
+    character, klass, subclass, species, background, feats,
+    sheet?.feats, sheet?.speciesChoices, sheet?.classes, classes, subclasses,
+  ]);
 
   const spellsByLevel = useMemo(() => {
     const groups = new Map<number, RulesContent[]>();
