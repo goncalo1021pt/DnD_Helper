@@ -39,6 +39,11 @@ interface ClassData {
   features?: Array<{ level?: number; name?: string }>;
 }
 
+/** What a class grants when it is NOT the one the hero started as (#190). */
+interface MulticlassData {
+  multiclass?: { proficiencies?: string[] };
+}
+
 interface SpeciesData {
   speed?: number;
   size?: string;
@@ -204,8 +209,17 @@ export function buildSheetValues({
   v.hpMax = String(character.hpMax);
   v.hpCurrent = String(character.hpCurrent);
   v.hpTemp = "";
-  v.hitDiceMax = classData.hitDie ? `${character.level}d${classData.hitDie}` : "";
-  v.hitDiceSpent = "";
+  // Hit dice pooled per die size (#190): "5d10 + 5d8" for a Cleric/Paladin,
+  // and the plain "5d10" every single-classed hero has always printed.
+  const dice = character.hitDice ?? [];
+  v.hitDiceMax = dice.length
+    ? dice.filter((d) => d.max > 0).map((d) => `${d.max}d${d.die}`).join(" + ")
+    : classData.hitDie
+      ? `${character.level}d${classData.hitDie}`
+      : "";
+  v.hitDiceSpent = dice.some((d) => d.used > 0)
+    ? dice.filter((d) => d.used > 0).map((d) => `${d.used}d${d.die}`).join(" + ")
+    : "";
   v.heroicInspiration = false;
 
   // — weapons and damage cantrips —
@@ -259,14 +273,51 @@ export function buildSheetValues({
   ]);
   v.feats = names(sheet?.feats ?? []);
 
-  // — equipment training —
-  const armor = classData.armor ?? [];
-  const has = (kind: string) => armor.some((a) => a.toLowerCase().startsWith(kind));
+  /*
+    Equipment training, pooled across every class the hero holds (#190).
+
+    A second class grants only part of its starting proficiencies, and which
+    part is content — data.multiclass.proficiencies, worded as the class's own
+    "As a Multiclass Character" list. The starting class grants its whole set,
+    which is the one thing that makes it the starting class.
+
+    Falls back to the single class's data for a hero whose class rows have not
+    been read, so the printed sheet never comes back emptier than before.
+  */
+  const heldClasses = character.sheet?.classes ?? [];
+  const armor = new Set<string>();
+  const weapons: string[] = [];
+  if (heldClasses.length) {
+    for (const k of heldClasses) {
+      const entry = byId(classes, k.classId);
+      const d = (entry?.data ?? {}) as ClassData & MulticlassData;
+      if (k.starting) {
+        for (const a of d.armor ?? []) armor.add(a.toLowerCase());
+        for (const w of d.weapons ?? []) if (!weapons.includes(w)) weapons.push(w);
+        continue;
+      }
+      for (const line of d.multiclass?.proficiencies ?? []) {
+        const low = line.toLowerCase();
+        for (const kind of ["light", "medium", "heavy", "shield"]) {
+          if (low.includes(kind)) armor.add(kind);
+        }
+        // "proficiency with Martial weapons" → the weapon column.
+        const weapon = line.match(/\b(simple|martial)\b/i);
+        if (weapon && !weapons.some((w) => w.toLowerCase() === weapon[1].toLowerCase())) {
+          weapons.push(weapon[1][0].toUpperCase() + weapon[1].slice(1).toLowerCase());
+        }
+      }
+    }
+  } else {
+    for (const a of classData.armor ?? []) armor.add(a.toLowerCase());
+    weapons.push(...(classData.weapons ?? []));
+  }
+  const has = (kind: string) => [...armor].some((a) => a.startsWith(kind));
   v.armorLight = has("light");
   v.armorMedium = has("medium");
   v.armorHeavy = has("heavy");
   v.armorShields = has("shield");
-  v.weaponProfs = names(classData.weapons ?? []);
+  v.weaponProfs = names(weapons);
   v.toolProfs = names([backgroundData.tool]);
 
   // — the pack —

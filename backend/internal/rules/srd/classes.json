@@ -7,6 +7,12 @@
    "primaryAbility": [
     "STR"
    ],
+   "multiclass": {
+    "proficiencies": [
+     "Martial weapons",
+     "Training with Shields"
+    ]
+   },
    "saves": [
     "STR",
     "CON"
@@ -278,6 +284,13 @@
    "primaryAbility": [
     "CHA"
    ],
+   "multiclass": {
+    "proficiencies": [
+     "One skill of your choice",
+     "One Musical Instrument of your choice",
+     "Training with Light armor"
+    ]
+   },
    "saves": [
     "DEX",
     "CHA"
@@ -485,6 +498,11 @@
    "primaryAbility": [
     "WIS"
    ],
+   "multiclass": {
+    "proficiencies": [
+     "Training with Light and Medium armor and Shields"
+    ]
+   },
    "saves": [
     "WIS",
     "CHA"
@@ -715,6 +733,11 @@
    "primaryAbility": [
     "WIS"
    ],
+   "multiclass": {
+    "proficiencies": [
+     "Training with Light armor and Shields"
+    ]
+   },
    "saves": [
     "INT",
     "WIS"
@@ -992,7 +1015,11 @@
       "STR",
       "DEX"
      ]
-    }
+    },
+    "proficiencies": [
+     "Martial weapons",
+     "Training with Light and Medium armor and Shields"
+    ]
    },
    "saves": [
     "STR",
@@ -1256,6 +1283,9 @@
     "DEX",
     "WIS"
    ],
+   "multiclass": {
+    "proficiencies": []
+   },
    "saves": [
     "STR",
     "DEX"
@@ -1537,6 +1567,12 @@
     "STR",
     "CHA"
    ],
+   "multiclass": {
+    "proficiencies": [
+     "Martial weapons",
+     "Training with Light and Medium armor and Shields"
+    ]
+   },
    "saves": [
     "WIS",
     "CHA"
@@ -1805,6 +1841,13 @@
     "DEX",
     "WIS"
    ],
+   "multiclass": {
+    "proficiencies": [
+     "Martial weapons",
+     "One skill of your choice",
+     "Training with Light and Medium armor and Shields"
+    ]
+   },
    "saves": [
     "STR",
     "DEX"
@@ -2074,6 +2117,13 @@
    "primaryAbility": [
     "DEX"
    ],
+   "multiclass": {
+    "proficiencies": [
+     "One skill of your choice from the Rogue's skill list",
+     "Thieves' Tools",
+     "Training with Light armor"
+    ]
+   },
    "saves": [
     "DEX",
     "INT"
@@ -2276,6 +2326,9 @@
    "primaryAbility": [
     "CHA"
    ],
+   "multiclass": {
+    "proficiencies": []
+   },
    "saves": [
     "CON",
     "CHA"
@@ -2495,6 +2548,11 @@
    "primaryAbility": [
     "CHA"
    ],
+   "multiclass": {
+    "proficiencies": [
+     "Training with Light armor"
+    ]
+   },
    "saves": [
     "WIS",
     "CHA"
@@ -2691,6 +2749,9 @@
    "primaryAbility": [
     "INT"
    ],
+   "multiclass": {
+    "proficiencies": []
+   },
    "saves": [
     "INT",
     "WIS"
