@@ -774,11 +774,12 @@ type QuestVisibility struct {
 }
 
 type RevealBatch struct {
-	ID        uuid.UUID          `json:"id"`
-	MapID     uuid.UUID          `json:"map_id"`
-	PoolID    uuid.UUID          `json:"pool_id"`
-	Note      string             `json:"note"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID         uuid.UUID          `json:"id"`
+	MapID      uuid.UUID          `json:"map_id"`
+	PoolID     uuid.UUID          `json:"pool_id"`
+	Note       string             `json:"note"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LocationID pgtype.UUID        `json:"location_id"`
 }
 
 type RevealCircle struct {

@@ -97,11 +97,28 @@ SubmitRevealsRequest:
     note:
       type: string
       description: Optional label for the ledger ("session 12 — the road east").
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >
+        Tie this batch to a place. Its ground then lifts only for a hero the
+        place's veil already admits — which is how a player who grew up in a
+        city starts knowing it. Omit for a batch the whole pool has.
     circles:
       type: array
       minItems: 1
       items:
         $ref: "../openapi.yaml#/components/schemas/RevealCircle"
+
+SetRevealLocationRequest:
+  type: object
+  properties:
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The place gating this batch; null cuts it loose to the pool.
 
 RevealBatch:
   type: object
@@ -114,6 +131,14 @@ RevealBatch:
       type: string
     poolName:
       type: string
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The place whose veil gates this batch; absent when none does.
+    locationName:
+      type: string
+      description: Name of that place, for the ledger. Empty when there is none.
     circles:
       type: integer
       description: How many circles the batch stamped.

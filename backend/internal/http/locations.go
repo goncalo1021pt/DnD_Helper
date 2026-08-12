@@ -12,6 +12,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 func sortOverrides(o []api.VisibilityOverride) {
@@ -404,12 +405,17 @@ func (s *Server) DeleteLocation(ctx context.Context, request api.DeleteLocationR
 	// Nested places cascade; quests hanging in any of them are unpinned by ON
 	// DELETE SET NULL, so the notices survive losing their place. Stamp the
 	// names down first so each notice still says where it used to hang.
+	//
+	// Fog batches tied to any of these places cascade too — deliberately, so
+	// that striking a city fogs its ground over instead of handing it to the
+	// whole table (000046_fog_locations.up.sql).
 	if err := s.queries.RememberLocationNamesBeforeDelete(ctx, locationID); err != nil {
 		return nil, err
 	}
 	if err := s.queries.DeleteLocation(ctx, locationID); err != nil {
 		return nil, err
 	}
+	s.publish(loc.CampaignID, live.TopicMap)
 	return api.DeleteLocation204Response{}, nil
 }
 
@@ -456,6 +462,11 @@ func (s *Server) SetLocationVisibility(ctx context.Context, request api.SetLocat
 	}); err != nil {
 		return nil, err
 	}
+
+	// A place's veil now also gates the fog batches tied to it (#191), so
+	// lifting it uncovers ground on the map — the player's map is stale the
+	// moment this returns.
+	s.publish(loc.CampaignID, live.TopicMap)
 
 	out, err := s.buildOneLocation(ctx, loc.CampaignID, locationID)
 	if err != nil {
@@ -538,6 +549,7 @@ func (s *Server) ClearLocationVisibilityOverride(ctx context.Context, request ap
 	}); err != nil {
 		return nil, err
 	}
+	s.publish(loc.CampaignID, live.TopicMap)
 	out, err := s.buildOneLocation(ctx, loc.CampaignID, locationID)
 	if err != nil {
 		return nil, err

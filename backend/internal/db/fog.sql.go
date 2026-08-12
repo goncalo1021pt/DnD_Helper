@@ -54,19 +54,25 @@ func (q *Queries) CreatePartyPool(ctx context.Context, campaignID uuid.UUID) (Kn
 }
 
 const createRevealBatch = `-- name: CreateRevealBatch :one
-INSERT INTO reveal_batches (map_id, pool_id, note)
-VALUES ($1, $2, $3)
-RETURNING id, map_id, pool_id, note, created_at
+INSERT INTO reveal_batches (map_id, pool_id, note, location_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, map_id, pool_id, note, created_at, location_id
 `
 
 type CreateRevealBatchParams struct {
-	MapID  uuid.UUID `json:"map_id"`
-	PoolID uuid.UUID `json:"pool_id"`
-	Note   string    `json:"note"`
+	MapID      uuid.UUID   `json:"map_id"`
+	PoolID     uuid.UUID   `json:"pool_id"`
+	Note       string      `json:"note"`
+	LocationID pgtype.UUID `json:"location_id"`
 }
 
 func (q *Queries) CreateRevealBatch(ctx context.Context, arg CreateRevealBatchParams) (RevealBatch, error) {
-	row := q.db.QueryRow(ctx, createRevealBatch, arg.MapID, arg.PoolID, arg.Note)
+	row := q.db.QueryRow(ctx, createRevealBatch,
+		arg.MapID,
+		arg.PoolID,
+		arg.Note,
+		arg.LocationID,
+	)
 	var i RevealBatch
 	err := row.Scan(
 		&i.ID,
@@ -74,6 +80,7 @@ func (q *Queries) CreateRevealBatch(ctx context.Context, arg CreateRevealBatchPa
 		&i.PoolID,
 		&i.Note,
 		&i.CreatedAt,
+		&i.LocationID,
 	)
 	return i, err
 }
@@ -108,23 +115,29 @@ func (q *Queries) GetPartyPool(ctx context.Context, campaignID uuid.UUID) (Knowl
 }
 
 const getRevealBatch = `-- name: GetRevealBatch :one
-SELECT b.id, b.map_id, mp.campaign_id
+SELECT b.id, b.map_id, b.location_id, mp.campaign_id
 FROM reveal_batches b
 JOIN maps mp ON mp.id = b.map_id
 WHERE b.id = $1
 `
 
 type GetRevealBatchRow struct {
-	ID         uuid.UUID `json:"id"`
-	MapID      uuid.UUID `json:"map_id"`
-	CampaignID uuid.UUID `json:"campaign_id"`
+	ID         uuid.UUID   `json:"id"`
+	MapID      uuid.UUID   `json:"map_id"`
+	LocationID pgtype.UUID `json:"location_id"`
+	CampaignID uuid.UUID   `json:"campaign_id"`
 }
 
 // A batch with its campaign, so handlers can gate on the DM role in one read.
 func (q *Queries) GetRevealBatch(ctx context.Context, id uuid.UUID) (GetRevealBatchRow, error) {
 	row := q.db.QueryRow(ctx, getRevealBatch, id)
 	var i GetRevealBatchRow
-	err := row.Scan(&i.ID, &i.MapID, &i.CampaignID)
+	err := row.Scan(
+		&i.ID,
+		&i.MapID,
+		&i.LocationID,
+		&i.CampaignID,
+	)
 	return i, err
 }
 
@@ -164,24 +177,29 @@ func (q *Queries) ListAllRevealCircles(ctx context.Context, mapID uuid.UUID) ([]
 
 const listRevealBatches = `-- name: ListRevealBatches :many
 SELECT b.id, b.note, b.created_at, p.name AS pool_name,
+       b.location_id, coalesce(l.name, '')::text AS location_name,
        count(c.id) AS circles
 FROM reveal_batches b
 JOIN knowledge_pools p ON p.id = b.pool_id
+LEFT JOIN locations l ON l.id = b.location_id
 LEFT JOIN reveal_circles c ON c.batch_id = b.id
 WHERE b.map_id = $1
-GROUP BY b.id, p.name
+GROUP BY b.id, p.name, l.name
 ORDER BY b.created_at
 `
 
 type ListRevealBatchesRow struct {
-	ID        uuid.UUID          `json:"id"`
-	Note      string             `json:"note"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	PoolName  string             `json:"pool_name"`
-	Circles   int64              `json:"circles"`
+	ID           uuid.UUID          `json:"id"`
+	Note         string             `json:"note"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	PoolName     string             `json:"pool_name"`
+	LocationID   pgtype.UUID        `json:"location_id"`
+	LocationName string             `json:"location_name"`
+	Circles      int64              `json:"circles"`
 }
 
-// The DM's ledger: every batch on a map with its size and pool.
+// The DM's ledger: every batch on a map with its size, its pool, and the place
+// whose veil gates it (null when the pool alone decides).
 func (q *Queries) ListRevealBatches(ctx context.Context, mapID uuid.UUID) ([]ListRevealBatchesRow, error) {
 	rows, err := q.db.Query(ctx, listRevealBatches, mapID)
 	if err != nil {
@@ -196,6 +214,8 @@ func (q *Queries) ListRevealBatches(ctx context.Context, mapID uuid.UUID) ([]Lis
 			&i.Note,
 			&i.CreatedAt,
 			&i.PoolName,
+			&i.LocationID,
+			&i.LocationName,
 			&i.Circles,
 		); err != nil {
 			return nil, err
@@ -209,7 +229,7 @@ func (q *Queries) ListRevealBatches(ctx context.Context, mapID uuid.UUID) ([]Lis
 }
 
 const listVisibleRevealCircles = `-- name: ListVisibleRevealCircles :many
-SELECT c.x, c.y, c.r
+SELECT c.x, c.y, c.r, b.location_id
 FROM reveal_circles c
 JOIN reveal_batches b ON b.id = c.batch_id
 JOIN knowledge_pools p ON p.id = b.pool_id
@@ -225,13 +245,17 @@ type ListVisibleRevealCirclesParams struct {
 }
 
 type ListVisibleRevealCirclesRow struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	R float64 `json:"r"`
+	X          float64     `json:"x"`
+	Y          float64     `json:"y"`
+	R          float64     `json:"r"`
+	LocationID pgtype.UUID `json:"location_id"`
 }
 
-// A player's union: circles from the party pool plus any pool they were
-// explicitly seated in (stage 2's split parties ride this same query).
+// A player's candidate set: circles from the party pool plus any pool they
+// were explicitly seated in (stage 2's split parties ride this same query).
+// The place a circle hangs in comes back with it — the second gate, the veil
+// over that place, is resolved in Go against the viewer's own heroes, because
+// that rule already lives there and walks ancestors (see visibility.go).
 func (q *Queries) ListVisibleRevealCircles(ctx context.Context, arg ListVisibleRevealCirclesParams) ([]ListVisibleRevealCirclesRow, error) {
 	rows, err := q.db.Query(ctx, listVisibleRevealCircles, arg.MapID, arg.UserID)
 	if err != nil {
@@ -241,7 +265,12 @@ func (q *Queries) ListVisibleRevealCircles(ctx context.Context, arg ListVisibleR
 	var items []ListVisibleRevealCirclesRow
 	for rows.Next() {
 		var i ListVisibleRevealCirclesRow
-		if err := rows.Scan(&i.X, &i.Y, &i.R); err != nil {
+		if err := rows.Scan(
+			&i.X,
+			&i.Y,
+			&i.R,
+			&i.LocationID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -250,4 +279,28 @@ func (q *Queries) ListVisibleRevealCircles(ctx context.Context, arg ListVisibleR
 		return nil, err
 	}
 	return items, nil
+}
+
+const setRevealBatchLocation = `-- name: SetRevealBatchLocation :one
+UPDATE reveal_batches SET location_id = $2 WHERE id = $1 RETURNING id, map_id, pool_id, note, created_at, location_id
+`
+
+type SetRevealBatchLocationParams struct {
+	ID         uuid.UUID   `json:"id"`
+	LocationID pgtype.UUID `json:"location_id"`
+}
+
+// Re-tie a batch to a place, or cut it loose (null) back to the pool rule.
+func (q *Queries) SetRevealBatchLocation(ctx context.Context, arg SetRevealBatchLocationParams) (RevealBatch, error) {
+	row := q.db.QueryRow(ctx, setRevealBatchLocation, arg.ID, arg.LocationID)
+	var i RevealBatch
+	err := row.Scan(
+		&i.ID,
+		&i.MapID,
+		&i.PoolID,
+		&i.Note,
+		&i.CreatedAt,
+		&i.LocationID,
+	)
+	return i, err
 }

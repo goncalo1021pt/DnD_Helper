@@ -148,11 +148,35 @@ export function useSubmitReveals(mapId: string) {
   return useMutation({
     mutationFn: async (body: {
       note?: string;
+      locationId?: string;
       circles: { x: number; y: number; r: number }[];
     }) => {
       const { data, error } = await api.POST("/maps/{mapId}/reveals", {
         params: { path: { mapId } },
         body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["map", mapId] });
+      qc.invalidateQueries({ queryKey: ["reveals", mapId] });
+    },
+  });
+}
+
+/*
+ * Tie a batch to a place after the fact, or cut it loose. The circles are the
+ * DM's drawing — deciding later that the eastern road was really "knowledge of
+ * Vale" should not mean stamping it all over again.
+ */
+export function useSetRevealLocation(mapId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { batchId: string; locationId: string | null }) => {
+      const { data, error } = await api.PATCH("/reveals/{batchId}", {
+        params: { path: { batchId: vars.batchId } },
+        body: { locationId: vars.locationId },
       });
       if (error) throw error;
       return data;

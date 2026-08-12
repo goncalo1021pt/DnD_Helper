@@ -247,14 +247,11 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 				revealed = append(revealed, api.RevealCircle{X: float32(c.X), Y: float32(c.Y), R: float32(c.R)})
 			}
 		} else {
-			rows, err := s.queries.ListVisibleRevealCircles(ctx, db.ListVisibleRevealCirclesParams{
-				MapID:  request.MapId,
-				UserID: m.UserID,
-			})
+			circles, err := s.playerRevealCircles(ctx, request.MapId, meta.CampaignID, m.UserID)
 			if err != nil {
 				return nil, err
 			}
-			for _, c := range rows {
+			for _, c := range circles {
 				revealed = append(revealed, api.RevealCircle{X: float32(c.X), Y: float32(c.Y), R: float32(c.R)})
 			}
 		}
@@ -527,17 +524,10 @@ func (s *Server) ServeMapImage(w http.ResponseWriter, r *http.Request) {
 
 	// Fogged path: a player on a fog-enabled map only sees revealed ground.
 	if meta.FogEnabled && !isDM {
-		rows, err := s.queries.ListVisibleRevealCircles(r.Context(), db.ListVisibleRevealCirclesParams{
-			MapID:  mapID,
-			UserID: m.UserID,
-		})
+		circles, err := s.playerRevealCircles(r.Context(), mapID, meta.CampaignID, m.UserID)
 		if err != nil {
 			http.Error(w, "server error", http.StatusInternalServerError)
 			return
-		}
-		circles := make([]circleGeom, len(rows))
-		for i, c := range rows {
-			circles[i] = circleGeom{X: c.X, Y: c.Y, R: c.R}
 		}
 		version := fogVersion(circles)
 		etag := fmt.Sprintf(`"fog-%s-%s"`, meta.ID, version)

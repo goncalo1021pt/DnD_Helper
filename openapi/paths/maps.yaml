@@ -178,6 +178,30 @@
       schema:
         type: string
         format: uuid
+  patch:
+    operationId: setRevealLocation
+    summary: Tie a reveal batch to a place, or cut it loose (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetRevealLocationRequest"
+    responses:
+      "200":
+        description: The batch as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/RevealBatch"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteReveals
     summary: Tear a batch out of the ledger — its area fogs over again (DM only)

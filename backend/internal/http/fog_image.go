@@ -160,12 +160,19 @@ func clampInt(v, lo, hi int) int {
 	return v
 }
 
-// fogImageCache holds the latest rendered fogged image per map. All players
-// share the party pool in stage 1, so one render serves every player; it is
-// re-rendered only when the reveal fingerprint changes.
+// fogImageCache holds rendered fogged images per map, keyed by the reveal
+// fingerprint so a render is reused until the revealed area actually changes.
+//
+// A map keeps several: once a batch can hang on a place (#191), two players at
+// one table legitimately hold different ground, and a single slot would make
+// them evict each other's render on every alternating request. The cap is per
+// map and small — a table has a handful of distinct views, and holding the
+// newest few is the whole point.
+const fogCacheVariants = 8
+
 type fogImageCache struct {
 	mu      sync.RWMutex
-	entries map[uuid.UUID]fogCacheEntry
+	entries map[uuid.UUID][]fogCacheEntry
 }
 
 type fogCacheEntry struct {
@@ -175,21 +182,32 @@ type fogCacheEntry struct {
 }
 
 func newFogImageCache() *fogImageCache {
-	return &fogImageCache{entries: make(map[uuid.UUID]fogCacheEntry)}
+	return &fogImageCache{entries: make(map[uuid.UUID][]fogCacheEntry)}
 }
 
 func (c *fogImageCache) get(mapID uuid.UUID, version string) (fogCacheEntry, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	e, ok := c.entries[mapID]
-	if ok && e.version == version {
-		return e, true
+	for _, e := range c.entries[mapID] {
+		if e.version == version {
+			return e, true
+		}
 	}
 	return fogCacheEntry{}, false
 }
 
+// put stores a render at the front, dropping the oldest variant once the map is
+// full. Re-storing a version it already holds refreshes its place in the line
+// rather than duplicating it.
 func (c *fogImageCache) put(mapID uuid.UUID, e fogCacheEntry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.entries[mapID] = e
+	kept := []fogCacheEntry{e}
+	for _, old := range c.entries[mapID] {
+		if old.version == e.version || len(kept) >= fogCacheVariants {
+			continue
+		}
+		kept = append(kept, old)
+	}
+	c.entries[mapID] = kept
 }

@@ -2707,6 +2707,30 @@ paths:
         schema:
           type: string
           format: uuid
+    patch:
+      operationId: setRevealLocation
+      summary: Tie a reveal batch to a place, or cut it loose (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRevealLocationRequest"
+      responses:
+        "200":
+          description: The batch as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevealBatch"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteReveals
       summary: Tear a batch out of the ledger — its area fogs over again (DM only)
@@ -4932,11 +4956,25 @@ components:
         note:
           type: string
           description: Optional label for the ledger ("session 12 — the road east").
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Tie this batch to a place. Its ground then lifts only for a hero the place's veil already admits — which is how a player who grew up in a city starts knowing it. Omit for a batch the whole pool has.
         circles:
           type: array
           minItems: 1
           items:
             $ref: "#/components/schemas/RevealCircle"
+    SetRevealLocationRequest:
+      type: object
+      properties:
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The place gating this batch; null cuts it loose to the pool.
     RevealBatch:
       type: object
       required:
@@ -4953,6 +4991,14 @@ components:
           type: string
         poolName:
           type: string
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The place whose veil gates this batch; absent when none does.
+        locationName:
+          type: string
+          description: Name of that place, for the ledger. Empty when there is none.
         circles:
           type: integer
           description: How many circles the batch stamped.

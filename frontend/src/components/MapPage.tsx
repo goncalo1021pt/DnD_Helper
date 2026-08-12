@@ -5,8 +5,10 @@ import {
   useCreateMapPin,
   useDeleteMapPin,
   useDeleteReveals,
+  useLocations,
   useMapDetail,
   useMaps,
+  useSetRevealLocation,
   useSubmitReveals,
   useUpdateMap,
   useUpdateMapPin,
@@ -44,6 +46,12 @@ export default function MapPage() {
   const deletePin = useDeleteMapPin(currentId ?? "");
   const submitReveals = useSubmitReveals(currentId ?? "");
   const deleteReveals = useDeleteReveals(currentId ?? "");
+  const setRevealLocation = useSetRevealLocation(currentId ?? "");
+
+  // The place tree, so a reveal can be handed to whoever knows that place
+  // rather than to the whole table (#191). DM-only: the picker never renders
+  // for a player, and this is the same list the quest board already loads.
+  const { data: locations } = useLocations(campaign.id);
 
   const draftState = useRevealDraft();
   const {
@@ -57,6 +65,8 @@ export default function MapPage() {
     setSubmitOpen,
     submitNote,
     setSubmitNote,
+    submitLocationId,
+    setSubmitLocationId,
   } = draftState;
 
   // ── ui state ─────────────────────────────────────────────────────────────
@@ -543,8 +553,10 @@ export default function MapPage() {
             Lift the Fog
           </h3>
           <p className="font-body m-0 mb-4 text-center text-[13.5px] italic text-ink-body">
-            {draft.length} {draft.length === 1 ? "circle" : "circles"} will be
-            revealed to the party. This is what they'll see from now on.
+            {draft.length} {draft.length === 1 ? "circle" : "circles"}
+            {submitLocationId
+              ? " will be revealed to whoever knows that place — and to nobody else."
+              : " will be revealed to the party. This is what they'll see from now on."}
           </p>
           <label className="block">
             <span className="field-label">A line for the ledger (optional)</span>
@@ -555,6 +567,29 @@ export default function MapPage() {
               className="input-parchment mt-1 w-full"
             />
           </label>
+          {(locations ?? []).length > 0 && (
+            <label className="mt-3 block">
+              <span className="field-label">Knowledge of a place (optional)</span>
+              <select
+                value={submitLocationId}
+                onChange={(e) => setSubmitLocationId(e.target.value)}
+                className="input-parchment mt-1 w-full cursor-pointer"
+              >
+                <option value="">— the whole party, plainly —</option>
+                {(locations ?? []).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {"— ".repeat(l.depth)}
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+              <span className="font-body mt-1 block text-[12px] italic text-ink-body">
+                Tie it to a place and this ground follows that place's veil: it
+                lifts for the hero who grew up there, and for everyone once you
+                show the place to the party.
+              </span>
+            </label>
+          )}
           {submitReveals.isError && (
             <div className="font-body mt-2 text-sm italic text-[#8b2520]">
               {apiError(submitReveals.error)}
@@ -573,11 +608,13 @@ export default function MapPage() {
                   {
                     circles: draft,
                     ...(submitNote.trim() ? { note: submitNote.trim() } : {}),
+                    ...(submitLocationId ? { locationId: submitLocationId } : {}),
                   },
                   {
                     onSuccess: () => {
                       setDraft([]);
                       setSubmitNote("");
+                      setSubmitLocationId("");
                       setSubmitOpen(false);
                       setStampMode(false);
                     },
@@ -598,8 +635,13 @@ export default function MapPage() {
         <RevealLedger
           mapId={map.id}
           mapName={map.name}
+          locations={locations ?? []}
           onDelete={(id) => deleteReveals.mutate(id)}
           deleting={deleteReveals.isPending}
+          onRetie={(batchId, locationId) =>
+            setRevealLocation.mutate({ batchId, locationId })
+          }
+          retying={setRevealLocation.isPending}
           onClose={() => setLedgerOpen(false)}
         />
       )}

@@ -1,5 +1,15 @@
 import { test, expect, type Page } from "@playwright/test";
-import { createCampaign, joinCampaign, newAccount, registerViaAPI, unique } from "./helpers";
+import {
+  createCampaign,
+  createLocation,
+  forgeHero,
+  joinCampaign,
+  newAccount,
+  registerViaAPI,
+  revealLocation,
+  seatHero,
+  unique,
+} from "./helpers";
 
 /*
 The map, the pins, and the fog.
@@ -372,4 +382,124 @@ test("a pin lands where it was dropped, in the map's own coordinates", async ({ 
   expect(detail.pins[0].x).toBeLessThan(0.85);
   expect(detail.pins[0].y).toBeGreaterThan(0.15);
   expect(detail.pins[0].y).toBeLessThan(0.35);
+});
+
+/*
+Fog tied to a place (#191).
+
+The DM stamps a city once and hands it to the hero who grew up there. Two
+players, one map: the local receives the city's pixels, the stranger receives
+black — and when the party finally rides in, the same stamps serve everyone
+without being drawn again.
+*/
+test("a reveal tied to a place lifts only for the heroes who know it", async ({ browser }) => {
+  const dm = newAccount("dmloc");
+  const local = newAccount("plloc");
+  const stranger = newAccount("plstr");
+
+  const dmCtx = await browser.newContext();
+  const dmPage = await dmCtx.newPage();
+  await dmPage.goto("/");
+  await registerViaAPI(dmPage.request, dm);
+  const campaign = await createCampaign(dmPage.request, unique("Homeland "));
+  const campaignId = campaign.id;
+
+  const mapId = (
+    await (
+      await dmPage.request.post(`/api/campaigns/${campaignId}/maps`, {
+        data: { name: "The Coast", imageBase64: await twoTonePng(dmPage) },
+      })
+    ).json()
+  ).id as string;
+  await dmPage.request.patch(`/api/maps/${mapId}`, {
+    data: { name: "The Coast", fogEnabled: true },
+  });
+
+  // The city sits on the western (red) half. It starts veiled, as places do.
+  const lisboa = await createLocation(dmPage.request, campaignId, unique("Lisboa "));
+
+  // Both players bring a hero of their own — the veil resolves through the
+  // heroes a member has seated, so the hero must actually be theirs.
+  const seat = async (account: typeof local, name: string) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await page.goto("/");
+    await registerViaAPI(page.request, account);
+    await joinCampaign(page.request, campaign.inviteCode);
+    const heroId = await forgeHero(page.request, {
+      name,
+      className: "Fighter",
+      speciesName: "Human",
+      backgroundName: "Soldier",
+      abilities: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
+      skills: ["Athletics", "Intimidation"],
+    });
+    await seatHero(page.request, heroId, campaignId);
+    return { ctx, page, heroId };
+  };
+  const born = await seat(local, unique("Ines "));
+  const guest = await seat(stranger, unique("Kord "));
+
+  // One batch, tied to the city.
+  const submitted = await dmPage.request.post(`/api/maps/${mapId}/reveals`, {
+    data: {
+      note: "knowledge of the city",
+      locationId: lisboa,
+      circles: [{ x: 0.25, y: 0.5, r: 0.3 }],
+    },
+  });
+  expect(submitted.ok(), await submitted.text()).toBeTruthy();
+
+  // Nobody knows the city yet, so its ground is still fogged for both.
+  for (const [who, page] of [
+    ["the local", born.page],
+    ["the stranger", guest.page],
+  ] as const) {
+    await page.goto(`/questboard/campaigns/${campaignId}/map`);
+    expect(
+      isDark(await samplePixel(page, mapId, 0.25, 0.5, "0")),
+      `${who} should see nothing before the place is given to anyone`,
+    ).toBe(true);
+  }
+
+  // The DM gives the city to one hero — a background, not a party reveal.
+  const given = await dmPage.request.put(`/api/locations/${lisboa}/visibility`, {
+    data: { scope: "character", characterId: born.heroId, visible: true },
+  });
+  expect(given.ok(), await given.text()).toBeTruthy();
+
+  await expect
+    .poll(async () => isRed(await samplePixel(born.page, mapId, 0.25, 0.5, "1")), {
+      timeout: 15_000,
+      message: "the hero who grew up there should receive the city",
+    })
+    .toBe(true);
+  expect(
+    isDark(await samplePixel(guest.page, mapId, 0.25, 0.5, "1")),
+    "a stranger to the city must still receive black",
+  ).toBe(true);
+
+  // The pixels are the disclosure, but the JSON must agree — a circle handed
+  // to a player who cannot see the place would leak where the city is.
+  const asStranger = await (await guest.page.request.get(`/api/maps/${mapId}`)).json();
+  expect(asStranger.revealed, "a stranger holds no circles for that place").toHaveLength(0);
+
+  // The party rides in: the same batch now serves everyone, unstamped again.
+  await revealLocation(dmPage.request, lisboa);
+  await expect
+    .poll(async () => isRed(await samplePixel(guest.page, mapId, 0.25, 0.5, "2")), {
+      timeout: 15_000,
+      message: "revealing the place to the party lifts the same ground for all",
+    })
+    .toBe(true);
+
+  // And the east, which nobody stamped, stays fogged throughout.
+  expect(
+    isDark(await samplePixel(born.page, mapId, 0.9, 0.5, "2")),
+    "unstamped ground stays fogged whoever you are",
+  ).toBe(true);
+
+  await dmCtx.close();
+  await born.ctx.close();
+  await guest.ctx.close();
 });

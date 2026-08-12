@@ -25,6 +25,9 @@ export interface RevealDraft {
   setSubmitOpen: Dispatch<SetStateAction<boolean>>;
   submitNote: string;
   setSubmitNote: Dispatch<SetStateAction<string>>;
+  /** The place the batch will hang on, "" for a batch the whole pool has. */
+  submitLocationId: string;
+  setSubmitLocationId: Dispatch<SetStateAction<string>>;
   /** Put down a stamp at the tapped point, at the current brush radius. */
   stamp: (at: { x: number; y: number }) => void;
   /** Back to nothing stamped and nothing being stamped. */
@@ -37,6 +40,7 @@ export function useRevealDraft(): RevealDraft {
   const [brush, setBrush] = useState(0.05); // radius, fraction of map width
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitNote, setSubmitNote] = useState("");
+  const [submitLocationId, setSubmitLocationId] = useState("");
 
   // Ctrl/Cmd+Z pulls the last draft stamp back while stamping — unless a
   // field has focus (the submit note keeps its own undo).
@@ -65,6 +69,8 @@ export function useRevealDraft(): RevealDraft {
     setSubmitOpen,
     submitNote,
     setSubmitNote,
+    submitLocationId,
+    setSubmitLocationId,
     stamp: (at) => setDraft((d) => [...d, { x: at.x, y: at.y, r: brush }]),
     reset: () => {
       setStampMode(false);
