@@ -544,8 +544,8 @@ type Character struct {
 	TableBorn      bool               `json:"table_born"`
 	SpeciesChoices []byte             `json:"species_choices"`
 	ForgeKey       pgtype.UUID        `json:"forge_key"`
-	HitDiceUsed    int16              `json:"hit_dice_used"`
 	PoolsUsed      []byte             `json:"pools_used"`
+	HitDiceSpent   []byte             `json:"hit_dice_spent"`
 }
 
 type CharacterClass struct {

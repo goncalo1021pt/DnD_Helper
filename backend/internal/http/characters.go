@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
 // pgUUID wraps a uuid for the nullable campaign_id column.
@@ -77,7 +78,7 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			Feats:          row.Feats,
 			SpeciesChoices: row.SpeciesChoices,
 			SpellSlotsUsed: row.SpellSlotsUsed,
-			HitDiceUsed:    row.HitDiceUsed,
+			HitDiceSpent:   row.HitDiceSpent,
 			PoolsUsed:      row.PoolsUsed,
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
@@ -369,6 +370,12 @@ func toAPICharacterWithClass(c db.Character, ownerName string, viewer uuid.UUID,
 		list := toAPICharacterClasses(classes, c.ClassID)
 		out.Sheet.Classes = &list
 	}
+	// Hit dice pooled across every class the hero holds, which is the only
+	// version that is right for a multiclassed one (#190).
+	if len(classes) > 0 {
+		dice := toAPIHitDice(hitDicePoolsOf(classes, int(c.Level), c.HitDiceSpent))
+		out.HitDice = &dice
+	}
 	return out
 }
 
@@ -420,12 +427,15 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 	}
 	xp := int(c.Xp)
 	pending := int(c.PendingLevels)
-	hitDiceUsed := int(c.HitDiceUsed)
+	// Dice by level alone — right for a quick-add hero, who has no class to
+	// ask. toAPICharacterWithClass replaces this with the real pools once the
+	// hero's classes are in hand (#190).
+	hitDice := toAPIHitDice(rules.HitDicePools(nil, int(c.Level), decodeHitDiceSpent(c.HitDiceSpent)))
 	return api.Character{
 		Sheet:         sheet,
 		Xp:            &xp,
 		PendingLevels: &pending,
-		HitDiceUsed:   &hitDiceUsed,
+		HitDice:       &hitDice,
 		Id:            c.ID,
 		CampaignId:    campaignID,
 		OwnerUserId:   c.OwnerUserID,

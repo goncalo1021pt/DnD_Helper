@@ -123,7 +123,7 @@ RETURNING *;
 UPDATE characters
 SET hp_current = $2,
     spell_slots_used = $3,
-    hit_dice_used = GREATEST(sqlc.arg(hit_dice_used)::smallint, 0),
+    hit_dice_spent = sqlc.arg(hit_dice_spent),
     pools_used = sqlc.arg(pools_used),
     updated_at = now()
 WHERE id = $1

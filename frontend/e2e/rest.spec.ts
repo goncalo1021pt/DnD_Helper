@@ -90,7 +90,7 @@ test("a short rest spends hit dice, and cannot spend more than the hero has", as
   await page.goto(`/questboard/heroes/${id}`);
   // A level 1 hero has exactly one hit die, so the stepper cannot offer two.
   await expect(page.getByText(/Hit dice 1 \/ 1/)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole("button", { name: "One more hit die" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /One more d\d+ hit die/ })).toBeDisabled();
 
   await page.getByRole("button", { name: "Short Rest" }).click();
   await expect(page.getByRole("status")).toContainText(/Caught your breath/, { timeout: 20_000 });

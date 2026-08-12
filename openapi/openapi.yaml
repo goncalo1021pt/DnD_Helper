@@ -438,6 +438,8 @@ components:
       $ref: "./components/characters.yaml#/SpellSwap"
     SpellSwapRequest:
       $ref: "./components/characters.yaml#/SpellSwapRequest"
+    HitDicePool:
+      $ref: "./components/characters.yaml#/HitDicePool"
     LevelUpRequest:
       $ref: "./components/characters.yaml#/LevelUpRequest"
 

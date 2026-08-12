@@ -2,6 +2,8 @@ package http
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -10,6 +12,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
 /*
@@ -121,6 +124,98 @@ func totalLevel(rows []heroClass) int {
 		total += int(r.Level)
 	}
 	return total
+}
+
+// hitDicePoolsOf resolves the dice from classes already in hand — the maximum
+// from their levels and declared dice, the used counts from what was spent.
+func hitDicePoolsOf(classes []heroClass, level int, spentRaw []byte) []rules.HitDicePool {
+	dice := make([]rules.ClassDie, 0, len(classes))
+	for _, k := range classes {
+		var cr struct {
+			HitDie int `json:"hitDie"`
+		}
+		_ = json.Unmarshal(k.ClassData, &cr)
+		dice = append(dice, rules.ClassDie{Die: cr.HitDie, Levels: int(k.Level)})
+	}
+	return rules.HitDicePools(dice, level, decodeHitDiceSpent(spentRaw))
+}
+
+// hitDiceFor is the same for a hero whose classes have not been read yet. A
+// hero with no class content falls back to their level in d8, which is what
+// the short rest has always rolled for a quick-add hero.
+func (s *Server) hitDiceFor(ctx context.Context, c db.Character) []rules.HitDicePool {
+	return hitDicePoolsOf(s.classesFor(ctx, c), int(c.Level), c.HitDiceSpent)
+}
+
+// toAPIHitDice is the wire shape of the pools.
+func toAPIHitDice(pools []rules.HitDicePool) []api.HitDicePool {
+	out := make([]api.HitDicePool, 0, len(pools))
+	for _, p := range pools {
+		out = append(out, api.HitDicePool{Die: p.Die, Max: p.Max, Used: p.Used})
+	}
+	return out
+}
+
+// decodeHitDiceSpent reads the JSONB column: die size (as a string key) to the
+// number spent. Unreadable state counts as nothing spent rather than failing
+// a rest — a hero should not be unable to sleep because a column is malformed.
+func decodeHitDiceSpent(raw []byte) map[int]int {
+	out := map[int]int{}
+	if len(raw) == 0 {
+		return out
+	}
+	var byKey map[string]int
+	if err := json.Unmarshal(raw, &byKey); err != nil {
+		return out
+	}
+	for key, n := range byKey {
+		if die, err := strconv.Atoi(key); err == nil && die > 0 && n > 0 {
+			out[die] = n
+		}
+	}
+	return out
+}
+
+// encodeHitDiceSpent writes it back, dropping zeroes so an untouched hero
+// stores {} rather than a row of noughts.
+func encodeHitDiceSpent(spent map[int]int) ([]byte, error) {
+	byKey := map[string]int{}
+	for die, n := range spent {
+		if n > 0 {
+			byKey[strconv.Itoa(die)] = n
+		}
+	}
+	return json.Marshal(byKey)
+}
+
+// parseHitDiceRequest turns the request's {"10": 2} into die-keyed counts,
+// refusing a die the hero does not have rather than silently ignoring it —
+// asking to spend a d12 you were never granted is a mistake worth hearing.
+func parseHitDiceRequest(body *map[string]int, pools []rules.HitDicePool) (map[int]int, string) {
+	want := map[int]int{}
+	if body == nil {
+		return want, ""
+	}
+	held := map[int]bool{}
+	for _, p := range pools {
+		if p.Max > 0 {
+			held[p.Die] = true
+		}
+	}
+	for key, n := range *body {
+		if n <= 0 {
+			continue
+		}
+		die, err := strconv.Atoi(key)
+		if err != nil || die < 1 {
+			return nil, fmt.Sprintf("%q is not a die size", key)
+		}
+		if !held[die] {
+			return nil, fmt.Sprintf("this hero has no d%d to spend", die)
+		}
+		want[die] = n
+	}
+	return want, ""
 }
 
 // classLine renders the line a sheet header shows: "Rogue 5 / Wizard 3", or

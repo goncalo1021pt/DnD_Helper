@@ -50,7 +50,7 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			Feats:          row.Feats,
 			SpeciesChoices: row.SpeciesChoices,
 			SpellSlotsUsed: row.SpellSlotsUsed,
-			HitDiceUsed:    row.HitDiceUsed,
+			HitDiceSpent:   row.HitDiceSpent,
 			PoolsUsed:      row.PoolsUsed,
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
