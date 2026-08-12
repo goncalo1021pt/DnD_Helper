@@ -218,6 +218,63 @@ func parseHitDiceRequest(body *map[string]int, pools []rules.HitDicePool) (map[i
 	return want, ""
 }
 
+/*
+castersOf describes each class a hero casts from, and which of their spells
+belong to it (#190).
+
+The per-class allowances are read at the hero's level IN that class, because
+"you determine what spells you can prepare for each class individually, as if
+you were a single-classed member of that class" (PHB 2024, p.44). The slots
+they go into are shared and can be higher than any of these — a Ranger 4 /
+Sorcerer 3 may hold a level 3 slot with no level 3 spell to put in it, which
+is why maxSpellLevel is reported per class rather than inferred from the pool.
+
+Spells recorded before class_id existed carry the starting class, so an
+existing single-classed hero's list groups exactly as it always displayed.
+*/
+func castersOf(classes []heroClass, spells []db.ListCharacterSpellsRow, startingClass pgtype.UUID) []api.Spellcaster {
+	out := []api.Spellcaster{}
+	for _, k := range classes {
+		kind, casting, isCaster := parseCasting(k.ClassData)
+		if !isCaster {
+			continue
+		}
+		level := int(k.Level)
+		if level < 1 {
+			level = 1
+		}
+		if level > 20 {
+			level = 20
+		}
+		cantrips := casting.Cantrips[level-1]
+		prepared := casting.Prepared[level-1]
+		maxLevel := rules.MaxSpellLevel(kind, level)
+
+		ids := []uuid.UUID{}
+		for _, sp := range spells {
+			owner := sp.ClassID
+			// A spell with no owner belongs to the class the hero started as.
+			if !owner.Valid {
+				owner = startingClass
+			}
+			if owner.Valid && uuid.UUID(owner.Bytes) == k.ClassID {
+				ids = append(ids, sp.ID)
+			}
+		}
+
+		out = append(out, api.Spellcaster{
+			ClassId:       k.ClassID,
+			ClassName:     k.ClassName,
+			Ability:       casting.Ability,
+			CantripsKnown: &cantrips,
+			Prepared:      &prepared,
+			MaxSpellLevel: &maxLevel,
+			SpellIds:      ids,
+		})
+	}
+	return out
+}
+
 // classLine renders the line a sheet header shows: "Rogue 5 / Wizard 3", or
 // just "Rogue 5" for the single-classed, which is nearly everyone. Empty for
 // a quick-add hero, whose freeform `class` text is all they have.

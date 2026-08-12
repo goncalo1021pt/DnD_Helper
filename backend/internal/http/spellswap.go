@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
@@ -73,7 +74,7 @@ func (s *Server) SwapCharacterSpells(ctx context.Context, request api.SwapCharac
 		return badRequest(msg)
 	}
 
-	if err := s.applySpellSwaps(ctx, character.ID, swaps); err != nil {
+	if err := s.applySpellSwaps(ctx, character.ID, pgUUID(class.ID), swaps); err != nil {
 		return nil, err
 	}
 
@@ -87,7 +88,7 @@ func (s *Server) SwapCharacterSpells(ctx context.Context, request api.SwapCharac
 
 // applySpellSwaps removes what the hero gave up and adds what it took, in that
 // order — a spell can be traded away and its slot refilled in the same breath.
-func (s *Server) applySpellSwaps(ctx context.Context, characterID uuid.UUID, swaps swapResult) error {
+func (s *Server) applySpellSwaps(ctx context.Context, characterID uuid.UUID, classID pgtype.UUID, swaps swapResult) error {
 	if len(swaps.Out) > 0 {
 		if err := s.queries.RemoveCharacterSpells(ctx, db.RemoveCharacterSpellsParams{
 			CharacterID: characterID,
@@ -100,6 +101,9 @@ func (s *Server) applySpellSwaps(ctx context.Context, characterID uuid.UUID, swa
 		if err := s.queries.AddCharacterSpells(ctx, db.AddCharacterSpellsParams{
 			CharacterID: characterID,
 			Column2:     swaps.In,
+			// A swap trades within one class's list, so the replacement keeps
+			// the same owner as the spell it replaced.
+			ClassID: classID,
 		}); err != nil {
 			return err
 		}

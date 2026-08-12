@@ -347,14 +347,23 @@ func (s *Server) validateSpellSwaps(
 	return "", out, nil
 }
 
-// spellSlotsFor derives the caster block for a Character payload: the casting
-// ability and max/used slots per spell level. Nil for non-casters.
-func spellSlotsFor(classData []byte, level int32, used []int16) (*string, *[]api.SpellSlot) {
-	kind, casting, isCaster := parseCasting(classData)
-	if !isCaster {
-		return nil, nil
+// casterClassesOf reads each class's caster kind and the hero's level in it,
+// which is what the combined-level arithmetic runs on (#190).
+func casterClassesOf(classes []heroClass) []rules.CasterClass {
+	out := make([]rules.CasterClass, 0, len(classes))
+	for _, k := range classes {
+		kind, _, isCaster := parseCasting(k.ClassData)
+		if !isCaster {
+			continue
+		}
+		out = append(out, rules.CasterClass{Kind: kind, Levels: int(k.Level)})
 	}
-	table := rules.SlotTable(kind, int(level))
+	return out
+}
+
+// slotRow turns a nine-length table plus a spent array into the wire shape,
+// dropping levels the hero has neither slots in nor spent anything from.
+func slotRow(table [9]int, used []int16) []api.SpellSlot {
 	slots := []api.SpellSlot{}
 	for i, max := range table {
 		u := 0
@@ -369,6 +378,69 @@ func spellSlotsFor(classData []byte, level int32, used []int16) (*string, *[]api
 		}
 		slots = append(slots, api.SpellSlot{Level: i + 1, Max: max, Used: u})
 	}
-	ability := casting.Ability
-	return &ability, &slots
+	return slots
+}
+
+/*
+spellSlotsFor derives the caster block for a Character payload.
+
+Two pools, never added together (PHB 2024, p.44). The shared one comes off the
+Multiclass Spellcaster table at the hero's combined caster level; Pact Magic
+sits beside it with its own count, its own level, and its own spent counter,
+because a spent pact slot must not eat a Wizard's.
+
+`classData` is the starting class, and still supplies the headline casting
+ability — the per-class abilities ride on CharacterDetail.casters, since a
+Ranger 4 / Sorcerer 3 casts off two of them and one field cannot say so.
+*/
+func spellSlotsFor(
+	classData []byte,
+	classes []heroClass,
+	level int32,
+	used []int16,
+	pactUsed int16,
+) (ability *string, slots *[]api.SpellSlot, pact *api.SpellSlot) {
+	casters := casterClassesOf(classes)
+	if len(casters) == 0 {
+		// A hero whose class rows have not arrived: fall back to the single
+		// class they came in with, which is how this read before #190.
+		kind, casting, isCaster := parseCasting(classData)
+		if !isCaster {
+			return nil, nil, nil
+		}
+		row := slotRow(rules.SlotTable(kind, int(level)), used)
+		a := casting.Ability
+		return &a, &row, nil
+	}
+
+	row := slotRow(rules.MulticlassSlots(casters), used)
+
+	if n, lv := rules.PactSlotsFor(rules.PactLevels(casters)); n > 0 {
+		u := int(pactUsed)
+		if u > n {
+			u = n
+		}
+		if u < 0 {
+			u = 0
+		}
+		pact = &api.SpellSlot{Level: lv, Max: n, Used: u}
+	}
+
+	// The headline ability: the starting class when it casts, else the first
+	// casting class the hero holds.
+	a := ""
+	if _, casting, isCaster := parseCasting(classData); isCaster {
+		a = casting.Ability
+	} else {
+		for _, k := range classes {
+			if _, casting, ok := parseCasting(k.ClassData); ok {
+				a = casting.Ability
+				break
+			}
+		}
+	}
+	if a == "" && pact == nil && len(row) == 0 {
+		return nil, nil, nil
+	}
+	return &a, &row, pact
 }

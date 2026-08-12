@@ -2157,6 +2157,26 @@ export interface components {
             /** @description True for the class the hero began as — the one granting full starting proficiencies. */
             starting?: boolean;
         };
+        /**
+         * @description One class a hero casts from. A Ranger 4 / Sorcerer 3 has two: they prepare
+         *     for each "as if you were a single-classed member of that class", and each
+         *     spell is cast off the ability of the class it belongs to (PHB 2024, p.44).
+         */
+        Spellcaster: {
+            /** Format: uuid */
+            classId: string;
+            className: string;
+            /** @description STR…CHA — what this class's spells are cast off. */
+            ability: string;
+            /** @description How many cantrips this class allows at the hero's level in it. */
+            cantripsKnown?: number;
+            /** @description How many levelled spells this class allows at the hero's level in it. */
+            prepared?: number;
+            /** @description The highest spell level this class may PREPARE, from its own level. Slots can be higher than this — the shared pool may hand a Ranger 4 / Sorcerer 3 a level 3 slot they have no level 3 spell to put in it. */
+            maxSpellLevel?: number;
+            /** @description The hero's spells belonging to this class. */
+            spellIds: string[];
+        };
         /** @description Present only on wizard-forged heroes. */
         CharacterSheet: {
             abilities: components["schemas"]["AbilityScores"];
@@ -2182,8 +2202,10 @@ export interface components {
             speciesChoices?: components["schemas"]["SpeciesChoices"];
             /** @description Present on casters (STR…CHA). */
             spellcastingAbility?: string;
-            /** @description Present on casters — max and used per spell level. */
+            /** @description Present on casters — max and used per spell level. For a hero casting from more than one class this is the shared pool off the Multiclass Spellcaster table, read at their combined caster level (PHB 2024, p.44). Pact Magic is not in here; see `pactSlots`. */
             spellSlots?: components["schemas"]["SpellSlot"][];
+            /** @description Pact Magic, which is its own pool: N slots all at one level, back on a short rest. Absent unless the hero has Warlock levels. Either pool may cast the other's prepared spells, but they are never added together. */
+            pactSlots?: components["schemas"]["SpellSlot"];
             /** @description The hero's resource pools — Rages, Channel Divinity, Focus Points — already resolved: max computed from the granting content and the hero's level, used read from what they have spent. */
             pools?: components["schemas"]["ResourcePool"][];
         };
@@ -2366,8 +2388,10 @@ export interface components {
             }[];
         };
         SpellSlotsInput: {
-            /** @description Slots spent per spell level (index 0 = level 1). */
+            /** @description Slots spent per spell level (index 0 = level 1) in the shared pool. Pact Magic is counted apart — see `pactUsed`. */
             used: number[];
+            /** @description Pact Magic slots spent. Its own count because the two pools never merge: a Warlock 3 / Wizard 3 spending a pact slot must not show a Wizard slot gone (PHB 2024, p.44). Omit to leave it as it was. */
+            pactUsed?: number;
         };
         ResourcePool: {
             /** @description The pool's name as the granting content declares it — "Rages". */
@@ -2428,6 +2452,8 @@ export interface components {
         CharacterDetail: {
             character: components["schemas"]["Character"];
             spells: components["schemas"]["RulesContent"][];
+            /** @description The classes this hero casts from, and which of their spells belong to each. Absent for a non-caster. Additive to `spells`, which stays the flat list every surface already reads. */
+            casters?: components["schemas"]["Spellcaster"][];
             items: components["schemas"]["InventoryItem"][];
             /** @description The hero's second stat blocks — forms they take and companions that fight beside them — already resolved, so the sheet needs no second round trip and players need no reach into the Den. */
             creatures: components["schemas"]["CharacterCreature"][];

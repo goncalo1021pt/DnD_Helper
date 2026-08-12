@@ -118,14 +118,21 @@ func (s *Server) GetCharacter(ctx context.Context, request api.GetCharacterReque
 		return nil, err
 	}
 
-	hero := toAPICharacterWithClass(character, ownerName, uid, s.classDataFor(ctx, character), s.classesFor(ctx, character))
+	heroClasses := s.classesFor(ctx, character)
+	hero := toAPICharacterWithClass(character, ownerName, uid, s.classDataFor(ctx, character), heroClasses)
 	attachPools(&hero, s.resolvePools(ctx, character))
-	return api.GetCharacter200JSONResponse(api.CharacterDetail{
+	detail := api.CharacterDetail{
 		Character: hero,
 		Spells:    spells,
 		Items:     items,
 		Creatures: creatures,
-	}), nil
+	}
+	// Which class each spell is prepared from, and what each class allows at
+	// the hero's level in it (#190).
+	if casters := castersOf(heroClasses, spellRows, character.ClassID); len(casters) > 0 {
+		detail.Casters = &casters
+	}
+	return api.GetCharacter200JSONResponse(detail), nil
 }
 
 // SetSpellSlots stores slots spent per spell level (owner or DM).
@@ -155,11 +162,26 @@ func (s *Server) SetSpellSlots(ctx context.Context, request api.SetSpellSlotsReq
 	}
 
 	classData := s.classDataFor(ctx, character)
-	var cr castingRules
-	if classData == nil || json.Unmarshal(classData, &cr) != nil || cr.Spellcaster == "" {
+	classes := s.classesFor(ctx, character)
+	casters := casterClassesOf(classes)
+
+	// The shared pool is the combined table when the hero casts from more than
+	// one class, and their own class's when they do not (#190).
+	var table [9]int
+	if len(casters) > 0 {
+		table = rules.MulticlassSlots(casters)
+	} else {
+		var cr castingRules
+		if classData == nil || json.Unmarshal(classData, &cr) != nil || cr.Spellcaster == "" {
+			return badRequest("this hero does not cast spells")
+		}
+		table = rules.SlotTable(cr.Spellcaster, int(character.Level))
+	}
+	pactMax, _ := rules.PactSlotsFor(rules.PactLevels(casters))
+	if table == [9]int{} && pactMax == 0 {
 		return badRequest("this hero does not cast spells")
 	}
-	table := rules.SlotTable(cr.Spellcaster, int(character.Level))
+
 	used := make([]int16, 9)
 	for i, u := range request.Body.Used {
 		if i >= 9 {
@@ -171,9 +193,21 @@ func (s *Server) SetSpellSlots(ctx context.Context, request api.SetSpellSlotsReq
 		used[i] = int16(u)
 	}
 
+	// Absent means "leave it"; the two pools are set independently because a
+	// player ticking a pact slot has said nothing about their Wizard slots.
+	pactUsed := character.PactSlotsUsed
+	if request.Body.PactUsed != nil {
+		p := *request.Body.PactUsed
+		if p < 0 || p > pactMax {
+			return badRequest("pact slots spent cannot exceed the slots the hero has")
+		}
+		pactUsed = int16(p)
+	}
+
 	updated, err := s.queries.SetSpellSlotsUsed(ctx, db.SetSpellSlotsUsedParams{
 		ID:             character.ID,
 		SpellSlotsUsed: used,
+		PactSlotsUsed:  pactUsed,
 	})
 	if err != nil {
 		return nil, err

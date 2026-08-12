@@ -42,7 +42,11 @@ type restOutcome struct {
 	SlotsUsed []int16
 	// Spent hit dice keyed by die size, the shape the column stores (#190).
 	HitDiceSpentMap map[int]int
-	PoolsUsed       map[string]int
+	// Pact slots still spent. Its own counter since #190: a Warlock 3 /
+	// Wizard 3 getting their pact slots back over an hour must not also get
+	// their Wizard slots back.
+	PactUsed  int16
+	PoolsUsed map[string]int
 
 	HPRestored      int32
 	HitDiceSpent    int
@@ -105,6 +109,7 @@ func longRest(ch db.Character, pools []resolvedPool, dice []rules.HitDicePool) r
 		HP:              ch.HpMax,
 		SlotsUsed:       noSlots(),
 		HitDiceSpentMap: spent,
+		PactUsed:        0, // a night returns both pools
 		PoolsUsed:       poolsUsed,
 		HPRestored:      max32(0, ch.HpMax-ch.HpCurrent),
 		HitDiceRegained: regain,
@@ -169,8 +174,9 @@ func shortRest(
 	poolsUsed, poolsRestored := restPools(pools, "short")
 	out := restOutcome{
 		HP:              hp,
-		SlotsUsed:       ch.SpellSlotsUsed,
+		SlotsUsed:       ch.SpellSlotsUsed, // the shared pool waits for the night
 		HitDiceSpentMap: spentMap,
+		PactUsed:        ch.PactSlotsUsed,
 		PoolsUsed:       poolsUsed,
 		HPRestored:      max32(0, hp-ch.HpCurrent),
 		HitDiceSpent:    spend,
@@ -178,8 +184,10 @@ func shortRest(
 		SlotsRestored:   pactCaster,
 		PoolsRestored:   poolsRestored,
 	}
+	// Pact Magic is the one pool an hour refills, and since #190 it is the
+	// ONLY one that does — a Warlock/Wizard keeps their Wizard slots spent.
 	if pactCaster {
-		out.SlotsUsed = noSlots()
+		out.PactUsed = 0
 	}
 	return out
 }
@@ -263,6 +271,7 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 		HpCurrent:      outcome.HP,
 		SpellSlotsUsed: outcome.SlotsUsed,
 		HitDiceSpent:   hitDiceSpent,
+		PactSlotsUsed:  outcome.PactUsed,
 		PoolsUsed:      poolsUsed,
 	})
 	if err != nil {

@@ -205,13 +205,34 @@ export default function HeroSheetPage() {
   const slots = sheet?.spellSlots ?? [];
   const hpc = hpColor(character.hpCurrent, character.hpMax);
 
+  const pact = sheet?.pactSlots;
+  // Which class each spell is prepared from (#190) — only worth saying when
+  // the hero casts from more than one, since it decides the casting ability.
+  const casters = detail?.casters ?? [];
+  const classOfSpell = new Map<string, string>();
+  if (casters.length > 1) {
+    for (const c of casters) for (const id of c.spellIds) classOfSpell.set(id, c.className);
+  }
+
+  function sharedUsed() {
+    const arr = new Array(9).fill(0);
+    for (const s of slots) arr[s.level - 1] = s.used;
+    return arr.slice(0, Math.max(1, ...slots.map((s) => s.level)));
+  }
+
   function tickSlot(level: number, used: number, max: number, delta: number) {
     const next = Math.min(Math.max(used + delta, 0), max);
     if (next === used) return;
-    const arr = new Array(9).fill(0);
-    for (const s of slots) arr[s.level - 1] = s.used;
+    const arr = sharedUsed();
     arr[level - 1] = next;
-    setSlots.mutate(arr.slice(0, Math.max(...slots.map((s) => s.level))));
+    setSlots.mutate({ used: arr });
+  }
+
+  function tickPact(delta: number) {
+    if (!pact) return;
+    const next = Math.min(Math.max(pact.used + delta, 0), pact.max);
+    if (next === pact.used) return;
+    setSlots.mutate({ used: sharedUsed(), pactUsed: next });
   }
 
   return (
@@ -447,6 +468,39 @@ export default function HeroSheetPage() {
                           </div>
                         </div>
                       ))}
+                      {/* Pact Magic sits apart because it IS apart: its own
+                          slots, all at one level, back after an hour rather
+                          than a night (#190). */}
+                      {pact && (
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="label-stamp w-10 text-[9px] tracking-[1px] text-[#8b2520]"
+                            title={`Pact Magic — ${pact.max} slot${pact.max === 1 ? "" : "s"} at level ${pact.level}, back on a short rest`}
+                          >
+                            Pact
+                          </span>
+                          <div className="flex gap-1.5">
+                            {Array.from({ length: pact.max }, (_, i) => (
+                              <button
+                                key={i}
+                                disabled={!canEdit}
+                                onClick={() => tickPact(i < pact.used ? -1 : 1)}
+                                aria-label={`Pact slot ${i + 1} of ${pact.max}`}
+                                title={i < pact.used ? "spent — click to restore" : "click to spend"}
+                                className="h-4 w-4 cursor-pointer rounded-full border-none p-0"
+                                style={{
+                                  background: i < pact.used ? "#3d2317" : "linear-gradient(180deg,#c96a5a,#8b2520)",
+                                  boxShadow: "inset 0 0 0 1.5px rgba(61,35,23,.7)",
+                                  opacity: canEdit ? 1 : 0.7,
+                                }}
+                              />
+                            ))}
+                          </div>
+                          <span className="label-stamp text-[8.5px] tracking-[1px] text-ink-faded">
+                            Lv {pact.level} · short rest
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                   {spellsByLevel.map(([lvl, list]) => (
@@ -462,6 +516,14 @@ export default function HeroSheetPage() {
                           >
                             {s.name}
                           </button>
+                          {classOfSpell.has(s.id) && (
+                            <span
+                              className="label-stamp ml-1.5 text-[8px] tracking-[1px] text-ink-faded"
+                              title="Cast off this class's spellcasting ability"
+                            >
+                              {classOfSpell.get(s.id)}
+                            </span>
+                          )}
                           <SpellFlags spell={s} />
                           {" — "}
                           {s.summary}

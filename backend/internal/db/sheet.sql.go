@@ -48,19 +48,22 @@ func (q *Queries) AddCharacterItem(ctx context.Context, arg AddCharacterItemPara
 }
 
 const addCharacterSpells = `-- name: AddCharacterSpells :exec
-INSERT INTO character_spells (character_id, content_id)
-SELECT $1, unnest($2::uuid[])
+INSERT INTO character_spells (character_id, content_id, class_id)
+SELECT $1, unnest($2::uuid[]), $3
 ON CONFLICT DO NOTHING
 `
 
 type AddCharacterSpellsParams struct {
 	CharacterID uuid.UUID   `json:"character_id"`
 	Column2     []uuid.UUID `json:"column_2"`
+	ClassID     pgtype.UUID `json:"class_id"`
 }
 
-// Add spell picks; re-adding an existing spell is a no-op.
+// Add spell picks; re-adding an existing spell is a no-op. class_id records
+// which class the spell is prepared from — a Ranger 4 / Sorcerer 3 prepares
+// for each separately and casts each off that class's ability (#190).
 func (q *Queries) AddCharacterSpells(ctx context.Context, arg AddCharacterSpellsParams) error {
-	_, err := q.db.Exec(ctx, addCharacterSpells, arg.CharacterID, arg.Column2)
+	_, err := q.db.Exec(ctx, addCharacterSpells, arg.CharacterID, arg.Column2, arg.ClassID)
 	return err
 }
 
@@ -190,7 +193,7 @@ func (q *Queries) ListCharacterItems(ctx context.Context, characterID uuid.UUID)
 }
 
 const listCharacterSpells = `-- name: ListCharacterSpells :many
-SELECT rc.id, rc.kind, rc.source, rc.name, rc.summary, rc.data, rc.created_by, rc.created_at, rc.updated_at, u.name AS creator_name
+SELECT rc.id, rc.kind, rc.source, rc.name, rc.summary, rc.data, rc.created_by, rc.created_at, rc.updated_at, u.name AS creator_name, cs.class_id
 FROM character_spells cs
 JOIN rules_content rc ON rc.id = cs.content_id
 LEFT JOIN users u ON u.id = rc.created_by
@@ -209,6 +212,7 @@ type ListCharacterSpellsRow struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	CreatorName *string            `json:"creator_name"`
+	ClassID     pgtype.UUID        `json:"class_id"`
 }
 
 // A hero's spells with their content and author, cantrips first.
@@ -232,6 +236,7 @@ func (q *Queries) ListCharacterSpells(ctx context.Context, characterID uuid.UUID
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.CreatorName,
+			&i.ClassID,
 		); err != nil {
 			return nil, err
 		}
