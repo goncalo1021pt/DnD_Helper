@@ -429,10 +429,15 @@ test("a reveal tied to a place lifts only for the heroes who know it", async ({ 
     const heroId = await forgeHero(page.request, {
       name,
       className: "Fighter",
-      speciesName: "Human",
+      // A species that asks nothing at creation — a Human would demand a size,
+      // a skill and an origin feat, none of which this test is about.
+      speciesName: "Dwarf",
       backgroundName: "Soldier",
       abilities: { str: 15, dex: 13, con: 14, int: 10, wis: 12, cha: 8 },
-      skills: ["Athletics", "Intimidation"],
+      // Two of the Fighter's own, and neither of Soldier's Athletics or
+      // Intimidation — the forge refuses a class pick the background already
+      // granted, and would fail this test long before the fog is reached.
+      skills: ["Perception", "Survival"],
     });
     await seatHero(page.request, heroId, campaignId);
     return { ctx, page, heroId };
