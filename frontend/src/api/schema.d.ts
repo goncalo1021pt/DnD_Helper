@@ -1624,7 +1624,8 @@ export interface paths {
         delete: operations["deleteReveals"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Tie a reveal batch to a place, or cut it loose (DM only) */
+        patch: operations["setRevealLocation"];
         trace?: never;
     };
     "/pins/{pinId}": {
@@ -2695,13 +2696,32 @@ export interface components {
         SubmitRevealsRequest: {
             /** @description Optional label for the ledger ("session 12 — the road east"). */
             note?: string;
+            /**
+             * Format: uuid
+             * @description Tie this batch to a place. Its ground then lifts only for a hero the place's veil already admits — which is how a player who grew up in a city starts knowing it. Omit for a batch the whole pool has.
+             */
+            locationId?: string | null;
             circles: components["schemas"]["RevealCircle"][];
+        };
+        SetRevealLocationRequest: {
+            /**
+             * Format: uuid
+             * @description The place gating this batch; null cuts it loose to the pool.
+             */
+            locationId?: string | null;
         };
         RevealBatch: {
             /** Format: uuid */
             id: string;
             note: string;
             poolName: string;
+            /**
+             * Format: uuid
+             * @description The place whose veil gates this batch; absent when none does.
+             */
+            locationId?: string | null;
+            /** @description Name of that place, for the ledger. Empty when there is none. */
+            locationName?: string;
             /** @description How many circles the batch stamped. */
             circles: number;
             /** Format: date-time */
@@ -6497,6 +6517,36 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setRevealLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRevealLocationRequest"];
+            };
+        };
+        responses: {
+            /** @description The batch as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevealBatch"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

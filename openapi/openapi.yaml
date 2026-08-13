@@ -508,6 +508,8 @@ components:
       $ref: "./components/maps.yaml#/RevealCircle"
     SubmitRevealsRequest:
       $ref: "./components/maps.yaml#/SubmitRevealsRequest"
+    SetRevealLocationRequest:
+      $ref: "./components/maps.yaml#/SetRevealLocationRequest"
     RevealBatch:
       $ref: "./components/maps.yaml#/RevealBatch"
     CreateMapRequest:

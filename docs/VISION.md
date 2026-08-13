@@ -171,7 +171,9 @@ landed. Merged to `main`:
 - **The Map + fog of war** (#28, #29, #31): postgres-stored campaign maps, a
   pan/zoom/pinch viewer, DM/party pins, sub-map travel, and knowledge-pool fog
   stamped on a draft then submitted — **composited server-side** so players
-  never receive the hidden pixels.
+  never receive the hidden pixels. A batch may hang on a place (#191), and then
+  follows that place's veil: the city lifts for the hero who grew up there, and
+  for the table when the party rides in — the same stamps, drawn once.
 - **The Profile** (#27): identity header, My Heroes moved in, the imported-pack
   library with per-book removal, embedded export + reset-my-homebrew.
 - **Accounts + security** (#30, #32): local username/email + password accounts
