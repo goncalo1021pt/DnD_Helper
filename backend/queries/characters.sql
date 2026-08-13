@@ -193,9 +193,12 @@ DELETE FROM character_reveals WHERE campaign_id = $1 AND character_id = $2;
 -- the names to print and the data to resolve rules from.
 
 -- name: ListCharacterClasses :many
+-- Subclass data rides along because casting can be declared there — an
+-- Eldritch Knight is a Fighter whose spellcaster kind lives on the subclass
+-- (#220).
 SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
        cls.name AS class_name, cls.data AS class_data,
-       sub.name AS subclass_name
+       sub.name AS subclass_name, sub.data AS subclass_data
 FROM character_classes cc
 JOIN rules_content cls ON cls.id = cc.class_id
 LEFT JOIN rules_content sub ON sub.id = cc.subclass_id
@@ -207,7 +210,7 @@ ORDER BY cc.position, cls.name;
 -- six round trips.
 SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
        cls.name AS class_name, cls.data AS class_data,
-       sub.name AS subclass_name
+       sub.name AS subclass_name, sub.data AS subclass_data
 FROM character_classes cc
 JOIN characters c ON c.id = cc.character_id
 JOIN rules_content cls ON cls.id = cc.class_id
@@ -219,7 +222,7 @@ ORDER BY cc.character_id, cc.position, cls.name;
 -- The same, for the My Heroes shelf.
 SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
        cls.name AS class_name, cls.data AS class_data,
-       sub.name AS subclass_name
+       sub.name AS subclass_name, sub.data AS subclass_data
 FROM character_classes cc
 JOIN characters c ON c.id = cc.character_id
 JOIN rules_content cls ON cls.id = cc.class_id

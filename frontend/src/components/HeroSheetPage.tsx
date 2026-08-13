@@ -21,6 +21,7 @@ import SpellEntry, { SpellFlags } from "./ui/SpellEntry";
 import ContentEntry from "./ui/ContentEntry";
 import RestPanel from "./sheet/RestPanel";
 import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
+import { casterSourceFor } from "../lib/spellcasting";
 import { printHeroSheet } from "../lib/sheet/print";
 
 import FloatingDiceTray from "./ui/DiceTray";
@@ -78,6 +79,9 @@ export default function HeroSheetPage() {
 
   const klass = classes?.find((c) => c.id === sheet?.classId);
   const subclass = subclasses?.find((s) => s.id === sheet?.subclassId);
+  // Where the starting class's casting is declared — on the class, or on its
+  // subclass for an Eldritch Knight / Arcane Trickster (#220).
+  const casterSource = casterSourceFor(klass, subclass);
   const species = speciesLibrary?.find((s) => s.id === sheet?.speciesId);
   const background = backgroundLibrary?.find((b) => b.id === sheet?.backgroundId);
 
@@ -465,7 +469,7 @@ export default function HeroSheetPage() {
                   <SectionLabel>Spells</SectionLabel>
                   {/* Half the 2024 casters re-prepare on a Long Rest; the rest
                       wait for a level, and their swap rides with the level-up. */}
-                  {canEdit && canSwapOn(klass, "long-rest") && (detail?.spells ?? []).length > 0 && (
+                  {canEdit && canSwapOn(casterSource, "long-rest") && (detail?.spells ?? []).length > 0 && (
                     <button
                       onClick={() => setSwapping(true)}
                       // btn-ghost-gold without btn-base, so the chip keeps its
@@ -966,7 +970,7 @@ export default function HeroSheetPage() {
       )}
       {swapping && (
         <SpellSwapModal
-          klass={klass}
+          klass={casterSource}
           known={detail?.spells ?? []}
           library={spellLibrary ?? []}
           characterLevel={character.level}

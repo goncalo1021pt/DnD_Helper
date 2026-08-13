@@ -41,6 +41,7 @@ type heroClass struct {
 	ClassName    string
 	ClassData    []byte
 	SubclassName *string
+	SubclassData []byte
 }
 
 func classesFromCampaign(rows []db.ListCharacterClassesForCampaignRow) []heroClass {
@@ -231,11 +232,14 @@ is why maxSpellLevel is reported per class rather than inferred from the pool.
 
 Spells recorded before class_id existed carry the starting class, so an
 existing single-classed hero's list groups exactly as it always displayed.
+
+The casting itself may be declared on the class or on its subclass — an
+Eldritch Knight casts as a Fighter, off the subclass's Intelligence (#220).
 */
 func castersOf(classes []heroClass, spells []db.ListCharacterSpellsRow, startingClass pgtype.UUID) []api.Spellcaster {
 	out := []api.Spellcaster{}
 	for _, k := range classes {
-		kind, casting, isCaster := parseCasting(k.ClassData)
+		kind, casting, isCaster := parseCasting(castingDataOf(k))
 		if !isCaster {
 			continue
 		}

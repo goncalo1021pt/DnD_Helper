@@ -56,6 +56,26 @@ func TestThirdCastersRoundDown(t *testing.T) {
 	}
 }
 
+/*
+A lone third-caster keeps the printed subclass table, which — like the lone
+half-caster's — runs ahead of their multiclass contribution: an Eldritch
+Knight 7 alone holds 4/2 (full table at ceil(7/3) = 3), but contributes only
+floor(7/3) = 2 levels to a shared pool. And before the subclass exists at
+level 3 there are no slots at all (#220).
+*/
+func TestALoneThirdCasterKeepsTheirOwnTable(t *testing.T) {
+	if got := SlotTable("third", 2); got != [9]int{} {
+		t.Errorf("a Fighter 2 has no subclass yet, so no slots; got %v", got)
+	}
+	slotsAt(t, MulticlassSlots([]CasterClass{{Kind: "third", Levels: 3}}), 2, 0)
+	slotsAt(t, MulticlassSlots([]CasterClass{{Kind: "third", Levels: 7}}), 4, 2, 0)
+
+	// Beside a full caster the shared table takes over: EK 7 / Wizard 2 is
+	// caster level 4, whose row is 4/3.
+	shared := MulticlassSlots([]CasterClass{{Kind: "third", Levels: 7}, {Kind: "full", Levels: 2}})
+	slotsAt(t, shared, 4, 3, 0)
+}
+
 // Warlocks are absent from the list that builds the shared pool.
 func TestPactLevelsDoNotJoinTheSharedPool(t *testing.T) {
 	classes := []CasterClass{{Kind: "pact", Levels: 5}, {Kind: "full", Levels: 3}}

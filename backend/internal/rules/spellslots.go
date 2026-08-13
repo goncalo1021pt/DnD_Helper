@@ -2,8 +2,9 @@ package rules
 
 // Spell-slot progressions and casting fallbacks. These are game math from the
 // 2024 rules, not content — content only says WHICH kind of caster a class is
-// (data.spellcaster: "full" | "half" | "pact") and may override pick counts
-// with a data.spellcasting block.
+// (data.spellcaster: "full" | "half" | "third" | "pact") and may override pick
+// counts with a data.spellcasting block. "third" belongs on a subclass — an
+// Eldritch Knight is a Fighter whose casting rides on the subclass (#220).
 
 // Casting describes how many spells a class may know/prepare, indexed by
 // character level (index 0 = level 1).
@@ -79,6 +80,16 @@ func SlotTable(kind string, level int) [9]int {
 		return fullSlots[level-1]
 	case "half":
 		return halfSlots[level-1]
+	case "third":
+		// Nothing before the subclass arrives at level 3, then the printed
+		// Eldritch Knight / Arcane Trickster table — which is the full-caster
+		// table read at one third of the class level rounded UP. A lone EK 7
+		// holds 4/2 where their multiclass contribution is floor(7/3) = 2: the
+		// same own-table-is-faster asymmetry a lone half-caster has.
+		if level < 3 {
+			return [9]int{}
+		}
+		return fullSlots[(level+2)/3-1]
 	case "pact":
 		var out [9]int
 		out[pactLevel[level-1]-1] = pactCount[level-1]
@@ -216,11 +227,22 @@ var warlockCasting = Casting{
 	Prepared: [20]int{2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15},
 }
 
+// The Eldritch Knight's table, indexed by level in the parent class; empty
+// until the subclass exists at 3. An Arcane Trickster overrides the cantrip
+// row with data.spellcasting (it knows one more, Mage Hand being free).
+var eldritchCasting = Casting{
+	Ability:  "INT",
+	Cantrips: [20]int{0, 0, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+	Prepared: [20]int{0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13},
+}
+
 // FallbackCasting maps a caster kind to a reasonable default pick table.
 func FallbackCasting(kind string) Casting {
 	switch kind {
 	case "half":
 		return paladinCasting
+	case "third":
+		return eldritchCasting
 	case "pact":
 		return warlockCasting
 	default:

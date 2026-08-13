@@ -15,15 +15,19 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
-// The class-data slice spellcasting needs. A class is a caster iff
-// data.spellcaster is set; data.spellcasting may override the pick tables.
+// The content-data slice spellcasting needs — read off a class, or off a
+// subclass when the casting rides there (#220). A caster is whatever sets
+// data.spellcaster; data.spellcasting may override the pick tables.
 // data.spellList lets a class (e.g. homebrew Artificer) claim spells by name
-// when the spells' own classes arrays don't know about it.
+// when the spells' own classes arrays don't know about it; data.spellListClass
+// names another class whose whole list this caster reads — how an Eldritch
+// Knight, a Fighter, casts Wizard spells.
 type castingRules struct {
-	Spellcaster  string            `json:"spellcaster"`
-	Spellcasting *rules.Casting    `json:"spellcasting"`
-	SpellList    []string          `json:"spellList"`
-	SpellChanges *spellChangeRules `json:"spellChanges"`
+	Spellcaster    string            `json:"spellcaster"`
+	Spellcasting   *rules.Casting    `json:"spellcasting"`
+	SpellList      []string          `json:"spellList"`
+	SpellListClass string            `json:"spellListClass"`
+	SpellChanges   *spellChangeRules `json:"spellChanges"`
 }
 
 /*
@@ -94,6 +98,50 @@ func parseCasting(classData []byte) (kind string, casting rules.Casting, isCaste
 	return cr.Spellcaster, casting, true
 }
 
+// castingDataOf returns the data block a hero-class's casting is declared on:
+// the class's own when it sets data.spellcaster, else its subclass's when that
+// does — an Eldritch Knight is a Fighter whose casting rides on the subclass
+// (#220). nil when neither casts.
+func castingDataOf(k heroClass) []byte {
+	if _, _, ok := parseCasting(k.ClassData); ok {
+		return k.ClassData
+	}
+	if _, _, ok := parseCasting(k.SubclassData); ok {
+		return k.SubclassData
+	}
+	return nil
+}
+
+// spellOnList says whether this caster may take a spell: the spell's own
+// classes array names the class — or the class whose whole list the caster
+// reads (data.spellListClass) — or the caster's data.spellList claims it by
+// name.
+func spellOnList(d spellData, spellName, className string, cr castingRules) bool {
+	for _, c := range d.Classes {
+		if strings.EqualFold(c, className) {
+			return true
+		}
+		if cr.SpellListClass != "" && strings.EqualFold(c, cr.SpellListClass) {
+			return true
+		}
+	}
+	for _, n := range cr.SpellList {
+		if strings.EqualFold(n, spellName) {
+			return true
+		}
+	}
+	return false
+}
+
+// spellListName is the list a refusal names: the class whose spells the
+// caster reads when they borrow one, else the class itself.
+func spellListName(className string, cr castingRules) string {
+	if cr.SpellListClass != "" {
+		return cr.SpellListClass
+	}
+	return className
+}
+
 type spellData struct {
 	Level   int      `json:"level"`
 	Classes []string `json:"classes"`
@@ -102,16 +150,24 @@ type spellData struct {
 // validateSpellPicks checks new spell choices for a hero of the given class
 // at the given level: visibility, kind, class list, spell level, duplicates,
 // and cantrip/prepared caps (caps are ≤, so under-picked heroes self-heal).
+// `subclassData` carries the hero's subclass in that class (nil without one),
+// because the casting may be declared there rather than on the class (#220).
 // Returns a bad-request message ("" = ok) and the validated ids.
 func (s *Server) validateSpellPicks(
 	ctx context.Context,
 	uid uuid.UUID,
 	class db.RulesContent,
+	subclassData []byte,
 	atLevel int,
 	existing []db.ListCharacterSpellsRow,
 	newIDs []uuid.UUID,
 ) (string, []uuid.UUID, error) {
-	kind, casting, isCaster := parseCasting(class.Data)
+	castingData := class.Data
+	kind, casting, isCaster := parseCasting(castingData)
+	if !isCaster {
+		kind, casting, isCaster = parseCasting(subclassData)
+		castingData = subclassData
+	}
 	if !isCaster {
 		if len(newIDs) > 0 {
 			return class.Name + " does not cast spells", nil, nil
@@ -119,7 +175,7 @@ func (s *Server) validateSpellPicks(
 		return "", nil, nil
 	}
 	var cr castingRules
-	_ = json.Unmarshal(class.Data, &cr)
+	_ = json.Unmarshal(castingData, &cr)
 	if atLevel < 1 {
 		atLevel = 1
 	}
@@ -157,21 +213,8 @@ func (s *Server) validateSpellPicks(
 		if err := json.Unmarshal(row.Data, &d); err != nil {
 			return row.Name + " has malformed spell data", nil, nil
 		}
-		onList := false
-		for _, c := range d.Classes {
-			if strings.EqualFold(c, class.Name) {
-				onList = true
-				break
-			}
-		}
-		for _, n := range cr.SpellList {
-			if onList {
-				break
-			}
-			onList = strings.EqualFold(n, row.Name)
-		}
-		if !onList {
-			return fmt.Sprintf("%s is not on the %s spell list", row.Name, class.Name), nil, nil
+		if !spellOnList(d, row.Name, class.Name, cr) {
+			return fmt.Sprintf("%s is not on the %s spell list", row.Name, spellListName(class.Name, cr)), nil, nil
 		}
 		if d.Level == 0 {
 			cantrips++
@@ -211,6 +254,7 @@ func (s *Server) validateSpellSwaps(
 	ctx context.Context,
 	uid uuid.UUID,
 	class db.RulesContent,
+	subclassData []byte,
 	atLevel int,
 	existing []db.ListCharacterSpellsRow,
 	swaps []api.SpellSwap,
@@ -220,12 +264,17 @@ func (s *Server) validateSpellSwaps(
 	if len(swaps) == 0 {
 		return "", out, nil
 	}
-	kind, _, isCaster := parseCasting(class.Data)
+	castingData := class.Data
+	kind, _, isCaster := parseCasting(castingData)
+	if !isCaster {
+		kind, _, isCaster = parseCasting(subclassData)
+		castingData = subclassData
+	}
 	if !isCaster {
 		return class.Name + " does not cast spells", out, nil
 	}
 	var cr castingRules
-	_ = json.Unmarshal(class.Data, &cr)
+	_ = json.Unmarshal(castingData, &cr)
 	changes := spellChangesFor(cr)
 
 	if atLevel < 1 {
@@ -282,21 +331,8 @@ func (s *Server) validateSpellSwaps(
 		if err := json.Unmarshal(row.Data, &d); err != nil {
 			return row.Name + " has malformed spell data", out, nil
 		}
-		onList := false
-		for _, c := range d.Classes {
-			if strings.EqualFold(c, class.Name) {
-				onList = true
-				break
-			}
-		}
-		for _, n := range cr.SpellList {
-			if onList {
-				break
-			}
-			onList = strings.EqualFold(n, row.Name)
-		}
-		if !onList {
-			return fmt.Sprintf("%s is not on the %s spell list", row.Name, class.Name), out, nil
+		if !spellOnList(d, row.Name, class.Name, cr) {
+			return fmt.Sprintf("%s is not on the %s spell list", row.Name, spellListName(class.Name, cr)), out, nil
 		}
 		if d.Level > maxSpellLevel {
 			return fmt.Sprintf("%s is level %d — beyond a level-%d %s's slots", row.Name, d.Level, atLevel, class.Name), out, nil
@@ -348,11 +384,12 @@ func (s *Server) validateSpellSwaps(
 }
 
 // casterClassesOf reads each class's caster kind and the hero's level in it,
-// which is what the combined-level arithmetic runs on (#190).
+// which is what the combined-level arithmetic runs on (#190). The kind may be
+// declared on the class or on its subclass (#220).
 func casterClassesOf(classes []heroClass) []rules.CasterClass {
 	out := make([]rules.CasterClass, 0, len(classes))
 	for _, k := range classes {
-		kind, _, isCaster := parseCasting(k.ClassData)
+		kind, _, isCaster := parseCasting(castingDataOf(k))
 		if !isCaster {
 			continue
 		}
@@ -427,13 +464,13 @@ func spellSlotsFor(
 	}
 
 	// The headline ability: the starting class when it casts, else the first
-	// casting class the hero holds.
+	// casting class the hero holds — either may cast through its subclass.
 	a := ""
 	if _, casting, isCaster := parseCasting(classData); isCaster {
 		a = casting.Ability
 	} else {
 		for _, k := range classes {
-			if _, casting, ok := parseCasting(k.ClassData); ok {
+			if _, casting, ok := parseCasting(castingDataOf(k)); ok {
 				a = casting.Ability
 				break
 			}

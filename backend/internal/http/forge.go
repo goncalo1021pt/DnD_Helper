@@ -346,7 +346,9 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 			spellIDs = append(spellIDs, uuid.UUID(id))
 		}
 	}
-	if msg, _, err := s.validateSpellPicks(ctx, uid, class, 1, nil, spellIDs); err != nil {
+	// No subclass data to pass: a forged hero is level 1, and subclasses do
+	// not exist before level 3.
+	if msg, _, err := s.validateSpellPicks(ctx, uid, class, nil, 1, nil, spellIDs); err != nil {
 		return nil, err
 	} else if msg != "" {
 		return badRequest(msg)

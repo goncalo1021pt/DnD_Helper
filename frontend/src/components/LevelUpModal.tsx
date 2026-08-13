@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
 import type { AbilityScores, Character, LevelUpRequest } from "../api/client";
 import { useCharacterDetail, useCodex, useLevelUp, useRules } from "../hooks";
-import { castingFor, maxSpellLevel, spellOnClassList, type CasterData } from "../lib/spellcasting";
+import {
+  casterSourceFor,
+  castingFor,
+  maxSpellLevel,
+  spellOnClassList,
+  type CasterData,
+} from "../lib/spellcasting";
 import { abilityMod } from "../lib/abilities";
 import ParchmentModal from "./ui/ParchmentModal";
 import SpellHover from "./ui/SpellHover";
@@ -151,9 +157,15 @@ export default function LevelUpModal({
   const [swaps, setSwaps] = useState<Swap[]>([]);
   const [swapping, setSwapping] = useState(false);
 
-  // Spell picks: additions allowed up to the new level's caps.
-  const casting = castingFor(klass?.data as CasterData | undefined);
-  const casterKind = (klass?.data as CasterData | undefined)?.spellcaster ?? "";
+  // Spell picks: additions allowed up to the new level's caps. The casting may
+  // ride on the subclass rather than the class — held already, or being chosen
+  // this very level: an Eldritch Knight picks Wizard cantrips in the same
+  // breath as the subclass (#220).
+  const heldSubclassId = held.find((k) => k.classId === takingIn)?.subclassId;
+  const subEntry = classSubclasses.find((s) => s.id === (subclassId || heldSubclassId));
+  const casterSource = casterSourceFor(klass, subEntry);
+  const casting = castingFor(casterSource?.data as CasterData | undefined);
+  const casterKind = (casterSource?.data as CasterData | undefined)?.spellcaster ?? "";
   const ownedSpellIds = useMemo(
     () => new Set((detail?.spells ?? []).map((s) => s.id)),
     [detail],
@@ -171,11 +183,11 @@ export default function LevelUpModal({
       return (
         !ownedSpellIds.has(s.id) &&
         (lvl === 0 || lvl <= maxLvl) &&
-        spellOnClassList(s, klass) &&
+        spellOnClassList(s, casterSource) &&
         codexLegal(s)
       );
     });
-  }, [casting, casterKind, newLevel, allSpells, ownedSpellIds, klass, codexLegal]);
+  }, [casting, casterKind, newLevel, allSpells, ownedSpellIds, casterSource, codexLegal]);
   const pickedNewCantrips = newSpellIds.filter(
     (id) => ((allSpells ?? []).find((s) => s.id === id)?.data as { level?: number })?.level === 0,
   ).length;
@@ -407,7 +419,7 @@ export default function LevelUpModal({
         )}
 
         {/* a spell traded on the way up — Bard, Sorcerer, Warlock */}
-        {canSwapOn(klass, "level-up") && (detail?.spells ?? []).length > 0 && (
+        {canSwapOn(casterSource, "level-up") && (detail?.spells ?? []).length > 0 && (
           <div>
             <div className="field-label mb-1.5">
               Change a known spell
@@ -627,7 +639,7 @@ export default function LevelUpModal({
       </div>
       {swapping && (
         <SpellSwapModal
-          klass={klass}
+          klass={casterSource}
           known={detail?.spells ?? []}
           library={allSpells ?? []}
           characterLevel={newLevel}

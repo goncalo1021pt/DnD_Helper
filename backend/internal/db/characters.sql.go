@@ -585,7 +585,7 @@ const listCharacterClasses = `-- name: ListCharacterClasses :many
 
 SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
        cls.name AS class_name, cls.data AS class_data,
-       sub.name AS subclass_name
+       sub.name AS subclass_name, sub.data AS subclass_data
 FROM character_classes cc
 JOIN rules_content cls ON cls.id = cc.class_id
 LEFT JOIN rules_content sub ON sub.id = cc.subclass_id
@@ -602,11 +602,15 @@ type ListCharacterClassesRow struct {
 	ClassName    string      `json:"class_name"`
 	ClassData    []byte      `json:"class_data"`
 	SubclassName *string     `json:"subclass_name"`
+	SubclassData []byte      `json:"subclass_data"`
 }
 
 // Multiclassing (#190). A hero's classes, starting class first. Joined to
 // their content rows because every caller that wants the levels also wants
 // the names to print and the data to resolve rules from.
+// Subclass data rides along because casting can be declared there — an
+// Eldritch Knight is a Fighter whose spellcaster kind lives on the subclass
+// (#220).
 func (q *Queries) ListCharacterClasses(ctx context.Context, characterID uuid.UUID) ([]ListCharacterClassesRow, error) {
 	rows, err := q.db.Query(ctx, listCharacterClasses, characterID)
 	if err != nil {
@@ -625,6 +629,7 @@ func (q *Queries) ListCharacterClasses(ctx context.Context, characterID uuid.UUI
 			&i.ClassName,
 			&i.ClassData,
 			&i.SubclassName,
+			&i.SubclassData,
 		); err != nil {
 			return nil, err
 		}
@@ -639,7 +644,7 @@ func (q *Queries) ListCharacterClasses(ctx context.Context, characterID uuid.UUI
 const listCharacterClassesForCampaign = `-- name: ListCharacterClassesForCampaign :many
 SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
        cls.name AS class_name, cls.data AS class_data,
-       sub.name AS subclass_name
+       sub.name AS subclass_name, sub.data AS subclass_data
 FROM character_classes cc
 JOIN characters c ON c.id = cc.character_id
 JOIN rules_content cls ON cls.id = cc.class_id
@@ -657,6 +662,7 @@ type ListCharacterClassesForCampaignRow struct {
 	ClassName    string      `json:"class_name"`
 	ClassData    []byte      `json:"class_data"`
 	SubclassName *string     `json:"subclass_name"`
+	SubclassData []byte      `json:"subclass_data"`
 }
 
 // Every seated hero's classes in one read, so a roster of six does not cost
@@ -679,6 +685,7 @@ func (q *Queries) ListCharacterClassesForCampaign(ctx context.Context, campaignI
 			&i.ClassName,
 			&i.ClassData,
 			&i.SubclassName,
+			&i.SubclassData,
 		); err != nil {
 			return nil, err
 		}
@@ -693,7 +700,7 @@ func (q *Queries) ListCharacterClassesForCampaign(ctx context.Context, campaignI
 const listCharacterClassesForOwner = `-- name: ListCharacterClassesForOwner :many
 SELECT cc.character_id, cc.class_id, cc.subclass_id, cc.level, cc.position,
        cls.name AS class_name, cls.data AS class_data,
-       sub.name AS subclass_name
+       sub.name AS subclass_name, sub.data AS subclass_data
 FROM character_classes cc
 JOIN characters c ON c.id = cc.character_id
 JOIN rules_content cls ON cls.id = cc.class_id
@@ -711,6 +718,7 @@ type ListCharacterClassesForOwnerRow struct {
 	ClassName    string      `json:"class_name"`
 	ClassData    []byte      `json:"class_data"`
 	SubclassName *string     `json:"subclass_name"`
+	SubclassData []byte      `json:"subclass_data"`
 }
 
 // The same, for the My Heroes shelf.
@@ -732,6 +740,7 @@ func (q *Queries) ListCharacterClassesForOwner(ctx context.Context, ownerUserID 
 			&i.ClassName,
 			&i.ClassData,
 			&i.SubclassName,
+			&i.SubclassData,
 		); err != nil {
 			return nil, err
 		}
