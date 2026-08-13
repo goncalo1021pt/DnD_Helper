@@ -1,38 +1,33 @@
 /*
-Hanging a map, and striking one.
+Hanging a map.
 
 Lifted out of MapPage (#108) with its own five pieces of state, because none of
 them meant anything to the rest of the page: a name, a file, where it hangs, and
 whatever went wrong. The image rides to the server as base64 in the body, which
 is why this one call is allowed to be slow — see slowUpload() in lib/http.ts.
+
+Striking a map used to live here too, an arm's length from the name of the
+thing being deleted; it moved to the atlas (#216), where the strike sits on
+the row it strikes.
 */
 
 import { useState } from "react";
 import type { CampaignMap } from "../../api/client";
-import { useCreateMap, useDeleteMap } from "../../hooks";
+import { useCreateMap } from "../../hooks";
 import ParchmentModal from "../ui/ParchmentModal";
-import { IconTrash } from "../ui/icons";
 
 export function HangMapForm({
   campaignId,
   maps,
-  current,
-  isDM,
   onClose,
   onHung,
-  onStruck,
 }: {
   campaignId: string;
   maps: CampaignMap[] | undefined;
-  /** The map on the table, if there is one — it is the one Strike removes. */
-  current: CampaignMap | undefined;
-  isDM: boolean;
   onClose: () => void;
   onHung: (id: string) => void;
-  onStruck: () => void;
 }) {
   const createMap = useCreateMap(campaignId);
-  const deleteMap = useDeleteMap(campaignId);
   const [mapName, setMapName] = useState("");
   const [mapParent, setMapParent] = useState("");
   const [mapFile, setMapFile] = useState<File | null>(null);
@@ -114,46 +109,20 @@ export function HangMapForm({
             {hangError && (
               <div className="font-body text-sm italic text-[#8b2520]">{hangError}</div>
             )}
-            <div className="mt-1 flex items-center justify-between gap-3">
-              {current && isDM ? (
-                <button
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `Strike "${current.name}" and all its pins from the atlas?`,
-                      )
-                    ) {
-                      onClose();
-                      deleteMap.mutate(current.id, {
-                        onSuccess: () => {
-                          onStruck();
-                        },
-                      });
-                    }
-                  }}
-                  className="btn-base btn-ghost-red px-3.5 py-2 text-[11px]"
-                >
-                  <IconTrash size={12} strokeWidth={1.8} />
-                  Strike this map
-                </button>
-              ) : (
-                <span />
-              )}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={onClose}
-                  className="btn-base btn-ghost-ink px-5 py-[11px] text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={hangMap}
-                  disabled={!mapFile || createMap.isPending}
-                  className="btn-base btn-gold clip-octagon h-11 px-6 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {createMap.isPending ? "Hanging…" : "Hang it"}
-                </button>
-              </div>
+            <div className="mt-1 flex items-center justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="btn-base btn-ghost-ink px-5 py-[11px] text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={hangMap}
+                disabled={!mapFile || createMap.isPending}
+                className="btn-base btn-gold clip-octagon h-11 px-6 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {createMap.isPending ? "Hanging…" : "Hang it"}
+              </button>
             </div>
           </div>
         </ParchmentModal>

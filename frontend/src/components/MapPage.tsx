@@ -15,7 +15,8 @@ import {
 } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconEye, IconEyeOff, IconMapPin, IconPencil, IconPlus, IconTrash } from "./ui/icons";
+import { IconBook, IconEye, IconEyeOff, IconMapPin, IconPencil, IconPlus, IconTrash } from "./ui/icons";
+import { AtlasModal } from "./map/AtlasModal";
 import { FogCanvas, revealSig } from "./map/FogCanvas";
 import { HangMapForm } from "./map/HangMapForm";
 import { PinForm } from "./map/PinForm";
@@ -76,6 +77,7 @@ export default function MapPage() {
   const [openPin, setOpenPin] = useState<MapPin | null>(null);
   const [editingPin, setEditingPin] = useState<MapPin | null>(null);
   const [hanging, setHanging] = useState(false);
+  const [atlasOpen, setAtlasOpen] = useState(false);
 
   // What a tap means is the page's business, not the viewer's: the viewer only
   // says that one happened, and where on the map it landed.
@@ -162,18 +164,16 @@ export default function MapPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {(maps ?? []).length > 1 && (
-            <select
-              value={currentId ?? ""}
-              onChange={(e) => goTo(e.target.value)}
-              className="input-hall w-44"
+          {/* The atlas replaced a bare <select> here (#216): switching, and for
+              the DM striking, happen on a page where each map is a row. */}
+          {(maps ?? []).length > (isDM ? 0 : 1) && (
+            <button
+              onClick={() => setAtlasOpen(true)}
+              className="btn-base btn-ghost-gold px-4 py-2.5 text-[11px]"
             >
-              {(maps ?? []).map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.parentMapId ? `↳ ${m.name}` : m.name}
-                </option>
-              ))}
-            </select>
+              <IconBook size={13} strokeWidth={1.9} />
+              Atlas
+            </button>
           )}
           {isDM && (
             <>
@@ -646,15 +646,35 @@ export default function MapPage() {
         />
       )}
 
+      {atlasOpen && (
+        <AtlasModal
+          campaignId={campaign.id}
+          maps={maps ?? []}
+          currentId={currentId}
+          isDM={isDM}
+          onOpen={(id) => {
+            setAtlasOpen(false);
+            goTo(id);
+          }}
+          onHang={() => {
+            setAtlasOpen(false);
+            setHanging(true);
+          }}
+          onStruck={(id) => {
+            // Striking the map on the table sends the viewer back to the
+            // overworld; striking any other row leaves the table alone.
+            if (id === currentId) navigate(`/questboard/campaigns/${campaign.id}/map`);
+          }}
+          onClose={() => setAtlasOpen(false)}
+        />
+      )}
+
       {hanging && (
         <HangMapForm
           campaignId={campaign.id}
           maps={maps}
-          current={map}
-          isDM={isDM}
           onClose={() => setHanging(false)}
           onHung={goTo}
-          onStruck={() => navigate(`/questboard/campaigns/${campaign.id}/map`)}
         />
       )}
     </div>

@@ -223,14 +223,31 @@ test("a sub-map hangs off its parent and is reachable", async ({ page }) => {
   expect(child, "the sub-map should be in the atlas").toBeTruthy();
   expect(child!.parentMapId).toBe(parentId);
 
-  // And the atlas offers it, nested under its parent. The atlas is a select,
-  // so "reachable" means selectable — not merely present in the DOM.
+  // And the atlas offers it, nested under its parent — a row, not an option
+  // (#216). "Reachable" means clicking it puts it on the table.
   await page.goto(`/questboard/campaigns/${campaignId}/map`);
-  const atlasPicker = page.locator("select").first();
-  await expect(atlasPicker.locator(`option[value="${child!.id}"]`)).toHaveText(/The Crypt Below/);
+  await page.getByRole("button", { name: "Atlas" }).click();
+  await page.getByTitle("Unroll The Crypt Below").click();
+  await expect(page).toHaveURL(new RegExp(child!.id));
 
-  await atlasPicker.selectOption(child!.id);
-  await expect(atlasPicker).toHaveValue(child!.id);
+  // Striking happens on the row being struck, with a second look asked on the
+  // spot — not on whatever map happened to be on the table.
+  await page.getByRole("button", { name: "Atlas" }).click();
+  await page.getByRole("button", { name: "Strike The Crypt Below" }).click();
+  await expect(page.getByText(/Its pins and its fog go with it/)).toBeVisible();
+  await page.getByRole("button", { name: "Strike it", exact: true }).click();
+
+  // The struck map was on the table, so the viewer is sent back to the
+  // overworld — and the server no longer lists it.
+  await expect(page).not.toHaveURL(new RegExp(child!.id));
+  await expect
+    .poll(async () => {
+      const after = (await (
+        await page.request.get(`/api/campaigns/${campaignId}/maps`)
+      ).json()) as Array<{ name: string }>;
+      return after.map((m) => m.name);
+    })
+    .not.toContain("The Crypt Below");
 });
 
 /*
