@@ -30,6 +30,7 @@ const KEYS: Record<string, string[][]> = {
   map: [["reveals"], ["map"], ["maps"]],
   party: [["characters"], ["character-detail"], ["my-characters"]],
   vendors: [["vendors"]],
+  npcs: [["npcs"]],
 };
 
 /**

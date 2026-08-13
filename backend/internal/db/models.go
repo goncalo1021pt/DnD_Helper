@@ -736,6 +736,35 @@ type Membership struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type Npc struct {
+	ID                  uuid.UUID          `json:"id"`
+	CampaignID          uuid.UUID          `json:"campaign_id"`
+	Name                string             `json:"name"`
+	Description         string             `json:"description"`
+	LocationID          pgtype.UUID        `json:"location_id"`
+	ContentID           pgtype.UUID        `json:"content_id"`
+	CharacterID         pgtype.UUID        `json:"character_id"`
+	VisibleToParty      bool               `json:"visible_to_party"`
+	StatsVisibleToParty bool               `json:"stats_visible_to_party"`
+	CreatedBy           pgtype.UUID        `json:"created_by"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type NpcStatVisibility struct {
+	NpcID       uuid.UUID          `json:"npc_id"`
+	CharacterID uuid.UUID          `json:"character_id"`
+	Visible     bool               `json:"visible"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type NpcVisibility struct {
+	NpcID       uuid.UUID          `json:"npc_id"`
+	CharacterID uuid.UUID          `json:"character_id"`
+	Visible     bool               `json:"visible"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Quest struct {
 	ID             uuid.UUID          `json:"id"`
 	CampaignID     uuid.UUID          `json:"campaign_id"`
