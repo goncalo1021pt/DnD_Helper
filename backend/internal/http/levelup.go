@@ -283,10 +283,15 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 
 	// --- Subclass (exactly at the class's subclass level, counted in that
 	// class's own levels — each class a hero holds picks its own) ---
+	// Its data travels to the spell checks below, because the casting may be
+	// declared there — an Eldritch Knight chosen at Fighter 3 picks Wizard
+	// cantrips in the same breath (#220).
 	subclassID := pgtype.UUID{}
+	var subclassData []byte
 	for _, k := range held {
 		if k.ClassID == classID {
 			subclassID = k.SubclassID
+			subclassData = k.SubclassData
 		}
 	}
 	if classLevel == cr.SubclassLevel {
@@ -305,6 +310,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 			return badRequest(sub.Name + " does not belong to " + class.Name)
 		}
 		subclassID = pgUUID(sub.ID)
+		subclassData = sub.Data
 	} else if body.SubclassId != nil {
 		return badRequest(fmt.Sprintf("%s chooses a subclass at %s level %d, not %d",
 			class.Name, class.Name, cr.SubclassLevel, classLevel))
@@ -328,7 +334,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	var swaps swapResult
 	if body.SpellSwaps != nil && len(*body.SpellSwaps) > 0 {
 		msg, resolved, err := s.validateSpellSwaps(
-			ctx, uid, class, newLevel, existingSpells, *body.SpellSwaps, "level-up")
+			ctx, uid, class, subclassData, newLevel, existingSpells, *body.SpellSwaps, "level-up")
 		if err != nil {
 			return nil, err
 		}
@@ -350,7 +356,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 			}
 		}
 	}
-	if msg, _, err := s.validateSpellPicks(ctx, uid, class, newLevel, afterSwaps, newSpells); err != nil {
+	if msg, _, err := s.validateSpellPicks(ctx, uid, class, subclassData, newLevel, afterSwaps, newSpells); err != nil {
 		return nil, err
 	} else if msg != "" {
 		return badRequest(msg)

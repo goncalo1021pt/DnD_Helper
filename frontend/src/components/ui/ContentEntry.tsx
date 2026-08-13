@@ -234,10 +234,22 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
   }
 
   if (kind === "subclass") {
+    // A subclass may carry the casting its class lacks — an Eldritch Knight
+    // is a Fighter casting third-caster Wizard spells (#220).
+    const subCasting = (d.spellcasting ?? {}) as { ability?: string };
+    const castLine = str("spellcaster")
+      ? [
+          `${str("spellcaster")}-caster`,
+          subCasting.ability,
+          str("spellListClass") && `${str("spellListClass")} list`,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : undefined;
     return (
       <div className="text-[13px]">
         <Header entry={entry} tagline={`${str("class") ?? "?"} subclass — ${entry.summary}`} />
-        <Facts rows={[["Source", book]]} />
+        <Facts rows={[["Casting", castLine], ["Source", book]]} />
         <FeatureList features={feats("features")} label="Features" />
         <Description text={str("description")} />
       </div>

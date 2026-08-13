@@ -25,9 +25,17 @@ const warlock: Casting = {
   cantrips: [2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
   prepared: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
 };
+// The Eldritch Knight's table, indexed by level in the parent class; empty
+// until the subclass exists at 3 (#220).
+const eldritch: Casting = {
+  ability: "INT",
+  cantrips: [0, 0, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+  prepared: [0, 0, 3, 4, 4, 4, 5, 6, 6, 7, 8, 8, 9, 10, 10, 11, 11, 11, 12, 13],
+};
 
 export function fallbackCasting(kind: string): Casting {
   if (kind === "half") return paladin;
+  if (kind === "third") return eldritch;
   if (kind === "pact") return warlock;
   return wizard;
 }
@@ -50,12 +58,39 @@ export interface SpellChanges {
 /** Unlimited, as returned by swapAllowance for a "re-prepare freely" rule. */
 export const ANY_SWAPS = -1;
 
-/** The class-data slice the UI reads for casting. */
+/** The content-data slice the UI reads for casting — off a class, or off a
+ * subclass when the casting rides there (#220). spellListClass names another
+ * class whose whole spell list this caster reads, which is how an Eldritch
+ * Knight — a Fighter — casts Wizard spells. */
 export interface CasterData {
   spellcaster?: string;
   spellcasting?: Partial<Casting>;
   spellList?: string[];
+  spellListClass?: string;
   spellChanges?: SpellChanges;
+}
+
+/** The name + data slice the casting checks need — any RulesContent fits. */
+export interface CasterSource {
+  name: string;
+  data: unknown;
+}
+
+/**
+ * The entry a hero-class's casting is declared on: the class itself when it
+ * sets data.spellcaster, else the given subclass when that does — an Eldritch
+ * Knight is a Fighter whose casting rides on the subclass (#220). The result
+ * keeps the CLASS's name (spell lists and error copy are class-shaped) with
+ * the subclass's data. Undefined when neither casts.
+ */
+export function casterSourceFor(
+  klass: CasterSource | undefined,
+  subclass: { data: unknown } | undefined,
+): CasterSource | undefined {
+  if ((klass?.data as CasterData | undefined)?.spellcaster) return klass;
+  if (klass && subclass && (subclass.data as CasterData | undefined)?.spellcaster)
+    return { name: klass.name, data: subclass.data };
+  return undefined;
 }
 
 /**
@@ -79,19 +114,22 @@ export function swapAllowance(
 }
 
 /**
- * True when a spell belongs to a class: named in the spell's classes array,
- * or claimed by the class's own data.spellList — how homebrew classes (e.g.
- * the Artificer) adopt spells that don't know about them. Mirrors the
- * backend's validateSpellPicks.
+ * True when a spell belongs to a caster: named in the spell's classes array —
+ * under the class's name, or the class whose whole list the caster reads
+ * (data.spellListClass, #220) — or claimed by the caster's own data.spellList,
+ * how homebrew classes (e.g. the Artificer) adopt spells that don't know
+ * about them. Mirrors the backend's spellOnList.
  */
 export function spellOnClassList(
   spell: { name: string; data: unknown },
-  klass: { name: string; data: unknown } | undefined,
+  klass: CasterSource | undefined,
 ): boolean {
   if (!klass) return false;
+  const data = klass.data as CasterData;
   const classes = (spell.data as { classes?: string[] }).classes ?? [];
-  if (classes.some((c) => c.toLowerCase() === klass.name.toLowerCase())) return true;
-  const list = (klass.data as CasterData).spellList ?? [];
+  const names = [klass.name, data.spellListClass ?? ""].filter(Boolean);
+  if (classes.some((c) => names.some((n) => n.toLowerCase() === c.toLowerCase()))) return true;
+  const list = data.spellList ?? [];
   return list.some((n) => n.toLowerCase() === spell.name.toLowerCase());
 }
 
@@ -110,5 +148,8 @@ export function maxSpellLevel(kind: string, level: number): number {
   const l = Math.min(Math.max(level, 1), 20);
   if (kind === "pact") return [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5][l - 1];
   if (kind === "half") return Math.min(Math.ceil(l / 4), 5);
+  // A third-caster's own table is the full-caster's read at ceil(l / 3), and
+  // empty before the subclass exists at level 3 (#220).
+  if (kind === "third") return l < 3 ? 0 : Math.ceil(Math.ceil(l / 3) / 2);
   return Math.min(Math.ceil(l / 2), 9);
 }

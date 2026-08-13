@@ -230,9 +230,21 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 	// hour. Hit dice now come from every class the hero holds (#190), pooled
 	// by die size — a hero with no class at all still rests, on d8s.
 	classData := s.classDataFor(ctx, character)
+	classes := s.classesFor(ctx, character)
 	var cr castingRules
 	if classData != nil {
 		_ = json.Unmarshal(classData, &cr)
+	}
+	// The starting class may cast through its subclass instead (#220), and its
+	// spellChanges rule rides on the same block as the spellcaster kind.
+	if cr.Spellcaster == "" && character.ClassID.Valid {
+		for _, k := range classes {
+			if k.ClassID == uuid.UUID(character.ClassID.Bytes) {
+				if src := castingDataOf(k); src != nil {
+					_ = json.Unmarshal(src, &cr)
+				}
+			}
+		}
 	}
 	conMod := 0
 	if character.Constitution != nil {
@@ -240,7 +252,7 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 	}
 
 	pools := s.resolvePools(ctx, character)
-	dice := s.hitDiceFor(ctx, character)
+	dice := hitDicePoolsOf(classes, int(character.Level), character.HitDiceSpent)
 
 	var outcome restOutcome
 	switch request.Body.Kind {

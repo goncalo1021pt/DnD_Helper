@@ -7,6 +7,7 @@ import {
   spellOnClassList,
   swapAllowance,
   type CasterData,
+  type CasterSource,
 } from "../../lib/spellcasting";
 import ParchmentModal from "./ParchmentModal";
 
@@ -27,7 +28,7 @@ export interface Swap {
 
 const level = (s: RulesContent) => ((s.data as { level?: number }).level ?? 0) as number;
 
-export function swapLimits(klass: RulesContent | undefined, trigger: "long-rest" | "level-up") {
+export function swapLimits(klass: CasterSource | undefined, trigger: "long-rest" | "level-up") {
   const changes = spellChangesFor(klass?.data as CasterData | undefined);
   return {
     prepared: swapAllowance(changes.prepared, trigger),
@@ -35,8 +36,8 @@ export function swapLimits(klass: RulesContent | undefined, trigger: "long-rest"
   };
 }
 
-/** Whether this class can trade anything at all on the given trigger. */
-export function canSwapOn(klass: RulesContent | undefined, trigger: "long-rest" | "level-up") {
+/** Whether this caster can trade anything at all on the given trigger. */
+export function canSwapOn(klass: CasterSource | undefined, trigger: "long-rest" | "level-up") {
   const { prepared, cantrips } = swapLimits(klass, trigger);
   return prepared !== 0 || cantrips !== 0;
 }
@@ -52,7 +53,9 @@ export default function SpellSwapModal({
   onClose,
   onConfirm,
 }: {
-  klass: RulesContent | undefined;
+  /** Where the casting is declared: the class, or {class name, subclass data}
+   * when it rides on the subclass (#220) — see casterSourceFor. */
+  klass: CasterSource | undefined;
   /** The hero's current spells. */
   known: RulesContent[];
   /** Every spell the viewer can see, for the replacement list. */
