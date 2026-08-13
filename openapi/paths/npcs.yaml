@@ -1,0 +1,222 @@
+/campaigns/{campaignId}/npcs:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listNpcs
+    summary: >-
+      The people of a campaign. The DM sees everyone with both veils spelled
+      out; a player sees only the NPCs their heroes' veil resolves visible,
+      and reads stats only where the second veil allows.
+    responses:
+      "200":
+        description: NPCs, redacted for the viewer
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Npc"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createNpc
+    summary: Bring a person into the campaign (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/NpcInput"
+    responses:
+      "201":
+        description: The new NPC
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/npcs/{npcId}:
+  parameters:
+    - name: npcId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateNpc
+    summary: Rename a person, move them, or change what stands behind them (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/NpcInput"
+    responses:
+      "200":
+        description: The NPC after the change
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteNpc
+    summary: Strike a person from the campaign (DM only)
+    responses:
+      "204":
+        description: Gone
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/npcs/{npcId}/visibility:
+  parameters:
+    - name: npcId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  put:
+    operationId: setNpcVisibility
+    summary: >-
+      Reveal or hide a person, for the party or for one hero (DM only).
+      Choosing the party clears every per-hero exception.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetVisibilityRequest"
+    responses:
+      "200":
+        description: The NPC with its veil as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/npcs/{npcId}/visibility/{characterId}:
+  parameters:
+    - name: npcId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: characterId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  delete:
+    operationId: clearNpcVisibilityOverride
+    summary: Drop one hero's exception so they follow the party again (DM only)
+    responses:
+      "200":
+        description: The NPC with its veil as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/npcs/{npcId}/stats-visibility:
+  parameters:
+    - name: npcId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  put:
+    operationId: setNpcStatsVisibility
+    summary: >-
+      Reveal or hide a person's stat block or sheet, for the party or for one
+      hero (DM only). The stats only ever show where the person themselves is
+      visible.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetVisibilityRequest"
+    responses:
+      "200":
+        description: The NPC with its veils as they now stand
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/npcs/{npcId}/stats-visibility/{characterId}:
+  parameters:
+    - name: npcId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: characterId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  delete:
+    operationId: clearNpcStatsVisibilityOverride
+    summary: Drop one hero's stats exception so they follow the party again (DM only)
+    responses:
+      "200":
+        description: The NPC with its veils as they now stand
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

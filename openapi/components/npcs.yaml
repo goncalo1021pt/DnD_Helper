@@ -1,0 +1,89 @@
+Npc:
+  type: object
+  required: [id, name, description, isDM]
+  description: |
+    A person of the campaign, as this viewer may know them. Players are only
+    ever sent NPCs their veil resolves visible — through any of their seated
+    heroes, with the place tree above having the final word — so everything a
+    player receives is someone they have met. The stats carry a second veil:
+    `statBlock` / `characterId` are present only when the viewer may read them.
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    description:
+      type: string
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+    locationName:
+      type: string
+      nullable: true
+      description: The place this person is found in — null when they are filed nowhere.
+    contentId:
+      type: string
+      format: uuid
+      nullable: true
+      description: DM-only. The Den monster behind this NPC, when they carry a stat block.
+    statBlock:
+      $ref: "../openapi.yaml#/components/schemas/RulesContent"
+      nullable: true
+      description: The stat block, present when the viewer may read the stats.
+    characterId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The character sheet behind this NPC, present when the viewer may read it.
+    characterName:
+      type: string
+      nullable: true
+    isDM:
+      type: boolean
+      description: Whether the viewer may edit this NPC and work its veils.
+    visibleToParty:
+      type: boolean
+      description: DM-only. The party-wide veil on this person.
+    visibility:
+      type: array
+      description: DM-only. Per-hero exceptions to visibleToParty.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/VisibilityOverride"
+    statsVisibleToParty:
+      type: boolean
+      description: DM-only. The party-wide veil on this person's stats or sheet.
+    statsVisibility:
+      type: array
+      description: DM-only. Per-hero exceptions to statsVisibleToParty.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/VisibilityOverride"
+
+NpcInput:
+  type: object
+  required: [name]
+  description: |
+    Creating or amending a person. On PATCH an absent field keeps what is
+    there, like a shop's filing; `contentId` and `characterId` exclude each
+    other — setting one clears the other — and either is cleared explicitly by
+    sending the nil UUID (all zeros), the way the bestiary unlinks a monster.
+  properties:
+    name:
+      type: string
+    description:
+      type: string
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+    contentId:
+      type: string
+      format: uuid
+      nullable: true
+      description: A Den monster to stand behind this NPC — SRD or the DM's own homebrew.
+    characterId:
+      type: string
+      format: uuid
+      nullable: true
+      description: A character seated at this campaign whose sheet is this NPC's.

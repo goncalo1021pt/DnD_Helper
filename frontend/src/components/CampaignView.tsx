@@ -27,6 +27,7 @@ function SectionRail({ role }: { role: Role }) {
     { to: "map", label: "Map" },
     { to: "world", label: "World" },
     { to: "vendors", label: "Bazaar" },
+    { to: "npcs", label: "Folk" },
     { to: "bestiary", label: "Bestiary" },
     { to: "codex", label: "Codex" },
     { to: "chronicle", label: "Chronicle" },

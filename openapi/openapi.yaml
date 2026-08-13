@@ -228,6 +228,19 @@ paths:
   /combatants/{combatantId}/roll:
     $ref: "./paths/encounters.yaml#/~1combatants~1{combatantId}~1roll"
 
+  /campaigns/{campaignId}/npcs:
+    $ref: "./paths/npcs.yaml#/~1campaigns~1{campaignId}~1npcs"
+  /npcs/{npcId}:
+    $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}"
+  /npcs/{npcId}/visibility:
+    $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1visibility"
+  /npcs/{npcId}/visibility/{characterId}:
+    $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1visibility~1{characterId}"
+  /npcs/{npcId}/stats-visibility:
+    $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1stats-visibility"
+  /npcs/{npcId}/stats-visibility/{characterId}:
+    $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1stats-visibility~1{characterId}"
+
 components:
   securitySchemes:
     sessionCookie:
@@ -618,6 +631,11 @@ components:
       $ref: "./components/handouts.yaml#/CreateHandoutRequest"
     UpdateHandoutRequest:
       $ref: "./components/handouts.yaml#/UpdateHandoutRequest"
+
+    Npc:
+      $ref: "./components/npcs.yaml#/Npc"
+    NpcInput:
+      $ref: "./components/npcs.yaml#/NpcInput"
 
 security:
   - sessionCookie: []

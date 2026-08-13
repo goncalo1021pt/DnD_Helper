@@ -20,6 +20,7 @@ export * from "./heroes";
 export * from "./live";
 export * from "./rules";
 export * from "./vendors";
+export * from "./npcs";
 export * from "./chronicle";
 export * from "./handouts";
 export * from "./packs";

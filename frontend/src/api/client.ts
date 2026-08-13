@@ -37,6 +37,12 @@ export type StockPatch = NonNullable<
   paths["/stock/{stockId}"]["patch"]["requestBody"]
 >["content"]["application/json"];
 
+export type Npc =
+  paths["/campaigns/{campaignId}/npcs"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type NpcInput = NonNullable<
+  paths["/campaigns/{campaignId}/npcs"]["post"]["requestBody"]
+>["content"]["application/json"];
+
 export type Quest =
   paths["/campaigns/{campaignId}/quests"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type QuestReward = Quest["rewards"][number];

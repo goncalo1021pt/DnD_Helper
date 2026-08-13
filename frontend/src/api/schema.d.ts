@@ -1934,6 +1934,124 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/npcs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The people of a campaign. The DM sees everyone with both veils spelled out; a player sees only the NPCs their heroes' veil resolves visible, and reads stats only where the second veil allows. */
+        get: operations["listNpcs"];
+        put?: never;
+        /** Bring a person into the campaign (DM only) */
+        post: operations["createNpc"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/npcs/{npcId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Strike a person from the campaign (DM only) */
+        delete: operations["deleteNpc"];
+        options?: never;
+        head?: never;
+        /** Rename a person, move them, or change what stands behind them (DM only) */
+        patch: operations["updateNpc"];
+        trace?: never;
+    };
+    "/npcs/{npcId}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Reveal or hide a person, for the party or for one hero (DM only). Choosing the party clears every per-hero exception. */
+        put: operations["setNpcVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/npcs/{npcId}/visibility/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+                characterId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop one hero's exception so they follow the party again (DM only) */
+        delete: operations["clearNpcVisibilityOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/npcs/{npcId}/stats-visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Reveal or hide a person's stat block or sheet, for the party or for one hero (DM only). The stats only ever show where the person themselves is visible. */
+        put: operations["setNpcStatsVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/npcs/{npcId}/stats-visibility/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+                characterId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop one hero's stats exception so they follow the party again (DM only) */
+        delete: operations["clearNpcStatsVisibilityOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3255,6 +3373,68 @@ export interface components {
         UpdateHandoutRequest: {
             title: string;
             caption: string;
+        };
+        /**
+         * @description A person of the campaign, as this viewer may know them. Players are only
+         *     ever sent NPCs their veil resolves visible — through any of their seated
+         *     heroes, with the place tree above having the final word — so everything a
+         *     player receives is someone they have met. The stats carry a second veil:
+         *     `statBlock` / `characterId` are present only when the viewer may read them.
+         */
+        Npc: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            /** Format: uuid */
+            locationId?: string | null;
+            /** @description The place this person is found in — null when they are filed nowhere. */
+            locationName?: string | null;
+            /**
+             * Format: uuid
+             * @description DM-only. The Den monster behind this NPC, when they carry a stat block.
+             */
+            contentId?: string | null;
+            /** @description The stat block, present when the viewer may read the stats. */
+            statBlock?: components["schemas"]["RulesContent"];
+            /**
+             * Format: uuid
+             * @description The character sheet behind this NPC, present when the viewer may read it.
+             */
+            characterId?: string | null;
+            characterName?: string | null;
+            /** @description Whether the viewer may edit this NPC and work its veils. */
+            isDM: boolean;
+            /** @description DM-only. The party-wide veil on this person. */
+            visibleToParty?: boolean;
+            /** @description DM-only. Per-hero exceptions to visibleToParty. */
+            visibility?: components["schemas"]["VisibilityOverride"][];
+            /** @description DM-only. The party-wide veil on this person's stats or sheet. */
+            statsVisibleToParty?: boolean;
+            /** @description DM-only. Per-hero exceptions to statsVisibleToParty. */
+            statsVisibility?: components["schemas"]["VisibilityOverride"][];
+        };
+        /**
+         * @description Creating or amending a person. On PATCH an absent field keeps what is
+         *     there, like a shop's filing; `contentId` and `characterId` exclude each
+         *     other — setting one clears the other — and either is cleared explicitly by
+         *     sending the nil UUID (all zeros), the way the bestiary unlinks a monster.
+         */
+        NpcInput: {
+            name: string;
+            description?: string;
+            /** Format: uuid */
+            locationId?: string | null;
+            /**
+             * Format: uuid
+             * @description A Den monster to stand behind this NPC — SRD or the DM's own homebrew.
+             */
+            contentId?: string | null;
+            /**
+             * Format: uuid
+             * @description A character seated at this campaign whose sheet is this NPC's.
+             */
+            characterId?: string | null;
         };
     };
     responses: {
@@ -7133,6 +7313,224 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Combatant"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listNpcs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description NPCs, redacted for the viewer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createNpc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NpcInput"];
+            };
+        };
+        responses: {
+            /** @description The new NPC */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteNpc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateNpc: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NpcInput"];
+            };
+        };
+        responses: {
+            /** @description The NPC after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setNpcVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description The NPC with its veil as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearNpcVisibilityOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+                characterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The NPC with its veil as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setNpcStatsVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description The NPC with its veils as they now stand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearNpcStatsVisibilityOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+                characterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The NPC with its veils as they now stand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
                 };
             };
             401: components["responses"]["Unauthorized"];

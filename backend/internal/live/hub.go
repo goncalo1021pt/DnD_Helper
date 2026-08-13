@@ -36,6 +36,7 @@ const (
 	TopicMap       Topic = "map"       // fog lifted, a pin moved
 	TopicParty     Topic = "party"     // a hero was seated, healed, levelled
 	TopicVendors   Topic = "vendors"   // a shop or a shelf was revealed
+	TopicNpcs      Topic = "npcs"      // a person or their stats were revealed
 )
 
 // buffer is how far behind a client may fall before it is cut loose. Small on
