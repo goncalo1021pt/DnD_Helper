@@ -6,7 +6,7 @@ A small, self-hosted web app for running **D&D 5.5e (2024)** campaigns: a tavern
 homebrew-friendly rules **codex** — all behind a single container and your own
 login.
 
-> **Status: v1.2.0.** Runs in production as a single container behind a
+> **Status: v1.7.0.** Runs in production as a single container behind a
 > Cloudflare Tunnel. An open instance is live at
 > **[dnd.fontao.net](https://dnd.fontao.net)** — sign up and bring your table,
 > or self-host your own with the walkthrough below.
