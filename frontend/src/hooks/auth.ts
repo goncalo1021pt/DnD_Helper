@@ -5,9 +5,40 @@
  * use authPost rather than the generated client.
  */
 
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "../lib/http";
 import { api } from "../api/client";
+
+/*
+The tabs tell each other when the account changes (#224).
+
+A confirmation link arrives by email, so it opens wherever the mail client
+sends it — usually a second tab, while the tavern stays open in the first. That
+first tab has its own cache, holding a `me` it fetched before the address was
+confirmed, and it goes on nudging for a confirmation that already happened
+until someone reloads it.
+
+So the tab that learns something says so, and every tab holding a `me` refetches
+its own. It carries no payload on purpose: a message from another tab is news
+that something changed, never a claim about who changed it, and each tab asks
+the server about its own session. A browser without BroadcastChannel simply
+keeps the old behaviour — a reload.
+*/
+const AUTH_CHANNEL = "questboard-auth";
+let channel: BroadcastChannel | null | undefined;
+
+function authChannel(): BroadcastChannel | null {
+  if (channel === undefined) {
+    channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(AUTH_CHANNEL);
+  }
+  return channel;
+}
+
+/** Tells the other tabs that this one changed something about the account. */
+export function announceAuthChange() {
+  authChannel()?.postMessage("changed");
+}
 
 export interface AuthConfig {
   devLogin: boolean;
@@ -33,6 +64,16 @@ export function useAuthConfig() {
 // Current user (or null when unauthenticated). A 401 is an expected, non-error
 // state for the login gate.
 export function useCurrentUser() {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    const ch = authChannel();
+    if (!ch) return;
+    const onMessage = () => void qc.invalidateQueries({ queryKey: ["me"] });
+    ch.addEventListener("message", onMessage);
+    return () => ch.removeEventListener("message", onMessage);
+  }, [qc]);
+
   return useQuery({
     queryKey: ["me"],
     queryFn: async () => {

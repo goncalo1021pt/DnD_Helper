@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { passwordStrength } from "../lib/password";
 import { apiFetch } from "../lib/http";
+import { announceAuthChange } from "../hooks";
 
 /** Centered parchment card on the hearth — the shell for the email flows. */
 function AuthShell({ title, children }: { title: string; children: ReactNode }) {
@@ -64,8 +65,13 @@ export function VerifyEmailPage() {
       // so the cached copy still reads unverified — and "Enter the Tavern" is a
       // client-side link, which would carry that staleness (and its nudge to
       // confirm) straight into the tavern (#224). Settle the refetch before
-      // offering the door, so what greets them is already true.
-      if (ok) await qc.invalidateQueries({ queryKey: ["me"] });
+      // offering the door, so what greets them is already true. The tavern is
+      // usually open in the tab this link was opened *from*, too; that one is
+      // told, and refetches its own.
+      if (ok) {
+        announceAuthChange();
+        await qc.invalidateQueries({ queryKey: ["me"] });
+      }
       setState(ok ? "ok" : "fail");
     })();
   }, [token, qc]);

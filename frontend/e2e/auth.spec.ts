@@ -91,16 +91,24 @@ test("the emailed link verifies the address", async ({ page }) => {
   const link = afterAddress.match(/\/verify-email\?token=[^\s"]+/)?.[0];
   expect(link, "no verification link was logged").toBeTruthy();
 
-  await page.goto(link!);
+  // A mail client opens the link in a tab of its own, which is how #224 was
+  // met: the tavern stays open in this one, holding the `me` it fetched before
+  // the address was confirmed.
+  const mailTab = await page.context().newPage();
+  await mailTab.goto(link!);
 
   // Walking in from the confirmation page is a client-side link, so the nudge
-  // has to be gone without a reload — reloading was the workaround in #224, not
-  // the fix.
-  await page.getByRole("link", { name: /Enter the Tavern/i }).click();
-  await expect(page).toHaveURL(/\/questboard/);
-  await expect(page.getByText(/Confirm your email/i)).toBeHidden();
+  // has to be gone without a reload — reloading was the workaround, not the fix.
+  await mailTab.getByRole("link", { name: /Enter the Tavern/i }).click();
+  await expect(mailTab).toHaveURL(/\/questboard/);
+  await expect(mailTab.getByText(/Confirm your email/i)).toBeHidden();
 
-  // And it stays gone across a fresh load.
+  // And the tab that was already open hears about it, with nobody reloading it.
+  // It has been sitting in the background, so give the refetch room.
+  await expect(page.getByText(/Confirm your email/i)).toBeHidden({ timeout: 15_000 });
+  await mailTab.close();
+
+  // It stays gone across a fresh load, too.
   await page.goto("/questboard");
   await expect(page.getByText(/Confirm your email/i)).toBeHidden();
 });
