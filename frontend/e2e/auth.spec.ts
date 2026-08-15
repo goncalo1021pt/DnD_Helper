@@ -92,7 +92,15 @@ test("the emailed link verifies the address", async ({ page }) => {
   expect(link, "no verification link was logged").toBeTruthy();
 
   await page.goto(link!);
-  // The nudge is gone once the address is confirmed.
+
+  // Walking in from the confirmation page is a client-side link, so the nudge
+  // has to be gone without a reload — reloading was the workaround in #224, not
+  // the fix.
+  await page.getByRole("link", { name: /Enter the Tavern/i }).click();
+  await expect(page).toHaveURL(/\/questboard/);
+  await expect(page.getByText(/Confirm your email/i)).toBeHidden();
+
+  // And it stays gone across a fresh load.
   await page.goto("/questboard");
   await expect(page.getByText(/Confirm your email/i)).toBeHidden();
 });

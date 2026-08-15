@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { passwordStrength } from "../lib/password";
 import { apiFetch } from "../lib/http";
 
@@ -31,22 +32,43 @@ const backToTavern = (
 /** Confirms an email from the link in the verification message. */
 export function VerifyEmailPage() {
   const [params] = useSearchParams();
+  const qc = useQueryClient();
   const token = params.get("token") ?? "";
   const [state, setState] = useState<"working" | "ok" | "fail">("working");
+  // The token is spent on first use, so a second POST for the same link would
+  // come back 400 and report a good confirmation as a failure. StrictMode runs
+  // this effect twice in development; the guard keeps one link to one call.
+  const sent = useRef("");
 
   useEffect(() => {
     if (!token) {
       setState("fail");
       return;
     }
-    apiFetch("/api/auth/verify-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    })
-      .then((r) => setState(r.status === 204 ? "ok" : "fail"))
-      .catch(() => setState("fail"));
-  }, [token]);
+    if (sent.current === token) return;
+    sent.current = token;
+
+    void (async () => {
+      let ok = false;
+      try {
+        const res = await apiFetch("/api/auth/verify-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        ok = res.status === 204;
+      } catch {
+        ok = false;
+      }
+      // The signed-in user was loaded before this page confirmed the address,
+      // so the cached copy still reads unverified — and "Enter the Tavern" is a
+      // client-side link, which would carry that staleness (and its nudge to
+      // confirm) straight into the tavern (#224). Settle the refetch before
+      // offering the door, so what greets them is already true.
+      if (ok) await qc.invalidateQueries({ queryKey: ["me"] });
+      setState(ok ? "ok" : "fail");
+    })();
+  }, [token, qc]);
 
   return (
     <AuthShell title="Confirm your email">
