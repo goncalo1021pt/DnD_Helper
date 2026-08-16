@@ -270,3 +270,89 @@ test("the old /places address still finds the world", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "The World" })).toBeVisible({ timeout: 20_000 });
   await expect(page).toHaveURL(new RegExp(`/campaigns/${campaign.id}/world$`));
 });
+
+/*
+Striking a place must not lift its veil (#238). The FK unpins its notices and
+folk (ON DELETE SET NULL), but the place's veil dies with the row — so the
+delete first freezes what each viewer could see through that veil onto the
+content's own visibility. Dark stays dark, public stays public.
+*/
+test("deleting a veiled place keeps its notices and folk dark; a public place's stay public", async ({
+  browser,
+}) => {
+  const dmCtx = await browser.newContext();
+  const dm = await dmCtx.newPage();
+  await dm.goto("/");
+  await registerViaAPI(dm.request, newAccount("veilfrz"));
+  const campaign = await createCampaign(dm.request, unique("Frozen Veil "));
+
+  const plCtx = await browser.newContext();
+  const pl = await plCtx.newPage();
+  await pl.goto("/");
+  await registerViaAPI(pl.request, newAccount("veilfrzpl"));
+  await joinCampaign(pl.request, campaign.inviteCode);
+
+  // A secret place (veiled by default) with a party-visible notice and a
+  // party-visible person filed in it — both dark today only because of it.
+  const secret = await createLocation(dm.request, campaign.id, "The Silent Reach");
+  const questId = await postQuest(dm.request, campaign.id, "Steal the Whisper-Pearl", secret);
+  await dm.request.put(`/api/quests/${questId}/visibility`, {
+    data: { scope: "party", visible: true },
+  });
+  const npcRes = await dm.request.post(`/api/campaigns/${campaign.id}/npcs`, {
+    data: { name: "The Silent Broker", locationId: secret },
+  });
+  expect(npcRes.ok(), await npcRes.text()).toBeTruthy();
+  await dm.request.put(`/api/npcs/${(await npcRes.json()).id}/visibility`, {
+    data: { scope: "party", visible: true },
+  });
+
+  // And a public place with a public notice — the control group.
+  const publicLoc = await createLocation(dm.request, campaign.id, "Milltown");
+  await revealLocation(dm.request, publicLoc);
+  const publicQuest = await postQuest(dm.request, campaign.id, "Rats in the Granary", publicLoc);
+  await dm.request.put(`/api/quests/${publicQuest}/visibility`, {
+    data: { scope: "party", visible: true },
+  });
+
+  const playerQuests = async () =>
+    (await (await pl.request.get(`/api/campaigns/${campaign.id}/quests`)).json()) as Array<{
+      title: string;
+      location?: string | null;
+    }>;
+  const playerNpcs = async () =>
+    (await (await pl.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()) as Array<{
+      name: string;
+    }>;
+
+  // Before: the player sees only the public notice, and nobody.
+  expect((await playerQuests()).map((q) => q.title)).toEqual(["Rats in the Granary"]);
+  expect(await playerNpcs()).toEqual([]);
+
+  // Strike both places.
+  for (const id of [secret, publicLoc]) {
+    const del = await dm.request.delete(`/api/locations/${id}`);
+    expect(del.ok(), await del.text()).toBeTruthy();
+  }
+
+  // After: exactly the same world. The secret notice did not surface, its
+  // title and its place's name never reach the player; the public notice
+  // survived its place's death without going dark.
+  const after = await playerQuests();
+  expect(after.map((q) => q.title)).toEqual(["Rats in the Granary"]);
+  const raw = JSON.stringify(after) + JSON.stringify(await playerNpcs());
+  expect(raw).not.toContain("Whisper-Pearl");
+  expect(raw).not.toContain("Silent Reach");
+  expect(raw).not.toContain("Silent Broker");
+
+  // The DM keeps everything, unfiled, each notice remembering where it hung.
+  const dmQuests = (await (
+    await dm.request.get(`/api/campaigns/${campaign.id}/quests`)
+  ).json()) as Array<{ title: string; location?: string | null }>;
+  const pearl = dmQuests.find((q) => q.title === "Steal the Whisper-Pearl");
+  expect(pearl, "the DM still holds the secret notice").toBeTruthy();
+  expect(pearl!.location, "it remembers where it hung").toBe("The Silent Reach");
+
+  await dmCtx.close();
+  await plCtx.close();
+});

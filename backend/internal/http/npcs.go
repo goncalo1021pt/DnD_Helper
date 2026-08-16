@@ -272,12 +272,20 @@ func (s *Server) oneNpc(ctx context.Context, campaignID, npcID, viewer uuid.UUID
 }
 
 // requireNpcDM resolves a person and enforces the DM role over their campaign.
+//
+// An authenticated caller who is not that DM gets ErrNoRows, not errForbidden:
+// a hidden person must be indistinguishable from one who does not exist, and a
+// 403-for-real-ids / 404-for-fake-ids split lets a player probe the id space
+// (#240). Redaction means absent — here as everywhere.
 func (s *Server) requireNpcDM(ctx context.Context, npcID uuid.UUID) (db.Npc, error) {
 	n, err := s.queries.GetNpc(ctx, npcID)
 	if err != nil {
 		return db.Npc{}, err
 	}
 	if _, err := s.requireDM(ctx, n.CampaignID); err != nil {
+		if errors.Is(err, errForbidden) {
+			return db.Npc{}, pgx.ErrNoRows
+		}
 		return n, err
 	}
 	return n, nil

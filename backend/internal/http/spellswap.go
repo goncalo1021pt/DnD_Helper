@@ -82,6 +82,19 @@ func (s *Server) SwapCharacterSpells(ctx context.Context, request api.SwapCharac
 		return badRequest(msg)
 	}
 
+	// A seated hero's trades answer to the table's codex like every other
+	// pick — the ban that bars a spell at the forge and the level-up bars it
+	// at the long rest too (#239).
+	if seatedAt, ok := seatedCampaign(character); ok {
+		blockers, err := s.codexBlockers(ctx, seatedAt, swaps.In)
+		if err != nil {
+			return nil, err
+		}
+		if len(blockers) > 0 {
+			return badRequest(blockers[0].row.Name + " is not admitted by the campaign's codex — ask the DM")
+		}
+	}
+
 	if err := s.applySpellSwaps(ctx, character.ID, pgUUID(class.ID), swaps); err != nil {
 		return nil, err
 	}

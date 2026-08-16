@@ -287,7 +287,7 @@ export default function PlacesManager({
                     onClick={() => {
                       if (
                         confirm(
-                          `Erase "${l.name}"? Places nested inside it go too; notices hanging there are unpinned, not deleted.`,
+                          `Erase "${l.name}"? Places nested inside it go too; notices and folk hanging there are unpinned, not deleted — each keeps exactly the audience it has today.`,
                         )
                       ) {
                         remove.mutate(l.id);
