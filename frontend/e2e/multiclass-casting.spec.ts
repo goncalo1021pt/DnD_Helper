@@ -193,3 +193,80 @@ test("each class keeps its own spells and its own casting ability", async ({ pag
   const overlap = warlock.spellIds.filter((id) => wiz.spellIds.includes(id));
   expect(overlap, "a spell belongs to exactly one class").toHaveLength(0);
 });
+
+/*
+The caps of a class are its own (#241): counted against that class's spells at
+the hero's level IN that class — never the total level or the whole grimoire.
+Before the fix a full-loaded Cleric 1 was refused a Warlock level ("knows at
+most 2 cantrips at level 2"), ANY cantrip-owner was refused a Ranger dip
+("at most 0 cantrips"), and a spell-less hero was over-granted.
+*/
+test("a full-loaded Cleric dips Warlock and Ranger; a Warlock 1 prepares like a Warlock 1", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("caps"));
+
+  const byName = async (kind: string, want: string) => {
+    const list = (await (await page.request.get(`/api/rules/${kind}`)).json()) as Array<{
+      id: string;
+      name: string;
+    }>;
+    return list.find((e) => e.name === want)!.id;
+  };
+  const spellIds = async (names: string[]) => {
+    const list = (await (await page.request.get("/api/rules/spell")).json()) as Array<{
+      id: string;
+      name: string;
+    }>;
+    return names.map((n) => list.find((s) => s.name === n)!.id);
+  };
+
+  // The Cleric leaves the forge with a FULL load: 3 cantrips + 4 spells.
+  const fullLoad = await spellIds([
+    "Guidance", "Light", "Sacred Flame", "Bless", "Cure Wounds", "Bane", "Command",
+  ]);
+  const forged = await page.request.post("/api/me/characters/forge", {
+    data: {
+      name: unique("Capwright "),
+      classId: await byName("class", "Cleric"),
+      speciesId: await byName("species", "Dwarf"),
+      backgroundId: await byName("background", "Acolyte"),
+      abilities: { str: 8, dex: 13, con: 14, int: 10, wis: 16, cha: 15 },
+      skills: ["History", "Medicine"],
+      spells: fullLoad,
+    },
+  });
+  expect(forged.ok(), await forged.text()).toBeTruthy();
+  const hero = (await forged.json()).id as string;
+
+  // The Warlock dip lands, with the Warlock's OWN allowance: 2 cantrips + 2
+  // spells at Warlock 1 — the Cleric's picks eat none of it.
+  const [eldritchBlast, chillTouch, hexSpell, charm] = await spellIds([
+    "Eldritch Blast", "Chill Touch", "Hex", "Charm Person",
+  ]);
+  const dip = await page.request.post(`/api/characters/${hero}/levelup`, {
+    data: {
+      hpMode: "average",
+      classId: await byName("class", "Warlock"),
+      spells: [eldritchBlast, chillTouch, hexSpell, charm],
+    },
+  });
+  expect(dip.ok(), "a legal Warlock dip with a legal Warlock-1 load: " + (await dip.text())).toBeTruthy();
+
+  // A third Warlock-1 leveled spell would have passed under the old
+  // total-level read (Warlock 2 prepares 3); the class's own level refuses it.
+  const [hellish, unseen] = await spellIds(["Hellish Rebuke", "Comprehend Languages"]);
+  const over = await page.request.post(`/api/characters/${hero}/levelup`, {
+    data: { hpMode: "average", classId: await byName("class", "Warlock"), spells: [hellish, unseen] },
+  });
+  expect(over.status(), "Warlock 2 has room for exactly one more leveled spell, not two").toBe(400);
+  expect(await over.text(), "refused for the cap, not the list").toContain("prepares at most");
+
+  // And the Ranger dip — a class with no cantrip column — no longer chokes on
+  // the hero's Cleric cantrips.
+  const ranger = await page.request.post(`/api/characters/${hero}/levelup`, {
+    data: { hpMode: "average", classId: await byName("class", "Ranger") },
+  });
+  expect(ranger.ok(), "a cantrip-owning caster may dip Ranger: " + (await ranger.text())).toBeTruthy();
+});

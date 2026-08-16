@@ -324,7 +324,9 @@ export default function ForgeWizard() {
   const stepValid = validity[current];
 
   const hitDie = classData?.hitDie ?? 0;
-  const hp = Math.max(hitDie + abilityMod(finalScores.con), 1);
+  // The floor guards die + CON; the species' flat HP (Dwarven Toughness,
+  // #245) rides on top — the same reading the forge endpoint makes.
+  const hp = Math.max(hitDie + abilityMod(finalScores.con), 1) + (spData?.hpPerLevel ?? 0);
 
   // Assign a standard-array value; if another ability already holds it,
   // that ability is cleared — each value is used exactly once.

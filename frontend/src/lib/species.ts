@@ -59,6 +59,8 @@ export interface SpeciesData {
   size?: string;
   sizeNote?: string;
   speed?: number;
+  /** Flat HP added at every level — Dwarven Toughness is data (#245). */
+  hpPerLevel?: number;
   book?: string;
   description?: string;
   traits?: SpeciesTrait[];

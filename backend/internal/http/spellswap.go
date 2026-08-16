@@ -66,15 +66,20 @@ func (s *Server) SwapCharacterSpells(ctx context.Context, request api.SwapCharac
 	}
 	// The casting may be declared on the class's subclass rather than the
 	// class — an Eldritch Knight trades Wizard spells as a Fighter (#220).
+	// The trade is judged at the hero's level IN this class, against this
+	// class's own spells — never the total level or the whole grimoire (#241).
 	var subclassData []byte
+	classLevel := int(character.Level)
 	for _, k := range s.classesFor(ctx, character) {
 		if k.ClassID == class.ID {
 			subclassData = k.SubclassData
+			classLevel = int(k.Level)
 		}
 	}
 
 	msg, swaps, err := s.validateSpellSwaps(
-		ctx, uid, class, subclassData, int(character.Level), existing, request.Body.Swaps, "long-rest")
+		ctx, uid, class, subclassData, classLevel,
+		spellsOfClass(existing, class.ID, character.ClassID), request.Body.Swaps, "long-rest")
 	if err != nil {
 		return nil, err
 	}

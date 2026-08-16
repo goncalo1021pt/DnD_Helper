@@ -170,13 +170,23 @@ export default function LevelUpModal({
     () => new Set((detail?.spells ?? []).map((s) => s.id)),
     [detail],
   );
+  // The class's caps are counted against ITS OWN spells at the hero's level
+  // IN that class — a Cleric's cantrips never eat a new Warlock's allowance,
+  // and a first level in a caster class owns nothing yet (#241). The server
+  // judges by the same reading; `casters` says which spells belong to whom.
+  const classSpellIds = useMemo(
+    () => new Set((detail?.casters ?? []).find((c) => c.classId === takingIn)?.spellIds ?? []),
+    [detail, takingIn],
+  );
   const ownedCantrips = (detail?.spells ?? []).filter(
-    (s) => (s.data as { level?: number }).level === 0,
+    (s) => classSpellIds.has(s.id) && (s.data as { level?: number }).level === 0,
   ).length;
-  const ownedLeveled = (detail?.spells ?? []).length - ownedCantrips;
+  const ownedLeveled = (detail?.spells ?? []).filter(
+    (s) => classSpellIds.has(s.id) && ((s.data as { level?: number }).level ?? 0) > 0,
+  ).length;
   const spellChoices = useMemo(() => {
     if (!casting) return [];
-    const maxLvl = maxSpellLevel(casterKind, newLevel);
+    const maxLvl = maxSpellLevel(casterKind, classLevel);
     return (allSpells ?? []).filter((s) => {
       const d = s.data as { classes?: string[]; level?: number };
       const lvl = d.level ?? 99;
@@ -187,13 +197,13 @@ export default function LevelUpModal({
         codexLegal(s)
       );
     });
-  }, [casting, casterKind, newLevel, allSpells, ownedSpellIds, casterSource, codexLegal]);
+  }, [casting, casterKind, classLevel, allSpells, ownedSpellIds, casterSource, codexLegal]);
   const pickedNewCantrips = newSpellIds.filter(
     (id) => ((allSpells ?? []).find((s) => s.id === id)?.data as { level?: number })?.level === 0,
   ).length;
   const pickedNewLeveled = newSpellIds.length - pickedNewCantrips;
-  const cantripRoom = casting ? Math.max(casting.cantrips[newLevel - 1] - ownedCantrips, 0) : 0;
-  const preparedRoom = casting ? Math.max(casting.prepared[newLevel - 1] - ownedLeveled, 0) : 0;
+  const cantripRoom = casting ? Math.max(casting.cantrips[classLevel - 1] - ownedCantrips, 0) : 0;
+  const preparedRoom = casting ? Math.max(casting.prepared[classLevel - 1] - ownedLeveled, 0) : 0;
 
   // What this level grants, from class + chosen subclass data. Indexed by the
   // level in THIS class, not the hero's total — a Rogue 5 taking their first
@@ -370,7 +380,7 @@ export default function LevelUpModal({
         {casting && (cantripRoom > 0 || preparedRoom > 0) && spellChoices.length > 0 && (
           <div>
             <div className="field-label mb-1.5">
-              New spells at level {newLevel}
+              New spells at {klass?.name ?? "class"} level {classLevel}
               <span className="ml-2 font-normal normal-case tracking-normal text-ink-label">
                 {cantripRoom > 0 && `cantrips ${pickedNewCantrips}/${cantripRoom} · `}
                 spells {pickedNewLeveled}/{preparedRoom}
@@ -419,7 +429,7 @@ export default function LevelUpModal({
         )}
 
         {/* a spell traded on the way up — Bard, Sorcerer, Warlock */}
-        {canSwapOn(casterSource, "level-up") && (detail?.spells ?? []).length > 0 && (
+        {canSwapOn(casterSource, "level-up") && classSpellIds.size > 0 && (
           <div>
             <div className="field-label mb-1.5">
               Change a known spell
@@ -640,9 +650,11 @@ export default function LevelUpModal({
       {swapping && (
         <SpellSwapModal
           klass={casterSource}
-          known={detail?.spells ?? []}
+          // Trades happen within ONE class's list, judged at the hero's level
+          // in that class (#241) — offer only the spells this class owns.
+          known={(detail?.spells ?? []).filter((s) => classSpellIds.has(s.id))}
           library={allSpells ?? []}
-          characterLevel={newLevel}
+          characterLevel={classLevel}
           trigger="level-up"
           onClose={() => setSwapping(false)}
           onConfirm={(picked) => {

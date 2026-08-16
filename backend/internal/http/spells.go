@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
@@ -96,6 +97,24 @@ func parseCasting(classData []byte) (kind string, casting rules.Casting, isCaste
 		casting = *cr.Spellcasting
 	}
 	return cr.Spellcaster, casting, true
+}
+
+// spellsOfClass narrows a hero's spell rows to one class's own list — a
+// class's caps are counted against ITS spells, never the whole grimoire
+// (#241). Rows from before spells carried a class (NULL class_id) read as
+// the starting class's, the class they were forged under.
+func spellsOfClass(rows []db.ListCharacterSpellsRow, classID uuid.UUID, startingClass pgtype.UUID) []db.ListCharacterSpellsRow {
+	out := make([]db.ListCharacterSpellsRow, 0, len(rows))
+	for _, r := range rows {
+		owner := startingClass
+		if r.ClassID.Valid {
+			owner = r.ClassID
+		}
+		if owner.Valid && uuid.UUID(owner.Bytes) == classID {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // castingDataOf returns the data block a hero-class's casting is declared on:
