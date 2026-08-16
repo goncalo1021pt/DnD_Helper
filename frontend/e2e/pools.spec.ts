@@ -139,3 +139,45 @@ test("a Paladin's Lay On Hands: a points pool on a stepper, back with the night"
   await expect(page.getByRole("status")).toContainText("Lay On Hands restored");
   await expect(resources.getByText("10/10")).toBeVisible();
 });
+
+/*
+A second class's pools resolve, at the hero's level IN that class (#242).
+grantSources used to walk only the starting ClassID, so a Cleric 2 / Ranger 1
+had no Favored Enemy at all.
+*/
+test("a Cleric 2 / Ranger 1 holds a level-2 Channel Divinity AND a level-1 Favored Enemy", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("mcpool"));
+  const hero = await forgeHero(page.request, {
+    name: unique("Poolwright "),
+    className: "Cleric",
+    speciesName: "Dwarf",
+    backgroundName: "Acolyte",
+    abilities: { str: 8, dex: 13, con: 14, int: 10, wis: 16, cha: 12 },
+    skills: ["History", "Medicine"],
+  });
+  const classes = (await (await page.request.get("/api/rules/class")).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const idOf = (n: string) => classes.find((c) => c.name === n)!.id;
+  for (const cls of ["Cleric", "Ranger"]) {
+    const res = await page.request.post(`/api/characters/${hero}/levelup`, {
+      data: { hpMode: "average", classId: idOf(cls) },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  }
+
+  const detail = (await (await page.request.get(`/api/characters/${hero}`)).json()) as {
+    character: { sheet?: { pools?: Array<{ name: string; max: number; grantedBy: string }> } };
+  };
+  const pools = detail.character.sheet?.pools ?? [];
+  const cd = pools.find((p) => p.name === "Channel Divinity");
+  const fe = pools.find((p) => p.name === "Favored Enemy");
+  expect(cd?.max, "Channel Divinity read at Cleric level 2").toBe(2);
+  expect(fe, "the Ranger's pool exists at all").toBeTruthy();
+  expect(fe?.max, "Favored Enemy read at Ranger level 1, not hero level 3").toBe(2);
+  expect(fe?.grantedBy).toBe("Ranger");
+});

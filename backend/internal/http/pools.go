@@ -61,12 +61,18 @@ func (s *Server) resolvePools(ctx context.Context, c db.Character) []resolvedPoo
 	var out []resolvedPool
 	seen := map[string]bool{}
 	for _, src := range sources {
+		// A class's pools are read at the hero's level IN that class — a
+		// Cleric 2 / Ranger 1 has a level-2 Channel Divinity and a level-1
+		// Favored Enemy, never a level-3 anything (#242). Prof stays the
+		// total level's bonus; only the level a table or formula reads moves.
+		srcScope := scope
+		srcScope.Level = src.levelOr(scope.Level)
 		for _, grant := range rules.PoolsIn(src.data) {
 			if seen[grant.Name] {
 				continue
 			}
 			seen[grant.Name] = true
-			max := grant.Max(scope)
+			max := grant.Max(srcScope)
 			if max <= 0 {
 				continue // not at this level, or a declaration gone sour
 			}
@@ -79,7 +85,7 @@ func (s *Server) resolvePools(ctx context.Context, c db.Character) []resolvedPoo
 			}
 			out = append(out, resolvedPool{
 				Name: grant.Name, Max: max, Used: u,
-				GrantedBy: src.name, ShortRest: grant.ShortRestKindAt(scope.Level),
+				GrantedBy: src.name, ShortRest: grant.ShortRestKindAt(srcScope.Level),
 			})
 		}
 	}
