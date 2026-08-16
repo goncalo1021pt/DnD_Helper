@@ -105,3 +105,53 @@ test("a person is a rumor until the DM says otherwise — and their numbers are 
   await dmCtx.close();
   await plCtx.close();
 });
+
+/*
+A hidden person must be indistinguishable from one who does not exist (#240).
+The DM-only doors used to split 403-for-real-ids / 404-for-fake-ids, which let
+a player probe the id space. Now every non-DM caller reads "no such person".
+*/
+test("a player probing the folk doors cannot tell a hidden person from a fake id", async ({
+  browser,
+}) => {
+  const dmCtx = await browser.newContext();
+  const dm = await dmCtx.newPage();
+  await dm.goto("/");
+  await registerViaAPI(dm.request, newAccount("probedm"));
+  const campaign = await createCampaign(dm.request, unique("Probe Table "));
+  const npcRes = await dm.request.post(`/api/campaigns/${campaign.id}/npcs`, {
+    data: { name: "The Quiet One" }, // veiled by default
+  });
+  expect(npcRes.ok(), await npcRes.text()).toBeTruthy();
+  const hiddenId = (await npcRes.json()).id as string;
+
+  const plCtx = await browser.newContext();
+  const pl = await plCtx.newPage();
+  await pl.goto("/");
+  await registerViaAPI(pl.request, newAccount("probepl"));
+  await joinCampaign(pl.request, campaign.inviteCode);
+
+  const fakeId = "00000000-0000-4000-8000-000000000001";
+  for (const [what, id] of [
+    ["a hidden person", hiddenId],
+    ["a fake id", fakeId],
+  ] as const) {
+    const patch = await pl.request.patch(`/api/npcs/${id}`, { data: { name: "Probe" } });
+    expect(patch.status(), `PATCH on ${what}`).toBe(404);
+    const del = await pl.request.delete(`/api/npcs/${id}`);
+    expect(del.status(), `DELETE on ${what}`).toBe(404);
+    const vis = await pl.request.put(`/api/npcs/${id}/visibility`, {
+      data: { scope: "party", visible: true },
+    });
+    expect(vis.status(), `visibility PUT on ${what}`).toBe(404);
+  }
+
+  // The DM's own doors still open — the person is real and editable.
+  const dmPatch = await dm.request.patch(`/api/npcs/${hiddenId}`, {
+    data: { name: "The Quiet One" },
+  });
+  expect(dmPatch.ok(), await dmPatch.text()).toBeTruthy();
+
+  await dmCtx.close();
+  await plCtx.close();
+});
