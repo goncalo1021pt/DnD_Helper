@@ -402,21 +402,149 @@ func (s *Server) DeleteLocation(ctx context.Context, request api.DeleteLocationR
 			return nil, err
 		}
 	}
-	// Nested places cascade; quests hanging in any of them are unpinned by ON
-	// DELETE SET NULL, so the notices survive losing their place. Stamp the
-	// names down first so each notice still says where it used to hang.
-	//
-	// Fog batches tied to any of these places cascade too — deliberately, so
-	// that striking a city fogs its ground over instead of handing it to the
-	// whole table (000046_fog_locations.up.sql).
-	if err := s.queries.RememberLocationNamesBeforeDelete(ctx, locationID); err != nil {
+	// Nested places cascade; quests and folk hanging in any of them are
+	// unpinned by ON DELETE SET NULL, so they survive losing their place. But
+	// the place's veil dies with it — so first, freeze what every viewer could
+	// see through that veil onto the notices and people themselves. A notice
+	// that was dark only because of its place must not surface to the whole
+	// table when the place is struck (#238); the fog side cascades its batches
+	// for exactly this reason (000048_fog_locations.up.sql).
+	plan, err := s.veilFreezePlan(ctx, loc)
+	if err != nil {
 		return nil, err
 	}
-	if err := s.queries.DeleteLocation(ctx, locationID); err != nil {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+	if err := plan.apply(ctx, qtx); err != nil {
+		return nil, err
+	}
+	// Stamp the names down so a notice still says where it used to hang —
+	// safe now that its audience is frozen: only viewers who already knew the
+	// place (or a DM's later, deliberate reveal) will read the name.
+	if err := qtx.RememberLocationNamesBeforeDelete(ctx, locationID); err != nil {
+		return nil, err
+	}
+	if err := qtx.DeleteLocation(ctx, locationID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	s.publish(loc.CampaignID, live.TopicMap)
+	s.publish(loc.CampaignID, live.TopicQuests)
+	s.publish(loc.CampaignID, live.TopicNpcs)
 	return api.DeleteLocation204Response{}, nil
+}
+
+// veilFreeze is the visibility to stamp onto one notice or person before
+// their place is struck: the party-wide answer, plus a per-hero exception
+// wherever a hero's view differed from the party's.
+type veilFreeze struct {
+	id        uuid.UUID
+	party     bool
+	overrides map[uuid.UUID]bool
+}
+
+type veilFreezePlan struct {
+	quests []veilFreeze
+	npcs   []veilFreeze
+}
+
+// veilFreezePlan computes, for everything hanging in the doomed subtree, what
+// each viewer can see today — the place gate still standing — so that answer
+// can outlive the place. Public stays public, dark stays dark, and a
+// hero-by-hero place keeps exactly its audience, frozen onto the content's
+// own veil.
+func (s *Server) veilFreezePlan(ctx context.Context, root db.Location) (*veilFreezePlan, error) {
+	v, err := s.loadVeil(ctx, root.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	doomed := map[uuid.UUID]bool{root.ID: true}
+	for id := range v.locations {
+		if v.isDescendant(id, root.ID) {
+			doomed[id] = true
+		}
+	}
+	chars, err := s.queries.ListCharactersByCampaign(ctx, pgUUID(root.CampaignID))
+	if err != nil {
+		return nil, err
+	}
+
+	plan := &veilFreezePlan{}
+	quests, err := s.queries.ListQuestsByCampaign(ctx, root.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	for _, q := range quests {
+		if !q.LocationID.Valid || !doomed[uuid.UUID(q.LocationID.Bytes)] {
+			continue
+		}
+		f := veilFreeze{id: q.ID, party: v.questVisibleTo(q, uuid.Nil), overrides: map[uuid.UUID]bool{}}
+		for _, c := range chars {
+			if eff := v.questVisibleTo(q, c.ID); eff != f.party {
+				f.overrides[c.ID] = eff
+			}
+		}
+		plan.quests = append(plan.quests, f)
+	}
+
+	nv, err := s.loadNpcVeil(ctx, root.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	people, err := s.queries.ListNpcs(ctx, root.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range people {
+		n := npcFromListRow(r)
+		if !n.LocationID.Valid || !doomed[uuid.UUID(n.LocationID.Bytes)] {
+			continue
+		}
+		f := veilFreeze{id: n.ID, party: nv.npcVisibleTo(n, v, uuid.Nil), overrides: map[uuid.UUID]bool{}}
+		for _, c := range chars {
+			if eff := nv.npcVisibleTo(n, v, c.ID); eff != f.party {
+				f.overrides[c.ID] = eff
+			}
+		}
+		plan.npcs = append(plan.npcs, f)
+	}
+	return plan, nil
+}
+
+func (p *veilFreezePlan) apply(ctx context.Context, q *db.Queries) error {
+	for _, f := range p.quests {
+		if _, err := q.SetQuestPartyVisibility(ctx, db.SetQuestPartyVisibilityParams{ID: f.id, VisibleToParty: f.party}); err != nil {
+			return err
+		}
+		if err := q.ClearQuestOverrides(ctx, f.id); err != nil {
+			return err
+		}
+		for charID, vis := range f.overrides {
+			if err := q.SetQuestOverride(ctx, db.SetQuestOverrideParams{QuestID: f.id, CharacterID: charID, Visible: vis}); err != nil {
+				return err
+			}
+		}
+	}
+	for _, f := range p.npcs {
+		if _, err := q.SetNpcPartyVisibility(ctx, db.SetNpcPartyVisibilityParams{ID: f.id, VisibleToParty: f.party}); err != nil {
+			return err
+		}
+		if err := q.ClearNpcOverrides(ctx, f.id); err != nil {
+			return err
+		}
+		for charID, vis := range f.overrides {
+			if err := q.SetNpcOverride(ctx, db.SetNpcOverrideParams{NpcID: f.id, CharacterID: charID, Visible: vis}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *Server) SetLocationVisibility(ctx context.Context, request api.SetLocationVisibilityRequestObject) (api.SetLocationVisibilityResponseObject, error) {
