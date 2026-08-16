@@ -104,3 +104,83 @@ test("a short rest spends hit dice, and cannot spend more than the hero has", as
   ).json()) as { character: { hpCurrent: number } };
   expect(after.hpCurrent, "a spent hit die heals at least nothing").toBeGreaterThanOrEqual(1);
 });
+
+/*
+The rests read every class the hero holds (#243, #244): a multiclass
+Warlock's pact slot returns over the hour like a pure Warlock's, and a long
+rest — PHB 2024 — returns EVERY spent hit die, not 2014's half.
+*/
+test("a Cleric/Warlock's pact slot returns on a short rest; a long rest returns every die", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("mcrest"));
+  const classes = (await (await page.request.get("/api/rules/class")).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const idOf = (n: string) => classes.find((c) => c.name === n)!.id;
+
+  const species = (await (await page.request.get("/api/rules/species")).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const backgrounds = (await (await page.request.get("/api/rules/background")).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const forged = await page.request.post("/api/me/characters/forge", {
+    data: {
+      name: unique("Pactwright "),
+      classId: idOf("Cleric"),
+      speciesId: species.find((s) => s.name === "Dwarf")!.id,
+      backgroundId: backgrounds.find((b) => b.name === "Acolyte")!.id,
+      abilities: { str: 8, dex: 13, con: 14, int: 10, wis: 16, cha: 15 },
+      skills: ["History", "Medicine"],
+    },
+  });
+  expect(forged.ok(), await forged.text()).toBeTruthy();
+  const hero = (await forged.json()).id as string;
+  for (const cls of ["Warlock", "Cleric"]) {
+    const res = await page.request.post(`/api/characters/${hero}/levelup`, {
+      data: { hpMode: "average", classId: idOf(cls) },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  }
+
+  // Spend the pact slot and three hit dice's worth of a bad day.
+  const slots = await page.request.put(`/api/characters/${hero}/slots`, {
+    data: { used: [0, 0, 0, 0, 0, 0, 0, 0, 0], pactUsed: 1 },
+  });
+  expect(slots.ok(), await slots.text()).toBeTruthy();
+
+  const sheetOf = async () =>
+    ((await (await page.request.get(`/api/characters/${hero}`)).json()) as {
+      character: {
+        hitDice?: Array<{ die: number; max: number; used: number }>;
+        sheet?: { pactSlots?: { used: number } };
+      };
+    }).character;
+
+  // A short rest with no dice: the MULTICLASS pact slot still returns (#243).
+  const short = await page.request.post(`/api/characters/${hero}/rest`, {
+    data: { kind: "short" },
+  });
+  expect(short.ok(), await short.text()).toBeTruthy();
+  expect((await sheetOf()).sheet?.pactSlots?.used, "the pact slot came back over the hour").toBe(0);
+
+  // Spend three dice over short rests, then sleep: 2024 says ALL return (#244).
+  const spendAll = await page.request.post(`/api/characters/${hero}/rest`, {
+    data: { kind: "short", hitDice: { "8": 3 } },
+  });
+  expect(spendAll.ok(), await spendAll.text()).toBeTruthy();
+  const spentNow = ((await sheetOf()).hitDice ?? []).reduce((n, d) => n + d.used, 0);
+  expect(spentNow, "three dice spent before the night").toBeGreaterThanOrEqual(1);
+
+  const long = (await (
+    await page.request.post(`/api/characters/${hero}/rest`, { data: { kind: "long" } })
+  ).json()) as { hitDiceRegained: number };
+  expect(long.hitDiceRegained, "every spent die returns (PHB 2024)").toBe(spentNow);
+  const after = ((await sheetOf()).hitDice ?? []).reduce((n, d) => n + d.used, 0);
+  expect(after, "no die stays spent through a long rest").toBe(0);
+});

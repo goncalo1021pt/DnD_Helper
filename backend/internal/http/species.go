@@ -1,10 +1,24 @@
 package http
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 )
+
+// speciesHpPerLevel reads a species' flat hit-point bonus per level —
+// Dwarven Toughness is data (`data.hpPerLevel: 1`), not a footnote the sheet
+// prints and the math ignores (#245). Absent or malformed reads as zero.
+func speciesHpPerLevel(data []byte) int {
+	var d struct {
+		HpPerLevel int `json:"hpPerLevel"`
+	}
+	if json.Unmarshal(data, &d) != nil || d.HpPerLevel < 0 {
+		return 0
+	}
+	return d.HpPerLevel
+}
 
 /*
 Species choices: the picks a species asks for at character creation — an Elf's

@@ -51,16 +51,29 @@ func heroScope(c db.Character) rules.Scope {
 }
 
 // grantSource is one content entry that might declare a creature, kept with
-// the name to stamp on whatever it grants.
+// the name to stamp on whatever it grants. `level` is the level its grants
+// are read at — the hero's level IN the granting class for a class or
+// subclass, zero meaning "the hero's total" for everything else (species,
+// background, feats, gear), per the multiclass convention.
 type grantSource struct {
-	name string
-	data []byte
+	name  string
+	data  []byte
+	level int
+}
+
+// levelOr is the level this source's grants are read at.
+func (g grantSource) levelOr(total int) int {
+	if g.level > 0 {
+		return g.level
+	}
+	return total
 }
 
 // grantSources gathers everything a hero carries that could grant a creature:
-// the four sheet references, their feats, and their gear. Anything unreadable
-// or dangling is skipped — a missing subclass should cost you a companion, not
-// the page.
+// every class they hold with its subclass (#242 — it used to walk only the
+// starting ClassID, so a second class granted nothing), their species and
+// background, their feats, and their gear. Anything unreadable or dangling is
+// skipped — a missing subclass should cost you a companion, not the page.
 func (s *Server) grantSources(ctx context.Context, c db.Character) []grantSource {
 	var out []grantSource
 	add := func(row db.RulesContent) {
@@ -69,7 +82,26 @@ func (s *Server) grantSources(ctx context.Context, c db.Character) []grantSource
 		}
 	}
 
-	for _, ref := range []pgtype.UUID{c.ClassID, c.SubclassID, c.SpeciesID, c.BackgroundID} {
+	classes := s.classesFor(ctx, c)
+	for _, k := range classes {
+		if len(k.ClassData) > 0 {
+			out = append(out, grantSource{name: k.ClassName, data: k.ClassData, level: int(k.Level)})
+		}
+		if len(k.SubclassData) > 0 {
+			name := k.ClassName
+			if k.SubclassName != nil {
+				name = *k.SubclassName
+			}
+			out = append(out, grantSource{name: name, data: k.SubclassData, level: int(k.Level)})
+		}
+	}
+	refs := []pgtype.UUID{c.SpeciesID, c.BackgroundID}
+	if len(classes) == 0 {
+		// A hero with no class rows (older data, quick-adds) falls back to
+		// the sheet references, read at the total level as before.
+		refs = append([]pgtype.UUID{c.ClassID, c.SubclassID}, refs...)
+	}
+	for _, ref := range refs {
 		if !ref.Valid {
 			continue
 		}
@@ -178,9 +210,11 @@ func (s *Server) creatureOptions(ctx context.Context, c db.Character) (api.Creat
 
 	for _, src := range sources {
 		companions, forms := rules.GrantsIn(src.data)
+		// A class's grants are read at the hero's level IN that class (#242).
+		srcLevel := src.levelOr(int(c.Level))
 
 		for _, grant := range companions {
-			if grant.Level > int(c.Level) {
+			if grant.Level > srcLevel {
 				continue
 			}
 			row, ok := byName[strings.ToLower(grant.Name)]
@@ -194,7 +228,7 @@ func (s *Server) creatureOptions(ctx context.Context, c db.Character) (api.Creat
 			out.Companions = append(out.Companions, option(row, role, src.name, grant.Summary))
 		}
 
-		allowance, ok := forms.At(int(c.Level), scope)
+		allowance, ok := forms.At(srcLevel, scope)
 		if !ok {
 			continue
 		}

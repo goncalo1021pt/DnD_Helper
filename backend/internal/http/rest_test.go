@@ -51,15 +51,13 @@ func TestLongRestMakesAHeroWhole(t *testing.T) {
 	if !out.SlotsRestored {
 		t.Error("a long rest returns every slot")
 	}
-	// Half of eight is four, of the five that were spent.
-	if out.HitDiceRegained != 4 || out.HitDiceSpentMap[10] != 1 {
-		t.Errorf("regained %d leaving %d spent; want 4 and 1", out.HitDiceRegained, out.HitDiceSpentMap[10])
+	// PHB 2024: every spent die returns — all five (#244; 2014 said half).
+	if out.HitDiceRegained != 5 || out.HitDiceSpentMap[10] != 0 {
+		t.Errorf("regained %d leaving %d spent; want 5 and 0", out.HitDiceRegained, out.HitDiceSpentMap[10])
 	}
 }
 
-// "Half your total, minimum one" — the minimum is the whole of the rule at low
-// levels, where half of one is none and a level 1 hero would never get their
-// single die back.
+// The smallest case of the same 2024 rule — one spent die, one die back.
 func TestALevelOneHeroGetsTheirOnlyHitDieBack(t *testing.T) {
 	out := longRest(hero(1, 3, 9), nil, []rules.HitDicePool{pool(8, 1, 1)})
 	if out.HitDiceRegained != 1 || out.HitDiceSpentMap[8] != 0 {

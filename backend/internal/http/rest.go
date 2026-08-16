@@ -93,17 +93,11 @@ func noSlots() []int16 { return make([]int16, 9) }
 /*
 longRest: whole again.
 
-Hit points to full, every slot back, and half the hero's hit dice returned —
-"half your total, minimum one", so a level 1 hero gets their single die back
-rather than none. Regaining is capped by what was actually spent; a rested hero
-cannot bank dice they never used.
+Hit points to full, every slot back, and — PHB 2024 — every spent hit die
+returned ("you regain all lost Hit Points and all spent Hit Point Dice").
 */
 func longRest(ch db.Character, pools []resolvedPool, dice []rules.HitDicePool) restOutcome {
-	level := int(ch.Level)
-	if level < 1 {
-		level = 1
-	}
-	spent, regain := rules.RegainHitDice(dice, level)
+	spent, regain := rules.RegainHitDice(dice)
 	poolsUsed, poolsRestored := restPools(pools, "long")
 	return restOutcome{
 		HP:              ch.HpMax,
@@ -254,6 +248,23 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 	pools := s.resolvePools(ctx, character)
 	dice := hitDicePoolsOf(classes, int(character.Level), character.HitDiceSpent)
 
+	// Pact Magic may ride on ANY of the hero's classes — a Cleric who dips
+	// Warlock gets their pact slot back over the hour exactly as a pure
+	// Warlock does (#243). The starting class's block still governs the
+	// long-rest spell-swap rules above; only the short-rest refill asks this.
+	pactCaster := cr.Spellcaster == "pact"
+	for _, k := range classes {
+		if pactCaster {
+			break
+		}
+		if src := castingDataOf(k); src != nil {
+			var kcr castingRules
+			if json.Unmarshal(src, &kcr) == nil && kcr.Spellcaster == "pact" {
+				pactCaster = true
+			}
+		}
+	}
+
 	var outcome restOutcome
 	switch request.Body.Kind {
 	case "long":
@@ -263,7 +274,7 @@ func (s *Server) RestCharacter(ctx context.Context, request api.RestCharacterReq
 		if errMsg != "" {
 			return badRequest(errMsg)
 		}
-		outcome = shortRest(character, pools, dice, want, conMod, cr.Spellcaster == "pact", func(sides int) int {
+		outcome = shortRest(character, pools, dice, want, conMod, pactCaster, func(sides int) int {
 			return rollDie(sides)
 		})
 	default:

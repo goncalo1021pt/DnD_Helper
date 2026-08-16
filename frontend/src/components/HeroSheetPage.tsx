@@ -971,9 +971,15 @@ export default function HeroSheetPage() {
       {swapping && (
         <SpellSwapModal
           klass={casterSource}
-          known={detail?.spells ?? []}
+          // The long-rest trade is the STARTING class's, within its own list
+          // at the hero's level in it — never the whole grimoire (#241).
+          known={(detail?.spells ?? []).filter((s) =>
+            ((detail?.casters ?? []).find((c) => c.classId === sheet?.classId)?.spellIds ?? []).includes(s.id),
+          )}
           library={spellLibrary ?? []}
-          characterLevel={character.level}
+          characterLevel={
+            sheet?.classes?.find((k) => k.classId === sheet?.classId)?.level ?? character.level
+          }
           trigger="long-rest"
           busy={swapSpells.isPending}
           error={(swapSpells.error as { error?: string } | null)?.error}

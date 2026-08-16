@@ -108,33 +108,14 @@ func SpendHitDice(pools []HitDicePool, want map[int]int) (spent map[int]int, tak
 }
 
 /*
-RegainHitDice gives back half the hero's total dice on a long rest, minimum
-one, capped by what was actually spent.
-
-Which dice come back is the player's choice in the book. Nothing here asks
-them, so it returns the largest first — the choice a player would make, and
-the one that leaves them best off going into the next fight.
+RegainHitDice gives back every spent die on a long rest — PHB 2024: "you
+regain all lost Hit Points and all spent Hit Point Dice." 2014's rule was
+half the hero's total, and it lived here until #244.
 */
-func RegainHitDice(pools []HitDicePool, totalLevel int) (spent map[int]int, regained int) {
-	allowance := totalLevel / 2
-	if allowance < 1 {
-		allowance = 1
-	}
+func RegainHitDice(pools []HitDicePool) (spent map[int]int, regained int) {
 	spent = map[int]int{}
-	// pools arrive largest-die first from HitDicePools; do not rely on it.
-	ordered := append([]HitDicePool(nil), pools...)
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Die > ordered[j].Die })
-
-	for _, p := range ordered {
-		back := p.Used
-		if back > allowance {
-			back = allowance
-		}
-		allowance -= back
-		regained += back
-		if left := p.Used - back; left > 0 {
-			spent[p.Die] = left
-		}
+	for _, p := range pools {
+		regained += p.Used
 	}
 	return spent, regained
 }

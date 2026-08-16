@@ -63,6 +63,7 @@
       "size": "Medium",
       "sizeNote": "about 4-5 feet tall",
       "speed": 30,
+      "hpPerLevel": 1,
       "book": "SRD 5.2",
       "description": "Dwarves were raised from the earth in the elder days by a deity of the forge, who gave them an affinity for stone and metal and for living underground. The god also made them resilient like the mountains, with a life span of about 350 years. Squat and often bearded, the original dwarves carved cities and strongholds into mountainsides and under the earth.",
       "traits": [

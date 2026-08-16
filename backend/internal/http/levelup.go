@@ -327,6 +327,18 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	if err != nil {
 		return nil, err
 	}
+	// The class's caps are counted against ITS OWN spells at the hero's level
+	// IN that class — a Cleric's cantrips never eat a new Warlock's allowance,
+	// and a Warlock 1 on a level-9 hero still prepares like a Warlock 1
+	// (#241). The whole grimoire still guards against duplicates below.
+	classSpells := spellsOfClass(existingSpells, class.ID, character.ClassID)
+	for _, n := range newSpells {
+		for _, row := range existingSpells {
+			if row.ID == n {
+				return badRequest(row.Name + " is already on this hero's list")
+			}
+		}
+	}
 
 	// Bard, Sorcerer and Warlock trade a spell on the way up rather than on a
 	// Long Rest. The swap is settled first so the new picks are counted against
@@ -334,7 +346,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	var swaps swapResult
 	if body.SpellSwaps != nil && len(*body.SpellSwaps) > 0 {
 		msg, resolved, err := s.validateSpellSwaps(
-			ctx, uid, class, subclassData, newLevel, existingSpells, *body.SpellSwaps, "level-up")
+			ctx, uid, class, subclassData, classLevel, classSpells, *body.SpellSwaps, "level-up")
 		if err != nil {
 			return nil, err
 		}
@@ -343,20 +355,20 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		}
 		swaps = resolved
 	}
-	afterSwaps := existingSpells
+	afterSwaps := classSpells
 	if len(swaps.Out) > 0 {
 		dropped := map[uuid.UUID]bool{}
 		for _, id := range swaps.Out {
 			dropped[id] = true
 		}
 		afterSwaps = afterSwaps[:0:0]
-		for _, row := range existingSpells {
+		for _, row := range classSpells {
 			if !dropped[row.ID] {
 				afterSwaps = append(afterSwaps, row)
 			}
 		}
 	}
-	if msg, _, err := s.validateSpellPicks(ctx, uid, class, subclassData, newLevel, afterSwaps, newSpells); err != nil {
+	if msg, _, err := s.validateSpellPicks(ctx, uid, class, subclassData, classLevel, afterSwaps, newSpells); err != nil {
 		return nil, err
 	} else if msg != "" {
 		return badRequest(msg)
@@ -424,6 +436,13 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	gain := die + conModAfter
 	if gain < 1 {
 		gain = 1
+	}
+	// The species' flat per-level HP (Dwarven Toughness, #245) rides on every
+	// new level, on top of the floor that guards die + CON.
+	if character.SpeciesID.Valid {
+		if sp, err := s.queries.GetContent(ctx, uuid.UUID(character.SpeciesID.Bytes)); err == nil {
+			gain += speciesHpPerLevel(sp.Data)
+		}
 	}
 	// A CON modifier increase applies to every level already lived.
 	retro := (conModAfter - conModBefore) * int(character.Level)

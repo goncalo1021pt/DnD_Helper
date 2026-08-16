@@ -222,3 +222,48 @@ test("a half-built hero is still there after a reload", async ({ page }) => {
   await expect(page.getByText(/Picked up where you left off/)).toHaveCount(0, { timeout: 20_000 });
   await expect(nextStep(page)).toBeDisabled();
 });
+
+/*
+Dwarven Toughness is data, not a footnote (#245): a species may declare
+data.hpPerLevel, and both the forge and every level-up apply it.
+*/
+test("a Dwarf's toughness lands in HP max at the forge and at each level", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("tough"));
+
+  const byName = async (kind: string, want: string) => {
+    const list = (await (await page.request.get(`/api/rules/${kind}`)).json()) as Array<{
+      id: string;
+      name: string;
+    }>;
+    return list.find((e) => e.name === want)!.id;
+  };
+  const fighterId = await byName("class", "Fighter");
+  const forged = await page.request.post("/api/me/characters/forge", {
+    data: {
+      name: unique("Balin Tough "),
+      classId: fighterId,
+      speciesId: await byName("species", "Dwarf"),
+      backgroundId: await byName("background", "Soldier"),
+      abilities: { str: 15, dex: 14, con: 14, int: 10, wis: 12, cha: 8 },
+      skills: ["Acrobatics", "Insight"],
+    },
+  });
+  expect(forged.ok(), await forged.text()).toBeTruthy();
+  const hero = (await forged.json()).id as string;
+
+  const hpOf = async () =>
+    ((await (await page.request.get(`/api/characters/${hero}`)).json()) as {
+      character: { hpMax: number };
+    }).character.hpMax;
+
+  // 10 (d10) + 2 (CON) + 1 (Dwarven Toughness) = 13.
+  expect(await hpOf(), "level 1: die + CON + toughness").toBe(13);
+
+  // Level 2: +6 (average d10) +2 (CON) +1 (toughness) = 22.
+  const up = await page.request.post(`/api/characters/${hero}/levelup`, {
+    data: { hpMode: "average", classId: fighterId },
+  });
+  expect(up.ok(), await up.text()).toBeTruthy();
+  expect(await hpOf(), "level 2 adds die + CON + toughness").toBe(22);
+});

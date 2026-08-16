@@ -354,11 +354,13 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		return badRequest(msg)
 	}
 
-	// Level 1 derivations.
+	// Level 1 derivations. The floor guards die + CON; the species' flat HP
+	// (Dwarven Toughness, #245) rides on top of it.
 	hpMax := cr.HitDie + abilityMod(body.Abilities.Con)
 	if hpMax < 1 {
 		hpMax = 1
 	}
+	hpMax += speciesHpPerLevel(species.Data)
 
 	// One whole hero, or none at all. Forging is three writes — the hero, their
 	// spells, their kit — and now that requests have deadlines at all (#130), a
