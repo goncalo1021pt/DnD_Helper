@@ -45,3 +45,8 @@ npm-debug.log*
 /frontend/blob-report/
 /frontend/.cache/
 /server.log
+
+# Exploratory QA runs (xq- specs) — screenshots and per-run outputs.
+/frontend/exp-shots/
+/frontend/exp-results/
+/frontend/e2e/xq-*.png
