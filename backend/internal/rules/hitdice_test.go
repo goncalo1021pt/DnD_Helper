@@ -83,30 +83,27 @@ func TestSpendingOneDieLeavesTheOtherAlone(t *testing.T) {
 	}
 }
 
-func TestLongRestGivesBackHalfTheDiceLargestFirst(t *testing.T) {
-	// Level 10 hero, everything spent: half of ten is five back, and a player
-	// choosing would take the d10s.
+// PHB 2024: a long rest returns EVERY spent die (2014's rule was half the
+// total — #244 retired it).
+func TestLongRestGivesBackEverySpentDie(t *testing.T) {
 	pools := HitDicePools(
 		[]ClassDie{{Die: 8, Levels: 5}, {Die: 10, Levels: 5}}, 0,
 		map[int]int{8: 5, 10: 5},
 	)
 
-	spent, regained := RegainHitDice(pools, 10)
-	if regained != 5 {
-		t.Errorf("regained %d; want 5", regained)
+	spent, regained := RegainHitDice(pools)
+	if regained != 10 {
+		t.Errorf("regained %d; want all 10", regained)
 	}
-	if spent[10] != 0 {
-		t.Errorf("the five d10 should all be back; %d still spent", spent[10])
-	}
-	if spent[8] != 5 {
-		t.Errorf("the d8 pool was not reached; want 5 still spent, got %d", spent[8])
+	if len(spent) != 0 {
+		t.Errorf("nothing should remain spent; got %+v", spent)
 	}
 }
 
 func TestLongRestNeverGivesBackMoreThanWasSpent(t *testing.T) {
 	pools := HitDicePools([]ClassDie{{Die: 10, Levels: 10}}, 0, map[int]int{10: 2})
 
-	spent, regained := RegainHitDice(pools, 10)
+	spent, regained := RegainHitDice(pools)
 	if regained != 2 {
 		t.Errorf("only two were spent; regained %d", regained)
 	}
@@ -115,11 +112,11 @@ func TestLongRestNeverGivesBackMoreThanWasSpent(t *testing.T) {
 	}
 }
 
-// "half your total, minimum one" — a level 1 hero gets their single die back.
+// The smallest case of the same rule — one die spent, one die back.
 func TestLevelOneHeroGetsTheirOneDieBack(t *testing.T) {
 	pools := HitDicePools([]ClassDie{{Die: 12, Levels: 1}}, 0, map[int]int{12: 1})
 
-	_, regained := RegainHitDice(pools, 1)
+	_, regained := RegainHitDice(pools)
 	if regained != 1 {
 		t.Errorf("regained %d; want 1", regained)
 	}
