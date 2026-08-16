@@ -157,3 +157,74 @@ test("a magic weapon keeps its price, its weight and its rarity", async ({ page 
   await expect(card.getByText("3 lb")).toBeVisible();
   await expect(card.getByText(/rare · requires attunement/)).toBeVisible();
 });
+
+/*
+A codex ban bites wherever a spell is picked (#239). The forge and the level-up
+already refused banned content; the long-rest swap was the one door that never
+asked the codex, so a seated hero could trade INTO a banned spell.
+*/
+test("a seated hero cannot swap INTO a codex-banned spell", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("banswap"));
+  const campaign = await createCampaign(page.request, unique("Ban Swap "));
+
+  const byName = async (kind: string, want: string) => {
+    const list = (await (await page.request.get(`/api/rules/${kind}`)).json()) as Array<{
+      id: string;
+      name: string;
+      source: string;
+    }>;
+    const hit = list.find((e) => e.name === want && e.source === "srd");
+    expect(hit, `${want} should be SRD`).toBeTruthy();
+    return hit!.id;
+  };
+  const magicMissile = await byName("spell", "Magic Missile");
+  const burningHands = await byName("spell", "Burning Hands");
+
+  const banned = await page.request.put(
+    `/api/campaigns/${campaign.id}/codex/${burningHands}`,
+    { data: { status: "banned" } },
+  );
+  expect(banned.ok(), await banned.text()).toBeTruthy();
+
+  // A Wizard of this table's own DM — the role does not matter, the seat does.
+  const forged = await page.request.post("/api/me/characters/forge", {
+    data: {
+      name: unique("Loophole "),
+      classId: await byName("class", "Wizard"),
+      speciesId: await byName("species", "Dwarf"),
+      backgroundId: await byName("background", "Acolyte"),
+      abilities: { str: 8, dex: 14, con: 13, int: 15, wis: 12, cha: 10 },
+      skills: ["Arcana", "History"],
+      spells: [magicMissile],
+    },
+  });
+  expect(forged.ok(), await forged.text()).toBeTruthy();
+  const heroId = (await forged.json()).id as string;
+  const seat = await page.request.put(`/api/characters/${heroId}/seat`, {
+    data: { campaignId: campaign.id },
+  });
+  expect(seat.ok(), await seat.text()).toBeTruthy();
+
+  const swap = await page.request.post(`/api/characters/${heroId}/spells/swap`, {
+    data: { swaps: [{ replace: magicMissile, with: burningHands }] },
+  });
+  expect(swap.status(), "the swap-in of banned content is refused").toBe(400);
+  expect(((await swap.json()) as { error: string }).error).toContain("codex");
+
+  const detail = (await (await page.request.get(`/api/characters/${heroId}`)).json()) as {
+    spells?: Array<{ name: string }>;
+  };
+  expect((detail.spells ?? []).map((s) => s.name)).not.toContain("Burning Hands");
+
+  // Unseated, the same hero trades freely — the codex rules a table, not an
+  // account (the resting-hero freedom every other check honors).
+  const unseat = await page.request.put(`/api/characters/${heroId}/seat`, {
+    data: { campaignId: null },
+  });
+  expect(unseat.ok(), await unseat.text()).toBeTruthy();
+  const freeSwap = await page.request.post(`/api/characters/${heroId}/spells/swap`, {
+    data: { swaps: [{ replace: magicMissile, with: burningHands }] },
+  });
+  expect(freeSwap.status(), "a resting hero answers to no codex").toBe(200);
+});
