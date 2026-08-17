@@ -11,6 +11,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 // SetSeatingApproval bars or opens the table's door (DM only).
@@ -232,6 +233,8 @@ func (s *Server) ApproveSeatRequest(ctx context.Context, request api.ApproveSeat
 
 	s.logEvent(ctx, campaignID, member.UserID, "hero_seated",
 		fmt.Sprintf("The DM waves %s through the door — they take a seat at the table", updated.Name))
+	// The nod reaches the waiting player's open menu without a refresh (#247).
+	s.publish(campaignID, live.TopicParty)
 	return api.ApproveSeatRequest204Response{}, nil
 }
 
@@ -262,6 +265,7 @@ func (s *Server) DenySeatRequest(ctx context.Context, request api.DenySeatReques
 	if _, err := s.queries.DeleteSeatRequest(ctx, characterID); err != nil {
 		return nil, err
 	}
+	s.publish(campaignID, live.TopicParty)
 	return api.DenySeatRequest204Response{}, nil
 }
 

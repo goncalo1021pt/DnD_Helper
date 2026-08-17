@@ -512,6 +512,10 @@ function SummonControl({
   /* The codex can refuse a hero at the door. The server says which content it
      objects to; this is where that gets read out instead of thrown away (#128). */
   const [conflict, setConflict] = useState<SeatConflict["missing"] | null>(null);
+  /* A barred door answers 202: the request is lodged, not seated. Say so HERE,
+     where the player acted — the old silence left the empty state inviting a
+     second summon (#247). */
+  const [waiting, setWaiting] = useState<string | null>(null);
   const resting = (myHeroes ?? []).filter((h) => !h.campaignId);
   const chosen = resting.find((h) => h.id === choice);
 
@@ -537,11 +541,13 @@ function SummonControl({
           seat.mutate(
             { characterId: choice, campaignId },
             {
-              onSuccess: () => {
+              onSuccess: (result) => {
+                setWaiting(result.pending ? (chosen?.name ?? "Your hero") : null);
                 setChoice("");
                 setConflict(null);
               },
               onError: (err) => {
+                setWaiting(null);
                 const c = err as unknown as SeatConflict;
                 setConflict(c?.missing?.length ? c.missing : []);
               },
@@ -555,6 +561,11 @@ function SummonControl({
       </button>
       </div>
 
+      {waiting !== null && (
+        <span className="font-body text-right text-[12px] italic text-gold-muted">
+          {waiting} waits at the door — the DM will wave them through.
+        </span>
+      )}
       {/* Any failure says something. A codex refusal gets the full modal with a
           one-tap proposal; anything else at least admits it happened, rather
           than leaving a button that quietly did nothing. */}
