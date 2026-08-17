@@ -2778,6 +2778,12 @@ export interface components {
             height: number;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: uuid
+             * @description The place this map depicts, when it depicts one (#229).
+             */
+            locationId?: string | null;
+            locationName?: string | null;
         };
         MapPin: {
             /** Format: uuid */
@@ -2852,7 +2858,12 @@ export interface components {
             /** @description The image file, base64-encoded. JPEG or PNG, up to 10 MB decoded. */
             imageBase64: string;
             /** Format: uuid */
-            parentMapId?: string | null;
+            parentMapId?: string;
+            /**
+             * Format: uuid
+             * @description The place this map depicts, when it depicts one (#229).
+             */
+            locationId?: string | null;
         };
         UpdateMapRequest: {
             name: string;
@@ -2860,6 +2871,11 @@ export interface components {
             parentMapId?: string | null;
             /** @description Omit to leave the fog as it is. */
             fogEnabled?: boolean;
+            /**
+             * Format: uuid
+             * @description The place this map depicts. Omitted means unchanged — like a shop, a map cannot be quietly unfiled by a request that says nothing.
+             */
+            locationId?: string | null;
         };
         MapPinInput: {
             label: string;

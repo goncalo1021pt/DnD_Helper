@@ -13,9 +13,9 @@ import (
 )
 
 const createMap = `-- name: CreateMap :one
-INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
+INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height, location_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
 `
 
 type CreateMapParams struct {
@@ -26,6 +26,7 @@ type CreateMapParams struct {
 	ContentType string      `json:"content_type"`
 	Width       int32       `json:"width"`
 	Height      int32       `json:"height"`
+	LocationID  pgtype.UUID `json:"location_id"`
 }
 
 type CreateMapRow struct {
@@ -37,6 +38,7 @@ type CreateMapRow struct {
 	Width       int32              `json:"width"`
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LocationID  pgtype.UUID        `json:"location_id"`
 }
 
 func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMapRow, error) {
@@ -48,6 +50,7 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 		arg.ContentType,
 		arg.Width,
 		arg.Height,
+		arg.LocationID,
 	)
 	var i CreateMapRow
 	err := row.Scan(
@@ -59,6 +62,7 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 		&i.Width,
 		&i.Height,
 		&i.CreatedAt,
+		&i.LocationID,
 	)
 	return i, err
 }
@@ -148,7 +152,7 @@ func (q *Queries) GetMapImage(ctx context.Context, id uuid.UUID) (GetMapImageRow
 }
 
 const getMapMeta = `-- name: GetMapMeta :one
-SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
+SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
 FROM maps
 WHERE id = $1
 `
@@ -162,6 +166,7 @@ type GetMapMetaRow struct {
 	Width       int32              `json:"width"`
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LocationID  pgtype.UUID        `json:"location_id"`
 }
 
 func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, error) {
@@ -176,6 +181,7 @@ func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, 
 		&i.Width,
 		&i.Height,
 		&i.CreatedAt,
+		&i.LocationID,
 	)
 	return i, err
 }
@@ -254,24 +260,29 @@ func (q *Queries) ListMapPins(ctx context.Context, mapID uuid.UUID) ([]MapPin, e
 }
 
 const listMapsByCampaign = `-- name: ListMapsByCampaign :many
-SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
-FROM maps
-WHERE campaign_id = $1
-ORDER BY created_at
+SELECT m.id, m.campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height, m.created_at,
+       m.location_id, l.name AS location_name
+FROM maps m
+LEFT JOIN locations l ON l.id = m.location_id
+WHERE m.campaign_id = $1
+ORDER BY m.created_at
 `
 
 type ListMapsByCampaignRow struct {
-	ID          uuid.UUID          `json:"id"`
-	CampaignID  uuid.UUID          `json:"campaign_id"`
-	ParentMapID pgtype.UUID        `json:"parent_map_id"`
-	Name        string             `json:"name"`
-	FogEnabled  bool               `json:"fog_enabled"`
-	Width       int32              `json:"width"`
-	Height      int32              `json:"height"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID           uuid.UUID          `json:"id"`
+	CampaignID   uuid.UUID          `json:"campaign_id"`
+	ParentMapID  pgtype.UUID        `json:"parent_map_id"`
+	Name         string             `json:"name"`
+	FogEnabled   bool               `json:"fog_enabled"`
+	Width        int32              `json:"width"`
+	Height       int32              `json:"height"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	LocationID   pgtype.UUID        `json:"location_id"`
+	LocationName *string            `json:"location_name"`
 }
 
 // The atlas shelf: every map of the campaign, oldest first, no image bytes.
+// The place a map depicts rides along by name (#229).
 func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListMapsByCampaignRow, error) {
 	rows, err := q.db.Query(ctx, listMapsByCampaign, campaignID)
 	if err != nil {
@@ -290,6 +301,8 @@ func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) 
 			&i.Width,
 			&i.Height,
 			&i.CreatedAt,
+			&i.LocationID,
+			&i.LocationName,
 		); err != nil {
 			return nil, err
 		}
@@ -303,9 +316,9 @@ func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) 
 
 const updateMapMeta = `-- name: UpdateMapMeta :one
 UPDATE maps
-SET name = $2, parent_map_id = $3, fog_enabled = $4
+SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5
 WHERE id = $1
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
 `
 
 type UpdateMapMetaParams struct {
@@ -313,6 +326,7 @@ type UpdateMapMetaParams struct {
 	Name        string      `json:"name"`
 	ParentMapID pgtype.UUID `json:"parent_map_id"`
 	FogEnabled  bool        `json:"fog_enabled"`
+	LocationID  pgtype.UUID `json:"location_id"`
 }
 
 type UpdateMapMetaRow struct {
@@ -324,6 +338,7 @@ type UpdateMapMetaRow struct {
 	Width       int32              `json:"width"`
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LocationID  pgtype.UUID        `json:"location_id"`
 }
 
 func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (UpdateMapMetaRow, error) {
@@ -332,6 +347,7 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 		arg.Name,
 		arg.ParentMapID,
 		arg.FogEnabled,
+		arg.LocationID,
 	)
 	var i UpdateMapMetaRow
 	err := row.Scan(
@@ -343,6 +359,7 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 		&i.Width,
 		&i.Height,
 		&i.CreatedAt,
+		&i.LocationID,
 	)
 	return i, err
 }

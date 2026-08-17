@@ -525,3 +525,57 @@ test("a reveal tied to a place lifts only for the heroes who know it", async ({ 
   await born.ctx.close();
   await guest.ctx.close();
 });
+
+/*
+A map may depict a place (#229): filed at hanging or later, shown in the
+atlas, suggested for its fog reveals, and unfiled with the nil UUID — while a
+request that says nothing changes nothing (the shops' lesson).
+*/
+test("a map hangs on a place, re-files, and survives a say-nothing rename", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("mapplace"));
+  const campaign = await createCampaign(page.request, unique("Atlas Table "));
+  const ars = await createLocation(page.request, campaign.id, "Ars");
+  const porto = await createLocation(page.request, campaign.id, "Porto");
+
+  const create = await page.request.post(`/api/campaigns/${campaign.id}/maps`, {
+    data: { name: "City of Ars", imageBase64: await twoTonePng(page), locationId: ars },
+  });
+  expect(create.ok(), await create.text()).toBeTruthy();
+  const mapId = (await create.json()).id as string;
+
+  const listed = async () =>
+    ((await (await page.request.get(`/api/campaigns/${campaign.id}/maps`)).json()) as Array<{
+      id: string;
+      locationId?: string | null;
+      locationName?: string | null;
+    }>).find((m) => m.id === mapId)!;
+  expect((await listed()).locationName, "the atlas knows the place").toBe("Ars");
+
+  // A rename that says nothing about the place must not unfile it.
+  const rename = await page.request.patch(`/api/maps/${mapId}`, {
+    data: { name: "Ars, the Old City" },
+  });
+  expect(rename.ok(), await rename.text()).toBeTruthy();
+  expect((await listed()).locationName, "absent means unchanged").toBe("Ars");
+
+  // Re-filing and unfiling are deliberate acts.
+  const refile = await page.request.patch(`/api/maps/${mapId}`, {
+    data: { name: "Ars, the Old City", locationId: porto },
+  });
+  expect(refile.ok(), await refile.text()).toBeTruthy();
+  expect((await listed()).locationName).toBe("Porto");
+  const unfile = await page.request.patch(`/api/maps/${mapId}`, {
+    data: { name: "Ars, the Old City", locationId: "00000000-0000-0000-0000-000000000000" },
+  });
+  expect(unfile.ok(), await unfile.text()).toBeTruthy();
+  expect((await listed()).locationId ?? null, "the nil UUID unfiles").toBeNull();
+
+  // Another campaign's ground is refused at the door.
+  const other = await createCampaign(page.request, unique("Elsewhere "));
+  const foreign = await createLocation(page.request, other.id, "Foreign Soil");
+  const refused = await page.request.patch(`/api/maps/${mapId}`, {
+    data: { name: "Ars, the Old City", locationId: foreign },
+  });
+  expect(refused.status(), "a place from another campaign is unknown here").toBe(400);
+});

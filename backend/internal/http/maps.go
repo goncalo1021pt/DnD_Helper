@@ -39,6 +39,7 @@ type mapRow struct {
 	Width       int32
 	Height      int32
 	CreatedAt   pgtype.Timestamptz
+	LocationID  pgtype.UUID
 }
 
 func toAPIMap(m mapRow) api.CampaignMap {
@@ -50,6 +51,10 @@ func toAPIMap(m mapRow) api.CampaignMap {
 		Width:      int(m.Width),
 		Height:     int(m.Height),
 		CreatedAt:  m.CreatedAt.Time,
+	}
+	if m.LocationID.Valid {
+		id := uuid.UUID(m.LocationID.Bytes)
+		out.LocationId = &id
 	}
 	if m.ParentMapID.Valid {
 		id := uuid.UUID(m.ParentMapID.Bytes)
@@ -163,7 +168,13 @@ func (s *Server) ListMaps(ctx context.Context, request api.ListMapsRequestObject
 	}
 	out := make([]api.CampaignMap, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, toAPIMap(mapRow(r)))
+		m := toAPIMap(mapRow{
+			ID: r.ID, CampaignID: r.CampaignID, ParentMapID: r.ParentMapID,
+			Name: r.Name, FogEnabled: r.FogEnabled, Width: r.Width,
+			Height: r.Height, CreatedAt: r.CreatedAt, LocationID: r.LocationID,
+		})
+		m.LocationName = r.LocationName
+		out = append(out, m)
 	}
 	return api.ListMaps200JSONResponse(out), nil
 }
@@ -194,9 +205,19 @@ func (s *Server) CreateMap(ctx context.Context, request api.CreateMapRequestObje
 	if request.Body.ParentMapId != nil {
 		parent = pgUUID(*request.Body.ParentMapId)
 	}
+	// The place this map depicts (#229) — optional, and it must be this
+	// campaign's ground.
+	locID, _, err := s.resolveCampaignLocation(ctx, request.CampaignId, request.Body.LocationId)
+	if err != nil {
+		return nil, err
+	}
+	if request.Body.LocationId != nil && !locID.Valid {
+		return api.CreateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errUnknownPlace}}, nil
+	}
 	row, err := s.queries.CreateMap(ctx, db.CreateMapParams{
 		CampaignID:  request.CampaignId,
 		ParentMapID: parent,
+		LocationID:  locID,
 		Name:        name,
 		Image:       data,
 		ContentType: contentType,
@@ -320,11 +341,30 @@ func (s *Server) UpdateMap(ctx context.Context, request api.UpdateMapRequestObje
 	if request.Body.FogEnabled != nil {
 		fog = *request.Body.FogEnabled
 	}
+	// The place: absent means unchanged (a rename must not quietly unfile a
+	// map — the shops' lesson), and the nil UUID unfiles deliberately, the
+	// way the folk detach a sheet (#229).
+	locID := meta.LocationID
+	if request.Body.LocationId != nil {
+		if *request.Body.LocationId == uuid.Nil {
+			locID = pgtype.UUID{}
+		} else {
+			resolved, _, err := s.resolveCampaignLocation(ctx, meta.CampaignID, request.Body.LocationId)
+			if err != nil {
+				return nil, err
+			}
+			if !resolved.Valid {
+				return api.UpdateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errUnknownPlace}}, nil
+			}
+			locID = resolved
+		}
+	}
 	row, err := s.queries.UpdateMapMeta(ctx, db.UpdateMapMetaParams{
 		ID:          request.MapId,
 		Name:        name,
 		ParentMapID: parent,
 		FogEnabled:  fog,
+		LocationID:  locID,
 	})
 	if err != nil {
 		return nil, err

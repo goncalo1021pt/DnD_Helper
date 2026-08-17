@@ -13,7 +13,7 @@ the row it strikes.
 
 import { useState } from "react";
 import type { CampaignMap } from "../../api/client";
-import { useCreateMap } from "../../hooks";
+import { useCreateMap, useLocations } from "../../hooks";
 import ParchmentModal from "../ui/ParchmentModal";
 
 export function HangMapForm({
@@ -28,8 +28,10 @@ export function HangMapForm({
   onHung: (id: string) => void;
 }) {
   const createMap = useCreateMap(campaignId);
+  const { data: places } = useLocations(campaignId);
   const [mapName, setMapName] = useState("");
   const [mapParent, setMapParent] = useState("");
+  const [mapPlace, setMapPlace] = useState("");
   const [mapFile, setMapFile] = useState<File | null>(null);
   const [hangError, setHangError] = useState("");
 
@@ -43,12 +45,14 @@ export function HangMapForm({
           name: mapName.trim() || mapFile.name.replace(/\.[^.]+$/, ""),
           imageBase64: String(reader.result),
           ...(mapParent ? { parentMapId: mapParent } : {}),
+          ...(mapPlace ? { locationId: mapPlace } : {}),
         },
         {
           onSuccess: (m) => {
             onClose();
             setMapName("");
             setMapParent("");
+            setMapPlace("");
             setMapFile(null);
             onHung(m.id);
           },
@@ -101,6 +105,23 @@ export function HangMapForm({
                   {(maps ?? []).map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {(places ?? []).length > 0 && (
+              <label className="block">
+                <span className="field-label">The place it depicts</span>
+                <select
+                  value={mapPlace}
+                  onChange={(e) => setMapPlace(e.target.value)}
+                  className="input-parchment mt-1 w-full cursor-pointer"
+                >
+                  <option value="">No place — just a map</option>
+                  {(places ?? []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
                     </option>
                   ))}
                 </select>
