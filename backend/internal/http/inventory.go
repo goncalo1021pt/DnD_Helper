@@ -105,8 +105,8 @@ func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryI
 
 	qty := int32(1)
 	if body.Qty != nil {
-		if *body.Qty < 1 || *body.Qty > 999 {
-			return badRequest("quantity must be between 1 and 999")
+		if *body.Qty < 1 || *body.Qty > 1000000 {
+			return badRequest("quantity must be between 1 and 1,000,000")
 		}
 		qty = int32(*body.Qty)
 	}
@@ -201,8 +201,8 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 
 	qty := row.Qty
 	if request.Body.Qty != nil {
-		if *request.Body.Qty < 1 || *request.Body.Qty > 999 {
-			return badRequest("quantity must be between 1 and 999")
+		if *request.Body.Qty < 1 || *request.Body.Qty > 1000000 {
+			return badRequest("quantity must be between 1 and 1,000,000")
 		}
 		qty = int32(*request.Body.Qty)
 	}

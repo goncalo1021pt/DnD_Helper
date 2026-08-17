@@ -4652,7 +4652,7 @@ components:
         qty:
           type: integer
           minimum: 1
-          maximum: 999
+          maximum: 1000000
           default: 1
     InventoryItemPatch:
       type: object
@@ -4660,7 +4660,7 @@ components:
         qty:
           type: integer
           minimum: 1
-          maximum: 999
+          maximum: 1000000
         equipped:
           type: boolean
         slot:
