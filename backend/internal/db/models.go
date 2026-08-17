@@ -715,6 +715,7 @@ type Map struct {
 	Height      int32              `json:"height"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	FogEnabled  bool               `json:"fog_enabled"`
+	LocationID  pgtype.UUID        `json:"location_id"`
 }
 
 type MapPin struct {

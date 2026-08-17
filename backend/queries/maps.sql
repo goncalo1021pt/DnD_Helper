@@ -1,17 +1,20 @@
 -- name: CreateMap :one
-INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at;
+INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height, location_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id;
 
 -- name: ListMapsByCampaign :many
 -- The atlas shelf: every map of the campaign, oldest first, no image bytes.
-SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
-FROM maps
-WHERE campaign_id = $1
-ORDER BY created_at;
+-- The place a map depicts rides along by name (#229).
+SELECT m.id, m.campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height, m.created_at,
+       m.location_id, l.name AS location_name
+FROM maps m
+LEFT JOIN locations l ON l.id = m.location_id
+WHERE m.campaign_id = $1
+ORDER BY m.created_at;
 
 -- name: GetMapMeta :one
-SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at
+SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
 FROM maps
 WHERE id = $1;
 
@@ -22,9 +25,9 @@ WHERE id = $1;
 
 -- name: UpdateMapMeta :one
 UPDATE maps
-SET name = $2, parent_map_id = $3, fog_enabled = $4
+SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5
 WHERE id = $1
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at;
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id;
 
 -- name: DeleteMap :execrows
 DELETE FROM maps WHERE id = $1;

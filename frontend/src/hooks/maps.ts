@@ -57,7 +57,9 @@ export function useUpdateMap(campaignId: string) {
   return useMutation({
     mutationFn: async (vars: {
       mapId: string;
-      body: { name: string; parentMapId?: string; fogEnabled?: boolean };
+      // locationId: the place this map depicts (#229) — the nil UUID unfiles,
+      // absent means unchanged.
+      body: { name: string; parentMapId?: string; fogEnabled?: boolean; locationId?: string };
     }) => {
       const { data, error } = await api.PATCH("/maps/{mapId}", {
         params: { path: { mapId: vars.mapId } },

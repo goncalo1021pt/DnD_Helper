@@ -95,6 +95,12 @@ export function AtlasModal({
                 {m.name}
               </button>
 
+              {/* The place this map depicts (#229) — the atlas finally says. */}
+              {m.locationName && (
+                <span className="font-accent flex-none text-[11px] italic text-ink-label">
+                  {m.locationName}
+                </span>
+              )}
               {m.fogEnabled && (
                 <span
                   className="flex items-center gap-1 text-ink-faded"

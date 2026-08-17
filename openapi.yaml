@@ -5087,6 +5087,14 @@ components:
         createdAt:
           type: string
           format: date-time
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The place this map depicts, when it depicts one (#229).
+        locationName:
+          type: string
+          nullable: true
     MapPin:
       type: object
       required:
@@ -5232,6 +5240,10 @@ components:
         parentMapId:
           type: string
           format: uuid
+        locationId:
+          type: string
+          format: uuid
+          description: The place this map depicts, when it depicts one (#229).
           nullable: true
     UpdateMapRequest:
       type: object
@@ -5248,6 +5260,11 @@ components:
         fogEnabled:
           type: boolean
           description: Omit to leave the fog as it is.
+        locationId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The place this map depicts. Omitted means unchanged — like a shop, a map cannot be quietly unfiled by a request that says nothing.
     MapPinInput:
       type: object
       required:

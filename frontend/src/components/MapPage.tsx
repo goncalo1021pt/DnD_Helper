@@ -177,6 +177,36 @@ export default function MapPage() {
           )}
           {isDM && (
             <>
+              {map && (locations ?? []).length > 0 && (
+                <select
+                  value={map.locationId ?? ""}
+                  onChange={(e) =>
+                    // The place this map depicts (#229). The empty choice
+                    // unfiles via the nil-UUID sentinel — absent means
+                    // unchanged on this endpoint, the shops' lesson.
+                    updateMap.mutate({
+                      mapId: map.id,
+                      body: {
+                        name: map.name,
+                        ...(map.parentMapId ? { parentMapId: map.parentMapId } : {}),
+                        locationId:
+                          e.target.value || "00000000-0000-0000-0000-000000000000",
+                      },
+                    })
+                  }
+                  disabled={updateMap.isPending}
+                  title="The place this map depicts"
+                  className="input-hall input-compact w-40 cursor-pointer text-[12px]"
+                >
+                  <option value="">No place — just a map</option>
+                  {(locations ?? []).map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {"— ".repeat(l.depth)}
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               {map && (
                 <button
                   onClick={() => {
@@ -406,7 +436,14 @@ export default function MapPage() {
                     Discard
                   </button>
                   <button
-                    onClick={() => setSubmitOpen(true)}
+                    onClick={() => {
+                      // A map that depicts a place suggests that place for
+                      // its reveals (#229) — the DM can still clear it.
+                      if (!submitLocationId && map.locationId) {
+                        setSubmitLocationId(map.locationId);
+                      }
+                      setSubmitOpen(true);
+                    }}
                     className="btn-base btn-gold clip-octagon h-8 px-3.5 text-[11px]"
                   >
                     Submit
