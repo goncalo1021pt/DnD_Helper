@@ -20,7 +20,10 @@ const ROW_H = 112;
 const PAD_X = 100;
 const PAD_Y = 84;
 
-function layout(nodes: SkillNode[], edges: SkillEdge[]): { placed: Placed[]; w: number; h: number } {
+function layout(
+  nodes: SkillNode[],
+  edges: SkillEdge[],
+): { placed: Placed[]; limbX: (col: number) => number; w: number; h: number } {
   const adj = new Map<string, string[]>();
   for (const e of edges) {
     adj.set(e.a, [...(adj.get(e.a) ?? []), e.b]);
@@ -75,9 +78,25 @@ function layout(nodes: SkillNode[], edges: SkillEdge[]): { placed: Placed[]; w: 
     });
   }
 
+  // The frame fits what was actually PLACED — a crowded cell spreads its
+  // members ±80px past the limb column, and a width computed from limb count
+  // alone clipped them out of the SVG entirely (#248). Everything shifts so
+  // the leftmost node sits at PAD_X, and the limb labels ride the same shift.
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  for (const p of placed) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+  }
+  if (!Number.isFinite(minX)) {
+    minX = PAD_X;
+    maxX = PAD_X;
+  }
+  const shift = PAD_X - minX;
   return {
-    placed,
-    w: PAD_X * 2 + Math.max(limbs.length - 1, 0) * COL_W,
+    placed: placed.map((p) => ({ ...p, x: p.x + shift })),
+    limbX: (col: number) => PAD_X + col * COL_W + shift,
+    w: maxX - minX + PAD_X * 2,
     h: PAD_Y * 2 + maxRow * ROW_H,
   };
 }
@@ -104,7 +123,7 @@ export default function TreeWeb({
     );
   }
 
-  const { placed, w, h } = layout(nodes, edges);
+  const { placed, limbX, w, h } = layout(nodes, edges);
   const pos = new Map(placed.map((p) => [p.node.id, p]));
   const limbs = [...new Set(nodes.map((n) => n.limb || ""))].sort();
 
@@ -133,7 +152,7 @@ export default function TreeWeb({
         {limbs.map((l, i) => (
           <text
             key={l || "(web)"}
-            x={PAD_X + i * COL_W}
+            x={limbX(i)}
             y={34}
             textAnchor="middle"
             style={{

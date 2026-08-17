@@ -337,6 +337,14 @@ export default function TreeEditorPage() {
               The Powers
             </h3>
           </div>
+          {/* A web with no entry is a dead end — players' picks can never be
+              spent, and nobody used to be told (#248). */}
+          {!nodes.some((n) => n.isEntry) && (
+            <p className="font-accent m-0 mb-4 text-[14px] italic text-[#e0725f]">
+              No power is marked as an entry — heroes can never claim anything
+              here. Edit a node and mark it "Entry".
+            </p>
+          )}
           <div className="flex flex-col gap-5">
             {limbs.map((limb) => (
               <div key={limb || "(none)"}>
@@ -384,7 +392,11 @@ export default function TreeEditorPage() {
                             </button>
                             <button
                               onClick={() => {
-                                if (confirm(`Sever "${n.name}" from the web?`))
+                                if (
+                                  confirm(
+                                    `Sever "${n.name}" from the web? Its threads go with it — powers beyond it may fall out of reach, and any hero who claimed it gets that pick back.`,
+                                  )
+                                )
                                   deleteNode.mutate(n.id);
                               }}
                               title="Remove"

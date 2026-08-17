@@ -360,6 +360,13 @@ func (s *Server) buildCharacterTreeState(ctx context.Context, character db.Chara
 		takenIds = append(takenIds, t.ID)
 	}
 	granted := int(pact.PicksGranted)
+	// Spent is recomputed at TODAY'S prices, so a DM raising the keystone
+	// cost after a claim could push a hero into debt — "Picks -1 of 1" with
+	// the next grant silently swallowed. A reprice never creates debt: the
+	// ledger clamps at zero (#248).
+	if spent > granted {
+		spent = granted
+	}
 	remaining := granted - spent
 	return api.CharacterTreeState{
 		Assigned:       true,
