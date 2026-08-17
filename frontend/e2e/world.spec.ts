@@ -256,7 +256,9 @@ test("a place is listed under its own parent, not banded with its depth", async 
   // asserting the dropdown, not the ladder.
   await page.goto(`/questboard/campaigns/${campaign.id}/world`);
   await expect(page.getByRole("heading", { name: "The World" })).toBeVisible();
-  const drawn = await page.locator("span.font-heading.truncate").allTextContents();
+  // The row title became a door to the place's own page (#230), so the ladder
+  // is read off the links now — still the row titles, not the dropdown.
+  const drawn = await page.locator("a.font-heading.truncate").allTextContents();
   expect(drawn.map((t) => t.trim()).filter((t) => order.includes(t))).toEqual(order);
 });
 
@@ -352,6 +354,99 @@ test("deleting a veiled place keeps its notices and folk dark; a public place's 
   const pearl = dmQuests.find((q) => q.title === "Steal the Whisper-Pearl");
   expect(pearl, "the DM still holds the secret notice").toBeTruthy();
   expect(pearl!.location, "it remembers where it hung").toBe("The Silent Reach");
+
+  await dmCtx.close();
+  await plCtx.close();
+});
+
+/*
+A place is a page (#230): the chapter of everything filed in it — who is
+there, what is sold, what hangs on the board, its maps — with each section a
+door. There is no endpoint behind it: it reads the domain payloads the server
+already veiled, so a player's page can never over-report.
+*/
+/* The smallest valid PNG — this spec cares that a map EXISTS in the chapter,
+   not what it depicts. */
+const TINY_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+test("a place's page gathers its folk, shops, notices and maps — and the player's shows only theirs", async ({
+  browser,
+}) => {
+  const dmCtx = await browser.newContext();
+  const dm = await dmCtx.newPage();
+  await dm.goto("/");
+  await registerViaAPI(dm.request, newAccount("chapter"));
+  const campaign = await createCampaign(dm.request, unique("Chapter Table "));
+
+  const city = await createLocation(dm.request, campaign.id, "Ars");
+  await revealLocation(dm.request, city);
+  const district = await createLocation(dm.request, campaign.id, "The Shambles", city);
+
+  // Two people: one the party knows, one veiled.
+  for (const [name, known] of [
+    ["Mira the Harbourmaster", true],
+    ["The Whisperer", false],
+  ] as const) {
+    const res = await dm.request.post(`/api/campaigns/${campaign.id}/npcs`, {
+      data: { name, locationId: city },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+    if (known) {
+      await dm.request.put(`/api/npcs/${(await res.json()).id}/visibility`, {
+        data: { scope: "party", visible: true },
+      });
+    }
+  }
+
+  // A shop, revealed; a notice, party-visible; a map of the city.
+  const shop = await dm.request.post(`/api/campaigns/${campaign.id}/vendors`, {
+    data: { name: "The Salt Cellar", locationId: city },
+  });
+  expect(shop.ok(), await shop.text()).toBeTruthy();
+  await dm.request.patch(`/api/vendors/${(await shop.json()).id}`, {
+    data: { name: "The Salt Cellar", revealed: true },
+  });
+  const questId = await postQuest(dm.request, campaign.id, "The Missing Ledger", city);
+  await dm.request.put(`/api/quests/${questId}/visibility`, {
+    data: { scope: "party", visible: true },
+  });
+  const mapRes = await dm.request.post(`/api/campaigns/${campaign.id}/maps`, {
+    data: { name: "Ars, street by street", imageBase64: TINY_PNG, locationId: city },
+  });
+  expect(mapRes.ok(), await mapRes.text()).toBeTruthy();
+
+  // The DM's chapter holds everything, veiled folk included.
+  await dm.goto(`/questboard/campaigns/${campaign.id}/world/${city}`);
+  await expect(dm.getByRole("heading", { name: "Ars", exact: true })).toBeVisible();
+  for (const text of [
+    "The Shambles",
+    "Mira the Harbourmaster",
+    "The Whisperer",
+    "The Salt Cellar",
+    "The Missing Ledger",
+    "Ars, street by street",
+  ]) {
+    await expect(dm.getByText(text).first(), `${text} is in the chapter`).toBeVisible();
+  }
+  await expect(dm.getByText("Battles")).toBeVisible();
+
+  // The player's chapter is the same page, minus what they may not know.
+  const plCtx = await browser.newContext();
+  const pl = await plCtx.newPage();
+  await pl.goto("/");
+  await registerViaAPI(pl.request, newAccount("chapterpl"));
+  await joinCampaign(pl.request, campaign.inviteCode);
+  await pl.goto(`/questboard/campaigns/${campaign.id}/world/${city}`);
+  await expect(pl.getByRole("heading", { name: "Ars", exact: true })).toBeVisible();
+  await expect(pl.getByText("Mira the Harbourmaster")).toBeVisible();
+  await expect(pl.getByText("The Whisperer"), "a veiled person is absent").toHaveCount(0);
+  await expect(pl.getByText("The Shambles"), "a veiled child place is absent").toHaveCount(0);
+  await expect(pl.getByText("Battles"), "the fight library is the DM's alone").toHaveCount(0);
+
+  // A place the player may not see answers the same as one that never existed.
+  await pl.goto(`/questboard/campaigns/${campaign.id}/world/${district}`);
+  await expect(pl.getByText("No such place")).toBeVisible();
 
   await dmCtx.close();
   await plCtx.close();
