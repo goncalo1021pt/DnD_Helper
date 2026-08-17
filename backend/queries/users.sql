@@ -53,6 +53,11 @@ RETURNING *;
 SELECT * FROM email_tokens
 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now();
 
+-- name: GetSpentEmailToken :one
+-- The same token in ANY state — a second click of an already-used link must
+-- read as "already confirmed", not as a failure (#249).
+SELECT * FROM email_tokens WHERE token_hash = $1;
+
 -- name: UseEmailToken :exec
 UPDATE email_tokens SET used_at = now() WHERE id = $1;
 

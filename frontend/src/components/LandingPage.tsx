@@ -99,6 +99,9 @@ function LocalAuth() {
       }
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       setFormError(data.error ?? "That code didn't match.");
+      // A refused code is dead — clear it so the next keystrokes start a
+      // fresh one instead of appending to the corpse (#249).
+      setCode("");
     } catch {
       setFormError("Could not reach the tavern. Check your connection.");
     } finally {
