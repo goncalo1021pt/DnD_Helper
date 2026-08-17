@@ -222,6 +222,7 @@ const listNpcs = `-- name: ListNpcs :many
 SELECT n.id, n.campaign_id, n.name, n.description, n.location_id, n.content_id, n.character_id, n.visible_to_party, n.stats_visible_to_party, n.created_by, n.created_at, n.updated_at,
        l.name AS location_name,
        c.name AS character_name,
+       (c.class_id IS NOT NULL) AS character_forged,
        rc.kind AS content_kind, rc.source AS content_source,
        rc.name AS content_name, rc.summary AS content_summary,
        rc.data AS content_data
@@ -248,6 +249,7 @@ type ListNpcsRow struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	LocationName        *string            `json:"location_name"`
 	CharacterName       *string            `json:"character_name"`
+	CharacterForged     interface{}        `json:"character_forged"`
 	ContentKind         *ContentKind       `json:"content_kind"`
 	ContentSource       *ContentSource     `json:"content_source"`
 	ContentName         *string            `json:"content_name"`
@@ -282,6 +284,7 @@ func (q *Queries) ListNpcs(ctx context.Context, campaignID uuid.UUID) ([]ListNpc
 			&i.UpdatedAt,
 			&i.LocationName,
 			&i.CharacterName,
+			&i.CharacterForged,
 			&i.ContentKind,
 			&i.ContentSource,
 			&i.ContentName,

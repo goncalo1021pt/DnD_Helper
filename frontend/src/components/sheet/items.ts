@@ -34,8 +34,10 @@ export const SLOT_LABEL: Record<EquipSlot, string> = {
   boots: "Boots",
   gloves: "Gloves",
   bracers: "Bracers",
-  ring1: "Ring",
-  ring2: "Ring",
+  // The two ring slots wear distinct names — twin "Wear · Ring" buttons let
+  // the first silently knock off the ring already worn (#250).
+  ring1: "First Ring",
+  ring2: "Second Ring",
 };
 
 /** Which slots each worn kind may occupy — the client mirror of wearSlots. */

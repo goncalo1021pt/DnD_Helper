@@ -5,6 +5,7 @@
 SELECT n.*,
        l.name AS location_name,
        c.name AS character_name,
+       (c.class_id IS NOT NULL) AS character_forged,
        rc.kind AS content_kind, rc.source AS content_source,
        rc.name AS content_name, rc.summary AS content_summary,
        rc.data AS content_data

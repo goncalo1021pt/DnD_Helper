@@ -177,7 +177,12 @@ func (q *Queries) GetQuest(ctx context.Context, id uuid.UUID) (Quest, error) {
 }
 
 const listClaimsByCampaign = `-- name: ListClaimsByCampaign :many
-SELECT c.quest_id, c.user_id, c.claimed_at, u.name AS user_name
+SELECT c.quest_id, c.user_id, c.claimed_at, u.name AS user_name,
+       (SELECT string_agg(ch.name, ' & ' ORDER BY ch.created_at)
+        FROM characters ch
+        WHERE ch.owner_user_id = c.user_id
+          AND ch.campaign_id = q.campaign_id
+          AND NOT ch.table_born) AS hero_name
 FROM quest_claims c
 JOIN users u ON u.id = c.user_id
 JOIN quests q ON q.id = c.quest_id
@@ -189,8 +194,12 @@ type ListClaimsByCampaignRow struct {
 	UserID    uuid.UUID          `json:"user_id"`
 	ClaimedAt pgtype.Timestamptz `json:"claimed_at"`
 	UserName  string             `json:"user_name"`
+	HeroName  []byte             `json:"hero_name"`
 }
 
+// The claimant's seated heroes ride along so the board can speak in-fiction —
+// "claimed by Sella", not by a login handle (#250). Table-born quick-adds are
+// the DM's stubs, never a claimant's own hero.
 func (q *Queries) ListClaimsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListClaimsByCampaignRow, error) {
 	rows, err := q.db.Query(ctx, listClaimsByCampaign, campaignID)
 	if err != nil {
@@ -205,6 +214,7 @@ func (q *Queries) ListClaimsByCampaign(ctx context.Context, campaignID uuid.UUID
 			&i.UserID,
 			&i.ClaimedAt,
 			&i.UserName,
+			&i.HeroName,
 		); err != nil {
 			return nil, err
 		}

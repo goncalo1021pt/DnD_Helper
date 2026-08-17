@@ -43,7 +43,15 @@ RETURNING *;
 DELETE FROM quest_rewards WHERE quest_id = $1;
 
 -- name: ListClaimsByCampaign :many
-SELECT c.quest_id, c.user_id, c.claimed_at, u.name AS user_name
+-- The claimant's seated heroes ride along so the board can speak in-fiction —
+-- "claimed by Sella", not by a login handle (#250). Table-born quick-adds are
+-- the DM's stubs, never a claimant's own hero.
+SELECT c.quest_id, c.user_id, c.claimed_at, u.name AS user_name,
+       (SELECT string_agg(ch.name, ' & ' ORDER BY ch.created_at)
+        FROM characters ch
+        WHERE ch.owner_user_id = c.user_id
+          AND ch.campaign_id = q.campaign_id
+          AND NOT ch.table_born) AS hero_name
 FROM quest_claims c
 JOIN users u ON u.id = c.user_id
 JOIN quests q ON q.id = c.quest_id

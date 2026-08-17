@@ -34,6 +34,11 @@ QuestClaim:
       format: uuid
     userName:
       type: string
+    heroName:
+      type: string
+      description: >-
+        The claimant's seated hero(es) at this table, when they have any —
+        the name the board prefers to speak.
     claimedAt:
       type: string
       format: date-time

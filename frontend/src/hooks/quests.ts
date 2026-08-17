@@ -30,7 +30,13 @@ export function useCreateQuest(campaignId: string) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["quests", campaignId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quests", campaignId] });
+      // The Where chips and the World page's notice counts read questCount
+      // off the locations payload — a posted or unpinned notice must tick
+      // them without a reload (#250).
+      qc.invalidateQueries({ queryKey: ["locations", campaignId] });
+    },
   });
 }
 
@@ -45,7 +51,13 @@ export function useUpdateQuest(campaignId: string) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["quests", campaignId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quests", campaignId] });
+      // The Where chips and the World page's notice counts read questCount
+      // off the locations payload — a posted or unpinned notice must tick
+      // them without a reload (#250).
+      qc.invalidateQueries({ queryKey: ["locations", campaignId] });
+    },
   });
 }
 
@@ -58,7 +70,13 @@ export function useDeleteQuest(campaignId: string) {
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["quests", campaignId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quests", campaignId] });
+      // The Where chips and the World page's notice counts read questCount
+      // off the locations payload — a posted or unpinned notice must tick
+      // them without a reload (#250).
+      qc.invalidateQueries({ queryKey: ["locations", campaignId] });
+    },
   });
 }
 
@@ -72,7 +90,13 @@ export function useClaimQuest(campaignId: string) {
         : await api.POST("/quests/{questId}/claim", path);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["quests", campaignId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["quests", campaignId] });
+      // The Where chips and the World page's notice counts read questCount
+      // off the locations payload — a posted or unpinned notice must tick
+      // them without a reload (#250).
+      qc.invalidateQueries({ queryKey: ["locations", campaignId] });
+    },
   });
 }
 

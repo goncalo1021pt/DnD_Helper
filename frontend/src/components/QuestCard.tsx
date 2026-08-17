@@ -305,7 +305,9 @@ export default function QuestCard({
               Claimed by
             </span>
             <span className="font-semibold text-ink-value">
-              {quest.claims.map((c) => c.userName).join(", ")}
+              {/* The board speaks in-fiction: the seated hero's name when the
+                  claimant has one, the login handle only as a fallback (#250). */}
+              {quest.claims.map((c) => c.heroName ?? c.userName).join(", ")}
             </span>
           </div>
         )}

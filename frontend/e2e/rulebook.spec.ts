@@ -48,7 +48,9 @@ test("Versatile on a weapon card opens the rule", async ({ page }) => {
   // The card's Properties row carries the keyword as a quiet affordance.
   await page.getByRole("button", { name: "Rule: Versatile" }).click();
   const rule = page.getByRole("dialog").last();
-  await expect(rule.getByText("Versatile", { exact: true })).toBeVisible();
+  // The card's own prose may name the term too (prose keywords are tappable
+  // since #250) — the assertion pins the TITLE, not any mention.
+  await expect(rule.locator("div.font-display", { hasText: "Versatile" })).toBeVisible();
   await expect(rule.getByText(/used with one or two hands/)).toBeVisible();
   await expect(rule.getByText("Weapon property")).toBeVisible();
 });

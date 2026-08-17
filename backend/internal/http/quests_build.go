@@ -149,11 +149,16 @@ func (s *Server) buildQuests(ctx context.Context, campaignID uuid.UUID) ([]api.Q
 	claimsByQuest := map[uuid.UUID][]api.QuestClaim{}
 	claimedByMe := map[uuid.UUID]bool{}
 	for _, c := range claims {
-		claimsByQuest[c.QuestID] = append(claimsByQuest[c.QuestID], api.QuestClaim{
+		claim := api.QuestClaim{
 			UserId:    c.UserID,
 			UserName:  c.UserName,
 			ClaimedAt: c.ClaimedAt.Time,
-		})
+		}
+		if len(c.HeroName) > 0 {
+			hero := string(c.HeroName)
+			claim.HeroName = &hero
+		}
+		claimsByQuest[c.QuestID] = append(claimsByQuest[c.QuestID], claim)
 		if c.UserID == uid {
 			claimedByMe[c.QuestID] = true
 		}
