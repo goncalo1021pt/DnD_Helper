@@ -1,7 +1,14 @@
 import { useMemo } from "react";
-import { useOutletContext } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import type { Location } from "../api/client";
-import { useCharacters, useEncounters, useLocations } from "../hooks";
+import {
+  useCharacters,
+  useEncounters,
+  useLocations,
+  useMaps,
+  useNpcs,
+  useVendors,
+} from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 import PlacesManager, { indentOf, PlaceLinks } from "./PlacesManager";
 import { IconMapPin } from "./ui/icons";
@@ -25,9 +32,15 @@ import { IconMapPin } from "./ui/icons";
 function Gazetteer({
   campaignId,
   locations,
+  folk,
+  shops,
+  maps,
 }: {
   campaignId: string;
   locations: Location[];
+  folk: Record<string, number>;
+  shops: Record<string, number>;
+  maps: Record<string, number>;
 }) {
   if (locations.length === 0) {
     return (
@@ -53,16 +66,26 @@ function Gazetteer({
             <IconMapPin size={14} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate font-heading text-[14px] font-semibold text-ink">
+            <Link
+              to={`/questboard/campaigns/${campaignId}/world/${l.id}`}
+              title={`What your party knows of ${l.name}`}
+              className="block truncate font-heading text-[14px] font-semibold text-ink no-underline transition hover:text-[#8b2520]"
+            >
               {l.name}
-            </span>
+            </Link>
             {l.description && (
               <span className="font-body block text-[12.5px] italic text-ink-body">
                 {l.description}
               </span>
             )}
           </span>
-          <PlaceLinks campaignId={campaignId} place={l} />
+          <PlaceLinks
+            campaignId={campaignId}
+            place={l}
+            folk={folk[l.id] ?? 0}
+            shops={shops[l.id] ?? 0}
+            maps={maps[l.id] ?? 0}
+          />
         </div>
       ))}
     </div>
@@ -76,16 +99,25 @@ export default function WorldPage() {
   const { data: characters } = useCharacters(campaign.id);
   // The encounter library is DM-only, so the battle counts are too.
   const { data: encounters } = useEncounters(campaign.id, isDM);
+  // What else is filed by place (#230). These payloads are already veiled on
+  // the way out, so counting them here can never over-report to a player.
+  const { data: npcs } = useNpcs(campaign.id);
+  const { data: vendors } = useVendors(campaign.id);
+  const { data: maps } = useMaps(campaign.id);
 
   const places = useMemo(() => locations ?? [], [locations]);
 
-  const battles = useMemo(() => {
+  const tally = (rows: Array<{ locationId?: string | null }> | undefined) => {
     const counts: Record<string, number> = {};
-    for (const e of encounters ?? []) {
-      if (e.locationId) counts[e.locationId] = (counts[e.locationId] ?? 0) + 1;
+    for (const r of rows ?? []) {
+      if (r.locationId) counts[r.locationId] = (counts[r.locationId] ?? 0) + 1;
     }
     return counts;
-  }, [encounters]);
+  };
+  const battles = useMemo(() => tally(encounters), [encounters]);
+  const folkAt = useMemo(() => tally(npcs), [npcs]);
+  const shopsAt = useMemo(() => tally(vendors), [vendors]);
+  const mapsAt = useMemo(() => tally(maps), [maps]);
 
   return (
     <div className="panel-hall px-5 pb-11 pt-8 sm:px-[30px]">
@@ -122,10 +154,19 @@ export default function WorldPage() {
             locations={places}
             characters={characters ?? []}
             battles={battles}
+            folk={folkAt}
+            shops={shopsAt}
+            maps={mapsAt}
           />
         </div>
       ) : (
-        <Gazetteer campaignId={campaign.id} locations={places} />
+        <Gazetteer
+          campaignId={campaign.id}
+          locations={places}
+          folk={folkAt}
+          shops={shopsAt}
+          maps={mapsAt}
+        />
       )}
     </div>
   );

@@ -23,44 +23,78 @@ export function indentOf(depth: number): string {
 }
 
 /* What hangs in a place, and where to go and see it. The counts are the whole
-   reason places stopped being a quest-board modal: a place is the join between
-   the board and the encounter library, so it should say so and link there. */
+   reason places stopped being a quest-board modal: a place is the join the
+   board, the folk, the shops, the maps and the encounter library all file by,
+   so it says so and links there (#230). Every count is already veil-resolved —
+   they are read off payloads the server filtered on the way out. */
 export function PlaceLinks({
   campaignId,
   place,
   battles = 0,
+  folk = 0,
+  shops = 0,
+  maps = 0,
 }: {
   campaignId: string;
   place: Location;
   /* Encounters prepared here. Omitted for players, who have no library. */
   battles?: number;
+  folk?: number;
+  shops?: number;
+  maps?: number;
 }) {
   const base = `/questboard/campaigns/${campaignId}`;
   const tone =
     "label-stamp text-[9.5px] text-ink-label no-underline transition hover:text-[#8a5e2c]";
+  const counted: Array<{ to: string; title: string; text: string }> = [];
+  if (place.questCount > 0) {
+    counted.push({
+      to: `${base}/board?place=${place.id}`,
+      title: `Open the board filtered to ${place.name}`,
+      text: `${place.questCount} notice${place.questCount === 1 ? "" : "s"}`,
+    });
+  }
+  if (folk > 0) {
+    counted.push({
+      to: `${base}/world/${place.id}`,
+      title: `Who is found in ${place.name}`,
+      text: `${folk} folk`,
+    });
+  }
+  if (shops > 0) {
+    counted.push({
+      to: `${base}/world/${place.id}`,
+      title: `What is sold in ${place.name}`,
+      text: `${shops} shop${shops === 1 ? "" : "s"}`,
+    });
+  }
+  if (maps > 0) {
+    counted.push({
+      to: `${base}/world/${place.id}`,
+      title: `Maps of ${place.name}`,
+      text: `${maps} map${maps === 1 ? "" : "s"}`,
+    });
+  }
+  if (battles > 0) {
+    counted.push({
+      to: `${base}/encounters?place=${place.id}`,
+      title: `Open the encounters prepared for ${place.name}`,
+      text: `${battles} battle${battles === 1 ? "" : "s"}`,
+    });
+  }
   // An empty place says so in plain text: a link to a board with nothing on it
   // is a promise the click cannot keep.
   return (
     <span className="flex flex-wrap items-center gap-2">
-      {place.questCount > 0 ? (
-        <Link
-          to={`${base}/board?place=${place.id}`}
-          title={`Open the board filtered to ${place.name}`}
-          className={tone}
-        >
-          {place.questCount} notice{place.questCount === 1 ? "" : "s"}
-        </Link>
+      {counted.length === 0 ? (
+        <span className="label-stamp text-[9.5px] text-ink-faded">nothing filed here</span>
       ) : (
-        <span className="label-stamp text-[9.5px] text-ink-faded">no notices</span>
-      )}
-      {battles > 0 && (
-        <Link
-          to={`${base}/encounters?place=${place.id}`}
-          title={`Open the encounters prepared for ${place.name}`}
-          className={tone}
-        >
-          · {battles} battle{battles === 1 ? "" : "s"}
-        </Link>
+        counted.map((c, i) => (
+          <Link key={c.text} to={c.to} title={c.title} className={tone}>
+            {i > 0 && "· "}
+            {c.text}
+          </Link>
+        ))
       )}
     </span>
   );
@@ -73,13 +107,20 @@ export default function PlacesManager({
   locations,
   characters,
   battles,
+  folk,
+  shops,
+  maps,
 }: {
   campaignId: string;
   locations: Location[];
   characters: Character[];
-  /* Encounters prepared per place, keyed by location id. DM-only data, so the
-     page passes it in rather than this component asking for it. */
+  /* What is filed per place, keyed by location id. The page counts these off
+     the domain payloads it already holds and passes them in, so this component
+     asks for nothing on its own (#230). Encounters are DM-only data. */
   battles: Record<string, number>;
+  folk: Record<string, number>;
+  shops: Record<string, number>;
+  maps: Record<string, number>;
 }) {
   const create = useCreateLocation(campaignId);
   const update = useUpdateLocation(campaignId);
@@ -237,9 +278,13 @@ export default function PlacesManager({
                   </span>
 
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-heading text-[14px] font-semibold text-ink">
+                    <Link
+                      to={`/questboard/campaigns/${campaignId}/world/${l.id}`}
+                      title={`Everything filed in ${l.name}`}
+                      className="block truncate font-heading text-[14px] font-semibold text-ink no-underline transition hover:text-[#8b2520]"
+                    >
                       {l.name}
-                    </span>
+                    </Link>
                     {l.description && (
                       <span className="font-body block truncate text-[12px] italic text-ink-faded">
                         {l.description}
@@ -247,7 +292,14 @@ export default function PlacesManager({
                     )}
                   </span>
 
-                  <PlaceLinks campaignId={campaignId} place={l} battles={battles[l.id] ?? 0} />
+                  <PlaceLinks
+                    campaignId={campaignId}
+                    place={l}
+                    battles={battles[l.id] ?? 0}
+                    folk={folk[l.id] ?? 0}
+                    shops={shops[l.id] ?? 0}
+                    maps={maps[l.id] ?? 0}
+                  />
 
                   {dark && (
                     <span
