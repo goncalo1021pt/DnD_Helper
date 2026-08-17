@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { RulesContent } from "../../api/client";
 import { IconConcentration, IconRitual } from "./icons";
+import { useRuleIndex, RuleTerm } from "./RulePopover";
+import { ruleTermFor } from "../../lib/rulebook";
 
 /**
  * A spell's full entry, rendered from rules content: the facts line and the
@@ -23,6 +25,25 @@ interface SpellData {
   book?: string;
 }
 
+/* A condition or keyword named in prose opens the Rulebook, the way an item
+   property already does (#199, #250) — "Paralyzed" in Hold Person is a tap,
+   not a trip to the rules tab. Only Capitalized tokens the rulebook actually
+   knows become affordances; every other word stays prose. */
+function LinkedProse({ text }: { text: string }) {
+  const rules = useRuleIndex();
+  return (
+    <>
+      {text.split(/([A-Z][A-Za-z]{2,})/g).map((part, i) =>
+        /^[A-Z]/.test(part) && rules.has(ruleTermFor(part)) ? (
+          <RuleTerm key={i} term={part} />
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 function inline(text: string): ReactNode[] {
   // SRD source uses &emsp; as a literal HTML entity for indentation; this
   // renderer has no HTML-entity decoding step, so translate it directly.
@@ -30,10 +51,18 @@ function inline(text: string): ReactNode[] {
   // **bold** and _italic_, non-nested — enough for SRD prose.
   return text.split(/(\*\*[^*]+\*\*|_[^_]+_)/g).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**"))
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
+      return (
+        <strong key={i}>
+          <LinkedProse text={part.slice(2, -2)} />
+        </strong>
+      );
     if (part.startsWith("_") && part.endsWith("_"))
-      return <em key={i}>{part.slice(1, -1)}</em>;
-    return part;
+      return (
+        <em key={i}>
+          <LinkedProse text={part.slice(1, -1)} />
+        </em>
+      );
+    return <LinkedProse key={i} text={part} />;
   });
 }
 

@@ -199,9 +199,14 @@ func npcForViewer(r db.ListNpcsRow, nv *npcVeil, isDM, showStats bool, viewer uu
 			out.StatBlock = &block
 		}
 		if r.CharacterID.Valid {
-			id := uuid.UUID(r.CharacterID.Bytes)
-			out.CharacterId = &id
-			out.CharacterName = r.CharacterName
+			// A freeform quick-add has no sheet worth opening — the link led
+			// players to an empty page (#250). The DM keeps it regardless;
+			// they may be mid-forge.
+			if forged, ok := r.CharacterForged.(bool); isDM || (ok && forged) {
+				id := uuid.UUID(r.CharacterID.Bytes)
+				out.CharacterId = &id
+				out.CharacterName = r.CharacterName
+			}
 		}
 	}
 	if isDM {

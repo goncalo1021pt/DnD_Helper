@@ -3848,6 +3848,9 @@ components:
           format: uuid
         userName:
           type: string
+        heroName:
+          type: string
+          description: The claimant's seated hero(es) at this table, when they have any — the name the board prefers to speak.
         claimedAt:
           type: string
           format: date-time
@@ -4652,7 +4655,7 @@ components:
         qty:
           type: integer
           minimum: 1
-          maximum: 999
+          maximum: 1000000
           default: 1
     InventoryItemPatch:
       type: object
@@ -4660,7 +4663,7 @@ components:
         qty:
           type: integer
           minimum: 1
-          maximum: 999
+          maximum: 1000000
         equipped:
           type: boolean
         slot:

@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 // ListMyCharacters returns the caller's heroes across all campaigns,
@@ -183,6 +184,8 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 			}
 			s.logEvent(ctx, campaignID, uid, "hero_seated",
 				fmt.Sprintf("%s waits at the door for the DM's nod", character.Name))
+			// The DM's open door page hears the knock without a refresh (#247).
+			s.publish(campaignID, live.TopicParty)
 			return api.SeatCharacter202JSONResponse(api.SeatPending{
 				CampaignId: campaignID, CampaignName: campaign.Name,
 			}), nil
@@ -211,12 +214,15 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 	if target.Valid {
 		s.logEvent(ctx, uuid.UUID(target.Bytes), uid, "hero_seated",
 			fmt.Sprintf("%s takes a seat at the table", updated.Name))
+		s.publish(uuid.UUID(target.Bytes), live.TopicParty)
 	} else if prevCampaign, wasSeated := seatedCampaign(character); wasSeated {
 		msg := fmt.Sprintf("%s leaves the table", updated.Name)
 		if character.OwnerUserID != uid {
 			msg = fmt.Sprintf("The DM benches %s — the hero returns to %s's shelf", updated.Name, owner.Name)
 		}
 		s.logEvent(ctx, prevCampaign, uid, "hero_unseated", msg)
+		// A bench or a leave reaches the player's open menu live (#247).
+		s.publish(prevCampaign, live.TopicParty)
 	}
 	out := toAPICharacterWithClass(updated, owner.Name, uid, s.classDataFor(ctx, updated), s.classesFor(ctx, updated))
 	out.CampaignName = campaignName

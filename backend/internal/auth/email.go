@@ -75,6 +75,14 @@ func (o *OAuth) verifyEmail(w http.ResponseWriter, r *http.Request) {
 	}
 	tok, err := o.queries.GetEmailToken(r.Context(), hashToken(strings.TrimSpace(req.Token)))
 	if err != nil || tok.Purpose != "verify" {
+		// A spent-but-real link whose account is already confirmed is a
+		// double-click, not a failure — verifying twice is success (#249).
+		if spent, serr := o.queries.GetSpentEmailToken(r.Context(), hashToken(strings.TrimSpace(req.Token))); serr == nil && spent.Purpose == "verify" {
+			if u, uerr := o.queries.GetUserByID(r.Context(), spent.UserID); uerr == nil && u.EmailVerified {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
 		authError(w, http.StatusBadRequest, "", "This confirmation link is invalid or has expired.")
 		return
 	}
@@ -93,8 +101,8 @@ func (o *OAuth) resendVerification(w http.ResponseWriter, r *http.Request) {
 		authError(w, http.StatusUnauthorized, "", "Sign in first.")
 		return
 	}
-	if o.loginLimiter.blocked(clientIP(r), time.Now()) {
-		authError(w, http.StatusTooManyRequests, "", "Too many attempts — wait a few minutes and try again.")
+	if o.mailLimiter.blocked(clientIP(r), time.Now()) {
+		authError(w, http.StatusTooManyRequests, "", "Too many emails sent — wait a few minutes and try again.")
 		return
 	}
 	user, err := o.queries.GetUserByID(r.Context(), uid)
@@ -104,7 +112,7 @@ func (o *OAuth) resendVerification(w http.ResponseWriter, r *http.Request) {
 	}
 	// Nothing to do for verified accounts or those without a local email.
 	if !user.EmailVerified && user.Email != nil && *user.Email != "" {
-		o.loginLimiter.record(clientIP(r), time.Now())
+		o.mailLimiter.record(clientIP(r), time.Now())
 		o.sendVerification(r.Context(), user.ID, *user.Email)
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -114,11 +122,11 @@ func (o *OAuth) resendVerification(w http.ResponseWriter, r *http.Request) {
 // answers 204 so it never reveals whether an address has an account.
 func (o *OAuth) forgotPassword(w http.ResponseWriter, r *http.Request) {
 	ip := clientIP(r)
-	if o.loginLimiter.blocked(ip, time.Now()) {
-		authError(w, http.StatusTooManyRequests, "", "Too many attempts — wait a few minutes and try again.")
+	if o.mailLimiter.blocked(ip, time.Now()) {
+		authError(w, http.StatusTooManyRequests, "", "Too many emails sent — wait a few minutes and try again.")
 		return
 	}
-	o.loginLimiter.record(ip, time.Now()) // cap reset emails per IP
+	o.mailLimiter.record(ip, time.Now()) // cap reset emails per IP, on the mail budget
 	var req struct {
 		Email string `json:"email"`
 	}

@@ -35,6 +35,10 @@ type OAuth struct {
 	devEnabled   bool
 	localEnabled bool
 	loginLimiter *rateLimiter
+	// mailLimiter caps outbound email per IP (verification resends, password
+	// resets) on ITS OWN budget — a patient user re-requesting their mail must
+	// never spend the allowance that guards their password (#249).
+	mailLimiter  *rateLimiter
 	mailer       mail.Mailer
 	baseURL      string
 	totpKey      [32]byte // derived from SESSION_KEY; encrypts TOTP secrets at rest
@@ -71,6 +75,8 @@ func NewOAuth(sm *scs.SessionManager, queries *db.Queries, devEnabled, localEnab
 		// Up to 25 FAILED auth attempts per IP per 15 minutes; successes don't
 		// count, so a shared-IP table of players is never locked out.
 		loginLimiter: newRateLimiter(25, 15*time.Minute),
+		// 5 emails per IP per 15 minutes is plenty for honest re-requests.
+		mailLimiter:  newRateLimiter(5, 15*time.Minute),
 		mailer:       mailer,
 		baseURL:      baseURL,
 		totpKey:      deriveTOTPKey(sessionKey),

@@ -45,3 +45,4 @@ npm-debug.log*
 /frontend/blob-report/
 /frontend/.cache/
 /server.log
+/frontend/tsconfig.tsbuildinfo

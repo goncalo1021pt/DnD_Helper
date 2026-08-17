@@ -838,17 +838,25 @@ export default function HeroSheetPage() {
           )}
           {canEdit && (
             <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[rgba(120,80,30,.25)] pt-3.5">
-              {slotsFor(openItem).map((slot) =>
-                openItem.slot === slot ? null : (
+              {slotsFor(openItem).map((slot) => {
+                if (openItem.slot === slot) return null;
+                // Taking an occupied slot swaps the wearer out — say so on
+                // the button instead of doing it silently (#250).
+                const occupant = (detail?.items ?? []).find(
+                  (i) => i.equipped && i.slot === slot && i.id !== openItem.id,
+                );
+                return (
                   <button
                     key={slot}
                     onClick={() => updateItem.mutate({ itemId: openItem.id, slot })}
                     className="btn-base btn-wax px-3 py-2 text-[10.5px]"
+                    title={occupant ? `Swaps out ${occupant.name}` : undefined}
                   >
                     {BATTLE_SLOTS.includes(slot) || slot === "bothhands" ? "Equip" : "Wear"} · {SLOT_LABEL[slot]}
+                    {occupant ? ` (swaps ${occupant.name})` : ""}
                   </button>
-                ),
-              )}
+                );
+              })}
               {openItem.equipped && (
                 <button
                   onClick={() => updateItem.mutate({ itemId: openItem.id, equipped: false })}

@@ -242,6 +242,27 @@ func (q *Queries) GetRecoveryCode(ctx context.Context, arg GetRecoveryCodeParams
 	return i, err
 }
 
+const getSpentEmailToken = `-- name: GetSpentEmailToken :one
+SELECT id, user_id, purpose, token_hash, expires_at, used_at, created_at FROM email_tokens WHERE token_hash = $1
+`
+
+// The same token in ANY state — a second click of an already-used link must
+// read as "already confirmed", not as a failure (#249).
+func (q *Queries) GetSpentEmailToken(ctx context.Context, tokenHash string) (EmailToken, error) {
+	row := q.db.QueryRow(ctx, getSpentEmailToken, tokenHash)
+	var i EmailToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Purpose,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM users WHERE id = $1
 `

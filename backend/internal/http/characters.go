@@ -161,6 +161,13 @@ func (s *Server) UpdateCharacter(ctx context.Context, request api.UpdateCharacte
 	if errMsg != "" {
 		return api.UpdateCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errMsg}}, nil
 	}
+	// On an update, an ABSENT class means "unchanged", not "changed to empty" —
+	// the absent≠null trap that refused legal HP-only amends of forged heroes
+	// (#251). Create keeps reading absent as empty; only an amend has a stored
+	// class to keep.
+	if request.Body.Class == nil {
+		in.class = character.Class
+	}
 
 	if refusal := amendRefusal(character, in, member.Role); refusal != "" {
 		return api.UpdateCharacter403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{Error: refusal}}, nil

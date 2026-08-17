@@ -28,7 +28,9 @@ const KEYS: Record<string, string[][]> = {
   chronicle: [["events"], ["handouts"]],
   quests: [["quests"]],
   map: [["reveals"], ["map"], ["maps"]],
-  party: [["characters"], ["character-detail"], ["my-characters"]],
+  // Seat requests ride the party topic too, so the DM's door page hears the
+  // knock and a waiting player hears the nod without a refresh (#247).
+  party: [["characters"], ["character-detail"], ["my-characters"], ["seat-requests"], ["my-seat-requests"]],
   vendors: [["vendors"]],
   npcs: [["npcs"]],
 };

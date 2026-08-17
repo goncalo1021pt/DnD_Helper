@@ -43,13 +43,16 @@ test("a long rest does in one press what took three chores", async ({ page }) =>
   await registerViaAPI(page.request, newAccount("rest"));
   const id = await forgeCleric(page, unique("Durnan "));
 
-  // Spend the day: wounded, and two first-level slots gone.
+  // Spend the day: wounded, and two first-level slots gone. PATCH (the PUT
+  // this spec once used answered 405, unasserted, and the damage never landed
+  // — #251), echoing the stored identity; class absent means unchanged.
   const { character: hero } = (await (
     await page.request.get(`/api/characters/${id}`)
-  ).json()) as { character: { hpMax: number; level: number } };
-  await page.request.put(`/api/characters/${id}`, {
-    data: { name: "Durnan", class: "Cleric", level: hero.level, hpCurrent: 1, hpMax: hero.hpMax },
+  ).json()) as { character: { name: string; hpMax: number; level: number } };
+  const wound = await page.request.patch(`/api/characters/${id}`, {
+    data: { name: hero.name, level: hero.level, hpCurrent: 1, hpMax: hero.hpMax },
   });
+  expect(wound.ok(), await wound.text()).toBeTruthy();
   const slots = await page.request.put(`/api/characters/${id}/slots`, {
     data: { used: [2, 0, 0, 0, 0, 0, 0, 0, 0] },
   });
@@ -82,10 +85,11 @@ test("a short rest spends hit dice, and cannot spend more than the hero has", as
 
   const { character: hero } = (await (
     await page.request.get(`/api/characters/${id}`)
-  ).json()) as { character: { hpMax: number; level: number } };
-  await page.request.put(`/api/characters/${id}`, {
-    data: { name: "Brenna", class: "Cleric", level: hero.level, hpCurrent: 1, hpMax: hero.hpMax },
+  ).json()) as { character: { name: string; hpMax: number; level: number } };
+  const wound = await page.request.patch(`/api/characters/${id}`, {
+    data: { name: hero.name, level: hero.level, hpCurrent: 1, hpMax: hero.hpMax },
   });
+  expect(wound.ok(), await wound.text()).toBeTruthy();
 
   await page.goto(`/questboard/heroes/${id}`);
   // A level 1 hero has exactly one hit die, so the stepper cannot offer two.

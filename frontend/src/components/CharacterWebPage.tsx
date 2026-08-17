@@ -128,9 +128,15 @@ export default function CharacterWebPage() {
         </div>
       </div>
 
-      {remaining > 0 && canSpend && (
+      {remaining > 0 && canSpend && nodes.some((n) => n.isEntry) && (
         <p className="font-accent m-0 mb-3 text-[15px] italic text-ember-bright">
           The mark stirs — a power waits to be claimed. Choose from the lit nodes.
+        </p>
+      )}
+      {remaining > 0 && canSpend && !nodes.some((n) => n.isEntry) && (
+        <p className="font-accent m-0 mb-3 text-[15px] italic text-[#e0725f]">
+          This web has no entry — no power can be reached until the DM marks
+          one. Your picks wait.
         </p>
       )}
 
@@ -197,6 +203,19 @@ export default function CharacterWebPage() {
             <p className="font-body m-0 mb-3 text-center text-sm italic text-[#8b2520]">
               {(spend.error as { error?: string } | null)?.error ??
                 "The power slipped away — try again."}
+            </p>
+          )}
+          {/* A locked node says WHY it cannot be claimed, instead of a modal
+              with nothing but Close (#248). */}
+          {stateFor(confirming) === "locked" && (
+            <p className="font-body m-0 mb-3 text-center text-[13.5px] italic text-ink-label">
+              {!canSpend
+                ? "Only this hero's player may claim powers."
+                : !(confirming.isEntry || adjacentToTaken.has(confirming.id))
+                  ? "Out of reach — the web must lead to it. Claim a connected power first."
+                  : remaining < costOf(confirming)
+                    ? `Not enough unspent picks — this power costs ${costOf(confirming)} and ${remaining} remain${remaining === 1 ? "s" : ""}.`
+                    : "Beyond the web for now."}
             </p>
           )}
           <div className="flex justify-center gap-2.5">

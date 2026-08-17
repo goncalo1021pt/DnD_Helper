@@ -281,6 +281,21 @@ export default function MapPage() {
             cursor: dropMode || stampMode ? "crosshair" : "grab",
           }}
         >
+          {/* First-glance answer to "is the map broken?" — black ground is
+              fog, not a failed image (#250). */}
+          {map.fogEnabled && !isDM && (
+            <div
+              className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-[3px] px-3 py-1.5"
+              style={{
+                background: "rgba(13,8,3,.78)",
+                boxShadow: "inset 0 0 0 1px rgba(201,162,39,.25)",
+              }}
+            >
+              <span className="font-accent text-[12.5px] italic text-[#9c855e]">
+                The dark ground is fog of war — it lifts as the party discovers it.
+              </span>
+            </div>
+          )}
           <div
             style={{
               position: "absolute",

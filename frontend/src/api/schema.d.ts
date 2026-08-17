@@ -2191,6 +2191,8 @@ export interface components {
             /** Format: uuid */
             userId: string;
             userName: string;
+            /** @description The claimant's seated hero(es) at this table, when they have any — the name the board prefers to speak. */
+            heroName?: string;
             /** Format: date-time */
             claimedAt: string;
         };
