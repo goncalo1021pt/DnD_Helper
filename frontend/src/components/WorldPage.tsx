@@ -45,7 +45,8 @@ function Gazetteer({
   if (locations.length === 0) {
     return (
       <div className="font-accent px-5 py-[60px] text-center text-base italic text-[#9c855e]">
-        The map is still blank — your DM has charted nothing you have seen yet.
+        The map is still blank — nothing has been charted that you have seen. The
+        places you are let in on are recorded here, each with its own page.
       </div>
     );
   }

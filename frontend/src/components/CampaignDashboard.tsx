@@ -1,16 +1,18 @@
 import type { ReactNode } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import type { Character } from "../api/client";
+import type { Character, Role } from "../api/client";
 import {
   useCharacters,
   useCodex,
   useEvents,
   useLocations,
+  useNpcs,
   useQuests,
   useUpdateCharacter,
 } from "../hooks";
 import { EventLine } from "./ChroniclePage";
 import { hpColor, initials, medallionFor } from "../lib/party";
+import { hallBlocks, screenRows, type Section } from "../lib/sections";
 import type { CampaignContext } from "./CampaignView";
 import { DiceTowerPanel } from "./ui/DiceTray";
 import NextGatheringCard from "./ui/NextGatheringCard";
@@ -52,54 +54,41 @@ function ScreenRow({
   );
 }
 
-/*
- * The DM's Screen: the compact menu of DM-only tools, tucked in the right
- * rail. New DM tools become rows here, not new dashboard blocks.
- */
-function DMScreenPanel() {
-  return (
-    <section className="panel-hall px-3 pb-3 pt-4">
-      <div className="label-stamp mb-2 flex items-baseline justify-between px-3 text-[11px]">
-        <span className="font-semibold tracking-[2px] text-gold-muted">
-          The DM's Screen
-        </span>
-        <span className="text-[10px] text-ink-label">yours alone</span>
-      </div>
-      <ScreenRow
-        to="dm"
-        icon={<IconUsers strokeWidth={1.8} />}
-        title="DM Menu"
-        sub="Table rules, XP & milestones — kick or ban"
-      />
-      <ScreenRow
-        to="den"
-        icon={<IconDragon strokeWidth={1.8} />}
-        title="The Monster Den"
-        sub="Your private menagerie, statted and searchable"
-      />
-    </section>
-  );
-}
+/* The face each screen row wears; anything unlisted falls back to the folk. */
+const SCREEN_ICONS: Record<string, ReactNode> = {
+  den: <IconDragon strokeWidth={1.8} />,
+  dm: <IconUsers strokeWidth={1.8} />,
+  player: <IconUsers strokeWidth={1.8} />,
+};
 
 /*
- * The player's mirror of the DM's Screen: the door to their own seat at
- * this table. New player-side tools become rows here too.
+ * The DM's Screen — and, for a player, its mirror: the door to their own seat
+ * at this table. Both are the same panel with different rows, and the rows
+ * come from `lib/sections`, so a new role-only tool lands here by declaring
+ * itself rather than by being remembered (#231).
  */
-function PlayerScreenPanel() {
+function ScreenPanel({ role }: { role: Role }) {
+  const rows = screenRows(role);
+  const isDM = role === "dm";
   return (
     <section className="panel-hall px-3 pb-3 pt-4">
       <div className="label-stamp mb-2 flex items-baseline justify-between px-3 text-[11px]">
         <span className="font-semibold tracking-[2px] text-gold-muted">
-          Your Pack
+          {isDM ? "The DM's Screen" : "Your Pack"}
         </span>
-        <span className="text-[10px] text-ink-label">yours to carry</span>
+        <span className="text-[10px] text-ink-label">
+          {isDM ? "yours alone" : "yours to carry"}
+        </span>
       </div>
-      <ScreenRow
-        to="player"
-        icon={<IconUsers strokeWidth={1.8} />}
-        title="Player Menu"
-        sub="Your heroes at this table — or the door out"
-      />
+      {rows.map((s) => (
+        <ScreenRow
+          key={s.key}
+          to={s.to}
+          icon={SCREEN_ICONS[s.key] ?? <IconUsers strokeWidth={1.8} />}
+          title={s.hall.kind === "screen" ? s.hall.title : s.label}
+          sub={s.hall.kind === "screen" ? s.hall.sub : ""}
+        />
+      ))}
     </section>
   );
 }
@@ -143,6 +132,44 @@ function BlockHeader({
         {linkLabel} →
       </Link>
     </div>
+  );
+}
+
+/*
+ * One block on the Hall. Most are a header over a single whispered line, and
+ * those draw themselves from the section's own copy; the three with something
+ * live to show (the board, the party, the chronicle) hand their body in.
+ */
+function HallBlock({
+  section,
+  role,
+  meta,
+  children,
+}: {
+  section: Section;
+  role: Role;
+  meta?: string;
+  children?: ReactNode;
+}) {
+  if (section.hall.kind !== "block") return null;
+  const { title, linkLabel, body } = section.hall;
+  const tall = body === "custom";
+  return (
+    <section className={`panel-hall px-6 pt-5 ${tall ? "pb-7" : "pb-6"}`}>
+      <BlockHeader
+        title={title}
+        meta={meta}
+        to={section.to}
+        linkLabel={linkLabel[role]}
+      />
+      {body === "custom" ? (
+        children
+      ) : (
+        <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+          {body[role]}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -291,234 +318,134 @@ export default function CampaignDashboard() {
   const { data: quests } = useQuests(campaign.id);
   const { data: characters } = useCharacters(campaign.id);
   const { data: locations } = useLocations(campaign.id);
+  const { data: npcs } = useNpcs(campaign.id);
   const placeCount = locations?.length ?? 0;
+  const folkCount = npcs?.length ?? 0;
 
   const availableCount = quests?.filter((q) => q.status === "available").length ?? 0;
   const activeCount = quests?.filter((q) => q.status === "active").length ?? 0;
   const newest = (quests ?? []).filter((q) => q.status === "available").slice(0, 2);
 
+  /* The stamp beside each block's title — a count where there is one to make,
+     a standing subtitle where there is not. Absent is fine; the header simply
+     goes without. */
+  const metas: Record<string, string | undefined> = {
+    board: `${availableCount} open · ${activeCount} afoot`,
+    party:
+      characters && characters.length > 0
+        ? `${characters.length} adventurer${characters.length === 1 ? "" : "s"}`
+        : undefined,
+    world:
+      placeCount > 0 ? `${placeCount} charted` : isDM ? "nothing charted yet" : undefined,
+    map: "the world so far",
+    npcs:
+      folkCount > 0
+        ? `${folkCount} ${isDM ? "filed" : "known"}`
+        : isDM
+          ? "nobody yet"
+          : undefined,
+    vendors: isDM ? "who trades where" : "what is for sale",
+    trees: "story-woven powers",
+    encounters: isDM ? "prepare & run combat" : "the initiative order",
+    bestiary: "the party's field journal",
+    codex:
+      codexWaiting > 0
+        ? `${codexAdmitted} admitted · ${codexWaiting} waiting at the door`
+        : `${codexAdmitted} homebrew admitted`,
+    chronicle: progression === "xp" ? "advancing by XP" : "advancing by milestone",
+  };
+
+  /* The three blocks with something live to show. Everything else is its own
+     whisper, written once in `lib/sections`. */
+  const bodies: Record<string, ReactNode> = {
+    board:
+      newest.length > 0 ? (
+        <div className="grid grid-cols-1 gap-x-5 gap-y-4 pt-1 sm:grid-cols-2">
+          {newest.map((q) => (
+            <Link
+              key={q.id}
+              to="board"
+              className="parchment block px-4 pb-3.5 pt-3 no-underline transition hover:-translate-y-0.5"
+              style={{ transform: `rotate(${slipRotation(q.id)})` }}
+            >
+              <div className="font-display truncate text-[15px] font-bold text-ink">
+                {q.title}
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-[11px]">
+                <span className="label-stamp tracking-[1px] text-ink-label">
+                  {q.difficulty}
+                </span>
+                {q.giver && (
+                  <span className="font-accent truncate italic text-ink-body">
+                    — {q.giver}
+                  </span>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <div className="font-accent py-3 text-[15px] italic text-cream-muted">
+          {quests && quests.length > 0
+            ? "Nothing open — every notice is spoken for."
+            : "The board awaits its first notice."}
+        </div>
+      ),
+    party:
+      characters && characters.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          {characters.map((c) => (
+            <PartyRow
+              key={c.id}
+              character={c}
+              canEdit={c.mine || isDM}
+              campaignId={campaign.id}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="font-accent py-3 text-[15px] italic text-cream-muted">
+          No adventurers yet — take a seat in the party ledger.
+        </div>
+      ),
+    chronicle:
+      (events ?? []).length > 0 ? (
+        <div className="flex flex-col gap-3">
+          {(events ?? []).map((e) => (
+            <EventLine key={e.id} event={e} />
+          ))}
+        </div>
+      ) : (
+        <div className="font-accent py-1 text-[14px] italic text-cream-muted">
+          Nothing chronicled yet — deeds will write themselves here.
+        </div>
+      ),
+  };
+
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1.9fr)_minmax(300px,1fr)]">
-      {/* left column */}
+      {/* left column — the rooms, in the order `lib/sections` writes them */}
       <div className="flex flex-col gap-6">
-        {/* quest board block */}
-        <section className="panel-hall px-6 pb-7 pt-5">
-          <BlockHeader
-            title="The Quest Board"
-            meta={`${availableCount} open · ${activeCount} afoot`}
-            to="board"
-            linkLabel="Open the board"
-          />
-          {newest.length > 0 ? (
-            <div className="grid grid-cols-1 gap-x-5 gap-y-4 pt-1 sm:grid-cols-2">
-              {newest.map((q) => (
-                <Link
-                  key={q.id}
-                  to="board"
-                  className="parchment block px-4 pb-3.5 pt-3 no-underline transition hover:-translate-y-0.5"
-                  style={{ transform: `rotate(${slipRotation(q.id)})` }}
-                >
-                  <div className="font-display truncate text-[15px] font-bold text-ink">
-                    {q.title}
-                  </div>
-                  <div className="mt-1 flex items-center gap-2 text-[11px]">
-                    <span className="label-stamp tracking-[1px] text-ink-label">
-                      {q.difficulty}
-                    </span>
-                    {q.giver && (
-                      <span className="font-accent truncate italic text-ink-body">
-                        — {q.giver}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="font-accent py-3 text-[15px] italic text-cream-muted">
-              {quests && quests.length > 0
-                ? "Nothing open — every notice is spoken for."
-                : "The board awaits its first notice."}
-            </div>
-          )}
-        </section>
-
-        {/* party block */}
-        <section className="panel-hall px-6 pb-7 pt-5">
-          <BlockHeader
-            title="The Party"
-            meta={
-              characters && characters.length > 0
-                ? `${characters.length} adventurer${characters.length === 1 ? "" : "s"}`
-                : undefined
-            }
-            to="party"
-            linkLabel={isDM ? "Manage the party" : "Meet the party"}
-          />
-          {characters && characters.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              {characters.map((c) => (
-                <PartyRow
-                  key={c.id}
-                  character={c}
-                  canEdit={c.mine || isDM}
-                  campaignId={campaign.id}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="font-accent py-3 text-[15px] italic text-cream-muted">
-              No adventurers yet — take a seat in the party ledger.
-            </div>
-          )}
-        </section>
-
-        {/* skill trees — the table's custom progression webs (#178: the
-            flagship feature finally gets a door on the hall) */}
-        <section className="panel-hall px-6 pb-6 pt-5">
-          <BlockHeader
-            title="The Skill Trees"
-            meta="story-woven powers"
-            to="trees"
-            linkLabel="Open the trees"
-          />
-          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-            {isDM
-              ? "Weave webs of powers outside the standard rules, bind heroes to a pact, and grant picks at story beats."
-              : "The webs your DM has woven — spend the picks the story grants you, node by node."}
-          </div>
-        </section>
-
-        {/* bestiary — the party's field journal, open to all at the table */}
-        <section className="panel-hall px-6 pb-6 pt-5">
-          <BlockHeader
-            title="The Bestiary"
-            meta="the party's field journal"
-            to="bestiary"
-            linkLabel="Open the bestiary"
-          />
-          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-            {isDM
-              ? "What your heroes have met — identify each creature and reveal its record, piece by piece."
-              : "Log the creatures you face, share notes, and collect the stat blocks the DM hands you."}
-          </div>
-        </section>
-
-        {/* the bazaar — shops filed under the places they trade in (#102) */}
-        <section className="panel-hall px-6 pb-6 pt-5">
-          <BlockHeader
-            title="The Bazaar"
-            meta={isDM ? "who trades where" : "what is for sale"}
-            to="vendors"
-            linkLabel={isDM ? "Open the bazaar" : "Go shopping"}
-          />
-          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-            {isDM
-              ? "Stock a shop at home and file it under a place; show the party the shelves you want them to see."
-              : "The traders you have met, and what they have out on the counter."}
-          </div>
-        </section>
-
-        {/* encounters — the DM's combat tool, shared tracker at the table */}
-        <section className="panel-hall px-6 pb-6 pt-5">
-          <BlockHeader
-            title="Encounters"
-            meta={isDM ? "prepare & run combat" : "the initiative order"}
-            to="encounters"
-            linkLabel={isDM ? "Open encounters" : "See the battle"}
-          />
-          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-            {isDM
-              ? "Prepare battles from the Den and your party, then trigger them and run initiative in-app."
-              : "When the DM triggers a fight, the initiative order and whose turn it is show up here."}
-          </div>
-        </section>
-
-        {/* the map — the campaign atlas, open to all at the table */}
-        <section className="panel-hall px-6 pb-6 pt-5">
-          <BlockHeader
-            title="The Map"
-            meta="the world so far"
-            to="map"
-            linkLabel="Unroll the map"
-          />
-          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-            {isDM
-              ? "Hang your world, pin what matters, and lead the party from region to region."
-              : "The lands your party travels — follow the pins the DM has placed."}
-          </div>
-        </section>
-
-        {/* places — the world layer the board, the encounters and the veil
-            all hang off, so it is a block rather than a DM-screen row */}
-        <section className="panel-hall px-6 pb-6 pt-5">
-          <BlockHeader
-            title="The World"
-            meta={
-              placeCount > 0
-                ? `${placeCount} charted`
-                : isDM
-                  ? "nothing charted yet"
-                  : undefined
-            }
-            to="world"
-            linkLabel="Open the gazetteer"
-          />
-          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-            {isDM
-              ? "Chart realms and the cities inside them, move one that was filed wrong, and choose who knows each exists."
-              : "The realms and cities your party has been let in on — and what hangs in each."}
-          </div>
-        </section>
-
-        {/* codex block */}
-        <section className="panel-hall px-6 pb-6 pt-5">
-          <BlockHeader
-            title="The Codex"
-            meta={
-              codexWaiting > 0
-                ? `${codexAdmitted} admitted · ${codexWaiting} waiting at the door`
-                : `${codexAdmitted} homebrew admitted`
-            }
-            to="codex"
-            linkLabel="Open the codex"
-          />
-          <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-            {isDM
-              ? "Rule on what exists in this world — ban SRD entries, admit homebrew."
-              : "What the DM has ruled legal at this table."}
-          </div>
-        </section>
+        {hallBlocks(role, "left").map((s) => (
+          <HallBlock key={s.key} section={s} role={role} meta={metas[s.key]}>
+            {bodies[s.key]}
+          </HallBlock>
+        ))}
       </div>
 
       {/* right rail */}
       <div className="flex flex-col gap-6">
         <NextGatheringCard campaign={campaign} isDM={isDM} />
 
-        {/* chronicle block */}
-        <section className="panel-hall px-6 pb-6 pt-5">
-          <BlockHeader
-            title="The Chronicle"
-            meta={progression === "xp" ? "advancing by XP" : "advancing by milestone"}
-            to="chronicle"
-            linkLabel="Open the chronicle"
-          />
-          {(events ?? []).length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {(events ?? []).map((e) => (
-                <EventLine key={e.id} event={e} />
-              ))}
-            </div>
-          ) : (
-            <div className="font-accent py-1 text-[14px] italic text-cream-muted">
-              Nothing chronicled yet — deeds will write themselves here.
-            </div>
-          )}
-        </section>
+        {hallBlocks(role, "right").map((s) => (
+          <HallBlock key={s.key} section={s} role={role} meta={metas[s.key]}>
+            {bodies[s.key]}
+          </HallBlock>
+        ))}
 
         <DiceTowerPanel campaignId={campaign.id} />
 
-        {isDM ? <DMScreenPanel /> : <PlayerScreenPanel />}
+        <ScreenPanel role={role} />
       </div>
     </div>
   );

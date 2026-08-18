@@ -292,7 +292,7 @@ export default function MapPage() {
           <div className="font-accent mt-2 text-base italic text-[#9c855e]">
             {isDM
               ? "— hang the first map and give the party somewhere to be. —"
-              : "— the DM has not unrolled a map yet. —"}
+              : "— no map has been unrolled for you yet; the ones you are shown hang here. —"}
           </div>
         </div>
       ) : (

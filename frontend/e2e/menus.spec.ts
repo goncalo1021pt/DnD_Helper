@@ -1,4 +1,4 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 import {
   createCampaign,
   joinCampaign,
@@ -125,4 +125,82 @@ test("a player leaves the table from the Player Menu", async ({ browser }) => {
     await dmPage.request.get(`/api/campaigns/${campaign.id}/members`)
   ).json();
   expect(members).toHaveLength(1);
+});
+
+/*
+ * #231: the rail reads as families, and every chip in it has a door on the
+ * Hall. Folk once reached the rail and never got a block, so the check that
+ * matters is the parity one — walk the rail, and demand the Hall answer for
+ * each destination.
+ */
+
+/** Every href in the section rail, and every href outside it. */
+async function railAndDoors(page: Page): Promise<{ rail: string[]; doors: string[] }> {
+  return page.evaluate(() => {
+    const rail = Array.from(document.querySelectorAll("nav")).find((n) =>
+      Array.from(n.querySelectorAll("a")).some(
+        (a) => a.textContent?.trim() === "The Hall",
+      ),
+    );
+    if (!rail) throw new Error("no section rail on the page");
+    const href = (a: HTMLAnchorElement) => a.getAttribute("href") ?? "";
+    return {
+      rail: Array.from(rail.querySelectorAll("a")).map(href),
+      doors: Array.from(document.querySelectorAll("a"))
+        .filter((a) => !rail.contains(a))
+        .map((a) => href(a as HTMLAnchorElement)),
+    };
+  });
+}
+
+test("every room on the rail has a door on the hall", async ({ browser }) => {
+  const dmCtx = await browser.newContext();
+  const dmPage = await dmCtx.newPage();
+  await registerViaAPI(dmPage.request, newAccount("raildm"));
+  const campaign = await createCampaign(dmPage.request, unique("Families "));
+
+  const plCtx = await browser.newContext();
+  const plPage = await plCtx.newPage();
+  await registerViaAPI(plPage.request, newAccount("railpl"));
+  await joinCampaign(plPage.request, campaign.inviteCode);
+
+  for (const [page, role] of [
+    [dmPage, "dm"],
+    [plPage, "player"],
+  ] as const) {
+    await page.goto(`/questboard/campaigns/${campaign.id}`);
+    await expect(page.getByRole("heading", { name: "The Quest Board" })).toBeVisible();
+
+    const { rail, doors } = await railAndDoors(page);
+    const home = `/questboard/campaigns/${campaign.id}`;
+    // Every chip but the Hall's own — you are already standing in that one.
+    const rooms = rail.filter((h) => h !== home && h !== `${home}/`);
+    expect(rooms.length).toBeGreaterThan(8);
+    for (const room of rooms) {
+      expect(doors, `${role}: no door on the hall for ${room}`).toContain(room);
+    }
+
+    // Folk is the one that shipped to the rail and never reached the Hall.
+    expect(rooms).toContain(`${home}/npcs`);
+    await expect(page.getByRole("heading", { name: "The Folk" })).toBeVisible();
+
+    // The families read as headings over their clusters.
+    const railNav = page.locator("nav").filter({
+      has: page.getByRole("link", { name: "The Hall", exact: true }),
+    });
+    for (const word of ["the story", "the world", "the table"]) {
+      await expect(railNav.getByText(word, { exact: true })).toBeVisible();
+    }
+    // The last family is whichever side is reading.
+    await expect(
+      railNav.getByText(role === "dm" ? "yours alone" : "yours to carry", {
+        exact: true,
+      }),
+    ).toBeVisible();
+  }
+
+  // The Den is the DM's alone — it is in no player's family.
+  const { rail: plRail } = await railAndDoors(plPage);
+  expect(plRail.some((h) => h.endsWith("/den"))).toBe(false);
+  expect(plRail.some((h) => h.endsWith("/player"))).toBe(true);
 });
