@@ -128,6 +128,14 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 			Error: "this character was born at the table and cannot leave it",
 		}}, nil
 	}
+	// A sheet forged for one of the Folk is a body, not a hero (#227): it holds
+	// no seat to give up, and unseating it would strand it at no campaign at
+	// all, where nothing lists it.
+	if character.Kind == db.CharacterKindNpc {
+		return api.SeatCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "this sheet belongs to one of the Folk, not to a seat at the table",
+		}}, nil
+	}
 
 	var target pgtype.UUID
 	var campaignName *string

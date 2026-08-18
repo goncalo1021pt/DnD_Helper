@@ -182,7 +182,7 @@ SELECT c.quest_id, c.user_id, c.claimed_at, u.name AS user_name,
         FROM characters ch
         WHERE ch.owner_user_id = c.user_id
           AND ch.campaign_id = q.campaign_id
-          AND NOT ch.table_born) AS hero_name
+          AND NOT ch.table_born AND ch.kind = 'hero') AS hero_name
 FROM quest_claims c
 JOIN users u ON u.id = c.user_id
 JOIN quests q ON q.id = c.quest_id

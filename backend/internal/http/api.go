@@ -269,6 +269,11 @@ func (s *Server) deleteCampaignTx(ctx context.Context, campaignID uuid.UUID) err
 	if err := qtx.DeleteTableBornOfCampaign(ctx, cid); err != nil {
 		return err
 	}
+	// The Folk die with the table, and so do the sheets forged for them (#227):
+	// a body has no owner's shelf to return to.
+	if err := qtx.DeleteNpcBodiesOfCampaign(ctx, cid); err != nil {
+		return err
+	}
 	if err := qtx.UnseatCharactersOfCampaign(ctx, cid); err != nil {
 		return err
 	}

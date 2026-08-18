@@ -1,9 +1,12 @@
 -- name: ListCharactersByCampaign :many
+-- The party. A body forged for one of the Folk is not one of them (#227) —
+-- filtering here is what keeps NPC sheets out of the roster, the adventurer
+-- count, the chronicle, encounter seating and the veil resolver at once.
 SELECT c.*, u.name AS owner_name, rc_class.data AS class_data
 FROM characters c
 JOIN users u ON u.id = c.owner_user_id
 LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
-WHERE c.campaign_id = $1
+WHERE c.campaign_id = $1 AND c.kind = 'hero'
 ORDER BY c.created_at ASC;
 
 -- name: GetCharacter :one
@@ -31,12 +34,13 @@ DELETE FROM characters WHERE id = $1;
 
 -- name: ListCharactersByOwner :many
 -- The user's heroes across all campaigns, including unseated ones.
--- Table-born characters belong to their roster, not to My Heroes.
+-- Table-born characters belong to their roster, not to My Heroes; a body the
+-- DM forged for one of the Folk belongs to that person, not to their shelf.
 SELECT c.*, camp.name AS campaign_name, rc_class.data AS class_data
 FROM characters c
 LEFT JOIN campaigns camp ON camp.id = c.campaign_id
 LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
-WHERE c.owner_user_id = $1 AND NOT c.table_born
+WHERE c.owner_user_id = $1 AND NOT c.table_born AND c.kind = 'hero'
 ORDER BY c.created_at ASC;
 
 -- name: DeleteTableBornOfUser :exec
@@ -49,6 +53,12 @@ WHERE owner_user_id = $1 AND campaign_id = $2 AND table_born;
 DELETE FROM characters
 WHERE campaign_id = $1 AND table_born;
 
+-- name: DeleteNpcBodiesOfCampaign :exec
+-- A struck campaign's Folk die with it, and so do the sheets forged for them:
+-- a body exists only for its person and would otherwise be unreachable.
+DELETE FROM characters
+WHERE campaign_id = $1 AND kind = 'npc';
+
 -- name: UnseatCharactersOfCampaign :exec
 -- A struck campaign's remaining heroes return to their owners' My Heroes shelf.
 UPDATE characters SET campaign_id = NULL, updated_at = now()
@@ -56,9 +66,11 @@ WHERE campaign_id = $1;
 
 -- name: CountSeatedByOwner :one
 -- How many of a player's heroes already hold a seat at this table, besides
--- the one asking. Table-born characters are the DM's roster, not a seat taken.
+-- the one asking. Table-born characters are the DM's roster, not a seat taken,
+-- and neither are the bodies behind the Folk.
 SELECT COUNT(*) FROM characters
-WHERE owner_user_id = $1 AND campaign_id = $2 AND NOT table_born AND id <> $3;
+WHERE owner_user_id = $1 AND campaign_id = $2
+  AND NOT table_born AND kind = 'hero' AND id <> $3;
 
 -- name: SeatCharacter :one
 -- Seat a hero at a campaign (or NULL to return them to My Heroes).
@@ -246,3 +258,11 @@ WHERE character_id = $1 AND class_id = $2;
 -- Where a newly taken class sits in the list; 0 when it is the first.
 SELECT COALESCE(MAX(position) + 1, 0)::smallint
 FROM character_classes WHERE character_id = $1;
+
+-- name: CreateNpcBody :one
+-- A sheet forged for one of the Folk (#227). It is the DM's, it belongs to
+-- this campaign, and it is never a seat: kind = 'npc' keeps it off the roster,
+-- out of the adventurer count and out of every veil resolved through heroes.
+INSERT INTO characters (campaign_id, owner_user_id, name, class, level, hp_current, hp_max, kind)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'npc')
+RETURNING *;

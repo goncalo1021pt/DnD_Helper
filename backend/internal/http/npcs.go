@@ -310,7 +310,8 @@ func npcName(raw string) (string, string) {
 const (
 	errNotInDen      = "that stat block is not in your Den"
 	errBothStats     = "a person carries a stat block or a sheet, never both"
-	errHeroNotSeated = "that hero is not seated at this campaign"
+	errNotNpcBody    = "that sheet is not one of this campaign's Folk — forge a body for the person instead"
+	errHasBody       = "that person already has a sheet"
 )
 
 // resolveNpcStats works out what stands behind a person after an input is
@@ -354,19 +355,44 @@ func (s *Server) resolveNpcStats(ctx context.Context, campaignID, dmID uuid.UUID
 			c, err := s.queries.GetCharacter(ctx, uuid.UUID(*body.CharacterId))
 			if err != nil {
 				if errors.Is(err, pgx.ErrNoRows) {
-					return pgtype.UUID{}, pgtype.UUID{}, errHeroNotSeated, nil
+					return pgtype.UUID{}, pgtype.UUID{}, errNotNpcBody, nil
 				}
 				return pgtype.UUID{}, pgtype.UUID{}, "", err
 			}
-			seated, ok := seatedCampaign(c)
-			if !ok || seated != campaignID {
-				return pgtype.UUID{}, pgtype.UUID{}, errHeroNotSeated, nil
+			// A sheet makes a person statted; it never makes them a party
+			// member (#227). What may stand behind a person is a body forged
+			// for this campaign's Folk — never somebody's hero.
+			at, ok := seatedCampaign(c)
+			if !ok || at != campaignID || c.Kind != db.CharacterKindNpc {
+				return pgtype.UUID{}, pgtype.UUID{}, errNotNpcBody, nil
 			}
 			characterID = pgUUID(c.ID)
 			contentID = pgtype.UUID{}
 		}
 	}
 	return contentID, characterID, "", nil
+}
+
+// strikeNpcBody destroys the sheet a person no longer stands behind. A body is
+// forged for one of the Folk and nothing else ever points at it (#227): it is
+// off the roster by kind and off its owner's shelf by kind, so a body whose
+// person let go would be a row reachable from nowhere. Anything that is not a
+// body — a hero somebody once attached under the old rules — is left alone.
+func strikeNpcBody(ctx context.Context, q *db.Queries, id pgtype.UUID) error {
+	if !id.Valid {
+		return nil
+	}
+	c, err := q.GetCharacter(ctx, uuid.UUID(id.Bytes))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	if c.Kind != db.CharacterKindNpc {
+		return nil
+	}
+	return q.DeleteCharacter(ctx, c.ID)
 }
 
 // --- the people -------------------------------------------------------------
@@ -441,6 +467,70 @@ func (s *Server) CreateNpc(ctx context.Context, request api.CreateNpcRequestObje
 	return api.CreateNpc201JSONResponse(out), nil
 }
 
+// ForgeNpcBody gives a person a sheet of their own (#227). It used to take a
+// walk through the Party page — quick-add a "party member", then come here and
+// attach it — which left the tavern keeper sitting in the roster with an HP bar
+// and counting as one of the DM's heroes when veils resolved. The body is made
+// here, in one act, and is a body from the first moment: campaign-scoped, the
+// DM's, and never a seat.
+func (s *Server) ForgeNpcBody(ctx context.Context, request api.ForgeNpcBodyRequestObject) (api.ForgeNpcBodyResponseObject, error) {
+	n, err := s.requireNpcDM(ctx, uuid.UUID(request.NpcId))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.ForgeNpcBody404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.ForgeNpcBody401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.ForgeNpcBody403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	if request.Body == nil {
+		return api.ForgeNpcBody400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a sheet is required"}}, nil
+	}
+	if n.CharacterID.Valid {
+		return api.ForgeNpcBody400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errHasBody}}, nil
+	}
+	in, msg := validateCharacterInput(request.Body)
+	if msg != "" {
+		return api.ForgeNpcBody400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: msg}}, nil
+	}
+	uid, _ := auth.UserID(ctx)
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+	body, err := qtx.CreateNpcBody(ctx, db.CreateNpcBodyParams{
+		CampaignID: pgUUID(n.CampaignID), OwnerUserID: uid, Name: in.name,
+		Class: in.class, Level: in.level, HpCurrent: in.hpCurrent, HpMax: in.hpMax,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// A person carries a stat block or a sheet, never both — the sheet wins.
+	if _, err := qtx.UpdateNpc(ctx, db.UpdateNpcParams{
+		ID: n.ID, Name: n.Name, Description: n.Description, LocationID: n.LocationID,
+		ContentID: pgtype.UUID{}, CharacterID: pgUUID(body.ID),
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	out, err := s.oneNpc(ctx, n.CampaignID, n.ID, uid)
+	if err != nil {
+		return nil, err
+	}
+	s.publish(n.CampaignID, live.TopicNpcs)
+	return api.ForgeNpcBody201JSONResponse(out), nil
+}
+
 func (s *Server) UpdateNpc(ctx context.Context, request api.UpdateNpcRequestObject) (api.UpdateNpcResponseObject, error) {
 	n, err := s.requireNpcDM(ctx, uuid.UUID(request.NpcId))
 	if err != nil {
@@ -488,10 +578,27 @@ func (s *Server) UpdateNpc(ctx context.Context, request api.UpdateNpcRequestObje
 	if request.Body.Description != nil {
 		desc = strings.TrimSpace(*request.Body.Description)
 	}
-	if _, err := s.queries.UpdateNpc(ctx, db.UpdateNpcParams{
+	// A body is forged for one person and nothing else points at it, so letting
+	// go of it — detaching, or putting a Den monster there instead — strikes it
+	// rather than leaving a sheet reachable from nowhere (#227).
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+	if _, err := qtx.UpdateNpc(ctx, db.UpdateNpcParams{
 		ID: n.ID, Name: name, Description: desc,
 		LocationID: locID, ContentID: contentID, CharacterID: characterID,
 	}); err != nil {
+		return nil, err
+	}
+	if n.CharacterID != characterID {
+		if err := strikeNpcBody(ctx, qtx, n.CharacterID); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	out, err := s.oneNpc(ctx, n.CampaignID, n.ID, uid)
@@ -516,7 +623,20 @@ func (s *Server) DeleteNpc(ctx context.Context, request api.DeleteNpcRequestObje
 		}
 		return nil, err
 	}
-	if _, err := s.queries.DeleteNpc(ctx, n.ID); err != nil {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	qtx := s.queries.WithTx(tx)
+	if _, err := qtx.DeleteNpc(ctx, n.ID); err != nil {
+		return nil, err
+	}
+	// Their sheet was theirs alone; it does not outlive them (#227).
+	if err := strikeNpcBody(ctx, qtx, n.CharacterID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
 	s.publish(n.CampaignID, live.TopicNpcs)

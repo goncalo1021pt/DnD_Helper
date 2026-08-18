@@ -86,4 +86,8 @@ NpcInput:
       type: string
       format: uuid
       nullable: true
-      description: A character seated at this campaign whose sheet is this NPC's.
+      description: >-
+        A sheet forged for one of this campaign's Folk (#227) — never a seated
+        hero, because a sheet makes a person statted and not a party member.
+        Sending the nil UUID strikes that body: it exists only for this person
+        and nothing else points at it.
