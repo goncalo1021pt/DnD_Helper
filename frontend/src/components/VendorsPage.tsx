@@ -165,7 +165,7 @@ export default function VendorsPage() {
         <div className="font-accent px-5 py-[60px] text-center text-base italic text-[#9c855e]">
           {isDM
             ? "No shops yet — open one, and file it where the party will find it."
-            : "Nobody is trading that you know of. Yet."}
+            : "Nobody is trading that you know of. Yet — the shops you are shown keep their counters here."}
         </div>
       ) : (
         <div className="flex flex-col gap-7">

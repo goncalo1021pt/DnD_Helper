@@ -130,7 +130,7 @@ export default function NpcsPage() {
         <div className="font-accent px-5 py-[60px] text-center text-base italic text-[#9c855e]">
           {isDM
             ? "Nobody here yet — bring someone in, and file them where the party will meet them."
-            : "You have met no one worth writing down. Yet."}
+            : "You have met no one worth writing down yet — the folk you meet are set down here, and what you learn of them with them."}
         </div>
       ) : (
         <div className="flex flex-col gap-7">

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
 import { useCampaigns, useLiveCampaign } from "../hooks";
+import { railFamilies } from "../lib/sections";
 import InviteModal from "./InviteModal";
 import RoleBadge from "./ui/RoleBadge";
 import { IconKey } from "./ui/icons";
@@ -16,55 +17,61 @@ export interface CampaignContext {
  * #178: the section rail — every room reachable from every room, so a
  * mid-session hop (Encounters ↔ Party ↔ Bazaar) stops costing a round-trip
  * through the hall. One strip, shared words for DM and players.
+ *
+ * #231: fourteen equal chips in a row were a list, not a structure. They read
+ * as families now — the story, the world, the table, and what is yours alone —
+ * with the family word standing over its cluster like a column heading in a
+ * gazetteer. Nothing is nested and nothing moved a click further away; the
+ * rooms and their families are read from `lib/sections`, the one list the Hall
+ * also reads, so the two navs cannot drift apart again.
  */
 function SectionRail({ role }: { role: Role }) {
-  const sections: { to: string; label: string; end?: boolean }[] = [
-    { to: ".", label: "The Hall", end: true },
-    { to: "board", label: "Board" },
-    { to: "party", label: "Party" },
-    { to: "trees", label: "Trees" },
-    { to: "encounters", label: "Encounters" },
-    { to: "map", label: "Map" },
-    { to: "world", label: "World" },
-    { to: "vendors", label: "Bazaar" },
-    { to: "npcs", label: "Folk" },
-    { to: "bestiary", label: "Bestiary" },
-    { to: "codex", label: "Codex" },
-    { to: "chronicle", label: "Chronicle" },
-    ...(role === "dm"
-      ? [
-          { to: "den", label: "The Den" },
-          { to: "dm", label: "DM Menu" },
-        ]
-      : [{ to: "player", label: "Player Menu" }]),
-  ];
+  const families = railFamilies(role);
 
   return (
     <nav
-      className="mb-[26px] flex items-center gap-x-1 overflow-x-auto whitespace-nowrap py-1"
+      className="mb-[26px] flex flex-wrap items-end gap-x-6 gap-y-2 py-1"
       style={{
         borderTop: "1px solid rgba(201,162,39,.18)",
         borderBottom: "1px solid rgba(201,162,39,.18)",
       }}
     >
-      {sections.map((s) => (
-        <NavLink
-          key={s.to}
-          to={s.to}
-          end={s.end}
-          className={({ isActive }) =>
-            `label-stamp px-2.5 py-1.5 text-[10px] tracking-[1.5px] no-underline transition ${
-              isActive
-                ? "text-ember-bright"
-                : "text-gold-muted hover:text-cream"
-            }`
-          }
-          style={({ isActive }) =>
-            isActive ? { boxShadow: "inset 0 -2px 0 rgba(201,162,39,.55)" } : undefined
-          }
-        >
-          {s.label}
-        </NavLink>
+      {families.map((g) => (
+        <div key={g.family} className="flex flex-col">
+          {/* The family word: a heading, never a link. It keeps its line even
+              when blank, so every cluster's chips sit on one baseline. The
+              word is the only separator — a rule between clusters would
+              strand itself at the head of a line once the rail wraps. */}
+          <span
+            className="label-stamp px-2.5 pt-1 text-[8px] leading-[1.4] tracking-[2.5px]"
+            style={{ color: "#7b6033" }}
+          >
+            {g.label || " "}
+          </span>
+          <div className="flex flex-wrap items-center gap-x-1">
+            {g.items.map((s) => (
+              <NavLink
+                key={s.key}
+                to={s.to}
+                end={s.end}
+                className={({ isActive }) =>
+                  `label-stamp whitespace-nowrap px-2.5 pb-1.5 pt-0.5 text-[10px] tracking-[1.5px] no-underline transition ${
+                    isActive
+                      ? "text-ember-bright"
+                      : "text-gold-muted hover:text-cream"
+                  }`
+                }
+                style={({ isActive }) =>
+                  isActive
+                    ? { boxShadow: "inset 0 -2px 0 rgba(201,162,39,.55)" }
+                    : undefined
+                }
+              >
+                {s.label}
+              </NavLink>
+            ))}
+          </div>
+        </div>
       ))}
     </nav>
   );
