@@ -23,7 +23,7 @@
     "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
-    "@apidevtools/json-schema-ref-parser": "15.5.1",
+    "@apidevtools/json-schema-ref-parser": "16.0.0",
     "@playwright/test": "1.62.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.2.0",
