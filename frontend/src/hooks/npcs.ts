@@ -8,7 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { NpcInput, SetVisibilityInput } from "../api/client";
+import type { CharacterInput, NpcInput, SetVisibilityInput } from "../api/client";
 
 export function useNpcs(campaignId: string) {
   return useQuery({
@@ -51,6 +51,25 @@ export function useUpdateNpc(campaignId: string) {
     campaignId,
     async (vars: { npcId: string; body: NpcInput }) => {
       const { data, error } = await api.PATCH("/npcs/{npcId}", {
+        params: { path: { npcId: vars.npcId } },
+        body: vars.body,
+      });
+      if (error) throw error;
+      return data;
+    },
+  );
+}
+
+/*
+ * Forging a sheet for one of the Folk (#227). It lands on the npcs list like
+ * every other write here — but it also makes a character, and the roster is
+ * pointedly *not* invalidated, because a body never appears on it.
+ */
+export function useForgeNpcBody(campaignId: string) {
+  return useNpcMutation(
+    campaignId,
+    async (vars: { npcId: string; body: CharacterInput }) => {
+      const { data, error } = await api.POST("/npcs/{npcId}/body", {
         params: { path: { npcId: vars.npcId } },
         body: vars.body,
       });

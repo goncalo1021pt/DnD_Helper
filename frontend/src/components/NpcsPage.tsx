@@ -8,6 +8,7 @@ import {
   useClearNpcStatsOverride,
   useCreateNpc,
   useDeleteNpc,
+  useForgeNpcBody,
   useLocations,
   useNpcs,
   useRules,
@@ -15,6 +16,7 @@ import {
   useSetNpcVisibility,
   useUpdateNpc,
 } from "../hooks";
+import CharacterForm, { emptyHero } from "./CharacterForm";
 import ContentEntry from "./ui/ContentEntry";
 import ParchmentModal from "./ui/ParchmentModal";
 import VisibilityControl from "./VisibilityControl";
@@ -314,25 +316,43 @@ function NpcCard({
         )}
         {npc.isDM && hasStats && (
           <button
-            onClick={() =>
+            onClick={() => {
+              // A Den monster is shared content and survives being let go of.
+              // A sheet was forged for this person alone and nothing else
+              // points at it, so parting with it strikes it (#227) — which is
+              // worth asking about first.
+              if (
+                npc.characterId &&
+                !confirm(
+                  `Strike ${npc.characterName ?? "the sheet"} — the sheet forged for ${npc.name}? It belongs to them alone and goes with them.`,
+                )
+              ) {
+                return;
+              }
               update.mutate({
                 npcId: npc.id,
                 body: {
                   name: npc.name,
                   ...(npc.statBlock ? { contentId: NIL_UUID } : { characterId: NIL_UUID }),
                 },
-              })
+              });
+            }}
+            aria-label={
+              npc.statBlock
+                ? `Detach the stat block of ${npc.name}`
+                : `Strike the sheet of ${npc.name}`
             }
-            aria-label={`Detach the stats of ${npc.name}`}
-            title="Detach — they go back to being just a name"
+            title={
+              npc.statBlock
+                ? "Detach — they go back to being just a name"
+                : "Strike their sheet — it was forged for them alone"
+            }
             className="cursor-pointer border-none bg-transparent p-0 text-[11px] text-[#c96a5a]"
           >
             ×
           </button>
         )}
-        {npc.isDM && !hasStats && (
-          <AttachStats campaignId={campaignId} npc={npc} party={party} />
-        )}
+        {npc.isDM && !hasStats && <AttachStats campaignId={campaignId} npc={npc} />}
       </div>
 
       {npc.isDM && veilsOpen && (
@@ -379,22 +399,23 @@ function NpcCard({
 }
 
 /**
- * What stands behind a person: a Den monster found by typing, or the sheet of
- * a hero seated at this campaign. One or the other — the server refuses both.
+ * What stands behind a person: a Den monster found by typing, or a sheet
+ * forged for them here. One or the other — the server refuses both.
+ *
+ * Statting somebody used to mean walking to the Party page, quick-adding a
+ * "party member", and coming back to attach it — which left the tavern keeper
+ * in the roster with an HP bar, counted among the adventurers, and reading as
+ * one of the DM's own heroes when veils resolved (#227). The sheet is forged
+ * here now, and is a body from the first moment: it holds no seat and appears
+ * on no roster.
  */
-function AttachStats({
-  campaignId,
-  npc,
-  party,
-}: {
-  campaignId: string;
-  npc: Npc;
-  party: Character[];
-}) {
+function AttachStats({ campaignId, npc }: { campaignId: string; npc: Npc }) {
   const update = useUpdateNpc(campaignId);
+  const forge = useForgeNpcBody(campaignId);
   const { data: monsters } = useRules("monster", npc.isDM);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [forging, setForging] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   const matches = useMemo(() => {
@@ -446,21 +467,40 @@ function AttachStats({
           </div>
         )}
       </div>
-      <select
-        value=""
-        onChange={(e) => {
-          if (e.target.value) {
-            update.mutate({ npcId: npc.id, body: { name: npc.name, characterId: e.target.value } });
-          }
-        }}
-        aria-label={`Attach a sheet to ${npc.name}`}
-        className="input-hall h-8 w-[180px] text-[12px]"
+      <button
+        onClick={() => setForging(true)}
+        className="btn-base btn-ghost-gold h-8 px-3 text-[10px]"
       >
-        <option value="">…or a seated hero's sheet</option>
-        {party.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
+        …or forge them a sheet
+      </button>
+
+      {forging && (
+        <ParchmentModal onClose={() => setForging(false)} maxWidth="max-w-[440px]">
+          <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
+            A Sheet for {npc.name}
+          </h3>
+          <p className="font-body m-0 mb-4 text-center text-[13px] italic text-ink-body">
+            Theirs alone — never on the roster, never counted among the
+            adventurers, and struck with them.
+          </p>
+          <CharacterForm
+            initial={{ ...emptyHero, name: npc.name }}
+            mode="create"
+            isPending={forge.isPending}
+            submitLabel="Forge the sheet"
+            errorText={
+              forge.isError
+                ? ((forge.error as { error?: string } | null)?.error ??
+                  "The ledger rejected the entry — check the fields and try again.")
+                : undefined
+            }
+            onCancel={() => setForging(false)}
+            onSubmit={(body) =>
+              forge.mutate({ npcId: npc.id, body }, { onSuccess: () => setForging(false) })
+            }
+          />
+        </ParchmentModal>
+      )}
     </>
   );
 }

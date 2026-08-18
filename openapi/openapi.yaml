@@ -232,6 +232,8 @@ paths:
     $ref: "./paths/npcs.yaml#/~1campaigns~1{campaignId}~1npcs"
   /npcs/{npcId}:
     $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}"
+  /npcs/{npcId}/body:
+    $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1body"
   /npcs/{npcId}/visibility:
     $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1visibility"
   /npcs/{npcId}/visibility/{characterId}:

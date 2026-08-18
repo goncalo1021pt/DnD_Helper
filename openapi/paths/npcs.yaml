@@ -220,3 +220,43 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/npcs/{npcId}/body:
+  parameters:
+    - name: npcId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: forgeNpcBody
+    summary: Forge a character sheet for this person (DM only)
+    description: >-
+      Creates a sheet that belongs to this person and attaches it in one act
+      (#227). The body is the DM's, campaign-scoped, and never a seat: it is
+      absent from the party roster, the adventurer count and every veil
+      resolved through heroes. A person carries a stat block or a sheet and
+      never both, so forging one clears any Den monster standing behind them.
+      Refused when this person already has a sheet.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CharacterInput"
+    responses:
+      "201":
+        description: The person, with their new sheet behind them
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

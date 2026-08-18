@@ -1974,6 +1974,28 @@ export interface paths {
         patch: operations["updateNpc"];
         trace?: never;
     };
+    "/npcs/{npcId}/body": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forge a character sheet for this person (DM only)
+         * @description Creates a sheet that belongs to this person and attaches it in one act (#227). The body is the DM's, campaign-scoped, and never a seat: it is absent from the party roster, the adventurer count and every veil resolved through heroes. A person carries a stat block or a sheet and never both, so forging one clears any Den monster standing behind them. Refused when this person already has a sheet.
+         */
+        post: operations["forgeNpcBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/npcs/{npcId}/visibility": {
         parameters: {
             query?: never;
@@ -3450,7 +3472,7 @@ export interface components {
             contentId?: string | null;
             /**
              * Format: uuid
-             * @description A character seated at this campaign whose sheet is this NPC's.
+             * @description A sheet forged for one of this campaign's Folk (#227) — never a seated hero, because a sheet makes a person statted and not a party member. Sending the nil UUID strikes that body: it exists only for this person and nothing else points at it.
              */
             characterId?: string | null;
         };
@@ -7431,6 +7453,36 @@ export interface operations {
         responses: {
             /** @description The NPC after the change */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    forgeNpcBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CharacterInput"];
+            };
+        };
+        responses: {
+            /** @description The person, with their new sheet behind them */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

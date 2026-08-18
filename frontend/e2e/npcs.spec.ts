@@ -155,3 +155,94 @@ test("a player probing the folk doors cannot tell a hidden person from a fake id
   await dmCtx.close();
   await plCtx.close();
 });
+
+/*
+ * #227: a sheet makes a person statted; it never makes them a party member.
+ *
+ * Statting the tavern keeper used to mean quick-adding them onto the Party
+ * page and walking back here to attach it — so they sat in the roster with an
+ * HP bar, were counted among the adventurers, and resolved veils as one of the
+ * DM's own heroes. The sheet is forged here now, and is a body from the first
+ * moment: off the roster, off the count, off My Heroes, and struck with the
+ * person it was forged for.
+ */
+test("a sheet forged for one of the Folk is a body, not a seat at the table", async ({
+  browser,
+}) => {
+  const dmCtx = await browser.newContext();
+  const dmPage = await dmCtx.newPage();
+  await dmPage.goto("/");
+  await registerViaAPI(dmPage.request, newAccount("dmbody"));
+  const campaign = await createCampaign(dmPage.request, unique("The Yawning Portal "));
+  const town = await createLocation(dmPage.request, campaign.id, unique("Waterdeep "));
+
+  const keeper = unique("Durnan ");
+  await dmPage.goto(`/questboard/campaigns/${campaign.id}/npcs`);
+  await dmPage.getByPlaceholder("Bring in a person — name them…").fill(keeper);
+  await dmPage.getByLabel("Where they are found").selectOption(town);
+  await dmPage.getByRole("button", { name: "Bring in", exact: true }).click();
+  await expect(dmPage.getByText(keeper)).toBeVisible({ timeout: 20_000 });
+
+  // Forge them a sheet, right here — no walk through the Party page.
+  await dmPage.getByRole("button", { name: "…or forge them a sheet" }).click();
+  await expect(dmPage.getByRole("heading", { name: `A Sheet for ${keeper}` })).toBeVisible();
+  await dmPage.getByLabel("Class & ancestry").fill("Fighter");
+  await dmPage.getByRole("button", { name: "Forge the sheet" }).click();
+  await expect(dmPage.getByRole("link", { name: new RegExp(`Open their sheet`) })).toBeVisible();
+
+  // The body exists and is theirs...
+  const npcs = await (
+    await dmPage.request.get(`/api/campaigns/${campaign.id}/npcs`)
+  ).json();
+  const person = npcs.find((n: { name: string }) => n.name === keeper);
+  expect(person.characterId).toBeTruthy();
+
+  // ...but it is on no roster, in no count, and on no shelf.
+  const roster = await (
+    await dmPage.request.get(`/api/campaigns/${campaign.id}/characters`)
+  ).json();
+  expect(roster).toHaveLength(0);
+  const shelf = await (await dmPage.request.get("/api/me/characters")).json();
+  expect(shelf.find((c: { id: string }) => c.id === person.characterId)).toBeUndefined();
+
+  await dmPage.goto(`/questboard/campaigns/${campaign.id}/party`);
+  await expect(dmPage.getByText(keeper)).toHaveCount(0);
+  await dmPage.goto(`/questboard/campaigns/${campaign.id}`);
+  // The Hall's party block counts nobody — its stamp is absent, and its body
+  // still says the ledger is empty.
+  await expect(dmPage.getByText(/^\d+ adventurers?$/)).toHaveCount(0);
+  await expect(dmPage.getByText("No adventurers yet", { exact: false })).toBeVisible();
+
+  // It holds no seat to give up either.
+  const unseat = await dmPage.request.put(`/api/characters/${person.characterId}/seat`, {
+    data: { campaignId: null },
+  });
+  expect(unseat.status()).toBe(400);
+
+  // And a real hero is still a hero: the roster filters by kind, not by owner.
+  const hero = await (
+    await dmPage.request.post(`/api/campaigns/${campaign.id}/characters`, {
+      data: { name: "Ledger Hand", class: "Rogue", level: 1, hpCurrent: 8, hpMax: 8 },
+    })
+  ).json();
+  const roster2 = await (
+    await dmPage.request.get(`/api/campaigns/${campaign.id}/characters`)
+  ).json();
+  expect(roster2.map((c: { id: string }) => c.id)).toEqual([hero.id]);
+
+  // A hero cannot be pressed into service as somebody's body, either.
+  const wrong = await dmPage.request.patch(`/api/npcs/${person.id}`, {
+    data: { name: keeper, characterId: hero.id },
+  });
+  expect(wrong.status()).toBe(400);
+
+  // Parting with the sheet strikes it — a body outlives nobody.
+  dmPage.once("dialog", (d) => d.accept());
+  await dmPage.goto(`/questboard/campaigns/${campaign.id}/npcs`);
+  await dmPage.getByLabel(`Strike the sheet of ${keeper}`).click();
+  await expect(dmPage.getByRole("button", { name: "…or forge them a sheet" })).toBeVisible();
+  const gone = await dmPage.request.get(`/api/characters/${person.characterId}`);
+  expect(gone.status()).toBe(404);
+
+  await dmCtx.close();
+});

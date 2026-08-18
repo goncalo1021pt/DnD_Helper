@@ -22,6 +22,7 @@ export default function CharacterForm({
   mode,
   isPending,
   errorText,
+  submitLabel,
   onSubmit,
   onCancel,
 }: {
@@ -29,6 +30,8 @@ export default function CharacterForm({
   mode: "create" | "edit";
   isPending: boolean;
   errorText?: string;
+  /** Overrides the button's words — a sheet is not always a seat (#227). */
+  submitLabel?: string;
   onSubmit: (values: CharacterInput) => void;
   onCancel: () => void;
 }) {
@@ -139,7 +142,7 @@ export default function CharacterForm({
           disabled={isPending || !v.name.trim()}
           className="btn-base btn-wax clip-octagon px-6 py-[11px] text-xs"
         >
-          {mode === "create" ? "Take a seat" : "Save the hero"}
+          {submitLabel ?? (mode === "create" ? "Take a seat" : "Save the hero")}
         </button>
         <button
           type="button"

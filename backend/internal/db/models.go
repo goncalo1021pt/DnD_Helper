@@ -12,6 +12,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type CharacterKind string
+
+const (
+	CharacterKindHero CharacterKind = "hero"
+	CharacterKindNpc  CharacterKind = "npc"
+)
+
+func (e *CharacterKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CharacterKind(s)
+	case string:
+		*e = CharacterKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CharacterKind: %T", src)
+	}
+	return nil
+}
+
+type NullCharacterKind struct {
+	CharacterKind CharacterKind `json:"character_kind"`
+	Valid         bool          `json:"valid"` // Valid is true if CharacterKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCharacterKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.CharacterKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CharacterKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCharacterKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CharacterKind), nil
+}
+
 type CodexStatus string
 
 const (
@@ -547,6 +589,7 @@ type Character struct {
 	PoolsUsed      []byte             `json:"pools_used"`
 	HitDiceSpent   []byte             `json:"hit_dice_spent"`
 	PactSlotsUsed  int16              `json:"pact_slots_used"`
+	Kind           CharacterKind      `json:"kind"`
 }
 
 type CharacterClass struct {
