@@ -95,15 +95,16 @@ JOIN characters c ON c.id = v.character_id
 WHERE n.campaign_id = $1;
 
 -- name: SetNpcTravel :one
--- Whether a person walks with the party, and who runs them (#228). Traveling
--- opens the veil on their existence with the same stroke: an ally the party
--- has never heard of is a contradiction. Their stats veil is left alone.
+-- Whether a person walks with the party, and who runs them (#228). The veil on
+-- their existence is passed in rather than forced here: setting out opens it
+-- once, and every later change to who runs them leaves it exactly where the DM
+-- put it. Their stats veil is never touched.
 UPDATE npcs
-SET traveling       = $2,
-    control         = $3,
-    control_user_id = $4,
-    visible_to_party = CASE WHEN $2 THEN TRUE ELSE visible_to_party END,
-    updated_at      = now()
+SET traveling        = $2,
+    control          = $3,
+    control_user_id  = $4,
+    visible_to_party = $5,
+    updated_at       = now()
 WHERE id = $1
 RETURNING *;
 

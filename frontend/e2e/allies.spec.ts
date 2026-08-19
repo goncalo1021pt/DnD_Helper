@@ -147,6 +147,38 @@ test("a traveler is known to the party, watched by it, and run by whoever is han
   await runner.getByLabel(`${sildar} takes 1 damage`).click();
   await expect(runner.getByText("51/52")).toBeVisible({ timeout: 20_000 });
 
+  // --- and the veil still rules him while he walks ------------------------
+  //
+  // Traveling opens the party veil once; it does not seize it. A DM who veils
+  // a traveler means it — the stamp on the Folk page and what the table can
+  // see are never allowed to disagree.
+  const veiled = await dm.request.put(`/api/npcs/${npcId}/visibility`, {
+    data: { scope: "party", visible: false },
+  });
+  expect(veiled.ok(), await veiled.text()).toBeTruthy();
+
+  // The player who was handed him keeps him: being told to run someone you
+  // cannot see is not a state worth having.
+  await expect
+    .poll(async () => (await (await runner.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()).length)
+    .toBe(1);
+  // Everybody else loses him — off the register and off the roster both.
+  expect(await (await other.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()).toHaveLength(0);
+  await other.goto(`/questboard/campaigns/${campaign.id}/party`);
+  await expect(other.getByRole("heading", { name: "The Party" })).toBeVisible({ timeout: 20_000 });
+  await expect(other.getByRole("heading", { name: "Traveling with you" })).toHaveCount(0);
+  await expect(other.getByText(sildar)).toHaveCount(0);
+
+  // Taking him back into the DM's own hands hides him from the runner too.
+  await dm.getByLabel(`Who runs ${sildar}`).selectOption("dm");
+  await expect
+    .poll(async () => (await (await runner.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()).length)
+    .toBe(0);
+  await dm.request.put(`/api/npcs/${npcId}/visibility`, { data: { scope: "party", visible: true } });
+  await expect
+    .poll(async () => (await (await other.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()).length)
+    .toBe(1);
+
   // The whole table can be handed him too.
   await dm.getByLabel(`Who runs ${sildar}`).selectOption("table");
   await expect

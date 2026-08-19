@@ -88,18 +88,19 @@ func (s *Server) loadNpcVeil(ctx context.Context, campaignID uuid.UUID) (*npcVei
 // then every place above them. A person filed nowhere is judged on their own
 // veil alone.
 //
-// A traveler stands outside all of it (#228). They walk with the party, so the
-// place they are *filed* under is where they are from, not where they are —
-// and a veiled home town would otherwise hide the man riding beside the cart.
-// Being marked as traveling is itself the statement that the party knows them.
+// A traveler steps out of the PLACE tree and nothing else (#228). They walk
+// with the party, so the place they are *filed* under is where they are from
+// rather than where they are, and a veiled home town would otherwise hide the
+// man riding beside the cart. Their own veil still rules them completely: the
+// DM can send someone along and keep them a secret, or let one hero notice the
+// stranger the rest walk past. Marking a person as traveling opens the
+// party-wide veil once, as a convenience, but it never overrides it — a switch
+// that cannot say no is not a switch.
 func (v *npcVeil) npcVisibleTo(n db.Npc, places *veil, charID uuid.UUID) bool {
-	if n.Traveling {
-		return true
-	}
 	if !resolve(n.VisibleToParty, v.overrides[n.ID], charID) {
 		return false
 	}
-	if !n.LocationID.Valid {
+	if n.Traveling || !n.LocationID.Valid {
 		return true
 	}
 	return places.locationVisibleTo(n.LocationID.Bytes, charID)
@@ -355,12 +356,15 @@ func (s *Server) loadNpcs(ctx context.Context, campaignID uuid.UUID, isDM bool, 
 		n := npcFromListRow(r)
 		showStats := isDM
 		if !isDM {
-			// A traveler is known to the party by definition — marking them
-			// opens that veil — so the pool check stands as it always did.
-			if !nv.npcVisibleToAny(n, places, charIDs) {
+			// Whoever was handed an ally sees them whatever the veil says:
+			// being told to run someone you cannot see is not a state worth
+			// having, and it is the DM's own act either way. For everybody
+			// else the veil rules, traveler or not.
+			mine := runsAlly(r, false, viewer)
+			if !mine && !nv.npcVisibleToAny(n, places, charIDs) {
 				continue
 			}
-			showStats = nv.statsVisibleToAny(n, places, charIDs) || runsAlly(r, false, viewer)
+			showStats = mine || nv.statsVisibleToAny(n, places, charIDs)
 		}
 		out = append(out, npcForViewer(r, nv, isDM, showStats, viewer))
 	}
@@ -809,8 +813,15 @@ func (s *Server) SetNpcTravel(ctx context.Context, request api.SetNpcTravelReque
 		}}, nil
 	}
 
+	// Setting out opens the veil on their existence, because an ally nobody has
+	// heard of is a contradiction — but only at the moment of setting out. A
+	// DM who veils a traveler afterwards means it, and handing them to a
+	// different runner must not quietly undo that (a switch that cannot say no
+	// is not a switch).
+	visible := n.VisibleToParty || (request.Body.Traveling && !n.Traveling)
 	if _, err := s.queries.SetNpcTravel(ctx, db.SetNpcTravelParams{
-		ID: n.ID, Traveling: request.Body.Traveling, Control: control, ControlUserID: runner,
+		ID: n.ID, Traveling: request.Body.Traveling, Control: control,
+		ControlUserID: runner, VisibleToParty: visible,
 	}); err != nil {
 		return nil, err
 	}

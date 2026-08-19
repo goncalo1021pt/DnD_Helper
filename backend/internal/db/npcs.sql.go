@@ -523,31 +523,34 @@ func (q *Queries) SetNpcStatsPartyVisibility(ctx context.Context, arg SetNpcStat
 
 const setNpcTravel = `-- name: SetNpcTravel :one
 UPDATE npcs
-SET traveling       = $2,
-    control         = $3,
-    control_user_id = $4,
-    visible_to_party = CASE WHEN $2 THEN TRUE ELSE visible_to_party END,
-    updated_at      = now()
+SET traveling        = $2,
+    control          = $3,
+    control_user_id  = $4,
+    visible_to_party = $5,
+    updated_at       = now()
 WHERE id = $1
 RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
 `
 
 type SetNpcTravelParams struct {
-	ID            uuid.UUID   `json:"id"`
-	Traveling     bool        `json:"traveling"`
-	Control       string      `json:"control"`
-	ControlUserID pgtype.UUID `json:"control_user_id"`
+	ID             uuid.UUID   `json:"id"`
+	Traveling      bool        `json:"traveling"`
+	Control        string      `json:"control"`
+	ControlUserID  pgtype.UUID `json:"control_user_id"`
+	VisibleToParty bool        `json:"visible_to_party"`
 }
 
-// Whether a person walks with the party, and who runs them (#228). Traveling
-// opens the veil on their existence with the same stroke: an ally the party
-// has never heard of is a contradiction. Their stats veil is left alone.
+// Whether a person walks with the party, and who runs them (#228). The veil on
+// their existence is passed in rather than forced here: setting out opens it
+// once, and every later change to who runs them leaves it exactly where the DM
+// put it. Their stats veil is never touched.
 func (q *Queries) SetNpcTravel(ctx context.Context, arg SetNpcTravelParams) (Npc, error) {
 	row := q.db.QueryRow(ctx, setNpcTravel,
 		arg.ID,
 		arg.Traveling,
 		arg.Control,
 		arg.ControlUserID,
+		arg.VisibleToParty,
 	)
 	var i Npc
 	err := row.Scan(
