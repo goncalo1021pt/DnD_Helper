@@ -263,10 +263,11 @@ func npcForViewer(r db.ListNpcsRow, nv *npcVeil, isDM, showStats bool, viewer uu
 		YoursToRun:   &yours,
 		IsDM:         isDM,
 	}
-	// The bar rides with the person, for everyone who may see them at all:
-	// watching an ally's hit points fall is not the same as reading their
-	// numbers, so it does not wait on the stats veil.
-	if r.Traveling {
+	// Their condition is one of their numbers, so it waits on the stats veil
+	// like the rest of them. A party can be told somebody walks with them and
+	// still not be told how badly they are hurt — and the DM opens that with
+	// the same switch that opens the block, rather than a third one.
+	if r.Traveling && showStats {
 		if cur, max, ok := allyHP(r); ok {
 			out.HpCurrent, out.HpMax = &cur, &max
 		}

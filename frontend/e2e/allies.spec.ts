@@ -102,12 +102,14 @@ test("a traveler is known to the party, watched by it, and run by whoever is han
     timeout: 20_000,
   });
 
-  // Traveling opened the veil on his existence — but NOT on his numbers.
+  // Traveling opened the veil on his existence — but NOT on his numbers, and
+  // his condition is one of them: the party is told a knight rides with them
+  // and not how badly he is hurt.
   const seen = await (await runner.request.get(`/api/campaigns/${campaign.id}/npcs`)).json();
   expect(seen).toHaveLength(1);
   expect(seen[0].traveling).toBe(true);
-  expect(seen[0].hpCurrent).toBe(52);
-  expect(seen[0].hpMax).toBe(52);
+  expect(seen[0].hpCurrent ?? null).toBeNull();
+  expect(seen[0].hpMax ?? null).toBeNull();
   expect(seen[0].statBlock ?? null).toBeNull();
   expect(seen[0].yoursToRun).toBe(false);
 
@@ -131,14 +133,30 @@ test("a traveler is known to the party, watched by it, and run by whoever is han
 
   const mine = (await (await runner.request.get(`/api/campaigns/${campaign.id}/npcs`)).json())[0];
   expect(mine.yoursToRun).toBe(true);
-  // Control carries the numbers: you cannot play someone you may not read.
+  // Control carries the numbers — block and condition both: you cannot play
+  // someone you may not read.
   expect(mine.statBlock?.name).toBe("Knight");
+  expect(mine.hpCurrent).toBe(52);
 
-  // The other player still only watches.
+  // The other player still only watches, and watches a name.
   const theirs = (await (await other.request.get(`/api/campaigns/${campaign.id}/npcs`)).json())[0];
   expect(theirs.yoursToRun).toBe(false);
   expect(theirs.statBlock ?? null).toBeNull();
-  expect(theirs.hpCurrent).toBe(52);
+  expect(theirs.hpCurrent ?? null).toBeNull();
+  expect((await other.request.put(`/api/npcs/${npcId}/hp`, { data: { hpCurrent: 1 } })).status()).toBe(404);
+
+  // Opening the stats veil hands the whole table his numbers at once — the
+  // bar and the block ride the same switch, not two.
+  await dm.getByRole("button", { name: "Stats veiled" }).click();
+  await expect
+    .poll(async () =>
+      (await (await other.request.get(`/api/campaigns/${campaign.id}/npcs`)).json())[0].hpCurrent,
+    )
+    .toBe(52);
+  const opened = (await (await other.request.get(`/api/campaigns/${campaign.id}/npcs`)).json())[0];
+  expect(opened.statBlock?.name).toBe("Knight");
+  // Reading is not running: the door on his hit points is still shut to them.
+  expect(opened.yoursToRun).toBe(false);
   expect((await other.request.put(`/api/npcs/${npcId}/hp`, { data: { hpCurrent: 1 } })).status()).toBe(404);
 
   // --- and the runner takes his wounds for him ----------------------------
@@ -279,9 +297,11 @@ test("an ally seated in a fight is named to the party, and their wounds follow t
     data: { hpCurrent: 30, hpMax: 52, ac: combatant.ac, initiative: null, label: combatant.name },
   });
   expect(hit.ok(), await hit.text()).toBeTruthy();
+  // Read from the DM's payload: a player watching a traveler whose stats are
+  // veiled is told their name and nothing about their condition (#228).
   await expect
     .poll(async () => {
-      const all = await (await pl.request.get(`/api/campaigns/${campaign.id}/npcs`)).json();
+      const all = await (await dm.request.get(`/api/campaigns/${campaign.id}/npcs`)).json();
       return all.find((n: { id: string }) => n.id === npcId).hpCurrent;
     })
     .toBe(30);

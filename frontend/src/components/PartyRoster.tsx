@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import type { Character, Npc, SeatConflict } from "../api/client";
+import type { Character, Npc, RulesContent, SeatConflict } from "../api/client";
 import {
   useCharacters,
   useSetSpellSlots,
@@ -23,6 +23,7 @@ import AbilityRow from "./ui/AbilityRow";
 import CharacterForm, { emptyHero } from "./CharacterForm";
 import type { CampaignContext } from "./CampaignView";
 import FloatingDiceTray from "./ui/DiceTray";
+import ContentEntry from "./ui/ContentEntry";
 import ParchmentModal from "./ui/ParchmentModal";
 import SeatConflictModal from "./ui/SeatConflictModal";
 import {
@@ -598,7 +599,15 @@ function SummonControl({
  *
  * The bar is for everyone who can see them; the ± is for whoever runs them.
  */
-function AllyRow({ campaignId, ally }: { campaignId: string; ally: Npc }) {
+function AllyRow({
+  campaignId,
+  ally,
+  onRead,
+}: {
+  campaignId: string;
+  ally: Npc;
+  onRead: (block: RulesContent) => void;
+}) {
   const setHp = useSetNpcHp(campaignId);
   const cur = ally.hpCurrent ?? 0;
   const max = ally.hpMax ?? 0;
@@ -653,12 +662,20 @@ function AllyRow({ campaignId, ally }: { campaignId: string; ally: Npc }) {
             />
           </div>
         ) : (
-          <div className="font-accent mt-1 text-[11.5px] italic text-cream-muted">
-            Nothing stands behind them yet — no hit points to keep.
-          </div>
+          // A player is told nothing rather than told there is nothing: with
+          // the stats veiled the bar is simply absent, and "no hit points to
+          // keep" would be a claim about someone they may not read.
+          ally.isDM && (
+            <div className="font-accent mt-1 text-[11.5px] italic text-cream-muted">
+              Nothing stands behind them yet — no hit points to keep.
+            </div>
+          )
         )}
         {/* The doors open only where the veils already did: what a viewer may
-            read of an ally is decided on the way out, not here. */}
+            read of an ally is decided on the way out, not here. A block the
+            server chose to send is meant to be *read* — printing its name and
+            stopping there was the roster telling you a secret it would not
+            then let you open. */}
         {(ally.characterId || ally.statBlock) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             {ally.characterId && (
@@ -670,9 +687,12 @@ function AllyRow({ campaignId, ally }: { campaignId: string; ally: Npc }) {
               </Link>
             )}
             {ally.statBlock && (
-              <span className="label-stamp text-[9px] tracking-[1.5px] text-ink-label">
-                {ally.statBlock.name}
-              </span>
+              <button
+                onClick={() => onRead(ally.statBlock!)}
+                className="label-stamp cursor-pointer border-none bg-transparent p-0 text-[9px] tracking-[1.5px] text-gold-muted hover:text-ember-bright"
+              >
+                Read their stat block — {ally.statBlock.name} →
+              </button>
             )}
           </div>
         )}
@@ -706,6 +726,7 @@ function AllyRow({ campaignId, ally }: { campaignId: string; ally: Npc }) {
 }
 
 function TravelingSection({ campaignId, allies }: { campaignId: string; allies: Npc[] }) {
+  const [reading, setReading] = useState<RulesContent | null>(null);
   if (allies.length === 0) return null;
   return (
     <section className="mt-8">
@@ -722,9 +743,14 @@ function TravelingSection({ campaignId, allies }: { campaignId: string; allies: 
       </div>
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {allies.map((a) => (
-          <AllyRow key={a.id} campaignId={campaignId} ally={a} />
+          <AllyRow key={a.id} campaignId={campaignId} ally={a} onRead={setReading} />
         ))}
       </div>
+      {reading && (
+        <ParchmentModal onClose={() => setReading(null)} maxWidth="max-w-[560px]">
+          <ContentEntry entry={reading} />
+        </ParchmentModal>
+      )}
     </section>
   );
 }

@@ -1,9 +1,14 @@
 import type { Character, SetVisibilityInput, VisibilityOverride } from "../api/client";
 import { IconEye, IconEyeOff, IconUsers } from "./ui/icons";
 
-/* What the DM is looking at for one hero: following the party, or singled out.
-   "default" means no override row exists — the hero simply sees what the party
-   sees, and picking it again clears the exception. */
+/* What the DM is looking at for one hero: taking the party's setting, or
+   singled out. "default" means no override row exists — the hero simply sees
+   what the party sees, and picking it again clears the exception.
+
+   The three buttons are not three visibilities. Two of them are exceptions and
+   the first is the absence of one, which is why only one of them ever changes
+   anything: with the party revealed, Hide is the live one; with the party
+   veiled, Show is. */
 type HeroState = "default" | "shown" | "hidden";
 
 function heroState(overrides: VisibilityOverride[], characterId: string): HeroState {
@@ -67,16 +72,21 @@ export default function VisibilityControl({
                 <span className="flex-1 truncate text-[12.5px] font-medium text-ink-value">
                   {c.name}
                 </span>
+                {/* "Follow party" read as a cousin of "travels with the
+                    party" (#228) — two unrelated ideas wearing one word. This
+                    button is about *inheritance*: no exception on file, so the
+                    hero simply does whatever the switch above says. */}
                 {(
                   [
-                    ["default", "Follow party"],
-                    ["shown", "Show"],
-                    ["hidden", "Hide"],
+                    ["default", "As the party", "No exception — this hero does whatever the switch above says."],
+                    ["shown", "Show", "An exception: this hero sees them even when the party does not."],
+                    ["hidden", "Hide", "An exception: this hero does not see them even when the party does."],
                   ] as const
-                ).map(([value, label]) => (
+                ).map(([value, label, why]) => (
                   <button
                     key={value}
                     type="button"
+                    title={why}
                     disabled={isPending}
                     onClick={() =>
                       value === "default"
