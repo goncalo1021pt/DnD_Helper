@@ -40,17 +40,29 @@ services:
       # code) and rotate good backups out in favor of empty ones.
       - |
         while true; do
+          # `depends_on: service_healthy` above orders `docker compose up` and
+          # nothing else. When the Docker daemon brings containers back after a
+          # reboot it starts them all at once, so this one can — and on
+          # 2026-08-18 did — reach the socket before Postgres is listening.
+          until pg_isready -q; do
+            echo "backup: waiting for postgres to accept connections…"
+            sleep 5
+          done
           ts=$$(date +%F-%H%M)
           f="/backups/questboard-$$ts.sql"
           if pg_dump > "$$f"; then
             gzip -f "$$f"
             echo "backup: wrote questboard-$$ts.sql.gz ($$(du -h "$$f.gz" | cut -f1))"
             ls -1t /backups/questboard-*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm
+            sleep 86400
           else
-            echo "backup: FAILED at $$ts — keeping existing dumps" >&2
+            # Sleeping the full day here is what turned one lost race into a
+            # lost day: the failure at 19:58 meant the next attempt was 24h
+            # later, and 2026-08-18 has no dump at all. Retry soon instead.
+            echo "backup: FAILED at $$ts — retrying in 15 minutes" >&2
             rm -f "$$f"
+            sleep 900
           fi
-          sleep 86400
         done
     profiles:
       - full
@@ -82,6 +94,13 @@ services:
       RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       RCLONE_CONFIG_R2_ENDPOINT: https://${R2_ACCOUNT_ID:-unset}.r2.cloudflarestorage.com
+      # The token is "Object Read & Write" scoped to the one bucket — exactly
+      # what .env.example tells you to create, and exactly what least privilege
+      # wants. It therefore cannot ListBuckets, so rclone's does-this-exist
+      # check fails, falls through to CreateBucket, and 403s before a single
+      # byte is uploaded. The bucket is made by hand during setup; tell rclone
+      # to take its existence on trust rather than proving it every run.
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
       # The crypt layer in front of it. VAULT: is what the sync writes to; R2:
       # only ever sees ciphertext.
       RCLONE_CONFIG_VAULT_TYPE: crypt

@@ -94,8 +94,15 @@ encrypted.
 ### 2. Pick a passphrase and obscure it
 
 ```sh
-docker compose run --rm offsite obscure 'a long passphrase you have not used elsewhere'
+docker run --rm rclone/rclone:1.75 obscure 'a long passphrase you have not used elsewhere'
 ```
+
+Run it against the **plain image**, not `docker compose run offsite`. The
+`offsite` service sets `entrypoint: ["/bin/sh", "-c"]`, so the passphrase
+arrives as `$0`, the shell tries to run `obscure` as a command, and you get
+`<your passphrase>: line 0: obscure: not found` — the error echoes the
+passphrase you were trying to keep quiet. If that happens, pick a different
+one; nothing is encrypted with it yet.
 
 Put the **output** in `.env` as `BACKUP_CRYPT_PASSWORD`, and put the
 **passphrase itself in your password manager** before you go any further.
