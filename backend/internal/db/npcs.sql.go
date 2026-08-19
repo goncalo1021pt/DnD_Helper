@@ -33,7 +33,7 @@ func (q *Queries) ClearNpcStatOverrides(ctx context.Context, npcID uuid.UUID) er
 const createNpc = `-- name: CreateNpc :one
 INSERT INTO npcs (campaign_id, name, description, location_id, content_id, character_id, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
 `
 
 type CreateNpcParams struct {
@@ -70,6 +70,10 @@ func (q *Queries) CreateNpc(ctx context.Context, arg CreateNpcParams) (Npc, erro
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Traveling,
+		&i.HpCurrent,
+		&i.Control,
+		&i.ControlUserID,
 	)
 	return i, err
 }
@@ -115,7 +119,7 @@ func (q *Queries) DeleteNpcStatOverride(ctx context.Context, arg DeleteNpcStatOv
 }
 
 const getNpc = `-- name: GetNpc :one
-SELECT id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at FROM npcs WHERE id = $1
+SELECT id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id FROM npcs WHERE id = $1
 `
 
 func (q *Queries) GetNpc(ctx context.Context, id uuid.UUID) (Npc, error) {
@@ -134,6 +138,10 @@ func (q *Queries) GetNpc(ctx context.Context, id uuid.UUID) (Npc, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Traveling,
+		&i.HpCurrent,
+		&i.Control,
+		&i.ControlUserID,
 	)
 	return i, err
 }
@@ -219,16 +227,22 @@ func (q *Queries) ListNpcVisibilityByCampaign(ctx context.Context, campaignID uu
 }
 
 const listNpcs = `-- name: ListNpcs :many
-SELECT n.id, n.campaign_id, n.name, n.description, n.location_id, n.content_id, n.character_id, n.visible_to_party, n.stats_visible_to_party, n.created_by, n.created_at, n.updated_at,
+SELECT n.id, n.campaign_id, n.name, n.description, n.location_id, n.content_id, n.character_id, n.visible_to_party, n.stats_visible_to_party, n.created_by, n.created_at, n.updated_at, n.traveling, n.hp_current, n.control, n.control_user_id,
        l.name AS location_name,
        c.name AS character_name,
        (c.class_id IS NOT NULL) AS character_forged,
+       -- A sheet-backed ally's hit points live on the sheet, which is the only
+       -- place that can hold them; the person's own hp_current stays NULL.
+       c.hp_current AS character_hp_current,
+       c.hp_max AS character_hp_max,
+       cu.name AS control_user_name,
        rc.kind AS content_kind, rc.source AS content_source,
        rc.name AS content_name, rc.summary AS content_summary,
        rc.data AS content_data
 FROM npcs n
 LEFT JOIN locations l ON l.id = n.location_id
 LEFT JOIN characters c ON c.id = n.character_id
+LEFT JOIN users cu ON cu.id = n.control_user_id
 LEFT JOIN rules_content rc ON rc.id = n.content_id
 WHERE n.campaign_id = $1
 ORDER BY l.name NULLS LAST, n.name
@@ -247,9 +261,16 @@ type ListNpcsRow struct {
 	CreatedBy           pgtype.UUID        `json:"created_by"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	Traveling           bool               `json:"traveling"`
+	HpCurrent           *int32             `json:"hp_current"`
+	Control             string             `json:"control"`
+	ControlUserID       pgtype.UUID        `json:"control_user_id"`
 	LocationName        *string            `json:"location_name"`
 	CharacterName       *string            `json:"character_name"`
 	CharacterForged     interface{}        `json:"character_forged"`
+	CharacterHpCurrent  *int32             `json:"character_hp_current"`
+	CharacterHpMax      *int32             `json:"character_hp_max"`
+	ControlUserName     *string            `json:"control_user_name"`
 	ContentKind         *ContentKind       `json:"content_kind"`
 	ContentSource       *ContentSource     `json:"content_source"`
 	ContentName         *string            `json:"content_name"`
@@ -282,9 +303,16 @@ func (q *Queries) ListNpcs(ctx context.Context, campaignID uuid.UUID) ([]ListNpc
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Traveling,
+			&i.HpCurrent,
+			&i.Control,
+			&i.ControlUserID,
 			&i.LocationName,
 			&i.CharacterName,
 			&i.CharacterForged,
+			&i.CharacterHpCurrent,
+			&i.CharacterHpMax,
+			&i.ControlUserName,
 			&i.ContentKind,
 			&i.ContentSource,
 			&i.ContentName,
@@ -299,6 +327,85 @@ func (q *Queries) ListNpcs(ctx context.Context, campaignID uuid.UUID) ([]ListNpc
 		return nil, err
 	}
 	return items, nil
+}
+
+const listTravelingNpcs = `-- name: ListTravelingNpcs :many
+SELECT id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id FROM npcs WHERE campaign_id = $1 AND traveling ORDER BY name
+`
+
+// The allies walking with a party, for the encounter builder and the roster.
+func (q *Queries) ListTravelingNpcs(ctx context.Context, campaignID uuid.UUID) ([]Npc, error) {
+	rows, err := q.db.Query(ctx, listTravelingNpcs, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Npc
+	for rows.Next() {
+		var i Npc
+		if err := rows.Scan(
+			&i.ID,
+			&i.CampaignID,
+			&i.Name,
+			&i.Description,
+			&i.LocationID,
+			&i.ContentID,
+			&i.CharacterID,
+			&i.VisibleToParty,
+			&i.StatsVisibleToParty,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Traveling,
+			&i.HpCurrent,
+			&i.Control,
+			&i.ControlUserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setNpcHp = `-- name: SetNpcHp :one
+UPDATE npcs SET hp_current = $2, updated_at = now()
+WHERE id = $1
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
+`
+
+type SetNpcHpParams struct {
+	ID        uuid.UUID `json:"id"`
+	HpCurrent *int32    `json:"hp_current"`
+}
+
+// What a stat-block-backed ally has left. A sheet-backed one never lands here:
+// their hit points belong to the sheet and are written there.
+func (q *Queries) SetNpcHp(ctx context.Context, arg SetNpcHpParams) (Npc, error) {
+	row := q.db.QueryRow(ctx, setNpcHp, arg.ID, arg.HpCurrent)
+	var i Npc
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Name,
+		&i.Description,
+		&i.LocationID,
+		&i.ContentID,
+		&i.CharacterID,
+		&i.VisibleToParty,
+		&i.StatsVisibleToParty,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Traveling,
+		&i.HpCurrent,
+		&i.Control,
+		&i.ControlUserID,
+	)
+	return i, err
 }
 
 const setNpcOverride = `-- name: SetNpcOverride :exec
@@ -327,7 +434,7 @@ UPDATE npcs
 SET visible_to_party = $2,
     updated_at       = now()
 WHERE id = $1
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
 `
 
 type SetNpcPartyVisibilityParams struct {
@@ -351,6 +458,10 @@ func (q *Queries) SetNpcPartyVisibility(ctx context.Context, arg SetNpcPartyVisi
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Traveling,
+		&i.HpCurrent,
+		&i.Control,
+		&i.ControlUserID,
 	)
 	return i, err
 }
@@ -378,7 +489,7 @@ UPDATE npcs
 SET stats_visible_to_party = $2,
     updated_at             = now()
 WHERE id = $1
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
 `
 
 type SetNpcStatsPartyVisibilityParams struct {
@@ -402,6 +513,63 @@ func (q *Queries) SetNpcStatsPartyVisibility(ctx context.Context, arg SetNpcStat
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Traveling,
+		&i.HpCurrent,
+		&i.Control,
+		&i.ControlUserID,
+	)
+	return i, err
+}
+
+const setNpcTravel = `-- name: SetNpcTravel :one
+UPDATE npcs
+SET traveling        = $2,
+    control          = $3,
+    control_user_id  = $4,
+    visible_to_party = $5,
+    updated_at       = now()
+WHERE id = $1
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
+`
+
+type SetNpcTravelParams struct {
+	ID             uuid.UUID   `json:"id"`
+	Traveling      bool        `json:"traveling"`
+	Control        string      `json:"control"`
+	ControlUserID  pgtype.UUID `json:"control_user_id"`
+	VisibleToParty bool        `json:"visible_to_party"`
+}
+
+// Whether a person walks with the party, and who runs them (#228). The veil on
+// their existence is passed in rather than forced here: setting out opens it
+// once, and every later change to who runs them leaves it exactly where the DM
+// put it. Their stats veil is never touched.
+func (q *Queries) SetNpcTravel(ctx context.Context, arg SetNpcTravelParams) (Npc, error) {
+	row := q.db.QueryRow(ctx, setNpcTravel,
+		arg.ID,
+		arg.Traveling,
+		arg.Control,
+		arg.ControlUserID,
+		arg.VisibleToParty,
+	)
+	var i Npc
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Name,
+		&i.Description,
+		&i.LocationID,
+		&i.ContentID,
+		&i.CharacterID,
+		&i.VisibleToParty,
+		&i.StatsVisibleToParty,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Traveling,
+		&i.HpCurrent,
+		&i.Control,
+		&i.ControlUserID,
 	)
 	return i, err
 }
@@ -410,7 +578,7 @@ const updateNpc = `-- name: UpdateNpc :one
 UPDATE npcs
 SET name = $2, description = $3, location_id = $4, content_id = $5, character_id = $6, updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
 `
 
 type UpdateNpcParams struct {
@@ -445,6 +613,10 @@ func (q *Queries) UpdateNpc(ctx context.Context, arg UpdateNpcParams) (Npc, erro
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Traveling,
+		&i.HpCurrent,
+		&i.Control,
+		&i.ControlUserID,
 	)
 	return i, err
 }

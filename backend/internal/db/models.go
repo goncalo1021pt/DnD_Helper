@@ -694,6 +694,7 @@ type EncounterCombatant struct {
 	Conditions         []string           `json:"conditions"`
 	DeathSaveSuccesses int16              `json:"death_save_successes"`
 	DeathSaveFailures  int16              `json:"death_save_failures"`
+	NpcID              pgtype.UUID        `json:"npc_id"`
 }
 
 type Handout struct {
@@ -793,6 +794,10 @@ type Npc struct {
 	CreatedBy           pgtype.UUID        `json:"created_by"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	Traveling           bool               `json:"traveling"`
+	HpCurrent           *int32             `json:"hp_current"`
+	Control             string             `json:"control"`
+	ControlUserID       pgtype.UUID        `json:"control_user_id"`
 }
 
 type NpcStatVisibility struct {

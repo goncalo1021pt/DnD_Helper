@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useAddCombatant, useCharacters } from "../../hooks";
+import { useAddCombatant, useCharacters, useNpcs } from "../../hooks";
 import { IconPlus } from "../ui/icons";
 import { MonsterSearch } from "./MonsterSearch";
 
@@ -10,24 +10,37 @@ export function AddCombatant({
   monster = true,
   party = true,
   existingCharacterIds = [],
+  existingNpcIds = [],
 }: {
   campaignId: string;
   encounterId: string;
   monster?: boolean;
   party?: boolean;
   existingCharacterIds?: string[];
+  existingNpcIds?: string[];
 }) {
   const add = useAddCombatant(campaignId, encounterId);
   const { data: chars } = useCharacters(campaignId);
-  const [kind, setKind] = useState<"monster" | "pc" | "custom">(monster ? "monster" : party ? "pc" : "custom");
+  // The Folk who walk with the party (#228) sit on the party's side of the
+  // order, so they are offered beside the heroes rather than among the
+  // monsters — and only the ones who actually travel.
+  const { data: folk } = useNpcs(campaignId);
+  const [kind, setKind] = useState<"monster" | "pc" | "ally" | "custom">(monster ? "monster" : party ? "pc" : "custom");
   const [pcPick, setPcPick] = useState("");
+  const [allyPick, setAllyPick] = useState("");
   const [custom, setCustom] = useState({ label: "", hpMax: "", ac: "", initMod: "" });
   const availableChars = (chars ?? []).filter((c) => !existingCharacterIds.includes(c.id));
+  const availableAllies = (folk ?? []).filter(
+    (n) => n.traveling && !existingNpcIds.includes(n.id),
+  );
 
   function addIt() {
     if (kind === "pc" && pcPick) {
       add.mutate({ kind: "pc", characterId: pcPick });
       setPcPick("");
+    } else if (kind === "ally" && allyPick) {
+      add.mutate({ kind: "ally", npcId: allyPick });
+      setAllyPick("");
     } else if (kind === "custom" && custom.label.trim()) {
       add.mutate({
         kind: "custom",
@@ -59,6 +72,7 @@ export function AddCombatant({
       <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="input-hall h-9 w-28 text-[12px]">
         {monster && <option value="monster">Monster</option>}
         {party && <option value="pc">Party</option>}
+        {party && availableAllies.length > 0 && <option value="ally">Ally</option>}
         <option value="custom">Custom</option>
       </select>
 
@@ -81,6 +95,19 @@ export function AddCombatant({
             className="btn-base btn-wax h-9 px-4 text-[12px] disabled:opacity-40"
           >
             <IconPlus size={13} /> Summon party
+          </button>
+        </>
+      )}
+      {party && kind === "ally" && (
+        <>
+          <select value={allyPick} onChange={(e) => setAllyPick(e.target.value)} className="input-hall h-9 min-w-[160px] flex-1 text-[12px]">
+            <option value="">Choose a traveler…</option>
+            {availableAllies.map((n) => (
+              <option key={n.id} value={n.id}>{n.name}</option>
+            ))}
+          </select>
+          <button onClick={addIt} disabled={!allyPick || add.isPending} className="btn-base btn-gold clip-octagon h-9 px-4 text-[12px]">
+            <IconPlus size={13} /> Call them in
           </button>
         </>
       )}

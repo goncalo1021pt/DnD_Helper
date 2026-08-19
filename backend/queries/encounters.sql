@@ -48,6 +48,13 @@ SELECT c.* FROM encounter_combatants c
 JOIN encounters e ON e.id = c.encounter_id
 WHERE c.character_id = $1 AND e.status = 'active';
 
+-- name: ListActiveCombatantsForNpc :many
+-- The same, for one of the Folk walking with the party (#228): an ally's hit
+-- points mirror home too, so they may only stand in one fight at a time.
+SELECT c.* FROM encounter_combatants c
+JOIN encounters e ON e.id = c.encounter_id
+WHERE c.npc_id = $1 AND e.status = 'active';
+
 -- name: SetEncounterStatus :one
 UPDATE encounters SET status = $2 WHERE id = $1 RETURNING *;
 
@@ -77,9 +84,9 @@ DELETE FROM encounters WHERE id = $1;
 
 -- name: AddCombatant :one
 INSERT INTO encounter_combatants (
-    encounter_id, kind, content_id, character_id, label, player_label,
+    encounter_id, kind, content_id, character_id, npc_id, label, player_label,
     init_mod, hp_current, hp_max, ac, hidden, sort_order, group_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING *;
 
 -- name: ListCombatants :many

@@ -14,10 +14,10 @@ import (
 
 const addCombatant = `-- name: AddCombatant :one
 INSERT INTO encounter_combatants (
-    encounter_id, kind, content_id, character_id, label, player_label,
+    encounter_id, kind, content_id, character_id, npc_id, label, player_label,
     init_mod, hp_current, hp_max, ac, hidden, sort_order, group_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures, npc_id
 `
 
 type AddCombatantParams struct {
@@ -25,6 +25,7 @@ type AddCombatantParams struct {
 	Kind        string      `json:"kind"`
 	ContentID   pgtype.UUID `json:"content_id"`
 	CharacterID pgtype.UUID `json:"character_id"`
+	NpcID       pgtype.UUID `json:"npc_id"`
 	Label       string      `json:"label"`
 	PlayerLabel string      `json:"player_label"`
 	InitMod     int32       `json:"init_mod"`
@@ -42,6 +43,7 @@ func (q *Queries) AddCombatant(ctx context.Context, arg AddCombatantParams) (Enc
 		arg.Kind,
 		arg.ContentID,
 		arg.CharacterID,
+		arg.NpcID,
 		arg.Label,
 		arg.PlayerLabel,
 		arg.InitMod,
@@ -73,6 +75,7 @@ func (q *Queries) AddCombatant(ctx context.Context, arg AddCombatantParams) (Enc
 		&i.Conditions,
 		&i.DeathSaveSuccesses,
 		&i.DeathSaveFailures,
+		&i.NpcID,
 	)
 	return i, err
 }
@@ -241,7 +244,7 @@ func (q *Queries) GetActiveEncounterForUser(ctx context.Context, arg GetActiveEn
 }
 
 const getCombatant = `-- name: GetCombatant :one
-SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, c.group_id, c.conditions, c.death_save_successes, c.death_save_failures, e.campaign_id, e.status AS encounter_status
+SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, c.group_id, c.conditions, c.death_save_successes, c.death_save_failures, c.npc_id, e.campaign_id, e.status AS encounter_status
 FROM encounter_combatants c
 JOIN encounters e ON e.id = c.encounter_id
 WHERE c.id = $1
@@ -267,6 +270,7 @@ type GetCombatantRow struct {
 	Conditions         []string           `json:"conditions"`
 	DeathSaveSuccesses int16              `json:"death_save_successes"`
 	DeathSaveFailures  int16              `json:"death_save_failures"`
+	NpcID              pgtype.UUID        `json:"npc_id"`
 	CampaignID         uuid.UUID          `json:"campaign_id"`
 	EncounterStatus    string             `json:"encounter_status"`
 }
@@ -295,6 +299,7 @@ func (q *Queries) GetCombatant(ctx context.Context, id uuid.UUID) (GetCombatantR
 		&i.Conditions,
 		&i.DeathSaveSuccesses,
 		&i.DeathSaveFailures,
+		&i.NpcID,
 		&i.CampaignID,
 		&i.EncounterStatus,
 	)
@@ -323,7 +328,7 @@ func (q *Queries) GetEncounter(ctx context.Context, id uuid.UUID) (Encounter, er
 }
 
 const listActiveCombatantsForCharacter = `-- name: ListActiveCombatantsForCharacter :many
-SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, c.group_id, c.conditions, c.death_save_successes, c.death_save_failures FROM encounter_combatants c
+SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, c.group_id, c.conditions, c.death_save_successes, c.death_save_failures, c.npc_id FROM encounter_combatants c
 JOIN encounters e ON e.id = c.encounter_id
 WHERE c.character_id = $1 AND e.status = 'active'
 `
@@ -359,6 +364,56 @@ func (q *Queries) ListActiveCombatantsForCharacter(ctx context.Context, characte
 			&i.Conditions,
 			&i.DeathSaveSuccesses,
 			&i.DeathSaveFailures,
+			&i.NpcID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActiveCombatantsForNpc = `-- name: ListActiveCombatantsForNpc :many
+SELECT c.id, c.encounter_id, c.kind, c.content_id, c.character_id, c.label, c.player_label, c.init_mod, c.initiative, c.hp_current, c.hp_max, c.ac, c.hidden, c.sort_order, c.created_at, c.group_id, c.conditions, c.death_save_successes, c.death_save_failures, c.npc_id FROM encounter_combatants c
+JOIN encounters e ON e.id = c.encounter_id
+WHERE c.npc_id = $1 AND e.status = 'active'
+`
+
+// The same, for one of the Folk walking with the party (#228): an ally's hit
+// points mirror home too, so they may only stand in one fight at a time.
+func (q *Queries) ListActiveCombatantsForNpc(ctx context.Context, npcID pgtype.UUID) ([]EncounterCombatant, error) {
+	rows, err := q.db.Query(ctx, listActiveCombatantsForNpc, npcID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EncounterCombatant
+	for rows.Next() {
+		var i EncounterCombatant
+		if err := rows.Scan(
+			&i.ID,
+			&i.EncounterID,
+			&i.Kind,
+			&i.ContentID,
+			&i.CharacterID,
+			&i.Label,
+			&i.PlayerLabel,
+			&i.InitMod,
+			&i.Initiative,
+			&i.HpCurrent,
+			&i.HpMax,
+			&i.Ac,
+			&i.Hidden,
+			&i.SortOrder,
+			&i.CreatedAt,
+			&i.GroupID,
+			&i.Conditions,
+			&i.DeathSaveSuccesses,
+			&i.DeathSaveFailures,
+			&i.NpcID,
 		); err != nil {
 			return nil, err
 		}
@@ -409,7 +464,7 @@ func (q *Queries) ListActiveEncounters(ctx context.Context, campaignID uuid.UUID
 }
 
 const listCombatants = `-- name: ListCombatants :many
-SELECT id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures FROM encounter_combatants
+SELECT id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures, npc_id FROM encounter_combatants
 WHERE encounter_id = $1
 ORDER BY (initiative IS NULL), initiative DESC, init_mod DESC,
          COALESCE(group_id, id), sort_order, created_at
@@ -450,6 +505,7 @@ func (q *Queries) ListCombatants(ctx context.Context, encounterID uuid.UUID) ([]
 			&i.Conditions,
 			&i.DeathSaveSuccesses,
 			&i.DeathSaveFailures,
+			&i.NpcID,
 		); err != nil {
 			return nil, err
 		}
@@ -546,7 +602,7 @@ func (q *Queries) RenameEncounter(ctx context.Context, arg RenameEncounterParams
 }
 
 const setCombatantConditions = `-- name: SetCombatantConditions :one
-UPDATE encounter_combatants SET conditions = $2 WHERE id = $1 RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures
+UPDATE encounter_combatants SET conditions = $2 WHERE id = $1 RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures, npc_id
 `
 
 type SetCombatantConditionsParams struct {
@@ -581,6 +637,7 @@ func (q *Queries) SetCombatantConditions(ctx context.Context, arg SetCombatantCo
 		&i.Conditions,
 		&i.DeathSaveSuccesses,
 		&i.DeathSaveFailures,
+		&i.NpcID,
 	)
 	return i, err
 }
@@ -589,7 +646,7 @@ const setCombatantDeathSaves = `-- name: SetCombatantDeathSaves :one
 UPDATE encounter_combatants
 SET death_save_successes = $2, death_save_failures = $3
 WHERE id = $1
-RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures
+RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures, npc_id
 `
 
 type SetCombatantDeathSavesParams struct {
@@ -624,12 +681,13 @@ func (q *Queries) SetCombatantDeathSaves(ctx context.Context, arg SetCombatantDe
 		&i.Conditions,
 		&i.DeathSaveSuccesses,
 		&i.DeathSaveFailures,
+		&i.NpcID,
 	)
 	return i, err
 }
 
 const setCombatantInitiative = `-- name: SetCombatantInitiative :one
-UPDATE encounter_combatants SET initiative = $2 WHERE id = $1 RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures
+UPDATE encounter_combatants SET initiative = $2 WHERE id = $1 RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures, npc_id
 `
 
 type SetCombatantInitiativeParams struct {
@@ -660,6 +718,7 @@ func (q *Queries) SetCombatantInitiative(ctx context.Context, arg SetCombatantIn
 		&i.Conditions,
 		&i.DeathSaveSuccesses,
 		&i.DeathSaveFailures,
+		&i.NpcID,
 	)
 	return i, err
 }
@@ -753,7 +812,7 @@ SET label = $2, player_label = $3, initiative = $4, hp_current = $5,
     death_save_successes = CASE WHEN $5::int > 0 THEN 0 ELSE death_save_successes END,
     death_save_failures  = CASE WHEN $5::int > 0 THEN 0 ELSE death_save_failures  END
 WHERE id = $1
-RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures
+RETURNING id, encounter_id, kind, content_id, character_id, label, player_label, init_mod, initiative, hp_current, hp_max, ac, hidden, sort_order, created_at, group_id, conditions, death_save_successes, death_save_failures, npc_id
 `
 
 type UpdateCombatantParams struct {
@@ -806,6 +865,7 @@ func (q *Queries) UpdateCombatant(ctx context.Context, arg UpdateCombatantParams
 		&i.Conditions,
 		&i.DeathSaveSuccesses,
 		&i.DeathSaveFailures,
+		&i.NpcID,
 	)
 	return i, err
 }

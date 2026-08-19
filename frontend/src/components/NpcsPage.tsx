@@ -12,7 +12,9 @@ import {
   useLocations,
   useNpcs,
   useRules,
+  useMembers,
   useSetNpcStatsVisibility,
+  useSetNpcTravel,
   useSetNpcVisibility,
   useUpdateNpc,
 } from "../hooks";
@@ -183,6 +185,9 @@ function NpcCard({
   const clearVis = useClearNpcOverride(campaignId);
   const setStatsVis = useSetNpcStatsVisibility(campaignId);
   const clearStatsVis = useClearNpcStatsOverride(campaignId);
+  const travel = useSetNpcTravel(campaignId);
+  const { data: members } = useMembers(campaignId, npc.isDM);
+  const players = (members ?? []).filter((m) => m.role === "player");
   const [editingDesc, setEditingDesc] = useState(false);
   const [desc, setDesc] = useState(npc.description);
   const [veilsOpen, setVeilsOpen] = useState(false);
@@ -227,6 +232,28 @@ function NpcCard({
                 {npc.statsVisibleToParty ? "Stats open" : "Stats veiled"}
               </button>
             )}
+            {/* Walking with the party (#228): a third state, and the only one
+                that puts a person on the roster. It opens the veil on their
+                existence by itself, so the stamp beside it follows. */}
+            <button
+              onClick={() =>
+                travel.mutate({ npcId: npc.id, body: { traveling: !npc.traveling } })
+              }
+              aria-pressed={npc.traveling ?? false}
+              title={
+                npc.traveling
+                  ? "They walk with the party — on the roster, apart from the heroes"
+                  : "Send them along with the party"
+              }
+              className="label-stamp rounded-[2px] px-2 py-1 text-[9px] tracking-[1px]"
+              style={{
+                color: npc.traveling ? "#d8a44e" : "#8a7b60",
+                background: npc.traveling ? "rgba(201,162,39,.12)" : "transparent",
+                boxShadow: `inset 0 0 0 1px rgba(201,162,39,${npc.traveling ? ".34" : ".14"})`,
+              }}
+            >
+              {npc.traveling ? "Travels with the party" : "Travels with the party?"}
+            </button>
             <button
               onClick={() => setVeilsOpen((on) => !on)}
               aria-expanded={veilsOpen}
@@ -354,6 +381,42 @@ function NpcCard({
         )}
         {npc.isDM && !hasStats && <AttachStats campaignId={campaignId} npc={npc} />}
       </div>
+
+      {npc.isDM && npc.traveling && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <span className="label-stamp text-[9px] tracking-[2px] text-gold-muted">
+            Who runs them
+          </span>
+          <select
+            value={npc.control === "player" ? (npc.controlUserId ?? "") : (npc.control ?? "dm")}
+            onChange={(e) => {
+              const v = e.target.value;
+              travel.mutate({
+                npcId: npc.id,
+                body:
+                  v === "dm" || v === "table"
+                    ? { traveling: true, control: v }
+                    : { traveling: true, control: "player", controlUserId: v },
+              });
+            }}
+            aria-label={`Who runs ${npc.name}`}
+            className="input-hall h-7 w-[190px] text-[11px]"
+          >
+            <option value="dm">You alone</option>
+            <option value="table">The whole table</option>
+            {players.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <span className="font-accent text-[11.5px] italic text-cream-muted">
+            {npc.control === "dm"
+              ? "— the table watches their hit points; you move them."
+              : "— they may move their hit points, and read what stands behind them."}
+          </span>
+        </div>
+      )}
 
       {npc.isDM && veilsOpen && (
         <div

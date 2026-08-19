@@ -42,6 +42,12 @@ export type Npc =
 export type NpcInput = NonNullable<
   paths["/campaigns/{campaignId}/npcs"]["post"]["requestBody"]
 >["content"]["application/json"];
+export type NpcTravelInput = NonNullable<
+  paths["/npcs/{npcId}/travel"]["put"]["requestBody"]
+>["content"]["application/json"];
+export type NpcHpInput = NonNullable<
+  paths["/npcs/{npcId}/hp"]["put"]["requestBody"]
+>["content"]["application/json"];
 
 export type Quest =
   paths["/campaigns/{campaignId}/quests"]["get"]["responses"]["200"]["content"]["application/json"][number];

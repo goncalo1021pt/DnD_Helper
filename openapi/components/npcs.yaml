@@ -40,6 +40,48 @@ Npc:
     characterName:
       type: string
       nullable: true
+    traveling:
+      type: boolean
+      description: >-
+        Whether this person walks with the party (#228). A traveler is always
+        known to the party — marking them opens that veil — and appears in the
+        roster's own section, apart from the heroes and never counted among
+        them.
+    hpCurrent:
+      type: integer
+      nullable: true
+      description: >-
+        An ally's hit points, and their maximum below, read from whatever
+        stands behind them — a forged body keeps them on its sheet, a
+        stat-block person on their own row. Their condition is one of their
+        numbers, so it sits behind the stats veil with the rest: absent unless
+        the viewer may read them (or runs them), absent for anyone not
+        traveling, and absent for a traveler with nothing behind them at all.
+    hpMax:
+      type: integer
+      nullable: true
+    control:
+      type: string
+      enum: [dm, player, table]
+      description: >-
+        DM-only. Who runs this ally — the DM alone, one named player, or the
+        whole table.
+    controlUserId:
+      type: string
+      format: uuid
+      nullable: true
+      description: DM-only. The player who holds them, when control is `player`.
+    controlUserName:
+      type: string
+      nullable: true
+      description: DM-only. That player's name, so the picker needs no second call.
+    yoursToRun:
+      type: boolean
+      description: >-
+        Whether this viewer may move the ally's hit points and read what stands
+        behind them. True for the DM, and for whoever control names — you
+        cannot play someone whose sheet you may not read, so this lifts the
+        stats veil for the controller alone.
     isDM:
       type: boolean
       description: Whether the viewer may edit this NPC and work its veils.
@@ -91,3 +133,39 @@ NpcInput:
         hero, because a sheet makes a person statted and not a party member.
         Sending the nil UUID strikes that body: it exists only for this person
         and nothing else points at it.
+
+NpcTravelInput:
+  type: object
+  required: [traveling]
+  description: |
+    Marking a person as walking with the party, and handing them to whoever
+    runs them (#228). Traveling opens the veil on their existence in the same
+    stroke — an ally the party has never heard of is a contradiction — and
+    leaves the veil on their numbers exactly where the DM set it.
+  properties:
+    traveling:
+      type: boolean
+    control:
+      type: string
+      enum: [dm, player, table]
+      description: >-
+        Who runs them. Absent keeps what is there; a person who stops traveling
+        goes back to the DM.
+    controlUserId:
+      type: string
+      format: uuid
+      nullable: true
+      description: Required when control is `player`, and refused otherwise.
+
+NpcHpInput:
+  type: object
+  required: [hpCurrent]
+  description: |
+    Where an ally's hit points now stand. Open to the DM and to whoever holds
+    them, and to nobody else. It lands wherever that ally's points actually
+    live: on the sheet for a forged body, on the person's own row for one
+    carried by a stat block.
+  properties:
+    hpCurrent:
+      type: integer
+      minimum: 0

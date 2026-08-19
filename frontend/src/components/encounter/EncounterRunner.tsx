@@ -87,6 +87,7 @@ export function ActiveTracker({ campaign, detail }: { campaign: CampaignContext[
         campaignId={campaign.id}
         encounterId={enc.id}
         existingCharacterIds={combatants.filter((c) => c.kind === "pc" && c.characterId).map((c) => c.characterId as string)}
+        existingNpcIds={combatants.filter((c) => c.npcId).map((c) => c.npcId as string)}
       />
 
       <div className="mt-3 flex flex-col gap-1.5">

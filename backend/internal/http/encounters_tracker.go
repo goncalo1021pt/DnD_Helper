@@ -79,6 +79,36 @@ func (s *Server) combatantSnapshot(ctx context.Context, b *api.AddCombatantReque
 		if snap.Ac, e = s.heroArmorClass(ctx, ch); e != nil {
 			return snap, "", e
 		}
+	case "ally":
+		// One of the Folk walking with the party (#228). The snapshot comes
+		// from whatever stands behind them — a forged body reads exactly like
+		// a PC, a person carried by a stat block exactly like a monster — and
+		// the row keeps a link home, so the mirror knows where to put the hit
+		// points back when the fight moves them.
+		if b.NpcId == nil {
+			return snap, "an ally combatant needs one of the Folk", nil
+		}
+		n, e := s.queries.GetNpc(ctx, *b.NpcId)
+		if e != nil {
+			if errors.Is(e, pgx.ErrNoRows) {
+				return snap, "that person is not at this table", nil
+			}
+			return snap, "", e
+		}
+		if !n.Traveling {
+			return snap, "only someone walking with the party is seated beside it", nil
+		}
+		st, e := s.allyStats(ctx, n)
+		if e != nil {
+			return snap, "", e
+		}
+		if !st.ok {
+			return snap, "nothing stands behind them to fight with — give them a stat block or a sheet first", nil
+		}
+		snap.Label = n.Name
+		snap.NpcID = pgUUID(n.ID)
+		snap.CharacterID = n.CharacterID
+		snap.HpCurrent, snap.HpMax, snap.Ac, snap.InitMod = st.hpCurrent, st.hpMax, st.ac, st.initMod
 	case "custom":
 		label := ""
 		if b.Label != nil {
@@ -99,7 +129,7 @@ func (s *Server) combatantSnapshot(ctx context.Context, b *api.AddCombatantReque
 			snap.InitMod = int32(*b.InitMod)
 		}
 	default:
-		return snap, "combatant kind must be monster, pc, or custom", nil
+		return snap, "combatant kind must be monster, pc, ally, or custom", nil
 	}
 	// Optional overrides applied on top.
 	if b.Label != nil && strings.TrimSpace(*b.Label) != "" {
@@ -142,6 +172,22 @@ func (s *Server) AddCombatant(ctx context.Context, request api.AddCombatantReque
 	count := 1
 	if request.Body.Count != nil {
 		count = *request.Body.Count
+	}
+	// An ally's hit points mirror home exactly as a hero's do, so the same rule
+	// holds: one of them, in one fight.
+	if request.Body.Kind == "ally" {
+		count = 1
+		busy, err := s.queries.ListActiveCombatantsForNpc(ctx, snap.NpcID)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range busy {
+			if c.EncounterID != enc.ID {
+				return api.AddCombatant400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+					Error: fmt.Sprintf("%s is already fighting in another encounter — stand that one down first", snap.Label),
+				}}, nil
+			}
+		}
 	}
 	// A character is seated once; five copies of the same hero is never what
 	// the DM meant. Everything else may arrive as a mob.
@@ -383,10 +429,23 @@ func (s *Server) UpdateCombatant(ctx context.Context, request api.UpdateCombatan
 		}
 	}
 	// A PC's HP is a live mirror of the Party roster: whichever side the DM
-	// edits, the other follows, so the two never drift apart mid-fight.
-	if row.Kind == "pc" && row.CharacterID.Valid && (params.HpCurrent != row.HpCurrent || params.HpMax != row.HpMax) {
-		if err := s.syncCharacterHP(ctx, uuid.UUID(row.CharacterID.Bytes), params.HpCurrent, params.HpMax); err != nil {
-			return nil, err
+	// edits, the other follows, so the two never drift apart mid-fight. An
+	// ally's mirrors the same way, into whichever home holds their points —
+	// their body's sheet, or their own row (#228).
+	if params.HpCurrent != row.HpCurrent || params.HpMax != row.HpMax {
+		switch {
+		case (row.Kind == "pc" || row.Kind == "ally") && row.CharacterID.Valid:
+			if err := s.syncCharacterHP(ctx, uuid.UUID(row.CharacterID.Bytes), params.HpCurrent, params.HpMax); err != nil {
+				return nil, err
+			}
+		case row.Kind == "ally" && row.NpcID.Valid:
+			hp := params.HpCurrent
+			if _, err := s.queries.SetNpcHp(ctx, db.SetNpcHpParams{
+				ID: uuid.UUID(row.NpcID.Bytes), HpCurrent: &hp,
+			}); err != nil {
+				return nil, err
+			}
+			s.publish(row.CampaignID, live.TopicNpcs)
 		}
 	}
 	s.publish(row.CampaignID, live.TopicEncounter)
@@ -450,7 +509,8 @@ func (s *Server) syncSeatedHero(ctx context.Context, ch db.Character, withAC boo
 		}
 	}
 	for _, c := range seated {
-		if c.Kind != "pc" {
+		// A forged body seated as an ally mirrors from the same sheet (#228).
+		if c.Kind != "pc" && c.Kind != "ally" {
 			continue
 		}
 		wantAC := c.Ac

@@ -260,3 +260,75 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/npcs/{npcId}/travel:
+  parameters:
+    - name: npcId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  put:
+    operationId: setNpcTravel
+    summary: Mark a person as walking with the party, and hand them to a runner (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/NpcTravelInput"
+    responses:
+      "200":
+        description: The person as they now stand
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/npcs/{npcId}/hp:
+  parameters:
+    - name: npcId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  put:
+    operationId: setNpcHp
+    summary: Move a traveling ally's hit points
+    description: >-
+      Open to the DM and to whoever holds the ally, and to nobody else — a
+      player who is not their runner is refused exactly as a stranger is. The
+      value lands wherever that ally's points live: on the sheet for a forged
+      body, on the person's own row for one carried by a stat block. Refused
+      for a person who is not traveling, or who has nothing behind them.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/NpcHpInput"
+    responses:
+      "200":
+        description: The ally as they now stand
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Npc"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
