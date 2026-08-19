@@ -79,6 +79,10 @@ func combatantForDM(c db.EncounterCombatant, current bool) api.Combatant {
 		id := uuid.UUID(c.CharacterID.Bytes)
 		out.CharacterId = &id
 	}
+	if c.NpcID.Valid {
+		id := uuid.UUID(c.NpcID.Bytes)
+		out.NpcId = &id
+	}
 	if c.Initiative != nil {
 		v := int(*c.Initiative)
 		out.Initiative = &v
@@ -152,8 +156,11 @@ func groupIDOf(c db.EncounterCombatant) *uuid.UUID {
 
 func combatantForPlayer(c db.EncounterCombatant, mine, current bool) api.Combatant {
 	// Players see their party's real names; enemies show the DM's reveal label.
+	// An ally walks with the party and is known to it by definition (#228), so
+	// they are named too — a traveler shown as "Unknown" would be a stranger
+	// the table has been adventuring beside for months.
 	name := c.PlayerLabel
-	if c.Kind == "pc" {
+	if c.Kind == "pc" || c.Kind == "ally" {
 		name = c.Label
 	}
 	if strings.TrimSpace(name) == "" {

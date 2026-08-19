@@ -1845,7 +1845,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add a Den monster, a seated PC, or a custom line (DM only) */
+        /** Add a Den monster, a seated PC, a traveling ally, or a custom line (DM only) */
         post: operations["addCombatant"];
         delete?: never;
         options?: never;
@@ -1972,6 +1972,47 @@ export interface paths {
         head?: never;
         /** Rename a person, move them, or change what stands behind them (DM only) */
         patch: operations["updateNpc"];
+        trace?: never;
+    };
+    "/npcs/{npcId}/travel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Mark a person as walking with the party, and hand them to a runner (DM only) */
+        put: operations["setNpcTravel"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/npcs/{npcId}/hp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Move a traveling ally's hit points
+         * @description Open to the DM and to whoever holds the ally, and to nobody else — a player who is not their runner is refused exactly as a stranger is. The value lands wherever that ally's points live: on the sheet for a forged body, on the person's own row for one carried by a stat block. Refused for a person who is not traveling, or who has nothing behind them.
+         */
+        put: operations["setNpcHp"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/npcs/{npcId}/body": {
@@ -2939,7 +2980,7 @@ export interface components {
             id: string;
             /** Format: uuid */
             encounterId: string;
-            /** @description monster | pc | custom (plain string). */
+            /** @description monster | pc | ally | custom (plain string). An ally is one of the Folk walking with the party (#228) — party-side, like a pc. */
             kind: string;
             /** @description The DM sees the true label; players see the reveal label ("Unknown" until named). */
             name: string;
@@ -2955,6 +2996,11 @@ export interface components {
              * @description DM-only (or the viewer's own PC) — the seated character.
              */
             characterId?: string | null;
+            /**
+             * Format: uuid
+             * @description DM-only — the traveler this ally was called in from (#228). The builder reads it to stop offering someone already standing in the fight.
+             */
+            npcId?: string | null;
             initMod: number;
             /** @description Order value; null until rolled or typed. */
             initiative?: number | null;
@@ -3011,12 +3057,17 @@ export interface components {
             turnIndex?: number;
         };
         AddCombatantRequest: {
-            /** @description monster (needs contentId) | pc (needs characterId) | custom (typed). */
+            /** @description monster (needs contentId) | pc (needs characterId) | ally (needs npcId) | custom (typed). */
             kind: string;
             /** Format: uuid */
             contentId?: string;
             /** Format: uuid */
             characterId?: string;
+            /**
+             * Format: uuid
+             * @description One of the Folk who travels with the party (#228). Their snapshot is taken from whatever stands behind them, and their hit points mirror home for as long as the fight runs — so, like a hero, an ally may stand in only one active fight at a time.
+             */
+            npcId?: string;
             /** @description Name for a custom line, or an override for a monster/PC. */
             label?: string;
             playerLabel?: string;
@@ -3443,6 +3494,25 @@ export interface components {
              */
             characterId?: string | null;
             characterName?: string | null;
+            /** @description Whether this person walks with the party (#228). A traveler is always known to the party — marking them opens that veil — and appears in the roster's own section, apart from the heroes and never counted among them. */
+            traveling?: boolean;
+            /** @description An ally's hit points, and their maximum below. Present for a traveler the viewer may see, whatever stands behind them: a forged body keeps them on its sheet, a stat-block person on their own row. Absent for anyone not traveling, and for a traveler with nothing behind them at all. */
+            hpCurrent?: number | null;
+            hpMax?: number | null;
+            /**
+             * @description DM-only. Who runs this ally — the DM alone, one named player, or the whole table.
+             * @enum {string}
+             */
+            control?: "dm" | "player" | "table";
+            /**
+             * Format: uuid
+             * @description DM-only. The player who holds them, when control is `player`.
+             */
+            controlUserId?: string | null;
+            /** @description DM-only. That player's name, so the picker needs no second call. */
+            controlUserName?: string | null;
+            /** @description Whether this viewer may move the ally's hit points and read what stands behind them. True for the DM, and for whoever control names — you cannot play someone whose sheet you may not read, so this lifts the stats veil for the controller alone. */
+            yoursToRun?: boolean;
             /** @description Whether the viewer may edit this NPC and work its veils. */
             isDM: boolean;
             /** @description DM-only. The party-wide veil on this person. */
@@ -3475,6 +3545,34 @@ export interface components {
              * @description A sheet forged for one of this campaign's Folk (#227) — never a seated hero, because a sheet makes a person statted and not a party member. Sending the nil UUID strikes that body: it exists only for this person and nothing else points at it.
              */
             characterId?: string | null;
+        };
+        /**
+         * @description Marking a person as walking with the party, and handing them to whoever
+         *     runs them (#228). Traveling opens the veil on their existence in the same
+         *     stroke — an ally the party has never heard of is a contradiction — and
+         *     leaves the veil on their numbers exactly where the DM set it.
+         */
+        NpcTravelInput: {
+            traveling: boolean;
+            /**
+             * @description Who runs them. Absent keeps what is there; a person who stops traveling goes back to the DM.
+             * @enum {string}
+             */
+            control?: "dm" | "player" | "table";
+            /**
+             * Format: uuid
+             * @description Required when control is `player`, and refused otherwise.
+             */
+            controlUserId?: string | null;
+        };
+        /**
+         * @description Where an ally's hit points now stand. Open to the DM and to whoever holds
+         *     them, and to nobody else. It lands wherever that ally's points actually
+         *     live: on the sheet for a forged body, on the person's own row for one
+         *     carried by a stat block.
+         */
+        NpcHpInput: {
+            hpCurrent: number;
         };
     };
     responses: {
@@ -7452,6 +7550,66 @@ export interface operations {
         };
         responses: {
             /** @description The NPC after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setNpcTravel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NpcTravelInput"];
+            };
+        };
+        responses: {
+            /** @description The person as they now stand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setNpcHp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                npcId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NpcHpInput"];
+            };
+        };
+        responses: {
+            /** @description The ally as they now stand */
             200: {
                 headers: {
                     [name: string]: unknown;

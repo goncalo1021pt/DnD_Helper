@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import type { Character, SeatConflict } from "../api/client";
+import type { Character, Npc, SeatConflict } from "../api/client";
 import {
   useCharacters,
   useSetSpellSlots,
@@ -8,8 +8,10 @@ import {
   useCreateCharacter,
   useDeleteCharacter,
   useMyCharacters,
+  useNpcs,
   useRevealCharacter,
   useSeatCharacter,
+  useSetNpcHp,
   useSetPact,
   useTrees,
   useUpdateCharacter,
@@ -586,10 +588,156 @@ function SummonControl({
   );
 }
 
+/*
+ * Traveling with you (#228): the people who walk beside the party.
+ *
+ * The paper practice is a line in the margin of the party page — "Sildar
+ * travels with you to Phandalin" — so it lives here, below the heroes and
+ * plainly apart from them: no medallion, no level, no seat. They are counted
+ * among nobody, which is the whole point of #227's discriminator.
+ *
+ * The bar is for everyone who can see them; the ± is for whoever runs them.
+ */
+function AllyRow({ campaignId, ally }: { campaignId: string; ally: Npc }) {
+  const setHp = useSetNpcHp(campaignId);
+  const cur = ally.hpCurrent ?? 0;
+  const max = ally.hpMax ?? 0;
+  const mine = ally.yoursToRun ?? false;
+  const color = hpColor(cur, max);
+  const pct = max > 0 ? (cur / max) * 100 : 0;
+
+  function adjust(delta: number) {
+    const next = Math.min(Math.max(cur + delta, 0), max);
+    if (next === cur) return;
+    setHp.mutate({ npcId: ally.id, body: { hpCurrent: next } });
+  }
+
+  return (
+    <div className="chip-hall w-full items-center gap-3 px-3.5 py-3">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="font-heading truncate text-[14px] font-semibold text-cream">
+            {ally.name}
+          </span>
+          <span className="flex items-center gap-2.5">
+            {mine && (
+              <span className="label-stamp text-[8.5px] tracking-[1.5px] text-gold-muted">
+                yours to run
+              </span>
+            )}
+            {max > 0 && (
+              <span
+                className="text-[12px] font-semibold tabular-nums"
+                style={{
+                  color:
+                    color === "#8b2520"
+                      ? "#d68a72"
+                      : color === "#b07a2e"
+                        ? "#d8a44e"
+                        : "#8fb15f",
+                }}
+              >
+                {cur}/{max}
+              </span>
+            )}
+          </span>
+        </div>
+        {max > 0 ? (
+          <div
+            className="mt-1.5 h-[5px] w-full rounded-[2px]"
+            style={{ background: "rgba(0,0,0,.45)" }}
+          >
+            <div
+              className="h-full rounded-[2px] transition-all"
+              style={{ width: `${pct}%`, background: color }}
+            />
+          </div>
+        ) : (
+          <div className="font-accent mt-1 text-[11.5px] italic text-cream-muted">
+            Nothing stands behind them yet — no hit points to keep.
+          </div>
+        )}
+        {/* The doors open only where the veils already did: what a viewer may
+            read of an ally is decided on the way out, not here. */}
+        {(ally.characterId || ally.statBlock) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            {ally.characterId && (
+              <Link
+                to={`/questboard/heroes/${ally.characterId}`}
+                className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted no-underline hover:text-ember-bright"
+              >
+                Open their sheet →
+              </Link>
+            )}
+            {ally.statBlock && (
+              <span className="label-stamp text-[9px] tracking-[1.5px] text-ink-label">
+                {ally.statBlock.name}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      {mine && max > 0 && (
+        <div className="flex flex-none gap-1">
+          <button
+            onClick={() => adjust(-1)}
+            disabled={setHp.isPending || cur <= 0}
+            title={`${ally.name} takes 1 damage`}
+            aria-label={`${ally.name} takes 1 damage`}
+            className="btn-base h-7 w-7 rounded-[2px] text-[13px] text-[#d68a72]"
+            style={{ boxShadow: "inset 0 0 0 1px rgba(139,37,32,.5)" }}
+          >
+            −
+          </button>
+          <button
+            onClick={() => adjust(1)}
+            disabled={setHp.isPending || cur >= max}
+            title={`Heal ${ally.name} 1`}
+            aria-label={`Heal ${ally.name} 1`}
+            className="btn-base h-7 w-7 rounded-[2px] text-[13px] text-gold-hair"
+            style={{ boxShadow: "inset 0 0 0 1px rgba(201,162,39,.4)" }}
+          >
+            +
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TravelingSection({ campaignId, allies }: { campaignId: string; allies: Npc[] }) {
+  if (allies.length === 0) return null;
+  return (
+    <section className="mt-8">
+      <div
+        className="mb-3 flex flex-wrap items-baseline justify-between gap-3 pb-2.5"
+        style={{ borderTop: "1px solid rgba(201,162,39,.18)", paddingTop: "22px" }}
+      >
+        <h3 className="font-display m-0 text-[18px] font-black text-[#e7d3a6]">
+          Traveling with you
+        </h3>
+        <span className="font-accent text-[12.5px] italic text-cream-muted">
+          — beside the party, never counted among it. —
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        {allies.map((a) => (
+          <AllyRow key={a.id} campaignId={campaignId} ally={a} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function PartyRoster() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
   const { data: characters, isLoading } = useCharacters(campaign.id);
+  // The Folk who walk with the party. A player only ever receives the people
+  // their veil resolves visible, and a traveler is always among them, so this
+  // needs no filtering of its own beyond the state itself.
+  const { data: folk } = useNpcs(campaign.id);
+  const allies = (folk ?? []).filter((n) => n.traveling);
   const create = useCreateCharacter(campaign.id);
   const [adding, setAdding] = useState(false);
 
@@ -687,6 +835,8 @@ export default function PartyRoster() {
           </div>
         </div>
       )}
+
+      <TravelingSection campaignId={campaign.id} allies={allies} />
 
       {adding && (
         <ParchmentModal onClose={() => setAdding(false)} maxWidth="max-w-[480px]">

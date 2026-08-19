@@ -178,7 +178,7 @@
     - $ref: "../openapi.yaml#/components/parameters/EncounterId"
   post:
     operationId: addCombatant
-    summary: Add a Den monster, a seated PC, or a custom line (DM only)
+    summary: Add a Den monster, a seated PC, a traveling ally, or a custom line (DM only)
     requestBody:
       required: true
       content:

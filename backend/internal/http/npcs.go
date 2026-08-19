@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -86,7 +87,15 @@ func (s *Server) loadNpcVeil(ctx context.Context, campaignID uuid.UUID) (*npcVei
 // npcVisibleTo resolves one person for one hero: the person's own two layers,
 // then every place above them. A person filed nowhere is judged on their own
 // veil alone.
+//
+// A traveler stands outside all of it (#228). They walk with the party, so the
+// place they are *filed* under is where they are from, not where they are —
+// and a veiled home town would otherwise hide the man riding beside the cart.
+// Being marked as traveling is itself the statement that the party knows them.
 func (v *npcVeil) npcVisibleTo(n db.Npc, places *veil, charID uuid.UUID) bool {
+	if n.Traveling {
+		return true
+	}
 	if !resolve(n.VisibleToParty, v.overrides[n.ID], charID) {
 		return false
 	}
@@ -159,19 +168,107 @@ func npcFromListRow(r db.ListNpcsRow) db.Npc {
 		CharacterID:         r.CharacterID,
 		VisibleToParty:      r.VisibleToParty,
 		StatsVisibleToParty: r.StatsVisibleToParty,
+		Traveling:           r.Traveling,
+		HpCurrent:           r.HpCurrent,
+		Control:             r.Control,
+		ControlUserID:       r.ControlUserID,
 	}
 }
+
+/*
+Allies: the person who walks with the party (#228).
+
+The paper practice is a line in the margin of the party page — Sildar travels
+with you — present, marked, and removable, never mistaken for a PC. So an ally
+is not a new kind of thing here: it is one of the Folk with a state, sitting in
+its own section of the roster, counted among nobody.
+
+Two questions have to be answered about every traveler, and both are answered
+from what already stands behind them rather than from a second store:
+
+  - what they have left. A forged body keeps its hit points on its sheet,
+    which is the only place that can hold them; a person carried by a stat
+    block keeps them on their own row, with the maximum read off the block
+    every time (a block that is re-imported at a higher HP raises its ally
+    with it, the way a companion's pool follows its level).
+  - who may move them. The DM always; whoever `control` names, otherwise
+    nobody. Control carries the numbers with it — you cannot play someone
+    whose sheet you may not read — so it lifts the stats veil for the runner
+    alone and leaves the rest of the table exactly where the DM put them.
+*/
+
+const (
+	controlDM     = "dm"
+	controlPlayer = "player"
+	controlTable  = "table"
+)
+
+// runsAlly reports whether this viewer may move an ally's hit points and read
+// what stands behind them. Nobody runs a person who is not traveling.
+func runsAlly(r db.ListNpcsRow, isDM bool, viewer uuid.UUID) bool {
+	if isDM {
+		return true
+	}
+	if !r.Traveling {
+		return false
+	}
+	switch r.Control {
+	case controlTable:
+		return true
+	case controlPlayer:
+		return r.ControlUserID.Valid && uuid.UUID(r.ControlUserID.Bytes) == viewer
+	}
+	return false
+}
+
+// allyHP resolves what a traveler has left and their maximum from whatever
+// stands behind them. A person with nothing behind them has no bar to draw,
+// which is not an error — the DM may simply not have statted them yet.
+func allyHP(r db.ListNpcsRow) (current, max int, ok bool) {
+	if r.CharacterID.Valid {
+		if r.CharacterHpMax == nil || r.CharacterHpCurrent == nil {
+			return 0, 0, false
+		}
+		return int(*r.CharacterHpCurrent), int(*r.CharacterHpMax), true
+	}
+	if r.ContentID.Valid {
+		var mf monsterFields
+		_ = json.Unmarshal(r.ContentData, &mf)
+		if mf.HP <= 0 {
+			return 0, 0, false
+		}
+		// NULL means untouched, so a freshly marked ally walks in at full.
+		current = mf.HP
+		if r.HpCurrent != nil {
+			current = int(*r.HpCurrent)
+		}
+		return clampInt(current, 0, mf.HP), mf.HP, true
+	}
+	return 0, 0, false
+}
+
 
 // npcForViewer shapes one person for whoever is looking. showStats is decided
 // by the caller — for the DM it is always true, for a player it is the second
 // veil resolved through their heroes.
 func npcForViewer(r db.ListNpcsRow, nv *npcVeil, isDM, showStats bool, viewer uuid.UUID) api.Npc {
+	yours := runsAlly(r, isDM, viewer)
 	out := api.Npc{
 		Id:           r.ID,
 		Name:         r.Name,
 		Description:  r.Description,
 		LocationName: r.LocationName,
+		Traveling:    &r.Traveling,
+		YoursToRun:   &yours,
 		IsDM:         isDM,
+	}
+	// The bar rides with the person, for everyone who may see them at all:
+	// watching an ally's hit points fall is not the same as reading their
+	// numbers, so it does not wait on the stats veil.
+	if r.Traveling {
+		if cur, max, ok := allyHP(r); ok {
+			out.HpCurrent, out.HpMax = &cur, &max
+		}
 	}
 	if r.LocationID.Valid {
 		id := uuid.UUID(r.LocationID.Bytes)
@@ -222,6 +319,13 @@ func npcForViewer(r db.ListNpcsRow, nv *npcVeil, isDM, showStats bool, viewer uu
 		out.StatsVisibleToParty = &statsVisibleToParty
 		statOverrides := nv.overridesFor(nv.statOverrides[r.ID])
 		out.StatsVisibility = &statOverrides
+		control := api.NpcControl(r.Control)
+		out.Control = &control
+		if r.ControlUserID.Valid {
+			id := uuid.UUID(r.ControlUserID.Bytes)
+			out.ControlUserId = &id
+		}
+		out.ControlUserName = r.ControlUserName
 	}
 	return out
 }
@@ -251,10 +355,12 @@ func (s *Server) loadNpcs(ctx context.Context, campaignID uuid.UUID, isDM bool, 
 		n := npcFromListRow(r)
 		showStats := isDM
 		if !isDM {
+			// A traveler is known to the party by definition — marking them
+			// opens that veil — so the pool check stands as it always did.
 			if !nv.npcVisibleToAny(n, places, charIDs) {
 				continue
 			}
-			showStats = nv.statsVisibleToAny(n, places, charIDs)
+			showStats = nv.statsVisibleToAny(n, places, charIDs) || runsAlly(r, false, viewer)
 		}
 		out = append(out, npcForViewer(r, nv, isDM, showStats, viewer))
 	}
@@ -643,6 +749,171 @@ func (s *Server) DeleteNpc(ctx context.Context, request api.DeleteNpcRequestObje
 	return api.DeleteNpc204Response{}, nil
 }
 
+// --- walking with the party -------------------------------------------------
+
+// SetNpcTravel marks a person as one of the party's travelers, and says who
+// runs them (#228). Traveling opens the veil on their existence in the same
+// stroke: an ally the party has never heard of is a contradiction. The veil on
+// their numbers is deliberately left alone — the table can watch Sildar's hit
+// points fall for a whole campaign without ever being handed his block.
+func (s *Server) SetNpcTravel(ctx context.Context, request api.SetNpcTravelRequestObject) (api.SetNpcTravelResponseObject, error) {
+	n, err := s.requireNpcDM(ctx, uuid.UUID(request.NpcId))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.SetNpcTravel404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.SetNpcTravel401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.SetNpcTravel403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	if request.Body == nil {
+		return api.SetNpcTravel400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "say whether they travel"}}, nil
+	}
+
+	// An absent control keeps whatever is there, like a shop's filing.
+	control := n.Control
+	if request.Body.Control != nil {
+		control = string(*request.Body.Control)
+	}
+	var runner pgtype.UUID
+	switch {
+	case !request.Body.Traveling:
+		// Nobody runs somebody who is not walking with the party.
+		control, runner = controlDM, pgtype.UUID{}
+	case control == controlPlayer:
+		if request.Body.ControlUserId == nil {
+			return api.SetNpcTravel400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: "handing an ally to a player means naming the player",
+			}}, nil
+		}
+		uid := uuid.UUID(*request.Body.ControlUserId)
+		m, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: n.CampaignID})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return api.SetNpcTravel400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+					Error: "that player does not sit at this table",
+				}}, nil
+			}
+			return nil, err
+		}
+		runner = pgUUID(m.UserID)
+	case control == controlDM || control == controlTable:
+		runner = pgtype.UUID{}
+	default:
+		return api.SetNpcTravel400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "an ally is run by the DM, one player, or the whole table",
+		}}, nil
+	}
+
+	if _, err := s.queries.SetNpcTravel(ctx, db.SetNpcTravelParams{
+		ID: n.ID, Traveling: request.Body.Traveling, Control: control, ControlUserID: runner,
+	}); err != nil {
+		return nil, err
+	}
+	uid, _ := auth.UserID(ctx)
+	out, err := s.oneNpc(ctx, n.CampaignID, n.ID, uid)
+	if err != nil {
+		return nil, err
+	}
+	// The roster grows a section and the Folk page changes at once, so both
+	// topics wake: an ally is a party fact as much as a world one.
+	s.publish(n.CampaignID, live.TopicNpcs)
+	s.publish(n.CampaignID, live.TopicParty)
+	return api.SetNpcTravel200JSONResponse(out), nil
+}
+
+// SetNpcHp moves a traveling ally's hit points. This is the one door on a
+// person that is not the DM's alone: whoever holds the ally moves their bar,
+// and a member who does not hold them is answered as if the door were not
+// there — the same rule the veils keep, so probing tells nobody anything.
+func (s *Server) SetNpcHp(ctx context.Context, request api.SetNpcHpRequestObject) (api.SetNpcHpResponseObject, error) {
+	n, err := s.queries.GetNpc(ctx, uuid.UUID(request.NpcId))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.SetNpcHp404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	m, err := s.requireMember(ctx, n.CampaignID)
+	if err != nil {
+		switch {
+		case errors.Is(err, errNoAuth):
+			return api.SetNpcHp401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		case errors.Is(err, errForbidden):
+			return api.SetNpcHp403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	if request.Body == nil {
+		return api.SetNpcHp400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "hit points are required"}}, nil
+	}
+	isDM := m.Role == db.MembershipRoleDm
+	rows, err := s.queries.ListNpcs(ctx, n.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	var row db.ListNpcsRow
+	for _, r := range rows {
+		if r.ID == n.ID {
+			row = r
+		}
+	}
+	if !runsAlly(row, isDM, m.UserID) {
+		return api.SetNpcHp404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+	}
+	if !n.Traveling {
+		return api.SetNpcHp400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "only someone walking with the party keeps hit points here",
+		}}, nil
+	}
+	_, max, ok := allyHP(row)
+	if !ok {
+		return api.SetNpcHp400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "nothing stands behind them to take a wound — give them a stat block or a sheet first",
+		}}, nil
+	}
+	next := int32(clampInt(request.Body.HpCurrent, 0, max))
+
+	// The points land where they actually live. A body's belong to its sheet,
+	// which the roster, the tracker and the sheet page all read; only a person
+	// carried by a stat block keeps them on their own row.
+	if n.CharacterID.Valid {
+		if err := s.syncCharacterHP(ctx, uuid.UUID(n.CharacterID.Bytes), next, int32(max)); err != nil {
+			return nil, err
+		}
+	} else if _, err := s.queries.SetNpcHp(ctx, db.SetNpcHpParams{ID: n.ID, HpCurrent: &next}); err != nil {
+		return nil, err
+	}
+
+	out, err := s.npcForMember(ctx, n.CampaignID, n.ID, m)
+	if err != nil {
+		return nil, err
+	}
+	s.publish(n.CampaignID, live.TopicNpcs)
+	s.publish(n.CampaignID, live.TopicParty)
+	return api.SetNpcHp200JSONResponse(out), nil
+}
+
+// npcForMember re-reads one person as this member is allowed to see them —
+// oneNpc answers with the DM's shape, which is right for a DM's write and
+// wrong for a player moving an ally they hold.
+func (s *Server) npcForMember(ctx context.Context, campaignID, npcID uuid.UUID, m db.Membership) (api.Npc, error) {
+	all, err := s.loadNpcs(ctx, campaignID, m.Role == db.MembershipRoleDm, m.UserID)
+	if err != nil {
+		return api.Npc{}, err
+	}
+	for _, n := range all {
+		if n.Id == npcID {
+			return n, nil
+		}
+	}
+	return api.Npc{}, pgx.ErrNoRows
+}
+
 // --- the veils --------------------------------------------------------------
 
 func (s *Server) SetNpcVisibility(ctx context.Context, request api.SetNpcVisibilityRequestObject) (api.SetNpcVisibilityResponseObject, error) {
@@ -788,4 +1059,60 @@ func (s *Server) ClearNpcStatsVisibilityOverride(ctx context.Context, request ap
 	}
 	s.publish(n.CampaignID, live.TopicNpcs)
 	return api.ClearNpcStatsVisibilityOverride200JSONResponse(out), nil
+}
+
+// allyStats reads what a traveler brings to a fight from whatever stands
+// behind them: a forged body answers off its sheet — hit points, and the AC
+// the player reads there rather than 10 + DEX — and a person carried by a
+// stat block answers off the block, with the points they have left rather
+// than a fresh full bar (#228).
+type allyCombatStats struct {
+	hpCurrent, hpMax, ac, initMod int32
+	ok                            bool
+}
+
+func (s *Server) allyStats(ctx context.Context, n db.Npc) (allyCombatStats, error) {
+	var st allyCombatStats
+	switch {
+	case n.CharacterID.Valid:
+		ch, err := s.queries.GetCharacter(ctx, uuid.UUID(n.CharacterID.Bytes))
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return st, nil
+			}
+			return st, err
+		}
+		dex := 10
+		if ch.Dexterity != nil {
+			dex = int(*ch.Dexterity)
+		}
+		ac, err := s.heroArmorClass(ctx, ch)
+		if err != nil {
+			return st, err
+		}
+		return allyCombatStats{ch.HpCurrent, ch.HpMax, ac, int32(abilityMod(dex)), true}, nil
+	case n.ContentID.Valid:
+		rc, err := s.queries.GetContent(ctx, uuid.UUID(n.ContentID.Bytes))
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return st, nil
+			}
+			return st, err
+		}
+		var mf monsterFields
+		_ = json.Unmarshal(rc.Data, &mf)
+		if mf.HP <= 0 {
+			return st, nil
+		}
+		dex := mf.Abilities["dex"]
+		if dex == 0 {
+			dex = 10
+		}
+		cur := int32(mf.HP)
+		if n.HpCurrent != nil {
+			cur = int32(clampInt(int(*n.HpCurrent), 0, mf.HP))
+		}
+		return allyCombatStats{cur, int32(mf.HP), int32(mf.AC), int32(abilityMod(dex)), true}, nil
+	}
+	return st, nil
 }

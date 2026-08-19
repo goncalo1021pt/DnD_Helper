@@ -8,7 +8,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { CharacterInput, NpcInput, SetVisibilityInput } from "../api/client";
+import type {
+  CharacterInput,
+  NpcHpInput,
+  NpcInput,
+  NpcTravelInput,
+  SetVisibilityInput,
+} from "../api/client";
 
 export function useNpcs(campaignId: string) {
   return useQuery({
@@ -86,6 +92,50 @@ export function useDeleteNpc(campaignId: string) {
     });
     if (error) throw error;
   });
+}
+
+/*
+ * Walking with the party (#228). Both of these land on the roster as well as
+ * the register — an ally is a party fact — so they clear both caches.
+ */
+function useAllyMutation<TVars>(campaignId: string, run: (vars: TVars) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: run,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["npcs", campaignId] });
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+    },
+  });
+}
+
+export function useSetNpcTravel(campaignId: string) {
+  return useAllyMutation(
+    campaignId,
+    async (vars: { npcId: string; body: NpcTravelInput }) => {
+      const { data, error } = await api.PUT("/npcs/{npcId}/travel", {
+        params: { path: { npcId: vars.npcId } },
+        body: vars.body,
+      });
+      if (error) throw error;
+      return data;
+    },
+  );
+}
+
+/** The ± on an ally's bar — open to the DM and to whoever holds them. */
+export function useSetNpcHp(campaignId: string) {
+  return useAllyMutation(
+    campaignId,
+    async (vars: { npcId: string; body: NpcHpInput }) => {
+      const { data, error } = await api.PUT("/npcs/{npcId}/hp", {
+        params: { path: { npcId: vars.npcId } },
+        body: vars.body,
+      });
+      if (error) throw error;
+      return data;
+    },
+  );
 }
 
 export function useSetNpcVisibility(campaignId: string) {

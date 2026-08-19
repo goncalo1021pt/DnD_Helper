@@ -6,12 +6,18 @@ SELECT n.*,
        l.name AS location_name,
        c.name AS character_name,
        (c.class_id IS NOT NULL) AS character_forged,
+       -- A sheet-backed ally's hit points live on the sheet, which is the only
+       -- place that can hold them; the person's own hp_current stays NULL.
+       c.hp_current AS character_hp_current,
+       c.hp_max AS character_hp_max,
+       cu.name AS control_user_name,
        rc.kind AS content_kind, rc.source AS content_source,
        rc.name AS content_name, rc.summary AS content_summary,
        rc.data AS content_data
 FROM npcs n
 LEFT JOIN locations l ON l.id = n.location_id
 LEFT JOIN characters c ON c.id = n.character_id
+LEFT JOIN users cu ON cu.id = n.control_user_id
 LEFT JOIN rules_content rc ON rc.id = n.content_id
 WHERE n.campaign_id = $1
 ORDER BY l.name NULLS LAST, n.name;
@@ -87,3 +93,27 @@ FROM npc_stat_visibility v
 JOIN npcs n ON n.id = v.npc_id
 JOIN characters c ON c.id = v.character_id
 WHERE n.campaign_id = $1;
+
+-- name: SetNpcTravel :one
+-- Whether a person walks with the party, and who runs them (#228). Traveling
+-- opens the veil on their existence with the same stroke: an ally the party
+-- has never heard of is a contradiction. Their stats veil is left alone.
+UPDATE npcs
+SET traveling       = $2,
+    control         = $3,
+    control_user_id = $4,
+    visible_to_party = CASE WHEN $2 THEN TRUE ELSE visible_to_party END,
+    updated_at      = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: SetNpcHp :one
+-- What a stat-block-backed ally has left. A sheet-backed one never lands here:
+-- their hit points belong to the sheet and are written there.
+UPDATE npcs SET hp_current = $2, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: ListTravelingNpcs :many
+-- The allies walking with a party, for the encounter builder and the roster.
+SELECT * FROM npcs WHERE campaign_id = $1 AND traveling ORDER BY name;

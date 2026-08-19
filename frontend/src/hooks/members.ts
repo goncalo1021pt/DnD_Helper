@@ -6,8 +6,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 
-export function useMembers(campaignId: string) {
+/** `enabled` is for call sites that only need the roll for a DM-side picker. */
+export function useMembers(campaignId: string, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ["members", campaignId],
     queryFn: async () => {
       const { data, error } = await api.GET("/campaigns/{campaignId}/members", {

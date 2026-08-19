@@ -232,6 +232,10 @@ paths:
     $ref: "./paths/npcs.yaml#/~1campaigns~1{campaignId}~1npcs"
   /npcs/{npcId}:
     $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}"
+  /npcs/{npcId}/travel:
+    $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1travel"
+  /npcs/{npcId}/hp:
+    $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1hp"
   /npcs/{npcId}/body:
     $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1body"
   /npcs/{npcId}/visibility:
@@ -638,6 +642,10 @@ components:
       $ref: "./components/npcs.yaml#/Npc"
     NpcInput:
       $ref: "./components/npcs.yaml#/NpcInput"
+    NpcTravelInput:
+      $ref: "./components/npcs.yaml#/NpcTravelInput"
+    NpcHpInput:
+      $ref: "./components/npcs.yaml#/NpcHpInput"
 
 security:
   - sessionCookie: []

@@ -53,7 +53,7 @@ Combatant:
       format: uuid
     kind:
       type: string
-      description: "monster | pc | custom (plain string)."
+      description: "monster | pc | ally | custom (plain string). An ally is one of the Folk walking with the party (#228) — party-side, like a pc."
     name:
       type: string
       description: The DM sees the true label; players see the reveal label ("Unknown" until named).
@@ -71,6 +71,13 @@ Combatant:
       format: uuid
       nullable: true
       description: DM-only (or the viewer's own PC) — the seated character.
+    npcId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        DM-only — the traveler this ally was called in from (#228). The builder
+        reads it to stop offering someone already standing in the fight.
     initMod:
       type: integer
     initiative:
@@ -204,13 +211,21 @@ AddCombatantRequest:
   properties:
     kind:
       type: string
-      description: "monster (needs contentId) | pc (needs characterId) | custom (typed)."
+      description: "monster (needs contentId) | pc (needs characterId) | ally (needs npcId) | custom (typed)."
     contentId:
       type: string
       format: uuid
     characterId:
       type: string
       format: uuid
+    npcId:
+      type: string
+      format: uuid
+      description: >-
+        One of the Folk who travels with the party (#228). Their snapshot is
+        taken from whatever stands behind them, and their hit points mirror
+        home for as long as the fight runs — so, like a hero, an ally may
+        stand in only one active fight at a time.
     label:
       type: string
       description: Name for a custom line, or an override for a monster/PC.
