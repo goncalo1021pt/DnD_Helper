@@ -316,7 +316,7 @@ export default function PlacesManager({
                     disabled={pending}
                     aria-pressed={revealed}
                     title={revealed ? "Veil from the whole party" : "Reveal to the whole party"}
-                    onClick={() => changeVisibility(l, { scope: "party", visible: !revealed })}
+                    onClick={() => changeVisibility(l, { scope: "table", visible: !revealed })}
                     className={`btn-base p-[7px] ${revealed ? "btn-wax" : "btn-ghost-ink"}`}
                   >
                     {revealed ? <IconEye size={14} /> : <IconEyeOff size={14} />}
@@ -424,6 +424,7 @@ export default function PlacesManager({
                       visibleToParty={revealed}
                       overrides={overrides}
                       characters={characters}
+                      campaignId={campaignId}
                       isPending={pending}
                       onChange={(body) => changeVisibility(l, body)}
                       onClearHero={(characterId) =>

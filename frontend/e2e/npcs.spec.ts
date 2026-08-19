@@ -141,7 +141,7 @@ test("a player probing the folk doors cannot tell a hidden person from a fake id
     const del = await pl.request.delete(`/api/npcs/${id}`);
     expect(del.status(), `DELETE on ${what}`).toBe(404);
     const vis = await pl.request.put(`/api/npcs/${id}/visibility`, {
-      data: { scope: "party", visible: true },
+      data: { scope: "table", visible: true },
     });
     expect(vis.status(), `visibility PUT on ${what}`).toBe(404);
   }

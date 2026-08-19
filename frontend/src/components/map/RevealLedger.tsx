@@ -59,7 +59,11 @@ export function RevealLedger({
                 </div>
                 <div className="label-stamp text-[9px] tracking-[1px] text-ink-label">
                   {b.circles} {b.circles === 1 ? "circle" : "circles"} ·{" "}
-                  {b.locationId ? `knowledge of ${b.locationName}` : b.poolName} ·{" "}
+                  {b.locationId ? `knowledge of ${b.locationName}` : "the whole table"} ·{" "}
+                  {/* The party is the provenance; the heroes recorded with it
+                      are the gate, and they do not change when it does (#232). */}
+                  {b.heroCount > 0 &&
+                    `${b.partyName || "a party"} — ${b.heroCount} hero${b.heroCount === 1 ? "" : "es"} · `}
                   {new Date(b.createdAt).toLocaleDateString()}
                 </div>
                 {locations.length > 0 && (
@@ -70,7 +74,7 @@ export function RevealLedger({
                     title="Which place's veil decides who sees this ground"
                     className="input-parchment mt-1.5 w-full cursor-pointer py-1 text-[12px]"
                   >
-                    <option value="">— the whole party, plainly —</option>
+                    <option value="">— no place gates it —</option>
                     {locations.map((l) => (
                       <option key={l.id} value={l.id}>
                         {"— ".repeat(l.depth)}

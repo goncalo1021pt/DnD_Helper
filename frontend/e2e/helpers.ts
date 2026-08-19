@@ -145,7 +145,7 @@ export async function revealLocation(
   locationId: string,
 ): Promise<void> {
   const res = await request.put(`/api/locations/${locationId}/visibility`, {
-    data: { scope: "party", visible: true },
+    data: { scope: "table", visible: true },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
 }

@@ -1,0 +1,42 @@
+Party:
+  type: object
+  required: [id, campaignId, name, heroCount]
+  description: |
+    A named group of heroes inside one campaign (#232) — the shape a table of
+    ten or twelve takes when it splits onto different objectives in the same
+    world.
+
+    A party is a *brush*. Revealing something to one stamps the same per-hero
+    exceptions the DM could have clicked one at a time, so nothing is ever hung
+    on the party itself: a hero who moves keeps everything they learned, and
+    disbanding a party takes nothing from anybody.
+  properties:
+    id:
+      type: string
+      format: uuid
+    campaignId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    heroCount:
+      type: integer
+      description: How many heroes ride with it right now.
+
+PartyInput:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 60
+
+SetPartyRequest:
+  type: object
+  description: Which party a hero rides with; null takes them out of all of them.
+  properties:
+    partyId:
+      type: string
+      format: uuid
+      nullable: true

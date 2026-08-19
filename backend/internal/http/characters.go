@@ -83,7 +83,9 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
 			TableBorn:      row.TableBorn,
+			PartyID:        row.PartyID,
 		}, row.OwnerName, member.UserID, row.ClassData, classesOf[row.ID])
+		character.PartyName = row.PartyName
 		if veil.concealsFrom(row.ID, row.OwnerUserID, member.UserID, isDM) {
 			character = conceal(character)
 		}
@@ -392,6 +394,11 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 	if id, ok := seatedCampaign(c); ok {
 		campaignID = &id
 	}
+	var partyID *uuid.UUID
+	if c.PartyID.Valid {
+		id := uuid.UUID(c.PartyID.Bytes)
+		partyID = &id
+	}
 	var sheet *api.CharacterSheet
 	if c.Strength != nil && c.Dexterity != nil && c.Constitution != nil &&
 		c.Intelligence != nil && c.Wisdom != nil && c.Charisma != nil {
@@ -456,5 +463,6 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 		CreatedAt:     c.CreatedAt.Time,
 		Mine:          c.OwnerUserID == viewer,
 		TableBorn:     c.TableBorn,
+		PartyId:       partyID,
 	}
 }

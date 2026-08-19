@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import type { Character, Npc, RulesContent, SeatConflict } from "../api/client";
+import type { Character, Npc, Party, RulesContent, SeatConflict } from "../api/client";
 import {
   useCharacters,
   useSetSpellSlots,
@@ -8,7 +8,12 @@ import {
   useCreateCharacter,
   useDeleteCharacter,
   useMyCharacters,
+  useCreateParty,
+  useDeleteParty,
   useNpcs,
+  useParties,
+  useRenameParty,
+  useSetCharacterParty,
   useRevealCharacter,
   useSeatCharacter,
   useSetNpcHp,
@@ -221,6 +226,40 @@ function VeilRow({
   );
 }
 
+/* Which party a hero rides with (#232). The DM's alone, and a plain picker
+   rather than anything cleverer: moving somebody costs them nothing, because
+   every grant they were ever given is stamped on their own row. */
+function PartyPicker({
+  character,
+  campaignId,
+  parties,
+}: {
+  character: Character;
+  campaignId: string;
+  parties: Party[];
+}) {
+  const move = useSetCharacterParty(campaignId);
+  return (
+    <select
+      value={character.partyId ?? ""}
+      disabled={move.isPending}
+      onChange={(e) =>
+        move.mutate({ characterId: character.id, partyId: e.target.value || null })
+      }
+      aria-label={`Which party ${character.name} rides with`}
+      title="Moving them takes nothing away — what they were shown stays theirs"
+      className="input-parchment input-compact w-full cursor-pointer text-[11.5px]"
+    >
+      <option value="">— rides with no party —</option>
+      {parties.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function CharacterCard({
   character,
   canEdit,
@@ -228,6 +267,7 @@ function CharacterCard({
   campaignId,
   veiled,
   progression,
+  parties = [],
 }: {
   character: Character;
   canEdit: boolean;
@@ -235,6 +275,7 @@ function CharacterCard({
   campaignId: string;
   veiled: boolean;
   progression: string;
+  parties?: Party[];
 }) {
   const [editing, setEditing] = useState(false);
   const update = useUpdateCharacter(campaignId);
@@ -463,6 +504,14 @@ function CharacterCard({
         </div>
       )}
 
+      {/* Which party they ride with (#232) — the DM's call, and a cheap one:
+          moving somebody takes nothing away from them. */}
+      {isDM && parties.length > 0 && (
+        <div className="mt-2.5">
+          <PartyPicker character={character} campaignId={campaignId} parties={parties} />
+        </div>
+      )}
+
       {editing && canAmend && (
         <ParchmentModal onClose={() => setEditing(false)} maxWidth="max-w-[480px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
@@ -585,6 +634,80 @@ function SummonControl({
           onClose={() => setConflict(null)}
         />
       )}
+    </div>
+  );
+}
+
+/* The parties at this table (#232). Forming, renaming and disbanding all live
+   here, because the roster is the only page where "who rides with whom" is the
+   subject rather than a detail.
+
+   Disbanding asks nothing and warns nothing, which is the point: a party holds
+   no knowledge, so striking one cannot take any away. */
+function PartiesBar({ campaignId, parties }: { campaignId: string; parties: Party[] }) {
+  const create = useCreateParty(campaignId);
+  const rename = useRenameParty(campaignId);
+  const disband = useDeleteParty(campaignId);
+  const [name, setName] = useState("");
+
+  return (
+    <div className="mb-5 flex flex-wrap items-center gap-2">
+      <span className="label-stamp text-[9px] tracking-[2px] text-gold-muted">
+        The parties
+      </span>
+      {parties.map((p) => (
+        <span key={p.id} className="chip-hall gap-2 px-2.5 py-1.5">
+          <button
+            onClick={() => {
+              const next = prompt(`Rename "${p.name}" to…`, p.name);
+              if (next && next.trim() && next.trim() !== p.name) {
+                rename.mutate({ partyId: p.id, body: { name: next.trim() } });
+              }
+            }}
+            title="Rename this party"
+            className="cursor-pointer border-none bg-transparent p-0 font-heading text-[12.5px] font-semibold text-cream"
+          >
+            {p.name}
+          </button>
+          <span className="label-stamp text-[8.5px] tracking-[1.5px] text-gold-muted">
+            {p.heroCount}
+          </span>
+          <button
+            onClick={() => {
+              if (confirm(`Disband "${p.name}"? The heroes stay, and everything they were shown stays theirs.`))
+                disband.mutate(p.id);
+            }}
+            title="Disband — the heroes stay, and so does everything they know"
+            aria-label={`Disband ${p.name}`}
+            className="cursor-pointer border-none bg-transparent p-0 text-[11px] text-[#c96a5a]"
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (name.trim()) create.mutate({ name: name.trim() }, { onSuccess: () => setName("") });
+        }}
+        className="flex items-center gap-1.5"
+      >
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Form a party…"
+          aria-label="Form a party"
+          maxLength={60}
+          className="input-hall h-7 w-[150px] text-[11.5px]"
+        />
+        <button
+          type="submit"
+          disabled={!name.trim() || create.isPending}
+          className="btn-base btn-ghost-gold h-7 px-2.5 text-[10px]"
+        >
+          <IconPlus size={12} /> Form
+        </button>
+      </form>
     </div>
   );
 }
@@ -764,6 +887,26 @@ export default function PartyRoster() {
   // needs no filtering of its own beyond the state itself.
   const { data: folk } = useNpcs(campaign.id);
   const allies = (folk ?? []).filter((n) => n.traveling);
+  const { data: partyRoll } = useParties(campaign.id);
+  const parties = partyRoll ?? [];
+
+  /* The roster grouped by party, with everyone riding alone at the foot. A
+     table that has formed no parties gets exactly one group and no heading —
+     the shape it has always had (#232). */
+  const groups = (() => {
+    const heroes = characters ?? [];
+    if (parties.length === 0) return [{ key: "all", name: "The Party", members: heroes }];
+    const out = parties.map((p) => ({
+      key: p.id,
+      name: p.name,
+      members: heroes.filter((c) => c.partyId === p.id),
+    }));
+    const loose = heroes.filter((c) => !c.partyId);
+    if (loose.length > 0) {
+      out.push({ key: "loose", name: "Riding with no party", members: loose });
+    }
+    return out.filter((g) => g.members.length > 0);
+  })();
   const create = useCreateCharacter(campaign.id);
   const [adding, setAdding] = useState(false);
 
@@ -826,27 +969,48 @@ export default function PartyRoster() {
         </div>
       </div>
 
+      {isDM && <PartiesBar campaignId={campaign.id} parties={parties} />}
+
       {isLoading ? (
         <div className="font-accent px-5 py-[70px] text-center text-base italic text-[#9c855e]">
           Calling the roll…
         </div>
       ) : characters && characters.length > 0 ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-6">
-          {characters.map((c) =>
-            c.concealed ? (
-              <VeiledCard key={c.id} character={c} />
-            ) : (
-              <CharacterCard
-                key={c.id}
-                character={c}
-                canEdit={c.mine || isDM}
-                isDM={isDM}
-                campaignId={campaign.id}
-                veiled={campaign.hiddenSheets ?? false}
-                progression={campaign.progression ?? "milestone"}
-              />
-            ),
-          )}
+        <div className="flex flex-col gap-7">
+          {groups.map((g) => (
+            <section key={g.key}>
+              {/* A band only earns a heading once there is more than one, so a
+                  table that never splits reads exactly as it did before. */}
+              {groups.length > 1 && (
+                <div className="mb-3 flex flex-wrap items-baseline gap-3">
+                  <h3 className="font-display m-0 text-[16px] font-black text-[#e7d3a6]">
+                    {g.name}
+                  </h3>
+                  <span className="label-stamp text-[9px] tracking-[1.5px] text-gold-muted">
+                    {g.members.length} {g.members.length === 1 ? "hero" : "heroes"}
+                  </span>
+                </div>
+              )}
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-6">
+                {g.members.map((c) =>
+                  c.concealed ? (
+                    <VeiledCard key={c.id} character={c} />
+                  ) : (
+                    <CharacterCard
+                      key={c.id}
+                      character={c}
+                      canEdit={c.mine || isDM}
+                      isDM={isDM}
+                      campaignId={campaign.id}
+                      veiled={campaign.hiddenSheets ?? false}
+                      progression={campaign.progression ?? "milestone"}
+                      parties={parties}
+                    />
+                  ),
+                )}
+              </div>
+            </section>
+          ))}
         </div>
       ) : (
         <div className="px-5 py-[70px] text-center">

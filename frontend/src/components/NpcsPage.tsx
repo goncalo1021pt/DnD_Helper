@@ -206,7 +206,7 @@ function NpcCard({
             {/* The two veils, at a glance. Knowing someone and reading their
                 numbers are separate acts, so each gets its own stamp. */}
             <button
-              onClick={() => setVis.mutate({ npcId: npc.id, body: { scope: "party", visible: !npc.visibleToParty } })}
+              onClick={() => setVis.mutate({ npcId: npc.id, body: { scope: "table", visible: !npc.visibleToParty } })}
               aria-pressed={npc.visibleToParty}
               className="label-stamp rounded-[2px] px-2 py-1 text-[9px] tracking-[1px]"
               style={{
@@ -220,7 +220,7 @@ function NpcCard({
             {hasStats && (
               <button
                 onClick={() =>
-                  setStatsVis.mutate({ npcId: npc.id, body: { scope: "party", visible: !npc.statsVisibleToParty } })
+                  setStatsVis.mutate({ npcId: npc.id, body: { scope: "table", visible: !npc.statsVisibleToParty } })
                 }
                 aria-pressed={npc.statsVisibleToParty}
                 className="label-stamp rounded-[2px] px-2 py-1 text-[9px] tracking-[1px]"
@@ -431,6 +431,7 @@ function NpcCard({
               visibleToParty={npc.visibleToParty ?? false}
               overrides={npc.visibility ?? []}
               characters={party}
+              campaignId={campaignId}
               isPending={setVis.isPending || clearVis.isPending}
               onChange={(body) => setVis.mutate({ npcId: npc.id, body })}
               onClearHero={(characterId) => clearVis.mutate({ npcId: npc.id, characterId })}
@@ -445,6 +446,7 @@ function NpcCard({
                 visibleToParty={npc.statsVisibleToParty ?? false}
                 overrides={npc.statsVisibility ?? []}
                 characters={party}
+              campaignId={campaignId}
                 isPending={setStatsVis.isPending || clearStatsVis.isPending}
                 onChange={(body) => setStatsVis.mutate({ npcId: npc.id, body })}
                 onClearHero={(characterId) => clearStatsVis.mutate({ npcId: npc.id, characterId })}

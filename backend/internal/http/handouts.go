@@ -307,7 +307,7 @@ func (s *Server) SetHandoutVisibility(ctx context.Context, request api.SetHandou
 		}
 	}
 
-	charID, badReq, err := s.visibilityTarget(ctx, meta.CampaignID, request.Body)
+	grain, badReq, err := s.visibilityTarget(ctx, meta.CampaignID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -315,20 +315,29 @@ func (s *Server) SetHandoutVisibility(ctx context.Context, request api.SetHandou
 		return api.SetHandoutVisibility400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: badReq}}, nil
 	}
 
-	if charID == uuid.Nil {
+	switch {
+	case grain.table:
 		if _, err := s.queries.SetHandoutPartyVisibility(ctx, db.SetHandoutPartyVisibilityParams{
 			ID: handoutID, VisibleToParty: request.Body.Visible,
 		}); err != nil {
 			return nil, err
 		}
-		// Choosing the party is choosing everyone: per-hero exceptions go.
+		// Choosing the whole table is choosing everyone: exceptions go.
 		if err := s.queries.ClearHandoutOverrides(ctx, handoutID); err != nil {
 			return nil, err
 		}
-	} else if err := s.queries.SetHandoutOverride(ctx, db.SetHandoutOverrideParams{
-		HandoutID: handoutID, CharacterID: charID, Visible: request.Body.Visible,
-	}); err != nil {
-		return nil, err
+	case grain.party != uuid.Nil:
+		if err := s.queries.SetHandoutOverridesForParty(ctx, db.SetHandoutOverridesForPartyParams{
+			HandoutID: handoutID, PartyID: pgUUID(grain.party), Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
+	default:
+		if err := s.queries.SetHandoutOverride(ctx, db.SetHandoutOverrideParams{
+			HandoutID: handoutID, CharacterID: grain.hero, Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	// Any reveal — to the party or to one hero — is the prop reaching someone

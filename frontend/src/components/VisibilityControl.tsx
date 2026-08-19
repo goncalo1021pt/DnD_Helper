@@ -1,4 +1,5 @@
 import type { Character, SetVisibilityInput, VisibilityOverride } from "../api/client";
+import { useParties } from "../hooks";
 import { IconEye, IconEyeOff, IconUsers } from "./ui/icons";
 
 /* What the DM is looking at for one hero: taking the party's setting, or
@@ -17,13 +18,20 @@ function heroState(overrides: VisibilityOverride[], characterId: string): HeroSt
   return o.visible ? "shown" : "hidden";
 }
 
-/* Reveal / veil an entity for the whole party or for a single hero.
-   Shared by the place tree and the quest notices — the rules are identical,
-   only the thing being veiled changes. */
+/* Reveal / veil an entity at one of three grains: the whole table, one party,
+   or one hero (#232). Shared by the place tree, the quest notices, the folk
+   and the handouts — the rules are identical, only the thing being veiled
+   changes.
+
+   The middle grain is a BRUSH. Choosing a party writes the very same per-hero
+   exceptions the rows below show, for whoever rides with it at that moment,
+   and is then forgotten: this is why a party has no "state" here to display,
+   and why the rows below are the honest picture afterwards. */
 export default function VisibilityControl({
   visibleToParty,
   overrides,
   characters,
+  campaignId,
   isPending,
   onChange,
   onClearHero,
@@ -31,10 +39,15 @@ export default function VisibilityControl({
   visibleToParty: boolean;
   overrides: VisibilityOverride[];
   characters: Character[];
+  /** The table this belongs to, so the control can offer its parties (#232). */
+  campaignId: string;
   isPending: boolean;
   onChange: (body: SetVisibilityInput) => void;
   onClearHero: (characterId: string) => void;
 }) {
+  // One cached read shared by every control on the page.
+  const { data: partyRoll } = useParties(campaignId);
+  const parties = partyRoll ?? [];
   const singledOut = overrides.length;
 
   return (
@@ -42,12 +55,12 @@ export default function VisibilityControl({
       <div className="flex flex-wrap items-center gap-2">
         <span className="field-label flex items-center gap-1.5">
           <IconUsers size={13} />
-          The party
+          The whole table
         </span>
         <button
           type="button"
           disabled={isPending}
-          onClick={() => onChange({ scope: "party", visible: !visibleToParty })}
+          onClick={() => onChange({ scope: "table", visible: !visibleToParty })}
           className={`btn-base clip-octagon px-3 py-[7px] text-[11px] ${
             visibleToParty ? "btn-wax" : "btn-ghost-ink"
           }`}
@@ -61,6 +74,46 @@ export default function VisibilityControl({
           </span>
         )}
       </div>
+
+      {/* A party paints, it does not hold. Both buttons write per-hero rows for
+          whoever rides with it right now, which is why they are actions rather
+          than a state — and why the rows below immediately tell the truth. */}
+      {parties.length > 0 && characters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="field-label">Or a party</span>
+          {parties.map((p) => (
+            <span key={p.id} className="flex items-center gap-1">
+              <span className="font-body text-[12px] text-ink-value">{p.name}</span>
+              <button
+                type="button"
+                disabled={isPending || p.heroCount === 0}
+                title={
+                  p.heroCount === 0
+                    ? "Nobody rides with them yet"
+                    : `Show to the ${p.heroCount} hero${p.heroCount === 1 ? "" : "es"} riding with ${p.name} right now`
+                }
+                onClick={() => onChange({ scope: "party", partyId: p.id, visible: true })}
+                className="btn-base btn-ghost-ink px-2 py-1 text-[10px]"
+              >
+                Show
+              </button>
+              <button
+                type="button"
+                disabled={isPending || p.heroCount === 0}
+                title={
+                  p.heroCount === 0
+                    ? "Nobody rides with them yet"
+                    : `Hide from everyone riding with ${p.name} right now`
+                }
+                onClick={() => onChange({ scope: "party", partyId: p.id, visible: false })}
+                className="btn-base btn-ghost-ink px-2 py-1 text-[10px]"
+              >
+                Hide
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
 
       {characters.length > 0 && (
         <div className="flex flex-col gap-1.5">
