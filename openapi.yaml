@@ -6517,7 +6517,7 @@ components:
         hpCurrent:
           type: integer
           nullable: true
-          description: "An ally's hit points, and their maximum below. Present for a traveler the viewer may see, whatever stands behind them: a forged body keeps them on its sheet, a stat-block person on their own row. Absent for anyone not traveling, and for a traveler with nothing behind them at all."
+          description: "An ally's hit points, and their maximum below, read from whatever stands behind them — a forged body keeps them on its sheet, a stat-block person on their own row. Their condition is one of their numbers, so it sits behind the stats veil with the rest: absent unless the viewer may read them (or runs them), absent for anyone not traveling, and absent for a traveler with nothing behind them at all."
         hpMax:
           type: integer
           nullable: true

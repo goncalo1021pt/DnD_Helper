@@ -3496,7 +3496,7 @@ export interface components {
             characterName?: string | null;
             /** @description Whether this person walks with the party (#228). A traveler is always known to the party — marking them opens that veil — and appears in the roster's own section, apart from the heroes and never counted among them. */
             traveling?: boolean;
-            /** @description An ally's hit points, and their maximum below. Present for a traveler the viewer may see, whatever stands behind them: a forged body keeps them on its sheet, a stat-block person on their own row. Absent for anyone not traveling, and for a traveler with nothing behind them at all. */
+            /** @description An ally's hit points, and their maximum below, read from whatever stands behind them — a forged body keeps them on its sheet, a stat-block person on their own row. Their condition is one of their numbers, so it sits behind the stats veil with the rest: absent unless the viewer may read them (or runs them), absent for anyone not traveling, and absent for a traveler with nothing behind them at all. */
             hpCurrent?: number | null;
             hpMax?: number | null;
             /**
