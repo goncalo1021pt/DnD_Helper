@@ -256,7 +256,7 @@ func (s *Server) removeMemberTx(ctx context.Context, campaignID, userID uuid.UUI
 	if err := qtx.ReleaseQuestClaimsOfUser(ctx, db.ReleaseQuestClaimsOfUserParams{UserID: userID, CampaignID: campaignID}); err != nil {
 		return err
 	}
-	if err := qtx.RemoveUserFromCampaignPools(ctx, db.RemoveUserFromCampaignPoolsParams{UserID: userID, CampaignID: campaignID}); err != nil {
+	if err := qtx.ClearPartyForUserAtCampaign(ctx, db.ClearPartyForUserAtCampaignParams{OwnerUserID: userID, CampaignID: pgUUID(campaignID)}); err != nil {
 		return err
 	}
 	if err := qtx.DeleteSeatRequestsOfUser(ctx, db.DeleteSeatRequestsOfUserParams{OwnerUserID: userID, CampaignID: campaignID}); err != nil {

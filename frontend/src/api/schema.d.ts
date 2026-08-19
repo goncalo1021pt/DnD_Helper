@@ -1974,6 +1974,68 @@ export interface paths {
         patch: operations["updateNpc"];
         trace?: never;
     };
+    "/campaigns/{campaignId}/parties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The parties at this table */
+        get: operations["listParties"];
+        put?: never;
+        /** Form a new party (DM only) */
+        post: operations["createParty"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties/{partyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Disband a party (DM only)
+         * @description The heroes stay, and so does everything they were ever shown — a party is a brush, and nothing hangs on it (#232).
+         */
+        delete: operations["deleteParty"];
+        options?: never;
+        head?: never;
+        /** Rename a party (DM only) */
+        patch: operations["renameParty"];
+        trace?: never;
+    };
+    "/characters/{characterId}/party": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Move a hero to a party, or out of all of them (DM only) */
+        put: operations["setCharacterParty"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/npcs/{npcId}/travel": {
         parameters: {
             query?: never;
@@ -2313,6 +2375,12 @@ export interface components {
             mine: boolean;
             /** @description Born of a quick-add on a campaign roster: lives and dies with the table, never listed in My Heroes, never seated elsewhere. Account heroes are the opposite — the roster may only unseat them. */
             tableBorn: boolean;
+            /**
+             * Format: uuid
+             * @description The party this hero rides with (#232), or null for one who rides with none yet. Nothing is gated on it: it decides how the roster groups and who a party-wide grant paints, never what this hero may see.
+             */
+            partyId?: string | null;
+            partyName?: string | null;
             /** @description Experience points (XP-mode campaigns; advisory). */
             xp?: number;
             /** @description Milestone level-ups waiting to be taken. */
@@ -2871,7 +2939,7 @@ export interface components {
         MapDetail: {
             map: components["schemas"]["CampaignMap"];
             pins: components["schemas"]["MapPin"][];
-            /** @description The caller's uncovered area — every circle for the DM, the union of the caller's pools for a player. Empty when fog is off. */
+            /** @description The caller's uncovered area — every circle for the DM; for a player, every circle stamped for the whole table plus every circle stamped while one of their own heroes stood in the party (#232). Empty when fog is off. */
             revealed: components["schemas"]["RevealCircle"][];
         };
         RevealCircle: {
@@ -2887,15 +2955,20 @@ export interface components {
             note?: string;
             /**
              * Format: uuid
-             * @description Tie this batch to a place. Its ground then lifts only for a hero the place's veil already admits — which is how a player who grew up in a city starts knowing it. Omit for a batch the whole pool has.
+             * @description Tie this batch to a place. Its ground then lifts only for a hero the place's veil already admits — which is how a player who grew up in a city starts knowing it. Omit for a batch nothing further gates.
              */
             locationId?: string | null;
+            /**
+             * Format: uuid
+             * @description Stamp this for one party rather than the whole table (#232). The heroes riding with it *at this moment* are recorded on the batch, so the ground belongs to them from then on — moving between parties never takes it away, and joining one never hands it over.
+             */
+            partyId?: string | null;
             circles: components["schemas"]["RevealCircle"][];
         };
         SetRevealLocationRequest: {
             /**
              * Format: uuid
-             * @description The place gating this batch; null cuts it loose to the pool.
+             * @description The place gating this batch; null cuts it loose again.
              */
             locationId?: string | null;
         };
@@ -2903,7 +2976,10 @@ export interface components {
             /** Format: uuid */
             id: string;
             note: string;
-            poolName: string;
+            /** @description The party this was stamped for, as a label for the ledger only — empty when it was stamped for the whole table, and empty again if that party is later disbanded. What the ground is actually gated on is the heroes recorded below, never the party (#232). */
+            partyName: string;
+            /** @description How many heroes were standing in that party when the stamp was made. Zero means the whole table. This is the gate: a hero who moves to another party keeps the ground they walked, and one who joins later does not inherit it. */
+            heroCount: number;
             /**
              * Format: uuid
              * @description The place whose veil gates this batch; absent when none does.
@@ -3341,12 +3417,22 @@ export interface components {
             rewards?: components["schemas"]["RewardInput"][];
         };
         /**
-         * @description Who a reveal or hide applies to. `party` sets the entity's party-wide
-         *     veil and clears every per-hero exception — choosing the party is
-         *     choosing everyone. `character` records an exception for one hero.
+         * @description Who a reveal or hide applies to, at one of three grains.
+         *
+         *     `table` sets the entity's table-wide veil and clears every per-hero
+         *     exception — choosing the whole table is choosing everyone. (It was called
+         *     `party` until #232, when a party became a real thing and the word had to
+         *     go back to meaning one.)
+         *
+         *     `party` stamps the very same per-hero exceptions the DM could have clicked
+         *     one at a time, for whoever rides with that party *at this moment*. A party
+         *     is a brush, not a gate: moving a hero afterwards takes nothing from them,
+         *     and disbanding a party takes nothing from anybody.
+         *
+         *     `character` records an exception for one hero.
          * @enum {string}
          */
-        VisibilityScope: "party" | "character";
+        VisibilityScope: "table" | "party" | "character";
         /** @description A single hero's exception to the party-wide veil. */
         VisibilityOverride: {
             /** Format: uuid */
@@ -3361,6 +3447,11 @@ export interface components {
              * @description Required when scope is `character`; ignored otherwise.
              */
             characterId?: string | null;
+            /**
+             * Format: uuid
+             * @description Required when scope is `party`; ignored otherwise.
+             */
+            partyId?: string | null;
             /** @description True reveals, false hides. */
             visible: boolean;
         };
@@ -3500,6 +3591,12 @@ export interface components {
             hpCurrent?: number | null;
             hpMax?: number | null;
             /**
+             * Format: uuid
+             * @description The party this ally rides with (#232). Null means the whole table. A traveler filed with one party appears on that party's roster and no other, and is absent from every other player's payload entirely.
+             */
+            partyId?: string | null;
+            partyName?: string | null;
+            /**
              * @description DM-only. Who runs this ally — the DM alone, one named player, or the whole table.
              * @enum {string}
              */
@@ -3547,6 +3644,33 @@ export interface components {
             characterId?: string | null;
         };
         /**
+         * @description A named group of heroes inside one campaign (#232) — the shape a table of
+         *     ten or twelve takes when it splits onto different objectives in the same
+         *     world.
+         *
+         *     A party is a *brush*. Revealing something to one stamps the same per-hero
+         *     exceptions the DM could have clicked one at a time, so nothing is ever hung
+         *     on the party itself: a hero who moves keeps everything they learned, and
+         *     disbanding a party takes nothing from anybody.
+         */
+        Party: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            campaignId: string;
+            name: string;
+            /** @description How many heroes ride with it right now. */
+            heroCount: number;
+        };
+        PartyInput: {
+            name: string;
+        };
+        /** @description Which party a hero rides with; null takes them out of all of them. */
+        SetPartyRequest: {
+            /** Format: uuid */
+            partyId?: string | null;
+        };
+        /**
          * @description Marking a person as walking with the party, and handing them to whoever
          *     runs them (#228). Traveling opens the veil on their existence in the same
          *     stroke — an ally the party has never heard of is a contradiction — and
@@ -3564,6 +3688,11 @@ export interface components {
              * @description Required when control is `player`, and refused otherwise.
              */
             controlUserId?: string | null;
+            /**
+             * Format: uuid
+             * @description Which party they ride with. Absent keeps whatever is there; the nil UUID (all zeros) puts them back beside the whole table, the way the Folk already detach a stat block. A person called home rides with nobody at all.
+             */
+            partyId?: string | null;
         };
         /**
          * @description Where an ally's hit points now stand. Open to the DM and to whoever holds
@@ -7556,6 +7685,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listParties: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The campaign's parties */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Party"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartyInput"];
+            };
+        };
+        responses: {
+            /** @description The new party */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Party"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disbanded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    renameParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartyInput"];
+            };
+        };
+        responses: {
+            /** @description The party as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Party"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setCharacterParty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPartyRequest"];
+            };
+        };
+        responses: {
+            /** @description The hero as they now stand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
                 };
             };
             400: components["responses"]["BadRequest"];

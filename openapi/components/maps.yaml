@@ -79,8 +79,10 @@ MapDetail:
     revealed:
       type: array
       description: >
-        The caller's uncovered area — every circle for the DM, the union
-        of the caller's pools for a player. Empty when fog is off.
+        The caller's uncovered area — every circle for the DM; for a player,
+        every circle stamped for the whole table plus every circle stamped
+        while one of their own heroes stood in the party (#232). Empty when
+        fog is off.
       items:
         $ref: "../openapi.yaml#/components/schemas/RevealCircle"
 
@@ -112,7 +114,16 @@ SubmitRevealsRequest:
       description: >
         Tie this batch to a place. Its ground then lifts only for a hero the
         place's veil already admits — which is how a player who grew up in a
-        city starts knowing it. Omit for a batch the whole pool has.
+        city starts knowing it. Omit for a batch nothing further gates.
+    partyId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >
+        Stamp this for one party rather than the whole table (#232). The heroes
+        riding with it *at this moment* are recorded on the batch, so the
+        ground belongs to them from then on — moving between parties never
+        takes it away, and joining one never hands it over.
     circles:
       type: array
       minItems: 1
@@ -126,19 +137,31 @@ SetRevealLocationRequest:
       type: string
       format: uuid
       nullable: true
-      description: The place gating this batch; null cuts it loose to the pool.
+      description: The place gating this batch; null cuts it loose again.
 
 RevealBatch:
   type: object
-  required: [id, note, poolName, circles, createdAt]
+  required: [id, note, partyName, heroCount, circles, createdAt]
   properties:
     id:
       type: string
       format: uuid
     note:
       type: string
-    poolName:
+    partyName:
       type: string
+      description: >-
+        The party this was stamped for, as a label for the ledger only —
+        empty when it was stamped for the whole table, and empty again if that
+        party is later disbanded. What the ground is actually gated on is the
+        heroes recorded below, never the party (#232).
+    heroCount:
+      type: integer
+      description: >-
+        How many heroes were standing in that party when the stamp was made.
+        Zero means the whole table. This is the gate: a hero who moves to
+        another party keeps the ground they walked, and one who joins later
+        does not inherit it.
     locationId:
       type: string
       format: uuid

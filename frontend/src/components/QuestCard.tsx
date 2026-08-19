@@ -348,7 +348,7 @@ export default function QuestCard({
                   onClick={() =>
                     setVisibility.mutate({
                       questId: quest.id,
-                      body: { scope: "party", visible: !revealed },
+                      body: { scope: "table", visible: !revealed },
                     })
                   }
                   disabled={setVisibility.isPending}
@@ -403,6 +403,7 @@ export default function QuestCard({
               visibleToParty={revealed}
               overrides={overrides}
               characters={characters}
+              campaignId={campaignId}
               isPending={setVisibility.isPending || clearOverride.isPending}
               onChange={(body) => setVisibility.mutate({ questId: quest.id, body })}
               onClearHero={(characterId) =>

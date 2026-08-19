@@ -95,6 +95,7 @@ export default function HandoutManageModal({
           visibleToParty={handout.visibleToParty ?? false}
           overrides={handout.visibility ?? []}
           characters={characters}
+          campaignId={campaignId}
           isPending={pending}
           onChange={(body) => setVisibility.mutate({ handoutId: handout.id, body })}
           onClearHero={(characterId) =>

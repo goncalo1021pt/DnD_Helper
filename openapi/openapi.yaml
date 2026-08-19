@@ -232,6 +232,12 @@ paths:
     $ref: "./paths/npcs.yaml#/~1campaigns~1{campaignId}~1npcs"
   /npcs/{npcId}:
     $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}"
+  /campaigns/{campaignId}/parties:
+    $ref: "./paths/parties.yaml#/~1campaigns~1{campaignId}~1parties"
+  /parties/{partyId}:
+    $ref: "./paths/parties.yaml#/~1parties~1{partyId}"
+  /characters/{characterId}/party:
+    $ref: "./paths/parties.yaml#/~1characters~1{characterId}~1party"
   /npcs/{npcId}/travel:
     $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1travel"
   /npcs/{npcId}/hp:
@@ -642,6 +648,12 @@ components:
       $ref: "./components/npcs.yaml#/Npc"
     NpcInput:
       $ref: "./components/npcs.yaml#/NpcInput"
+    Party:
+      $ref: "./components/parties.yaml#/Party"
+    PartyInput:
+      $ref: "./components/parties.yaml#/PartyInput"
+    SetPartyRequest:
+      $ref: "./components/parties.yaml#/SetPartyRequest"
     NpcTravelInput:
       $ref: "./components/npcs.yaml#/NpcTravelInput"
     NpcHpInput:

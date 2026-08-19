@@ -9,6 +9,7 @@ import {
   useMapDetail,
   useMaps,
   useSetRevealLocation,
+  useParties,
   useSubmitReveals,
   useUpdateMap,
   useUpdateMapPin,
@@ -46,6 +47,9 @@ export default function MapPage() {
   const updatePin = useUpdateMapPin(currentId ?? "");
   const deletePin = useDeleteMapPin(currentId ?? "");
   const submitReveals = useSubmitReveals(currentId ?? "");
+  const { data: partyRoll } = useParties(campaign.id);
+  const parties = (partyRoll ?? []).filter((p) => p.heroCount > 0);
+  const [submitPartyId, setSubmitPartyId] = useState("");
   const deleteReveals = useDeleteReveals(currentId ?? "");
   const setRevealLocation = useSetRevealLocation(currentId ?? "");
 
@@ -608,7 +612,9 @@ export default function MapPage() {
             {draft.length} {draft.length === 1 ? "circle" : "circles"}
             {submitLocationId
               ? " will be revealed to whoever knows that place — and to nobody else."
-              : " will be revealed to the party. This is what they'll see from now on."}
+              : submitPartyId
+                ? " will be revealed to the heroes riding with that party right now — and stay theirs wherever they ride next."
+                : " will be revealed to the whole table. This is what they'll see from now on."}
           </p>
           <label className="block">
             <span className="field-label">A line for the ledger (optional)</span>
@@ -619,6 +625,28 @@ export default function MapPage() {
               className="input-parchment mt-1 w-full"
             />
           </label>
+          {parties.length > 0 && (
+            <label className="mt-3 block">
+              <span className="field-label">Stamped for (optional)</span>
+              <select
+                value={submitPartyId}
+                onChange={(e) => setSubmitPartyId(e.target.value)}
+                className="input-parchment mt-1 w-full cursor-pointer"
+              >
+                <option value="">— the whole table —</option>
+                {parties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.heroCount})
+                  </option>
+                ))}
+              </select>
+              <span className="font-body mt-1 block text-[12px] italic text-ink-body">
+                The ground goes to the heroes riding with them at this moment,
+                and belongs to those heroes from then on — moving between
+                parties never takes it away, and joining one never hands it over.
+              </span>
+            </label>
+          )}
           {(locations ?? []).length > 0 && (
             <label className="mt-3 block">
               <span className="field-label">Knowledge of a place (optional)</span>
@@ -627,7 +655,7 @@ export default function MapPage() {
                 onChange={(e) => setSubmitLocationId(e.target.value)}
                 className="input-parchment mt-1 w-full cursor-pointer"
               >
-                <option value="">— the whole party, plainly —</option>
+                <option value="">— no place gates it —</option>
                 {(locations ?? []).map((l) => (
                   <option key={l.id} value={l.id}>
                     {"— ".repeat(l.depth)}
@@ -661,12 +689,14 @@ export default function MapPage() {
                     circles: draft,
                     ...(submitNote.trim() ? { note: submitNote.trim() } : {}),
                     ...(submitLocationId ? { locationId: submitLocationId } : {}),
+                    ...(submitPartyId ? { partyId: submitPartyId } : {}),
                   },
                   {
                     onSuccess: () => {
                       setDraft([]);
                       setSubmitNote("");
                       setSubmitLocationId("");
+                      setSubmitPartyId("");
                       setSubmitOpen(false);
                       setStampMode(false);
                     },

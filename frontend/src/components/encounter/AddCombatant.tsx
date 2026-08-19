@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useAddCombatant, useCharacters, useNpcs } from "../../hooks";
+import { useAddCombatant, useCharacters, useNpcs, useParties } from "../../hooks";
 import { IconPlus } from "../ui/icons";
 import { MonsterSearch } from "./MonsterSearch";
 
@@ -25,6 +25,7 @@ export function AddCombatant({
   // order, so they are offered beside the heroes rather than among the
   // monsters — and only the ones who actually travel.
   const { data: folk } = useNpcs(campaignId);
+  const { data: parties } = useParties(campaignId);
   const [kind, setKind] = useState<"monster" | "pc" | "ally" | "custom">(monster ? "monster" : party ? "pc" : "custom");
   const [pcPick, setPcPick] = useState("");
   const [allyPick, setAllyPick] = useState("");
@@ -53,10 +54,14 @@ export function AddCombatant({
     }
   }
 
-  // Summon every party member not already in the fight, in one go — as
-  // distinct from picking one hero at a time above.
-  function summonParty() {
-    availableChars.forEach((c) => add.mutate({ kind: "pc", characterId: c.id }));
+  // Summon every hero not already in the fight, in one go — as distinct from
+  // picking one at a time above. With parties formed (#232) the same button
+  // narrows to one of them, which is the whole point of a table of twelve:
+  // "the Harbour Crew are here" instead of eight clicks.
+  function summonParty(partyId?: string) {
+    availableChars
+      .filter((c) => !partyId || c.partyId === partyId)
+      .forEach((c) => add.mutate({ kind: "pc", characterId: c.id }));
   }
 
   return (
@@ -89,13 +94,29 @@ export function AddCombatant({
             <IconPlus size={13} /> Summon member
           </button>
           <button
-            onClick={summonParty}
+            onClick={() => summonParty()}
             disabled={availableChars.length === 0 || add.isPending}
-            title="Add every party member not already in the fight, all at once"
+            title="Add every hero not already in the fight, all at once"
             className="btn-base btn-wax h-9 px-4 text-[12px] disabled:opacity-40"
           >
-            <IconPlus size={13} /> Summon party
+            <IconPlus size={13} /> Summon all
           </button>
+          {(parties ?? []).length > 0 && (
+            <select
+              value=""
+              onChange={(e) => {
+                if (e.target.value) summonParty(e.target.value);
+              }}
+              aria-label="Summon one party"
+              title="Add everyone riding with one party, all at once"
+              className="input-hall h-9 w-[150px] text-[12px]"
+            >
+              <option value="">…or one party</option>
+              {(parties ?? []).map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          )}
         </>
       )}
       {party && kind === "ally" && (

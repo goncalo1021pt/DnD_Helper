@@ -171,7 +171,7 @@ test("a traveler is known to the party, watched by it, and run by whoever is han
   // a traveler means it — the stamp on the Folk page and what the table can
   // see are never allowed to disagree.
   const veiled = await dm.request.put(`/api/npcs/${npcId}/visibility`, {
-    data: { scope: "party", visible: false },
+    data: { scope: "table", visible: false },
   });
   expect(veiled.ok(), await veiled.text()).toBeTruthy();
 
@@ -192,7 +192,7 @@ test("a traveler is known to the party, watched by it, and run by whoever is han
   await expect
     .poll(async () => (await (await runner.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()).length)
     .toBe(0);
-  await dm.request.put(`/api/npcs/${npcId}/visibility`, { data: { scope: "party", visible: true } });
+  await dm.request.put(`/api/npcs/${npcId}/visibility`, { data: { scope: "table", visible: true } });
   await expect
     .poll(async () => (await (await other.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()).length)
     .toBe(1);

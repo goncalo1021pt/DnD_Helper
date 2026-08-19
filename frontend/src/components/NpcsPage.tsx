@@ -13,6 +13,7 @@ import {
   useNpcs,
   useRules,
   useMembers,
+  useParties,
   useSetNpcStatsVisibility,
   useSetNpcTravel,
   useSetNpcVisibility,
@@ -187,6 +188,8 @@ function NpcCard({
   const clearStatsVis = useClearNpcStatsOverride(campaignId);
   const travel = useSetNpcTravel(campaignId);
   const { data: members } = useMembers(campaignId, npc.isDM);
+  const { data: partyRoll } = useParties(campaignId);
+  const parties = partyRoll ?? [];
   const players = (members ?? []).filter((m) => m.role === "player");
   const [editingDesc, setEditingDesc] = useState(false);
   const [desc, setDesc] = useState(npc.description);
@@ -206,7 +209,7 @@ function NpcCard({
             {/* The two veils, at a glance. Knowing someone and reading their
                 numbers are separate acts, so each gets its own stamp. */}
             <button
-              onClick={() => setVis.mutate({ npcId: npc.id, body: { scope: "party", visible: !npc.visibleToParty } })}
+              onClick={() => setVis.mutate({ npcId: npc.id, body: { scope: "table", visible: !npc.visibleToParty } })}
               aria-pressed={npc.visibleToParty}
               className="label-stamp rounded-[2px] px-2 py-1 text-[9px] tracking-[1px]"
               style={{
@@ -220,7 +223,7 @@ function NpcCard({
             {hasStats && (
               <button
                 onClick={() =>
-                  setStatsVis.mutate({ npcId: npc.id, body: { scope: "party", visible: !npc.statsVisibleToParty } })
+                  setStatsVis.mutate({ npcId: npc.id, body: { scope: "table", visible: !npc.statsVisibleToParty } })
                 }
                 aria-pressed={npc.statsVisibleToParty}
                 className="label-stamp rounded-[2px] px-2 py-1 text-[9px] tracking-[1px]"
@@ -384,6 +387,34 @@ function NpcCard({
 
       {npc.isDM && npc.traveling && (
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {/* Which party they ride beside (#232). Sildar cannot walk with two
+              groups on different roads, and a traveler filed with nobody walks
+              with the whole table. */}
+          {parties.length > 0 && (
+            <>
+              <span className="label-stamp text-[9px] tracking-[2px] text-gold-muted">
+                Rides with
+              </span>
+              <select
+                value={npc.partyId ?? ""}
+                onChange={(e) =>
+                  travel.mutate({
+                    npcId: npc.id,
+                    body: { traveling: true, partyId: e.target.value || NIL_UUID },
+                  })
+                }
+                aria-label={`Which party ${npc.name} rides with`}
+                className="input-hall h-7 w-[170px] text-[11px]"
+              >
+                <option value="">The whole table</option>
+                {parties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
           <span className="label-stamp text-[9px] tracking-[2px] text-gold-muted">
             Who runs them
           </span>
@@ -431,6 +462,7 @@ function NpcCard({
               visibleToParty={npc.visibleToParty ?? false}
               overrides={npc.visibility ?? []}
               characters={party}
+              campaignId={campaignId}
               isPending={setVis.isPending || clearVis.isPending}
               onChange={(body) => setVis.mutate({ npcId: npc.id, body })}
               onClearHero={(characterId) => clearVis.mutate({ npcId: npc.id, characterId })}
@@ -445,6 +477,7 @@ function NpcCard({
                 visibleToParty={npc.statsVisibleToParty ?? false}
                 overrides={npc.statsVisibility ?? []}
                 characters={party}
+              campaignId={campaignId}
                 isPending={setStatsVis.isPending || clearStatsVis.isPending}
                 onChange={(body) => setStatsVis.mutate({ npcId: npc.id, body })}
                 onClearHero={(characterId) => clearStatsVis.mutate({ npcId: npc.id, characterId })}

@@ -51,6 +51,9 @@ type npcVeil struct {
 	overrides     map[uuid.UUID]map[uuid.UUID]bool
 	statOverrides map[uuid.UUID]map[uuid.UUID]bool
 	charNames     map[uuid.UUID]string
+	// hero id -> the party they ride with, zero for one riding with none.
+	// An ally filed with a party is seen by that party and nobody else (#232).
+	heroParty map[uuid.UUID]uuid.UUID
 }
 
 func (s *Server) loadNpcVeil(ctx context.Context, campaignID uuid.UUID) (*npcVeil, error) {
@@ -62,10 +65,20 @@ func (s *Server) loadNpcVeil(ctx context.Context, campaignID uuid.UUID) (*npcVei
 	if err != nil {
 		return nil, err
 	}
+	heroes, err := s.queries.ListHeroPartiesByCampaign(ctx, pgUUID(campaignID))
+	if err != nil {
+		return nil, err
+	}
 	v := &npcVeil{
 		overrides:     map[uuid.UUID]map[uuid.UUID]bool{},
 		statOverrides: map[uuid.UUID]map[uuid.UUID]bool{},
 		charNames:     map[uuid.UUID]string{},
+		heroParty:     map[uuid.UUID]uuid.UUID{},
+	}
+	for _, h := range heroes {
+		if h.PartyID.Valid {
+			v.heroParty[h.ID] = uuid.UUID(h.PartyID.Bytes)
+		}
 	}
 	for _, r := range rows {
 		if v.overrides[r.NpcID] == nil {
@@ -96,11 +109,21 @@ func (s *Server) loadNpcVeil(ctx context.Context, campaignID uuid.UUID) (*npcVei
 // stranger the rest walk past. Marking a person as traveling opens the
 // party-wide veil once, as a convenience, but it never overrides it — a switch
 // that cannot say no is not a switch.
+//
+// A traveler filed with one party rides with THAT party (#232): Sildar cannot
+// be beside two groups on different roads at once, and the table saw him on
+// every roster at first because there was nothing to file him under.
 func (v *npcVeil) npcVisibleTo(n db.Npc, places *veil, charID uuid.UUID) bool {
 	if !resolve(n.VisibleToParty, v.overrides[n.ID], charID) {
 		return false
 	}
-	if n.Traveling || !n.LocationID.Valid {
+	if n.Traveling {
+		if !n.PartyID.Valid {
+			return true
+		}
+		return v.heroParty[charID] == uuid.UUID(n.PartyID.Bytes)
+	}
+	if !n.LocationID.Valid {
 		return true
 	}
 	return places.locationVisibleTo(n.LocationID.Bytes, charID)
@@ -173,6 +196,7 @@ func npcFromListRow(r db.ListNpcsRow) db.Npc {
 		HpCurrent:           r.HpCurrent,
 		Control:             r.Control,
 		ControlUserID:       r.ControlUserID,
+		PartyID:             r.PartyID,
 	}
 }
 
@@ -247,7 +271,6 @@ func allyHP(r db.ListNpcsRow) (current, max int, ok bool) {
 	}
 	return 0, 0, false
 }
-
 
 // npcForViewer shapes one person for whoever is looking. showStats is decided
 // by the caller — for the DM it is always true, for a player it is the second
@@ -328,6 +351,11 @@ func npcForViewer(r db.ListNpcsRow, nv *npcVeil, isDM, showStats bool, viewer uu
 			out.ControlUserId = &id
 		}
 		out.ControlUserName = r.ControlUserName
+		if r.PartyID.Valid {
+			id := uuid.UUID(r.PartyID.Bytes)
+			out.PartyId = &id
+		}
+		out.PartyName = r.PartyName
 	}
 	return out
 }
@@ -419,10 +447,10 @@ func npcName(raw string) (string, string) {
 }
 
 const (
-	errNotInDen      = "that stat block is not in your Den"
-	errBothStats     = "a person carries a stat block or a sheet, never both"
-	errNotNpcBody    = "that sheet is not one of this campaign's Folk — forge a body for the person instead"
-	errHasBody       = "that person already has a sheet"
+	errNotInDen   = "that stat block is not in your Den"
+	errBothStats  = "a person carries a stat block or a sheet, never both"
+	errNotNpcBody = "that sheet is not one of this campaign's Folk — forge a body for the person instead"
+	errHasBody    = "that person already has a sheet"
 )
 
 // resolveNpcStats works out what stands behind a person after an input is
@@ -820,9 +848,38 @@ func (s *Server) SetNpcTravel(ctx context.Context, request api.SetNpcTravelReque
 	// different runner must not quietly undo that (a switch that cannot say no
 	// is not a switch).
 	visible := n.VisibleToParty || (request.Body.Traveling && !n.Traveling)
+
+	// Which party they ride with. Absent keeps what is there, like the filing
+	// on a shop; somebody called home rides with nobody (#232).
+	//
+	// Absent cannot be told from null once it is a pointer, so riding with the
+	// whole table again is said with the nil UUID — the same sentinel the Folk
+	// already use to detach a stat block, and maps to unfile a place.
+	rides := n.PartyID
+	switch {
+	case !request.Body.Traveling:
+		rides = pgtype.UUID{}
+	case request.Body.PartyId == nil:
+		// keep what is there
+	case uuid.UUID(*request.Body.PartyId) == uuid.Nil:
+		rides = pgtype.UUID{}
+	default:
+		party, err := s.queries.GetParty(ctx, *request.Body.PartyId)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return api.SetNpcTravel400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errUnknownParty}}, nil
+			}
+			return nil, err
+		}
+		if party.CampaignID != n.CampaignID {
+			return api.SetNpcTravel400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errUnknownParty}}, nil
+		}
+		rides = pgUUID(party.ID)
+	}
+
 	if _, err := s.queries.SetNpcTravel(ctx, db.SetNpcTravelParams{
 		ID: n.ID, Traveling: request.Body.Traveling, Control: control,
-		ControlUserID: runner, VisibleToParty: visible,
+		ControlUserID: runner, VisibleToParty: visible, PartyID: rides,
 	}); err != nil {
 		return nil, err
 	}
@@ -942,27 +999,36 @@ func (s *Server) SetNpcVisibility(ctx context.Context, request api.SetNpcVisibil
 		}
 		return nil, err
 	}
-	charID, badReq, err := s.visibilityTarget(ctx, n.CampaignID, request.Body)
+	grain, badReq, err := s.visibilityTarget(ctx, n.CampaignID, request.Body)
 	if err != nil {
 		return nil, err
 	}
 	if badReq != "" {
 		return api.SetNpcVisibility400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: badReq}}, nil
 	}
-	if charID == uuid.Nil {
+	switch {
+	case grain.table:
 		if _, err := s.queries.SetNpcPartyVisibility(ctx, db.SetNpcPartyVisibilityParams{
 			ID: n.ID, VisibleToParty: request.Body.Visible,
 		}); err != nil {
 			return nil, err
 		}
-		// Choosing the party is choosing everyone: per-hero exceptions go.
+		// Choosing the whole table is choosing everyone: exceptions go.
 		if err := s.queries.ClearNpcOverrides(ctx, n.ID); err != nil {
 			return nil, err
 		}
-	} else if err := s.queries.SetNpcOverride(ctx, db.SetNpcOverrideParams{
-		NpcID: n.ID, CharacterID: charID, Visible: request.Body.Visible,
-	}); err != nil {
-		return nil, err
+	case grain.party != uuid.Nil:
+		if err := s.queries.SetNpcOverridesForParty(ctx, db.SetNpcOverridesForPartyParams{
+			NpcID: n.ID, PartyID: pgUUID(grain.party), Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
+	default:
+		if err := s.queries.SetNpcOverride(ctx, db.SetNpcOverrideParams{
+			NpcID: n.ID, CharacterID: grain.hero, Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	uid, _ := auth.UserID(ctx)
 	out, err := s.oneNpc(ctx, n.CampaignID, n.ID, uid)
@@ -1015,14 +1081,15 @@ func (s *Server) SetNpcStatsVisibility(ctx context.Context, request api.SetNpcSt
 		}
 		return nil, err
 	}
-	charID, badReq, err := s.visibilityTarget(ctx, n.CampaignID, request.Body)
+	grain, badReq, err := s.visibilityTarget(ctx, n.CampaignID, request.Body)
 	if err != nil {
 		return nil, err
 	}
 	if badReq != "" {
 		return api.SetNpcStatsVisibility400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: badReq}}, nil
 	}
-	if charID == uuid.Nil {
+	switch {
+	case grain.table:
 		if _, err := s.queries.SetNpcStatsPartyVisibility(ctx, db.SetNpcStatsPartyVisibilityParams{
 			ID: n.ID, StatsVisibleToParty: request.Body.Visible,
 		}); err != nil {
@@ -1031,10 +1098,18 @@ func (s *Server) SetNpcStatsVisibility(ctx context.Context, request api.SetNpcSt
 		if err := s.queries.ClearNpcStatOverrides(ctx, n.ID); err != nil {
 			return nil, err
 		}
-	} else if err := s.queries.SetNpcStatOverride(ctx, db.SetNpcStatOverrideParams{
-		NpcID: n.ID, CharacterID: charID, Visible: request.Body.Visible,
-	}); err != nil {
-		return nil, err
+	case grain.party != uuid.Nil:
+		if err := s.queries.SetNpcStatOverridesForParty(ctx, db.SetNpcStatOverridesForPartyParams{
+			NpcID: n.ID, PartyID: pgUUID(grain.party), Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
+	default:
+		if err := s.queries.SetNpcStatOverride(ctx, db.SetNpcStatOverrideParams{
+			NpcID: n.ID, CharacterID: grain.hero, Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	uid, _ := auth.UserID(ctx)
 	out, err := s.oneNpc(ctx, n.CampaignID, n.ID, uid)

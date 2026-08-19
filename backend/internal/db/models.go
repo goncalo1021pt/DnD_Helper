@@ -590,6 +590,7 @@ type Character struct {
 	HitDiceSpent   []byte             `json:"hit_dice_spent"`
 	PactSlotsUsed  int16              `json:"pact_slots_used"`
 	Kind           CharacterKind      `json:"kind"`
+	PartyID        pgtype.UUID        `json:"party_id"`
 }
 
 type CharacterClass struct {
@@ -717,19 +718,6 @@ type HandoutVisibility struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
-type KnowledgePool struct {
-	ID         uuid.UUID          `json:"id"`
-	CampaignID uuid.UUID          `json:"campaign_id"`
-	Name       string             `json:"name"`
-	IsParty    bool               `json:"is_party"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-type KnowledgePoolMember struct {
-	PoolID uuid.UUID `json:"pool_id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
 type Location struct {
 	ID             uuid.UUID          `json:"id"`
 	CampaignID     uuid.UUID          `json:"campaign_id"`
@@ -798,6 +786,7 @@ type Npc struct {
 	HpCurrent           *int32             `json:"hp_current"`
 	Control             string             `json:"control"`
 	ControlUserID       pgtype.UUID        `json:"control_user_id"`
+	PartyID             pgtype.UUID        `json:"party_id"`
 }
 
 type NpcStatVisibility struct {
@@ -812,6 +801,13 @@ type NpcVisibility struct {
 	CharacterID uuid.UUID          `json:"character_id"`
 	Visible     bool               `json:"visible"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Party struct {
+	ID         uuid.UUID          `json:"id"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
+	Name       string             `json:"name"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type Quest struct {
@@ -854,10 +850,15 @@ type QuestVisibility struct {
 type RevealBatch struct {
 	ID         uuid.UUID          `json:"id"`
 	MapID      uuid.UUID          `json:"map_id"`
-	PoolID     uuid.UUID          `json:"pool_id"`
 	Note       string             `json:"note"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	LocationID pgtype.UUID        `json:"location_id"`
+	PartyID    pgtype.UUID        `json:"party_id"`
+}
+
+type RevealBatchHero struct {
+	BatchID     uuid.UUID `json:"batch_id"`
+	CharacterID uuid.UUID `json:"character_id"`
 }
 
 type RevealCircle struct {

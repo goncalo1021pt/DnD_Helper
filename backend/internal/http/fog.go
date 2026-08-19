@@ -19,28 +19,12 @@ import (
 // parties and merging are a later UI, not a rework.
 //
 // A batch may also name a place (#191). Two gates then stand in front of its
-// ground, and a player needs both: the pool, which says whose map this is,
-// and the place's veil, which says who has been told about it. That second
+// ground, and a player needs both: the heroes recorded on the batch, which say
+// whose map this is, and the place's veil, which says who has been told about
+// it. That second
 // gate is the whole feature — the DM stamps a city once and hands it to the
 // hero who grew up there, and the same stamps serve the party later without
 // being drawn again.
-
-// partyPool fetches the campaign's party pool, creating it on first use.
-func (s *Server) partyPool(ctx context.Context, campaignID uuid.UUID) (db.KnowledgePool, error) {
-	pool, err := s.queries.GetPartyPool(ctx, campaignID)
-	if err == nil {
-		return pool, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return db.KnowledgePool{}, err
-	}
-	pool, err = s.queries.CreatePartyPool(ctx, campaignID)
-	if err != nil && isUniqueViolation(err) {
-		// Two first-submits raced; the other one won.
-		return s.queries.GetPartyPool(ctx, campaignID)
-	}
-	return pool, err
-}
 
 // revealLocation validates the place a batch names, returning the column value
 // and the place's name for the ledger. A nil id is not an error — it is a batch
@@ -73,9 +57,16 @@ func (s *Server) revealLocation(ctx context.Context, campaignID uuid.UUID, id *u
 // it — hiding a country hides the cities inside it here exactly as it does on
 // the quest board.
 func (s *Server) playerRevealCircles(ctx context.Context, mapID, campaignID, userID uuid.UUID) ([]circleGeom, error) {
+	// Fog used to be the one veil in the app keyed by user; it resolves through
+	// the viewer's own heroes now, like everything else (#232). The heroes are
+	// needed by the query itself, so they are read up front rather than lazily.
+	charIDs, err := s.seatedCharacterIDs(ctx, campaignID, userID)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := s.queries.ListVisibleRevealCircles(ctx, db.ListVisibleRevealCirclesParams{
-		MapID:  mapID,
-		UserID: userID,
+		MapID:   mapID,
+		Column2: charIDs,
 	})
 	if err != nil {
 		return nil, err
@@ -91,12 +82,8 @@ func (s *Server) playerRevealCircles(ctx context.Context, mapID, campaignID, use
 		}
 	}
 	var v *veil
-	var charIDs []uuid.UUID
 	if needVeil {
 		if v, err = s.loadVeil(ctx, campaignID); err != nil {
-			return nil, err
-		}
-		if charIDs, err = s.seatedCharacterIDs(ctx, campaignID, userID); err != nil {
 			return nil, err
 		}
 	}
@@ -126,7 +113,8 @@ func toAPIRevealBatch(b db.ListRevealBatchesRow) api.RevealBatch {
 	out := api.RevealBatch{
 		Id:           b.ID,
 		Note:         b.Note,
-		PoolName:     b.PoolName,
+		PartyName:    b.PartyName,
+		HeroCount:    int(b.HeroCount),
 		LocationName: &b.LocationName,
 		Circles:      int(b.Circles),
 		CreatedAt:    b.CreatedAt.Time,
@@ -214,9 +202,32 @@ func (s *Server) SubmitReveals(ctx context.Context, request api.SubmitRevealsReq
 		return api.SubmitReveals400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: badReq}}, nil
 	}
 
-	pool, err := s.partyPool(ctx, meta.CampaignID)
-	if err != nil {
-		return nil, err
+	// Who was standing there. A stamp for a party records the heroes riding
+	// with it at this moment and never consults the party again (#232) — the
+	// ground belongs to them from here on, whatever party they end up in.
+	var stampedFor pgtype.UUID
+	var heroes []uuid.UUID
+	var partyName string
+	if request.Body.PartyId != nil {
+		party, err := s.queries.GetParty(ctx, *request.Body.PartyId)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return api.SubmitReveals400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errUnknownParty}}, nil
+			}
+			return nil, err
+		}
+		if party.CampaignID != meta.CampaignID {
+			return api.SubmitReveals400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errUnknownParty}}, nil
+		}
+		if heroes, err = s.queries.ListPartyHeroIDs(ctx, pgUUID(party.ID)); err != nil {
+			return nil, err
+		}
+		if len(heroes) == 0 {
+			return api.SubmitReveals400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: "nobody rides with that party yet — the ground would belong to no one",
+			}}, nil
+		}
+		stampedFor, partyName = pgUUID(party.ID), party.Name
 	}
 
 	tx, err := s.pool.Begin(ctx)
@@ -228,12 +239,20 @@ func (s *Server) SubmitReveals(ctx context.Context, request api.SubmitRevealsReq
 
 	batch, err := qtx.CreateRevealBatch(ctx, db.CreateRevealBatchParams{
 		MapID:      request.MapId,
-		PoolID:     pool.ID,
 		Note:       note,
 		LocationID: locID,
+		PartyID:    stampedFor,
 	})
 	if err != nil {
 		return nil, err
+	}
+	if len(heroes) > 0 {
+		if err := qtx.AddRevealBatchHeroes(ctx, db.AddRevealBatchHeroesParams{
+			BatchID: batch.ID,
+			Column2: heroes,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if err := qtx.AddRevealCircles(ctx, db.AddRevealCirclesParams{
 		BatchID: batch.ID,
@@ -251,7 +270,8 @@ func (s *Server) SubmitReveals(ctx context.Context, request api.SubmitRevealsReq
 	return api.SubmitReveals201JSONResponse(api.RevealBatch{
 		Id:           batch.ID,
 		Note:         batch.Note,
-		PoolName:     pool.Name,
+		PartyName:    partyName,
+		HeroCount:    len(heroes),
 		LocationId:   request.Body.LocationId,
 		LocationName: &locName,
 		Circles:      len(xs),

@@ -80,7 +80,7 @@ test("a veiled prop is absent from the player's world, then handed over", async 
 
   // The DM hands it to the table.
   const res = await dmPage.request.put(`/api/handouts/${letter}/visibility`, {
-    data: { scope: "party", visible: true },
+    data: { scope: "table", visible: true },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
 
@@ -125,7 +125,7 @@ test("the chronicle line is withheld with the prop it names", async ({ browser }
   // Taking it back takes the announcement with it — the feed must not keep
   // telling the party about something they can no longer look at.
   const res = await dmPage.request.put(`/api/handouts/${sigil}/visibility`, {
-    data: { scope: "party", visible: false },
+    data: { scope: "table", visible: false },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
 

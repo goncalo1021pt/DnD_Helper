@@ -1,10 +1,20 @@
 VisibilityScope:
   type: string
-  enum: [party, character]
+  enum: [table, party, character]
   description: |
-    Who a reveal or hide applies to. `party` sets the entity's party-wide
-    veil and clears every per-hero exception — choosing the party is
-    choosing everyone. `character` records an exception for one hero.
+    Who a reveal or hide applies to, at one of three grains.
+
+    `table` sets the entity's table-wide veil and clears every per-hero
+    exception — choosing the whole table is choosing everyone. (It was called
+    `party` until #232, when a party became a real thing and the word had to
+    go back to meaning one.)
+
+    `party` stamps the very same per-hero exceptions the DM could have clicked
+    one at a time, for whoever rides with that party *at this moment*. A party
+    is a brush, not a gate: moving a hero afterwards takes nothing from them,
+    and disbanding a party takes nothing from anybody.
+
+    `character` records an exception for one hero.
 
 VisibilityOverride:
   type: object
@@ -30,6 +40,11 @@ SetVisibilityRequest:
       format: uuid
       nullable: true
       description: Required when scope is `character`; ignored otherwise.
+    partyId:
+      type: string
+      format: uuid
+      nullable: true
+      description: Required when scope is `party`; ignored otherwise.
     visible:
       type: boolean
       description: True reveals, false hides.

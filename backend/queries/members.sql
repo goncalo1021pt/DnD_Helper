@@ -25,12 +25,12 @@ WHERE q.id = qc.quest_id
   AND q.campaign_id = $2
   AND q.status IN ('available', 'active');
 
--- name: RemoveUserFromCampaignPools :exec
-DELETE FROM knowledge_pool_members kpm
-USING knowledge_pools kp
-WHERE kp.id = kpm.pool_id
-  AND kpm.user_id = $1
-  AND kp.campaign_id = $2;
+-- name: ClearPartyForUserAtCampaign :exec
+-- A kicked player's heroes leave whatever party they rode with (#232). Only
+-- the membership goes: every stamp they were ever given stays on its row,
+-- because a party never held any of it.
+UPDATE characters SET party_id = NULL, updated_at = now()
+WHERE owner_user_id = $1 AND campaign_id = $2;
 
 -- name: BanUser :exec
 INSERT INTO campaign_bans (campaign_id, user_id)

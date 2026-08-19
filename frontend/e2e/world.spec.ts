@@ -299,14 +299,14 @@ test("deleting a veiled place keeps its notices and folk dark; a public place's 
   const secret = await createLocation(dm.request, campaign.id, "The Silent Reach");
   const questId = await postQuest(dm.request, campaign.id, "Steal the Whisper-Pearl", secret);
   await dm.request.put(`/api/quests/${questId}/visibility`, {
-    data: { scope: "party", visible: true },
+    data: { scope: "table", visible: true },
   });
   const npcRes = await dm.request.post(`/api/campaigns/${campaign.id}/npcs`, {
     data: { name: "The Silent Broker", locationId: secret },
   });
   expect(npcRes.ok(), await npcRes.text()).toBeTruthy();
   await dm.request.put(`/api/npcs/${(await npcRes.json()).id}/visibility`, {
-    data: { scope: "party", visible: true },
+    data: { scope: "table", visible: true },
   });
 
   // And a public place with a public notice — the control group.
@@ -314,7 +314,7 @@ test("deleting a veiled place keeps its notices and folk dark; a public place's 
   await revealLocation(dm.request, publicLoc);
   const publicQuest = await postQuest(dm.request, campaign.id, "Rats in the Granary", publicLoc);
   await dm.request.put(`/api/quests/${publicQuest}/visibility`, {
-    data: { scope: "party", visible: true },
+    data: { scope: "table", visible: true },
   });
 
   const playerQuests = async () =>
@@ -394,7 +394,7 @@ test("a place's page gathers its folk, shops, notices and maps — and the playe
     expect(res.ok(), await res.text()).toBeTruthy();
     if (known) {
       await dm.request.put(`/api/npcs/${(await res.json()).id}/visibility`, {
-        data: { scope: "party", visible: true },
+        data: { scope: "table", visible: true },
       });
     }
   }
@@ -409,7 +409,7 @@ test("a place's page gathers its folk, shops, notices and maps — and the playe
   });
   const questId = await postQuest(dm.request, campaign.id, "The Missing Ledger", city);
   await dm.request.put(`/api/quests/${questId}/visibility`, {
-    data: { scope: "party", visible: true },
+    data: { scope: "table", visible: true },
   });
   const mapRes = await dm.request.post(`/api/campaigns/${campaign.id}/maps`, {
     data: { name: "Ars, street by street", imageBase64: TINY_PNG, locationId: city },

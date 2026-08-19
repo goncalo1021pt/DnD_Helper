@@ -12,6 +12,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addRevealBatchHeroes = `-- name: AddRevealBatchHeroes :exec
+INSERT INTO reveal_batch_heroes (batch_id, character_id)
+SELECT $1, unnest($2::uuid[])
+ON CONFLICT DO NOTHING
+`
+
+type AddRevealBatchHeroesParams struct {
+	BatchID uuid.UUID   `json:"batch_id"`
+	Column2 []uuid.UUID `json:"column_2"`
+}
+
+// The heroes standing in the party at the moment of the stamp. None means the
+// whole table, exactly as an empty override list does everywhere else.
+func (q *Queries) AddRevealBatchHeroes(ctx context.Context, arg AddRevealBatchHeroesParams) error {
+	_, err := q.db.Exec(ctx, addRevealBatchHeroes, arg.BatchID, arg.Column2)
+	return err
+}
+
 const addRevealCircles = `-- name: AddRevealCircles :exec
 INSERT INTO reveal_circles (batch_id, x, y, r)
 SELECT $1, unnest($2::float8[]), unnest($3::float8[]), unnest($4::float8[])
@@ -34,53 +52,36 @@ func (q *Queries) AddRevealCircles(ctx context.Context, arg AddRevealCirclesPara
 	return err
 }
 
-const createPartyPool = `-- name: CreatePartyPool :one
-INSERT INTO knowledge_pools (campaign_id, name, is_party)
-VALUES ($1, 'The Party', true)
-RETURNING id, campaign_id, name, is_party, created_at
-`
-
-func (q *Queries) CreatePartyPool(ctx context.Context, campaignID uuid.UUID) (KnowledgePool, error) {
-	row := q.db.QueryRow(ctx, createPartyPool, campaignID)
-	var i KnowledgePool
-	err := row.Scan(
-		&i.ID,
-		&i.CampaignID,
-		&i.Name,
-		&i.IsParty,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const createRevealBatch = `-- name: CreateRevealBatch :one
-INSERT INTO reveal_batches (map_id, pool_id, note, location_id)
+INSERT INTO reveal_batches (map_id, note, location_id, party_id)
 VALUES ($1, $2, $3, $4)
-RETURNING id, map_id, pool_id, note, created_at, location_id
+RETURNING id, map_id, note, created_at, location_id, party_id
 `
 
 type CreateRevealBatchParams struct {
 	MapID      uuid.UUID   `json:"map_id"`
-	PoolID     uuid.UUID   `json:"pool_id"`
 	Note       string      `json:"note"`
 	LocationID pgtype.UUID `json:"location_id"`
+	PartyID    pgtype.UUID `json:"party_id"`
 }
 
+// A stamp session. `party_id` is the label the ledger reads back; who may see
+// the ground is decided by reveal_batch_heroes alone (#232).
 func (q *Queries) CreateRevealBatch(ctx context.Context, arg CreateRevealBatchParams) (RevealBatch, error) {
 	row := q.db.QueryRow(ctx, createRevealBatch,
 		arg.MapID,
-		arg.PoolID,
 		arg.Note,
 		arg.LocationID,
+		arg.PartyID,
 	)
 	var i RevealBatch
 	err := row.Scan(
 		&i.ID,
 		&i.MapID,
-		&i.PoolID,
 		&i.Note,
 		&i.CreatedAt,
 		&i.LocationID,
+		&i.PartyID,
 	)
 	return i, err
 }
@@ -95,23 +96,6 @@ func (q *Queries) DeleteRevealBatch(ctx context.Context, id uuid.UUID) (int64, e
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const getPartyPool = `-- name: GetPartyPool :one
-SELECT id, campaign_id, name, is_party, created_at FROM knowledge_pools WHERE campaign_id = $1 AND is_party
-`
-
-func (q *Queries) GetPartyPool(ctx context.Context, campaignID uuid.UUID) (KnowledgePool, error) {
-	row := q.db.QueryRow(ctx, getPartyPool, campaignID)
-	var i KnowledgePool
-	err := row.Scan(
-		&i.ID,
-		&i.CampaignID,
-		&i.Name,
-		&i.IsParty,
-		&i.CreatedAt,
-	)
-	return i, err
 }
 
 const getRevealBatch = `-- name: GetRevealBatch :one
@@ -154,7 +138,7 @@ type ListAllRevealCirclesRow struct {
 	R float64 `json:"r"`
 }
 
-// Everything stamped on a map, any pool — the DM's rendering set.
+// Everything stamped on a map, for anybody — the DM's rendering set.
 func (q *Queries) ListAllRevealCircles(ctx context.Context, mapID uuid.UUID) ([]ListAllRevealCirclesRow, error) {
 	rows, err := q.db.Query(ctx, listAllRevealCircles, mapID)
 	if err != nil {
@@ -176,15 +160,17 @@ func (q *Queries) ListAllRevealCircles(ctx context.Context, mapID uuid.UUID) ([]
 }
 
 const listRevealBatches = `-- name: ListRevealBatches :many
-SELECT b.id, b.note, b.created_at, p.name AS pool_name,
+SELECT b.id, b.note, b.created_at,
+       coalesce(pt.name, '')::text AS party_name,
+       (SELECT count(*) FROM reveal_batch_heroes h WHERE h.batch_id = b.id) AS hero_count,
        b.location_id, coalesce(l.name, '')::text AS location_name,
        count(c.id) AS circles
 FROM reveal_batches b
-JOIN knowledge_pools p ON p.id = b.pool_id
+LEFT JOIN parties pt ON pt.id = b.party_id
 LEFT JOIN locations l ON l.id = b.location_id
 LEFT JOIN reveal_circles c ON c.batch_id = b.id
 WHERE b.map_id = $1
-GROUP BY b.id, p.name, l.name
+GROUP BY b.id, pt.name, l.name
 ORDER BY b.created_at
 `
 
@@ -192,14 +178,15 @@ type ListRevealBatchesRow struct {
 	ID           uuid.UUID          `json:"id"`
 	Note         string             `json:"note"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	PoolName     string             `json:"pool_name"`
+	PartyName    string             `json:"party_name"`
+	HeroCount    int64              `json:"hero_count"`
 	LocationID   pgtype.UUID        `json:"location_id"`
 	LocationName string             `json:"location_name"`
 	Circles      int64              `json:"circles"`
 }
 
-// The DM's ledger: every batch on a map with its size, its pool, and the place
-// whose veil gates it (null when the pool alone decides).
+// The DM's ledger: every batch on a map with its size, who it was stamped for,
+// and the place whose veil gates it (null when the heroes alone decide).
 func (q *Queries) ListRevealBatches(ctx context.Context, mapID uuid.UUID) ([]ListRevealBatchesRow, error) {
 	rows, err := q.db.Query(ctx, listRevealBatches, mapID)
 	if err != nil {
@@ -213,7 +200,8 @@ func (q *Queries) ListRevealBatches(ctx context.Context, mapID uuid.UUID) ([]Lis
 			&i.ID,
 			&i.Note,
 			&i.CreatedAt,
-			&i.PoolName,
+			&i.PartyName,
+			&i.HeroCount,
 			&i.LocationID,
 			&i.LocationName,
 			&i.Circles,
@@ -232,16 +220,15 @@ const listVisibleRevealCircles = `-- name: ListVisibleRevealCircles :many
 SELECT c.x, c.y, c.r, b.location_id
 FROM reveal_circles c
 JOIN reveal_batches b ON b.id = c.batch_id
-JOIN knowledge_pools p ON p.id = b.pool_id
 WHERE b.map_id = $1
-  AND (p.is_party OR EXISTS (
-        SELECT 1 FROM knowledge_pool_members m
-        WHERE m.pool_id = p.id AND m.user_id = $2))
+  AND (NOT EXISTS (SELECT 1 FROM reveal_batch_heroes h WHERE h.batch_id = b.id)
+       OR EXISTS (SELECT 1 FROM reveal_batch_heroes h
+                  WHERE h.batch_id = b.id AND h.character_id = ANY($2::uuid[])))
 `
 
 type ListVisibleRevealCirclesParams struct {
-	MapID  uuid.UUID `json:"map_id"`
-	UserID uuid.UUID `json:"user_id"`
+	MapID   uuid.UUID   `json:"map_id"`
+	Column2 []uuid.UUID `json:"column_2"`
 }
 
 type ListVisibleRevealCirclesRow struct {
@@ -251,13 +238,16 @@ type ListVisibleRevealCirclesRow struct {
 	LocationID pgtype.UUID `json:"location_id"`
 }
 
-// A player's candidate set: circles from the party pool plus any pool they
-// were explicitly seated in (stage 2's split parties ride this same query).
+// A player's candidate set: circles stamped for the whole table, plus any
+// stamped while one of this viewer's own heroes was standing there (#232).
+// Keyed by CHARACTER, like every other veil in the app — fog used to be the
+// lone exception, keyed by user.
+//
 // The place a circle hangs in comes back with it — the second gate, the veil
 // over that place, is resolved in Go against the viewer's own heroes, because
 // that rule already lives there and walks ancestors (see visibility.go).
 func (q *Queries) ListVisibleRevealCircles(ctx context.Context, arg ListVisibleRevealCirclesParams) ([]ListVisibleRevealCirclesRow, error) {
-	rows, err := q.db.Query(ctx, listVisibleRevealCircles, arg.MapID, arg.UserID)
+	rows, err := q.db.Query(ctx, listVisibleRevealCircles, arg.MapID, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +272,7 @@ func (q *Queries) ListVisibleRevealCircles(ctx context.Context, arg ListVisibleR
 }
 
 const setRevealBatchLocation = `-- name: SetRevealBatchLocation :one
-UPDATE reveal_batches SET location_id = $2 WHERE id = $1 RETURNING id, map_id, pool_id, note, created_at, location_id
+UPDATE reveal_batches SET location_id = $2 WHERE id = $1 RETURNING id, map_id, note, created_at, location_id, party_id
 `
 
 type SetRevealBatchLocationParams struct {
@@ -290,17 +280,17 @@ type SetRevealBatchLocationParams struct {
 	LocationID pgtype.UUID `json:"location_id"`
 }
 
-// Re-tie a batch to a place, or cut it loose (null) back to the pool rule.
+// Re-tie a batch to a place, or cut it loose (null) back to the heroes' rule.
 func (q *Queries) SetRevealBatchLocation(ctx context.Context, arg SetRevealBatchLocationParams) (RevealBatch, error) {
 	row := q.db.QueryRow(ctx, setRevealBatchLocation, arg.ID, arg.LocationID)
 	var i RevealBatch
 	err := row.Scan(
 		&i.ID,
 		&i.MapID,
-		&i.PoolID,
 		&i.Note,
 		&i.CreatedAt,
 		&i.LocationID,
+		&i.PartyID,
 	)
 	return i, err
 }

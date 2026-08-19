@@ -2,10 +2,12 @@
 -- The party. A body forged for one of the Folk is not one of them (#227) —
 -- filtering here is what keeps NPC sheets out of the roster, the adventurer
 -- count, the chronicle, encounter seating and the veil resolver at once.
-SELECT c.*, u.name AS owner_name, rc_class.data AS class_data
+SELECT c.*, u.name AS owner_name, rc_class.data AS class_data,
+       pt.name AS party_name
 FROM characters c
 JOIN users u ON u.id = c.owner_user_id
 LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
+LEFT JOIN parties pt ON pt.id = c.party_id
 WHERE c.campaign_id = $1 AND c.kind = 'hero'
 ORDER BY c.created_at ASC;
 

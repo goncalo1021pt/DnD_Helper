@@ -567,7 +567,7 @@ func (s *Server) SetLocationVisibility(ctx context.Context, request api.SetLocat
 		}
 	}
 
-	charID, badReq, err := s.visibilityTarget(ctx, loc.CampaignID, request.Body)
+	grain, badReq, err := s.visibilityTarget(ctx, loc.CampaignID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -575,20 +575,29 @@ func (s *Server) SetLocationVisibility(ctx context.Context, request api.SetLocat
 		return api.SetLocationVisibility400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: badReq}}, nil
 	}
 
-	if charID == uuid.Nil {
+	switch {
+	case grain.table:
 		if _, err := s.queries.SetLocationPartyVisibility(ctx, db.SetLocationPartyVisibilityParams{
 			ID: locationID, VisibleToParty: request.Body.Visible,
 		}); err != nil {
 			return nil, err
 		}
-		// Choosing the party is choosing everyone: per-hero exceptions go.
+		// Choosing the whole table is choosing everyone: exceptions go.
 		if err := s.queries.ClearLocationOverrides(ctx, locationID); err != nil {
 			return nil, err
 		}
-	} else if err := s.queries.SetLocationOverride(ctx, db.SetLocationOverrideParams{
-		LocationID: locationID, CharacterID: charID, Visible: request.Body.Visible,
-	}); err != nil {
-		return nil, err
+	case grain.party != uuid.Nil:
+		if err := s.queries.SetLocationOverridesForParty(ctx, db.SetLocationOverridesForPartyParams{
+			LocationID: locationID, PartyID: pgUUID(grain.party), Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
+	default:
+		if err := s.queries.SetLocationOverride(ctx, db.SetLocationOverrideParams{
+			LocationID: locationID, CharacterID: grain.hero, Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	// A place's veil now also gates the fog batches tied to it (#191), so
@@ -623,7 +632,7 @@ func (s *Server) SetQuestVisibility(ctx context.Context, request api.SetQuestVis
 		}
 	}
 
-	charID, badReq, err := s.visibilityTarget(ctx, quest.CampaignID, request.Body)
+	grain, badReq, err := s.visibilityTarget(ctx, quest.CampaignID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -631,7 +640,8 @@ func (s *Server) SetQuestVisibility(ctx context.Context, request api.SetQuestVis
 		return api.SetQuestVisibility400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: badReq}}, nil
 	}
 
-	if charID == uuid.Nil {
+	switch {
+	case grain.table:
 		if _, err := s.queries.SetQuestPartyVisibility(ctx, db.SetQuestPartyVisibilityParams{
 			ID: questID, VisibleToParty: request.Body.Visible,
 		}); err != nil {
@@ -640,10 +650,18 @@ func (s *Server) SetQuestVisibility(ctx context.Context, request api.SetQuestVis
 		if err := s.queries.ClearQuestOverrides(ctx, questID); err != nil {
 			return nil, err
 		}
-	} else if err := s.queries.SetQuestOverride(ctx, db.SetQuestOverrideParams{
-		QuestID: questID, CharacterID: charID, Visible: request.Body.Visible,
-	}); err != nil {
-		return nil, err
+	case grain.party != uuid.Nil:
+		if err := s.queries.SetQuestOverridesForParty(ctx, db.SetQuestOverridesForPartyParams{
+			QuestID: questID, PartyID: pgUUID(grain.party), Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
+	default:
+		if err := s.queries.SetQuestOverride(ctx, db.SetQuestOverrideParams{
+			QuestID: questID, CharacterID: grain.hero, Visible: request.Body.Visible,
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	out, err := s.buildOneQuest(ctx, questID)
@@ -716,33 +734,59 @@ func (s *Server) ClearQuestVisibilityOverride(ctx context.Context, request api.C
 	return api.ClearQuestVisibilityOverride200JSONResponse(out), nil
 }
 
-// visibilityTarget validates a reveal/hide request and resolves who it applies
-// to: uuid.Nil for the whole party, or a hero seated at this campaign. The
+// veilGrain says at which of the three grains a reveal or hide lands (#232):
+// the whole table, one party, or one hero. Exactly one field is meaningful.
+//
+// A party is the middle grain and not a middle *gate*: choosing one paints the
+// same per-hero exceptions the DM could have clicked one at a time, which is
+// why nothing downstream of here knows parties exist at all.
+type veilGrain struct {
+	table bool
+	party uuid.UUID
+	hero  uuid.UUID
+}
+
+// visibilityTarget validates a reveal/hide request and resolves its grain. The
 // middle return is a client-facing rejection reason, empty when the request is
 // good.
-func (s *Server) visibilityTarget(ctx context.Context, campaignID uuid.UUID, body *api.SetVisibilityRequest) (uuid.UUID, string, error) {
+func (s *Server) visibilityTarget(ctx context.Context, campaignID uuid.UUID, body *api.SetVisibilityRequest) (veilGrain, string, error) {
 	if body == nil {
-		return uuid.Nil, "a visibility scope is required", nil
+		return veilGrain{}, "a visibility scope is required", nil
 	}
 	switch body.Scope {
+	case api.VisibilityScopeTable:
+		return veilGrain{table: true}, "", nil
 	case api.VisibilityScopeParty:
-		return uuid.Nil, "", nil
+		if body.PartyId == nil {
+			return veilGrain{}, "partyId is required when scope is party", nil
+		}
+		party, err := s.queries.GetParty(ctx, *body.PartyId)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return veilGrain{}, errUnknownParty, nil
+			}
+			return veilGrain{}, "", err
+		}
+		if party.CampaignID != campaignID {
+			return veilGrain{}, errUnknownParty, nil
+		}
+		return veilGrain{party: party.ID}, "", nil
 	case api.VisibilityScopeCharacter:
 		if body.CharacterId == nil {
-			return uuid.Nil, "characterId is required when scope is character", nil
+			return veilGrain{}, "characterId is required when scope is character", nil
 		}
 		charID := uuid.UUID(*body.CharacterId)
 		chars, err := s.queries.ListCharactersByCampaign(ctx, pgUUID(campaignID))
 		if err != nil {
-			return uuid.Nil, "", err
+			return veilGrain{}, "", err
 		}
 		for _, c := range chars {
 			if c.ID == charID {
-				return charID, "", nil
+				return veilGrain{hero: charID}, "", nil
 			}
 		}
-		return uuid.Nil, "that hero is not seated at this campaign", nil
+		return veilGrain{}, "that hero is not seated at this campaign", nil
 	default:
-		return uuid.Nil, "scope must be party or character", nil
+		return veilGrain{}, "scope must be table, party or character", nil
 	}
 }

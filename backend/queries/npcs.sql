@@ -11,6 +11,7 @@ SELECT n.*,
        c.hp_current AS character_hp_current,
        c.hp_max AS character_hp_max,
        cu.name AS control_user_name,
+       pt.name AS party_name,
        rc.kind AS content_kind, rc.source AS content_source,
        rc.name AS content_name, rc.summary AS content_summary,
        rc.data AS content_data
@@ -18,6 +19,7 @@ FROM npcs n
 LEFT JOIN locations l ON l.id = n.location_id
 LEFT JOIN characters c ON c.id = n.character_id
 LEFT JOIN users cu ON cu.id = n.control_user_id
+LEFT JOIN parties pt ON pt.id = n.party_id
 LEFT JOIN rules_content rc ON rc.id = n.content_id
 WHERE n.campaign_id = $1
 ORDER BY l.name NULLS LAST, n.name;
@@ -104,6 +106,7 @@ SET traveling        = $2,
     control          = $3,
     control_user_id  = $4,
     visible_to_party = $5,
+    party_id         = $6,
     updated_at       = now()
 WHERE id = $1
 RETURNING *;

@@ -28,6 +28,24 @@ func (q *Queries) BanUser(ctx context.Context, arg BanUserParams) error {
 	return err
 }
 
+const clearPartyForUserAtCampaign = `-- name: ClearPartyForUserAtCampaign :exec
+UPDATE characters SET party_id = NULL, updated_at = now()
+WHERE owner_user_id = $1 AND campaign_id = $2
+`
+
+type ClearPartyForUserAtCampaignParams struct {
+	OwnerUserID uuid.UUID   `json:"owner_user_id"`
+	CampaignID  pgtype.UUID `json:"campaign_id"`
+}
+
+// A kicked player's heroes leave whatever party they rode with (#232). Only
+// the membership goes: every stamp they were ever given stays on its row,
+// because a party never held any of it.
+func (q *Queries) ClearPartyForUserAtCampaign(ctx context.Context, arg ClearPartyForUserAtCampaignParams) error {
+	_, err := q.db.Exec(ctx, clearPartyForUserAtCampaign, arg.OwnerUserID, arg.CampaignID)
+	return err
+}
+
 const deleteMembership = `-- name: DeleteMembership :execrows
 DELETE FROM memberships WHERE user_id = $1 AND campaign_id = $2
 `
@@ -165,24 +183,6 @@ type ReleaseQuestClaimsOfUserParams struct {
 // Free their claims on quests still in play; completed/failed stay as history.
 func (q *Queries) ReleaseQuestClaimsOfUser(ctx context.Context, arg ReleaseQuestClaimsOfUserParams) error {
 	_, err := q.db.Exec(ctx, releaseQuestClaimsOfUser, arg.UserID, arg.CampaignID)
-	return err
-}
-
-const removeUserFromCampaignPools = `-- name: RemoveUserFromCampaignPools :exec
-DELETE FROM knowledge_pool_members kpm
-USING knowledge_pools kp
-WHERE kp.id = kpm.pool_id
-  AND kpm.user_id = $1
-  AND kp.campaign_id = $2
-`
-
-type RemoveUserFromCampaignPoolsParams struct {
-	UserID     uuid.UUID `json:"user_id"`
-	CampaignID uuid.UUID `json:"campaign_id"`
-}
-
-func (q *Queries) RemoveUserFromCampaignPools(ctx context.Context, arg RemoveUserFromCampaignPoolsParams) error {
-	_, err := q.db.Exec(ctx, removeUserFromCampaignPools, arg.UserID, arg.CampaignID)
 	return err
 }
 

@@ -84,6 +84,17 @@ Character:
         Born of a quick-add on a campaign roster: lives and dies with the
         table, never listed in My Heroes, never seated elsewhere. Account
         heroes are the opposite — the roster may only unseat them.
+    partyId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        The party this hero rides with (#232), or null for one who rides with
+        none yet. Nothing is gated on it: it decides how the roster groups and
+        who a party-wide grant paints, never what this hero may see.
+    partyName:
+      type: string
+      nullable: true
     xp:
       type: integer
       description: Experience points (XP-mode campaigns; advisory).

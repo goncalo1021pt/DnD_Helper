@@ -60,6 +60,17 @@ Npc:
     hpMax:
       type: integer
       nullable: true
+    partyId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        The party this ally rides with (#232). Null means the whole table. A
+        traveler filed with one party appears on that party's roster and no
+        other, and is absent from every other player's payload entirely.
+    partyName:
+      type: string
+      nullable: true
     control:
       type: string
       enum: [dm, player, table]
@@ -156,6 +167,15 @@ NpcTravelInput:
       format: uuid
       nullable: true
       description: Required when control is `player`, and refused otherwise.
+    partyId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        Which party they ride with. Absent keeps whatever is there; the nil
+        UUID (all zeros) puts them back beside the whole table, the way the
+        Folk already detach a stat block. A person called home rides with
+        nobody at all.
 
 NpcHpInput:
   type: object
