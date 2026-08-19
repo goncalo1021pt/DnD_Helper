@@ -2939,7 +2939,7 @@ export interface components {
         MapDetail: {
             map: components["schemas"]["CampaignMap"];
             pins: components["schemas"]["MapPin"][];
-            /** @description The caller's uncovered area — every circle for the DM, the union of the caller's pools for a player. Empty when fog is off. */
+            /** @description The caller's uncovered area — every circle for the DM; for a player, every circle stamped for the whole table plus every circle stamped while one of their own heroes stood in the party (#232). Empty when fog is off. */
             revealed: components["schemas"]["RevealCircle"][];
         };
         RevealCircle: {
