@@ -55,6 +55,25 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 	if err != nil {
 		return nil, err
 	}
+	// The roster is partitioned by party for a player (#232): you see the
+	// heroes you ride with and nobody else, so two groups on different roads
+	// stop reading each other's cast list. The DM sees the whole table. A
+	// campaign that has formed no parties has everyone riding with nobody,
+	// which is one group — exactly the page it has always been.
+	if member.Role != db.MembershipRoleDm {
+		mine, err := s.viewerParties(ctx, campaignID, member.UserID)
+		if err != nil {
+			return nil, err
+		}
+		kept := rows[:0]
+		for _, r := range rows {
+			if ridesWith(r.PartyID, mine) || r.OwnerUserID == member.UserID {
+				kept = append(kept, r)
+			}
+		}
+		rows = kept
+	}
+
 	// Every seated hero's classes in one read (#190) — a roster of six should
 	// not cost six extra queries to say "Rogue 5 / Wizard 3".
 	classRows, err := s.queries.ListCharacterClassesForCampaign(ctx, pgUUID(campaignID))

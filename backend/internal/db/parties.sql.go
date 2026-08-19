@@ -63,6 +63,39 @@ func (q *Queries) GetParty(ctx context.Context, id uuid.UUID) (Party, error) {
 	return i, err
 }
 
+const listHeroPartiesByCampaign = `-- name: ListHeroPartiesByCampaign :many
+SELECT id, owner_user_id, party_id FROM characters
+WHERE campaign_id = $1 AND kind = 'hero'
+`
+
+type ListHeroPartiesByCampaignRow struct {
+	ID          uuid.UUID   `json:"id"`
+	OwnerUserID uuid.UUID   `json:"owner_user_id"`
+	PartyID     pgtype.UUID `json:"party_id"`
+}
+
+// Every seated hero and the party they ride with, for resolving "may this
+// viewer see that hero / that ally" in one read (#232).
+func (q *Queries) ListHeroPartiesByCampaign(ctx context.Context, campaignID pgtype.UUID) ([]ListHeroPartiesByCampaignRow, error) {
+	rows, err := q.db.Query(ctx, listHeroPartiesByCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHeroPartiesByCampaignRow
+	for rows.Next() {
+		var i ListHeroPartiesByCampaignRow
+		if err := rows.Scan(&i.ID, &i.OwnerUserID, &i.PartyID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listParties = `-- name: ListParties :many
 SELECT p.id, p.campaign_id, p.name, p.created_at, count(c.id) AS hero_count
 FROM parties p

@@ -786,6 +786,7 @@ type Npc struct {
 	HpCurrent           *int32             `json:"hp_current"`
 	Control             string             `json:"control"`
 	ControlUserID       pgtype.UUID        `json:"control_user_id"`
+	PartyID             pgtype.UUID        `json:"party_id"`
 }
 
 type NpcStatVisibility struct {

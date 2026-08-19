@@ -61,3 +61,9 @@ INSERT INTO handout_visibility (handout_id, character_id, visible)
 SELECT $1, c.id, $3 FROM characters c WHERE c.party_id = $2 AND c.kind = 'hero'
 ON CONFLICT (handout_id, character_id)
 DO UPDATE SET visible = EXCLUDED.visible, updated_at = now();
+
+-- name: ListHeroPartiesByCampaign :many
+-- Every seated hero and the party they ride with, for resolving "may this
+-- viewer see that hero / that ally" in one read (#232).
+SELECT id, owner_user_id, party_id FROM characters
+WHERE campaign_id = $1 AND kind = 'hero';

@@ -13,6 +13,7 @@ import {
   useNpcs,
   useRules,
   useMembers,
+  useParties,
   useSetNpcStatsVisibility,
   useSetNpcTravel,
   useSetNpcVisibility,
@@ -187,6 +188,8 @@ function NpcCard({
   const clearStatsVis = useClearNpcStatsOverride(campaignId);
   const travel = useSetNpcTravel(campaignId);
   const { data: members } = useMembers(campaignId, npc.isDM);
+  const { data: partyRoll } = useParties(campaignId);
+  const parties = partyRoll ?? [];
   const players = (members ?? []).filter((m) => m.role === "player");
   const [editingDesc, setEditingDesc] = useState(false);
   const [desc, setDesc] = useState(npc.description);
@@ -384,6 +387,34 @@ function NpcCard({
 
       {npc.isDM && npc.traveling && (
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {/* Which party they ride beside (#232). Sildar cannot walk with two
+              groups on different roads, and a traveler filed with nobody walks
+              with the whole table. */}
+          {parties.length > 0 && (
+            <>
+              <span className="label-stamp text-[9px] tracking-[2px] text-gold-muted">
+                Rides with
+              </span>
+              <select
+                value={npc.partyId ?? ""}
+                onChange={(e) =>
+                  travel.mutate({
+                    npcId: npc.id,
+                    body: { traveling: true, partyId: e.target.value || NIL_UUID },
+                  })
+                }
+                aria-label={`Which party ${npc.name} rides with`}
+                className="input-hall h-7 w-[170px] text-[11px]"
+              >
+                <option value="">The whole table</option>
+                {parties.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
           <span className="label-stamp text-[9px] tracking-[2px] text-gold-muted">
             Who runs them
           </span>

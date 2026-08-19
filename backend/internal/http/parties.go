@@ -91,7 +91,8 @@ func (s *Server) oneParty(ctx context.Context, campaignID, partyID uuid.UUID) (a
 // ListParties is open to the whole table: who rides with whom is not a secret
 // from the people riding.
 func (s *Server) ListParties(ctx context.Context, request api.ListPartiesRequestObject) (api.ListPartiesResponseObject, error) {
-	if _, err := s.requireMember(ctx, request.CampaignId); err != nil {
+	m, err := s.requireMember(ctx, request.CampaignId)
+	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.ListParties401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -104,8 +105,20 @@ func (s *Server) ListParties(ctx context.Context, request api.ListPartiesRequest
 	if err != nil {
 		return nil, err
 	}
+	// A player is told about their own party and no other: the roster is
+	// partitioned, so the names of the groups they are not in would be the one
+	// thing left leaking through (#232).
+	var mine map[uuid.UUID]bool
+	if m.Role != db.MembershipRoleDm {
+		if mine, err = s.viewerParties(ctx, request.CampaignId, m.UserID); err != nil {
+			return nil, err
+		}
+	}
 	out := make([]api.Party, 0, len(rows))
 	for _, r := range rows {
+		if mine != nil && !mine[r.ID] {
+			continue
+		}
 		out = append(out, toAPIParty(r))
 	}
 	return api.ListParties200JSONResponse(out), nil
@@ -253,4 +266,42 @@ func (s *Server) SetCharacterParty(ctx context.Context, request api.SetCharacter
 	uid, _ := auth.UserID(ctx)
 	s.publish(campaignID, live.TopicParty)
 	return api.SetCharacterParty200JSONResponse(toAPICharacter(moved, owner.Name, uid)), nil
+}
+
+// viewerParties is the set of parties a member rides with — the parties of
+// their own seated heroes. A member with no hero, or none yet sorted, rides
+// with the zero party, which is how "riding with nobody" is spelled.
+//
+// The DM is not asked: they see the whole table, always.
+func (s *Server) viewerParties(ctx context.Context, campaignID, userID uuid.UUID) (map[uuid.UUID]bool, error) {
+	rows, err := s.queries.ListHeroPartiesByCampaign(ctx, pgUUID(campaignID))
+	if err != nil {
+		return nil, err
+	}
+	mine := map[uuid.UUID]bool{}
+	for _, r := range rows {
+		if r.OwnerUserID != userID {
+			continue
+		}
+		if r.PartyID.Valid {
+			mine[uuid.UUID(r.PartyID.Bytes)] = true
+		} else {
+			mine[uuid.Nil] = true
+		}
+	}
+	if len(mine) == 0 {
+		mine[uuid.Nil] = true
+	}
+	return mine, nil
+}
+
+// ridesWith reports whether a hero belongs to one of the viewer's parties.
+// A hero riding with nobody is the company of everybody else riding with
+// nobody — which is exactly a table that has not been sorted yet, and is why
+// a campaign with no parties reads precisely as it always did.
+func ridesWith(heroParty pgtype.UUID, mine map[uuid.UUID]bool) bool {
+	if heroParty.Valid {
+		return mine[uuid.UUID(heroParty.Bytes)]
+	}
+	return mine[uuid.Nil]
 }

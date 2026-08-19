@@ -3591,6 +3591,12 @@ export interface components {
             hpCurrent?: number | null;
             hpMax?: number | null;
             /**
+             * Format: uuid
+             * @description The party this ally rides with (#232). Null means the whole table. A traveler filed with one party appears on that party's roster and no other, and is absent from every other player's payload entirely.
+             */
+            partyId?: string | null;
+            partyName?: string | null;
+            /**
              * @description DM-only. Who runs this ally — the DM alone, one named player, or the whole table.
              * @enum {string}
              */
@@ -3682,6 +3688,11 @@ export interface components {
              * @description Required when control is `player`, and refused otherwise.
              */
             controlUserId?: string | null;
+            /**
+             * Format: uuid
+             * @description Which party they ride with. Absent keeps whatever is there; the nil UUID (all zeros) puts them back beside the whole table, the way the Folk already detach a stat block. A person called home rides with nobody at all.
+             */
+            partyId?: string | null;
         };
         /**
          * @description Where an ally's hit points now stand. Open to the DM and to whoever holds

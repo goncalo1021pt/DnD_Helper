@@ -215,3 +215,90 @@ test("fog remembers the heroes who were there, not the party they were in", asyn
   await a.ctx.close();
   await b.ctx.close();
 });
+
+/*
+ * From the table: two parties were reading each other's roster, and one ally
+ * walked beside both at once (#232). Grouping was never the whole ask —
+ * a party partitions the cast list, not just the headings.
+ */
+test("a party sees its own roster, its own allies, and no sign of the other", async ({
+  browser,
+}) => {
+  const dmCtx = await browser.newContext();
+  const dm = await dmCtx.newPage();
+  await dm.goto("/");
+  await registerViaAPI(dm.request, newAccount("dmsplit"));
+  const campaign = await createCampaign(dm.request, unique("Two Roads "));
+
+  const a = await playerWithHero(browser, campaign.inviteCode, campaign.id, "Kaelen");
+  const b = await playerWithHero(browser, campaign.inviteCode, campaign.id, "Sera");
+
+  const mk = async (name: string) =>
+    (await (
+      await dm.request.post(`/api/campaigns/${campaign.id}/parties`, { data: { name } })
+    ).json()).id as string;
+  const one = await mk("Party One");
+  const two = await mk("Party Two");
+
+  // Before anyone is sorted, everybody rides with nobody — and so sees
+  // everybody, which is the page a table has always had.
+  const roster = async (page: typeof a.page) =>
+    ((await (await page.request.get(`/api/campaigns/${campaign.id}/characters`)).json()) as {
+      name: string;
+    }[]).map((c) => c.name);
+  expect(await roster(a.page)).toHaveLength(2);
+
+  await dm.request.put(`/api/characters/${a.hero}/party`, { data: { partyId: one } });
+  await dm.request.put(`/api/characters/${b.hero}/party`, { data: { partyId: two } });
+
+  // Sorted, each sees only their own — and the DM still sees the table.
+  expect(await roster(a.page)).toEqual(["Kaelen"]);
+  expect(await roster(b.page)).toEqual(["Sera"]);
+  expect(await roster(dm as unknown as typeof a.page)).toHaveLength(2);
+
+  // The other party's NAME does not leak either.
+  const seenParties = async (page: typeof a.page) =>
+    ((await (await page.request.get(`/api/campaigns/${campaign.id}/parties`)).json()) as {
+      name: string;
+    }[]).map((p) => p.name);
+  expect(await seenParties(a.page)).toEqual(["Party One"]);
+  expect(await seenParties(b.page)).toEqual(["Party Two"]);
+  expect(await seenParties(dm as unknown as typeof a.page)).toHaveLength(2);
+
+  // --- an ally rides with one party ---------------------------------------
+  const greg = (await (
+    await dm.request.post(`/api/campaigns/${campaign.id}/npcs`, { data: { name: "Greg" } })
+  ).json()).id as string;
+  const rides = await dm.request.put(`/api/npcs/${greg}/travel`, {
+    data: { traveling: true, partyId: one },
+  });
+  expect(rides.ok(), await rides.text()).toBeTruthy();
+
+  const travelers = async (page: typeof a.page) =>
+    ((await (await page.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()) as {
+      name: string;
+      traveling?: boolean;
+    }[]).filter((n) => n.traveling).map((n) => n.name);
+  expect(await travelers(a.page)).toEqual(["Greg"]);
+  expect(await travelers(b.page)).toEqual([]);
+
+  // Filed with nobody, he walks with the whole table again.
+  await dm.request.put(`/api/npcs/${greg}/travel`, {
+    data: { traveling: true, partyId: "00000000-0000-0000-0000-000000000000" },
+  });
+  expect(await travelers(b.page)).toEqual(["Greg"]);
+
+  // And a party from another table is refused at the door.
+  const elsewhere = await createCampaign(dm.request, unique("Elsewhere "));
+  const foreign = (await (
+    await dm.request.post(`/api/campaigns/${elsewhere.id}/parties`, { data: { name: "Theirs" } })
+  ).json()).id as string;
+  const refused = await dm.request.put(`/api/npcs/${greg}/travel`, {
+    data: { traveling: true, partyId: foreign },
+  });
+  expect(refused.status()).toBe(400);
+
+  await dmCtx.close();
+  await a.ctx.close();
+  await b.ctx.close();
+});

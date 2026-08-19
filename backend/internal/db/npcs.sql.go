@@ -33,7 +33,7 @@ func (q *Queries) ClearNpcStatOverrides(ctx context.Context, npcID uuid.UUID) er
 const createNpc = `-- name: CreateNpc :one
 INSERT INTO npcs (campaign_id, name, description, location_id, content_id, character_id, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id
 `
 
 type CreateNpcParams struct {
@@ -74,6 +74,7 @@ func (q *Queries) CreateNpc(ctx context.Context, arg CreateNpcParams) (Npc, erro
 		&i.HpCurrent,
 		&i.Control,
 		&i.ControlUserID,
+		&i.PartyID,
 	)
 	return i, err
 }
@@ -119,7 +120,7 @@ func (q *Queries) DeleteNpcStatOverride(ctx context.Context, arg DeleteNpcStatOv
 }
 
 const getNpc = `-- name: GetNpc :one
-SELECT id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id FROM npcs WHERE id = $1
+SELECT id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id FROM npcs WHERE id = $1
 `
 
 func (q *Queries) GetNpc(ctx context.Context, id uuid.UUID) (Npc, error) {
@@ -142,6 +143,7 @@ func (q *Queries) GetNpc(ctx context.Context, id uuid.UUID) (Npc, error) {
 		&i.HpCurrent,
 		&i.Control,
 		&i.ControlUserID,
+		&i.PartyID,
 	)
 	return i, err
 }
@@ -227,7 +229,7 @@ func (q *Queries) ListNpcVisibilityByCampaign(ctx context.Context, campaignID uu
 }
 
 const listNpcs = `-- name: ListNpcs :many
-SELECT n.id, n.campaign_id, n.name, n.description, n.location_id, n.content_id, n.character_id, n.visible_to_party, n.stats_visible_to_party, n.created_by, n.created_at, n.updated_at, n.traveling, n.hp_current, n.control, n.control_user_id,
+SELECT n.id, n.campaign_id, n.name, n.description, n.location_id, n.content_id, n.character_id, n.visible_to_party, n.stats_visible_to_party, n.created_by, n.created_at, n.updated_at, n.traveling, n.hp_current, n.control, n.control_user_id, n.party_id,
        l.name AS location_name,
        c.name AS character_name,
        (c.class_id IS NOT NULL) AS character_forged,
@@ -236,6 +238,7 @@ SELECT n.id, n.campaign_id, n.name, n.description, n.location_id, n.content_id, 
        c.hp_current AS character_hp_current,
        c.hp_max AS character_hp_max,
        cu.name AS control_user_name,
+       pt.name AS party_name,
        rc.kind AS content_kind, rc.source AS content_source,
        rc.name AS content_name, rc.summary AS content_summary,
        rc.data AS content_data
@@ -243,6 +246,7 @@ FROM npcs n
 LEFT JOIN locations l ON l.id = n.location_id
 LEFT JOIN characters c ON c.id = n.character_id
 LEFT JOIN users cu ON cu.id = n.control_user_id
+LEFT JOIN parties pt ON pt.id = n.party_id
 LEFT JOIN rules_content rc ON rc.id = n.content_id
 WHERE n.campaign_id = $1
 ORDER BY l.name NULLS LAST, n.name
@@ -265,12 +269,14 @@ type ListNpcsRow struct {
 	HpCurrent           *int32             `json:"hp_current"`
 	Control             string             `json:"control"`
 	ControlUserID       pgtype.UUID        `json:"control_user_id"`
+	PartyID             pgtype.UUID        `json:"party_id"`
 	LocationName        *string            `json:"location_name"`
 	CharacterName       *string            `json:"character_name"`
 	CharacterForged     interface{}        `json:"character_forged"`
 	CharacterHpCurrent  *int32             `json:"character_hp_current"`
 	CharacterHpMax      *int32             `json:"character_hp_max"`
 	ControlUserName     *string            `json:"control_user_name"`
+	PartyName           *string            `json:"party_name"`
 	ContentKind         *ContentKind       `json:"content_kind"`
 	ContentSource       *ContentSource     `json:"content_source"`
 	ContentName         *string            `json:"content_name"`
@@ -307,12 +313,14 @@ func (q *Queries) ListNpcs(ctx context.Context, campaignID uuid.UUID) ([]ListNpc
 			&i.HpCurrent,
 			&i.Control,
 			&i.ControlUserID,
+			&i.PartyID,
 			&i.LocationName,
 			&i.CharacterName,
 			&i.CharacterForged,
 			&i.CharacterHpCurrent,
 			&i.CharacterHpMax,
 			&i.ControlUserName,
+			&i.PartyName,
 			&i.ContentKind,
 			&i.ContentSource,
 			&i.ContentName,
@@ -330,7 +338,7 @@ func (q *Queries) ListNpcs(ctx context.Context, campaignID uuid.UUID) ([]ListNpc
 }
 
 const listTravelingNpcs = `-- name: ListTravelingNpcs :many
-SELECT id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id FROM npcs WHERE campaign_id = $1 AND traveling ORDER BY name
+SELECT id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id FROM npcs WHERE campaign_id = $1 AND traveling ORDER BY name
 `
 
 // The allies walking with a party, for the encounter builder and the roster.
@@ -360,6 +368,7 @@ func (q *Queries) ListTravelingNpcs(ctx context.Context, campaignID uuid.UUID) (
 			&i.HpCurrent,
 			&i.Control,
 			&i.ControlUserID,
+			&i.PartyID,
 		); err != nil {
 			return nil, err
 		}
@@ -374,7 +383,7 @@ func (q *Queries) ListTravelingNpcs(ctx context.Context, campaignID uuid.UUID) (
 const setNpcHp = `-- name: SetNpcHp :one
 UPDATE npcs SET hp_current = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id
 `
 
 type SetNpcHpParams struct {
@@ -404,6 +413,7 @@ func (q *Queries) SetNpcHp(ctx context.Context, arg SetNpcHpParams) (Npc, error)
 		&i.HpCurrent,
 		&i.Control,
 		&i.ControlUserID,
+		&i.PartyID,
 	)
 	return i, err
 }
@@ -434,7 +444,7 @@ UPDATE npcs
 SET visible_to_party = $2,
     updated_at       = now()
 WHERE id = $1
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id
 `
 
 type SetNpcPartyVisibilityParams struct {
@@ -462,6 +472,7 @@ func (q *Queries) SetNpcPartyVisibility(ctx context.Context, arg SetNpcPartyVisi
 		&i.HpCurrent,
 		&i.Control,
 		&i.ControlUserID,
+		&i.PartyID,
 	)
 	return i, err
 }
@@ -489,7 +500,7 @@ UPDATE npcs
 SET stats_visible_to_party = $2,
     updated_at             = now()
 WHERE id = $1
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id
 `
 
 type SetNpcStatsPartyVisibilityParams struct {
@@ -517,6 +528,7 @@ func (q *Queries) SetNpcStatsPartyVisibility(ctx context.Context, arg SetNpcStat
 		&i.HpCurrent,
 		&i.Control,
 		&i.ControlUserID,
+		&i.PartyID,
 	)
 	return i, err
 }
@@ -527,9 +539,10 @@ SET traveling        = $2,
     control          = $3,
     control_user_id  = $4,
     visible_to_party = $5,
+    party_id         = $6,
     updated_at       = now()
 WHERE id = $1
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id
 `
 
 type SetNpcTravelParams struct {
@@ -538,6 +551,7 @@ type SetNpcTravelParams struct {
 	Control        string      `json:"control"`
 	ControlUserID  pgtype.UUID `json:"control_user_id"`
 	VisibleToParty bool        `json:"visible_to_party"`
+	PartyID        pgtype.UUID `json:"party_id"`
 }
 
 // Whether a person walks with the party, and who runs them (#228). The veil on
@@ -551,6 +565,7 @@ func (q *Queries) SetNpcTravel(ctx context.Context, arg SetNpcTravelParams) (Npc
 		arg.Control,
 		arg.ControlUserID,
 		arg.VisibleToParty,
+		arg.PartyID,
 	)
 	var i Npc
 	err := row.Scan(
@@ -570,6 +585,7 @@ func (q *Queries) SetNpcTravel(ctx context.Context, arg SetNpcTravelParams) (Npc
 		&i.HpCurrent,
 		&i.Control,
 		&i.ControlUserID,
+		&i.PartyID,
 	)
 	return i, err
 }
@@ -578,7 +594,7 @@ const updateNpc = `-- name: UpdateNpc :one
 UPDATE npcs
 SET name = $2, description = $3, location_id = $4, content_id = $5, character_id = $6, updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id
+RETURNING id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id
 `
 
 type UpdateNpcParams struct {
@@ -617,6 +633,7 @@ func (q *Queries) UpdateNpc(ctx context.Context, arg UpdateNpcParams) (Npc, erro
 		&i.HpCurrent,
 		&i.Control,
 		&i.ControlUserID,
+		&i.PartyID,
 	)
 	return i, err
 }
