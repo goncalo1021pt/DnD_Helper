@@ -77,6 +77,7 @@ func conceal(c api.Character) api.Character {
 		CreatedAt:    c.CreatedAt,
 		Mine:         false,
 		TableBorn:    c.TableBorn,
+		Kind:         c.Kind,
 		Concealed:    &yes,
 	}
 }
@@ -92,6 +93,10 @@ func veiledSheet() api.ForbiddenJSONResponse {
 // sheetVeiledFrom reports whether the caller is kept from one hero's full
 // sheet. An unseated hero has no table to veil them, and an owner is never
 // veiled from their own.
+//
+// Heroes only. A body (#227) is seated and DM-owned, so this would happily
+// answer for one — and be wrong, because it is not the veil that rules them:
+// ask bodyReadableBy instead (#267).
 func (s *Server) sheetVeiledFrom(ctx context.Context, character db.Character, viewer uuid.UUID) (bool, error) {
 	campaignID, seated := seatedCampaign(character)
 	if !seated || character.OwnerUserID == viewer {
@@ -175,6 +180,15 @@ func (s *Server) RevealCharacter(ctx context.Context, request api.RevealCharacte
 		default:
 			return nil, err
 		}
+	}
+	// A body is not veiled by the table's sheet rule, so lifting it here would
+	// write a row that decides nothing (#267). Their person's stats veil is the
+	// switch, and it is on the Folk page. Asked after the DM check, so a player
+	// learns nothing about the sheet they were refused.
+	if character.Kind == db.CharacterKindNpc {
+		return api.RevealCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "this sheet belongs to one of the Folk — open their stats on the Folk page instead",
+		}}, nil
 	}
 	if request.Body == nil {
 		return api.RevealCharacter400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a body is required"}}, nil

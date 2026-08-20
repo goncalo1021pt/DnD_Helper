@@ -301,7 +301,11 @@ export default function HeroSheetPage() {
             <div className="font-accent text-[13.5px] italic text-cream-soft">
               Level {character.level} {classLine(character)}
               {subclass && ` · ${subclass.name}`}
-              {character.campaignName && ` · seated at ${character.campaignName}`}
+              {/* A body sits at no table — it is filed under a person (#227),
+                  and saying "seated at" would put one of the Folk in the party. */}
+              {character.kind === "npc"
+                ? " · one of the Folk"
+                : character.campaignName && ` · seated at ${character.campaignName}`}
             </div>
           </div>
         </div>
@@ -381,7 +385,15 @@ export default function HeroSheetPage() {
 
       {!sheet ? (
         <div className="font-accent px-2 py-8 text-center text-[15px] italic text-cream-muted">
-          A freeform hero — no forged sheet to show. The Forge awaits the next one.
+          {/* Three readers reach this page and only one of them owns a Forge.
+              A body can never carry a forged sheet — it is written on the Folk
+              page and never goes through the wizard — so telling a player the
+              Forge awaits was addressing them about somebody else's NPC (#267). */}
+          {character.kind === "npc"
+            ? "What the DM has written of them is all there is."
+            : character.mine
+              ? "A freeform hero — no forged sheet to show. The Forge awaits the next one."
+              : "A freeform hero — there is no forged sheet to show."}
         </div>
       ) : (
         <div

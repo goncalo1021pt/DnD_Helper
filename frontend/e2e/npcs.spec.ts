@@ -6,6 +6,7 @@ import {
   newAccount,
   registerViaAPI,
   revealLocation,
+  seatHero,
   unique,
 } from "./helpers";
 
@@ -245,4 +246,164 @@ test("a sheet forged for one of the Folk is a body, not a seat at the table", as
   expect(gone.status()).toBe(404);
 
   await dmCtx.close();
+});
+
+/*
+ * #267: a body is read through its person, not through the table's sheet veil.
+ *
+ * A body is DM-owned and seated only because a sheet has to live somewhere, so
+ * `GET /characters/{id}` used to judge it exactly like anybody's hero — asking
+ * `campaigns.hidden_sheets`, which is about players not reading one another's
+ * heroes and has no opinion at all about the Folk. It got the answer wrong
+ * twice over: with the table veil down (nearly every table) it consulted
+ * nothing and handed the sheet to any member holding the id, and with the veil
+ * drawn it refused a sheet the DM had deliberately opened.
+ *
+ * The whole point is that the two doors agree, so the test walks them together:
+ * every step asks `/npcs` what the player is OFFERED and `/characters/{id}`
+ * what the player is GIVEN, and they must say the same thing every time.
+ */
+test("a body is read through its person — the sheet door and the Folk page agree", async ({
+  browser,
+}) => {
+  const dmCtx = await browser.newContext();
+  const dm = await dmCtx.newPage();
+  await dm.goto("/");
+  await registerViaAPI(dm.request, newAccount("dmveil"));
+  const campaign = await createCampaign(dm.request, unique("Two Doors "));
+
+  const plCtx = await browser.newContext();
+  const pl = await plCtx.newPage();
+  await pl.goto("/");
+  await registerViaAPI(pl.request, newAccount("plveil"));
+  await joinCampaign(pl.request, campaign.inviteCode);
+  const hero = (
+    await (
+      await pl.request.post("/api/me/characters", {
+        data: { name: unique("Nib "), class: "Rogue", level: 2, hpCurrent: 14, hpMax: 14 },
+      })
+    ).json()
+  ).id as string;
+  await seatHero(pl.request, hero, campaign.id);
+
+  // A person, veiled by default, with a sheet forged for them on the Folk page.
+  const keeper = unique("Barthen ");
+  const npc = (
+    await (
+      await dm.request.post(`/api/campaigns/${campaign.id}/npcs`, { data: { name: keeper } })
+    ).json()
+  ).id as string;
+  const forged = await dm.request.post(`/api/npcs/${npc}/body`, {
+    data: { name: keeper, class: "Commoner", level: 3, hpCurrent: 18, hpMax: 18 },
+  });
+  expect(forged.ok(), await forged.text()).toBeTruthy();
+  const bodyId = (await forged.json()).characterId as string;
+  expect(bodyId).toBeTruthy();
+
+  /** What the Folk page offers this player, and what the sheet door gives them. */
+  async function doors(): Promise<{ offered: boolean; given: number }> {
+    const folk = await (await pl.request.get(`/api/campaigns/${campaign.id}/npcs`)).json();
+    const person = (folk as { id: string; characterId?: string }[]).find((n) => n.id === npc);
+    const sheet = await pl.request.get(`/api/characters/${bodyId}`);
+    return { offered: !!person?.characterId, given: sheet.status() };
+  }
+
+  // Nobody has been told this person exists. The sheet is not theirs to read —
+  // and before #267 this was a 200 with the whole thing in it.
+  expect(await doors()).toEqual({ offered: false, given: 404 });
+
+  // Known to the party. Knowing somebody is not reading their sheet.
+  await dm.request.put(`/api/npcs/${npc}/visibility`, {
+    data: { scope: "table", visible: true },
+  });
+  expect(await doors()).toEqual({ offered: false, given: 404 });
+
+  // The DM opens their numbers to that one hero. Both doors open together.
+  await dm.request.put(`/api/npcs/${npc}/stats-visibility`, {
+    data: { scope: "character", characterId: hero, visible: true },
+  });
+  expect(await doors()).toEqual({ offered: true, given: 200 });
+
+  // And the sheet says what it is, so the page can stop calling one of the
+  // Folk a freeform hero with a Forge waiting for them.
+  const read = await (await pl.request.get(`/api/characters/${bodyId}`)).json();
+  expect(read.character.kind).toBe("npc");
+  const ownSheet = await (await pl.request.get(`/api/characters/${hero}`)).json();
+  expect(ownSheet.character.kind).toBe("hero");
+
+  // The table draws its veil over the party's own sheets. It rules the heroes
+  // and says nothing about the Folk, so the person the DM opened stays open —
+  // this was the 403 that contradicted the link right beside it.
+  const drawn = await dm.request.put(`/api/campaigns/${campaign.id}/hidden-sheets`, {
+    data: { enabled: true },
+  });
+  expect(drawn.ok(), await drawn.text()).toBeTruthy();
+  expect(await doors()).toEqual({ offered: true, given: 200 });
+
+  // And it is not the switch for a body either: the DM is told where the real
+  // one is rather than writing a row that decides nothing.
+  const wrongSwitch = await dm.request.put(`/api/characters/${bodyId}/reveal`, {
+    data: { revealed: true },
+  });
+  expect(wrongSwitch.status()).toBe(400);
+  expect(await wrongSwitch.text()).toContain("Folk page");
+
+  // The DM closes their numbers again. Both doors close together.
+  await dm.request.put(`/api/npcs/${npc}/stats-visibility`, {
+    data: { scope: "character", characterId: hero, visible: false },
+  });
+  expect(await doors()).toEqual({ offered: false, given: 404 });
+
+  // The DM reads their own Folk throughout, veils or no veils.
+  expect((await dm.request.get(`/api/characters/${bodyId}`)).status()).toBe(200);
+
+  await dmCtx.close();
+  await plCtx.close();
+});
+
+/*
+ * One body, one person (#267). Nothing else ever points at a body, which is
+ * what lets parting with it strike it — so two people sharing one is a sheet
+ * that dies under somebody still using it, and a body with no single person to
+ * be read through.
+ */
+test("a body stands behind one person and no other", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const dm = await ctx.newPage();
+  await dm.goto("/");
+  await registerViaAPI(dm.request, newAccount("dmonebody"));
+  const campaign = await createCampaign(dm.request, unique("One Body "));
+
+  const first = (
+    await (
+      await dm.request.post(`/api/campaigns/${campaign.id}/npcs`, { data: { name: "Elmar" } })
+    ).json()
+  ).id as string;
+  const second = (
+    await (
+      await dm.request.post(`/api/campaigns/${campaign.id}/npcs`, { data: { name: "Halia" } })
+    ).json()
+  ).id as string;
+
+  const body = (
+    await (
+      await dm.request.post(`/api/npcs/${first}/body`, {
+        data: { name: "Elmar", class: "Commoner", level: 1, hpCurrent: 9, hpMax: 9 },
+      })
+    ).json()
+  ).characterId as string;
+
+  const stolen = await dm.request.patch(`/api/npcs/${second}`, {
+    data: { name: "Halia", characterId: body },
+  });
+  expect(stolen.status()).toBe(400);
+  expect(await stolen.text()).toContain("forged for somebody else");
+
+  // The first person still has them, and re-stating the same link is not theft.
+  const same = await dm.request.patch(`/api/npcs/${first}`, {
+    data: { name: "Elmar", characterId: body },
+  });
+  expect(same.ok(), await same.text()).toBeTruthy();
+
+  await ctx.close();
 });

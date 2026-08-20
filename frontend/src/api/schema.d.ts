@@ -2373,6 +2373,11 @@ export interface components {
             createdAt: string;
             /** @description True when the caller owns this character. */
             mine: boolean;
+            /**
+             * @description What this sheet is. `hero` is somebody's character, seated or on their shelf. `npc` is a body (#227) — a sheet forged for one of the Folk on the Folk page: never on a roster, never counted, and read through that person's veils rather than the table's sheet veil (#267).
+             * @enum {string}
+             */
+            kind: "hero" | "npc";
             /** @description Born of a quick-add on a campaign roster: lives and dies with the table, never listed in My Heroes, never seated elsewhere. Account heroes are the opposite — the roster may only unseat them. */
             tableBorn: boolean;
             /**

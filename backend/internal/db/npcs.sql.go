@@ -148,6 +148,39 @@ func (q *Queries) GetNpc(ctx context.Context, id uuid.UUID) (Npc, error) {
 	return i, err
 }
 
+const getNpcByCharacter = `-- name: GetNpcByCharacter :one
+SELECT id, campaign_id, name, description, location_id, content_id, character_id, visible_to_party, stats_visible_to_party, created_by, created_at, updated_at, traveling, hp_current, control, control_user_id, party_id FROM npcs WHERE character_id = $1
+`
+
+// The person a body stands behind (#267). A body is read through its person's
+// two veils rather than through the table's hero veil, so the sheet door has to
+// be able to walk back from the sheet to whoever it was forged for. One row at
+// most: a unique index holds one body to one person.
+func (q *Queries) GetNpcByCharacter(ctx context.Context, characterID pgtype.UUID) (Npc, error) {
+	row := q.db.QueryRow(ctx, getNpcByCharacter, characterID)
+	var i Npc
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Name,
+		&i.Description,
+		&i.LocationID,
+		&i.ContentID,
+		&i.CharacterID,
+		&i.VisibleToParty,
+		&i.StatsVisibleToParty,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Traveling,
+		&i.HpCurrent,
+		&i.Control,
+		&i.ControlUserID,
+		&i.PartyID,
+	)
+	return i, err
+}
+
 const listNpcStatVisibilityByCampaign = `-- name: ListNpcStatVisibilityByCampaign :many
 SELECT v.npc_id, v.character_id, v.visible, c.name AS character_name
 FROM npc_stat_visibility v
@@ -232,7 +265,6 @@ const listNpcs = `-- name: ListNpcs :many
 SELECT n.id, n.campaign_id, n.name, n.description, n.location_id, n.content_id, n.character_id, n.visible_to_party, n.stats_visible_to_party, n.created_by, n.created_at, n.updated_at, n.traveling, n.hp_current, n.control, n.control_user_id, n.party_id,
        l.name AS location_name,
        c.name AS character_name,
-       (c.class_id IS NOT NULL) AS character_forged,
        -- A sheet-backed ally's hit points live on the sheet, which is the only
        -- place that can hold them; the person's own hp_current stays NULL.
        c.hp_current AS character_hp_current,
@@ -272,7 +304,6 @@ type ListNpcsRow struct {
 	PartyID             pgtype.UUID        `json:"party_id"`
 	LocationName        *string            `json:"location_name"`
 	CharacterName       *string            `json:"character_name"`
-	CharacterForged     interface{}        `json:"character_forged"`
 	CharacterHpCurrent  *int32             `json:"character_hp_current"`
 	CharacterHpMax      *int32             `json:"character_hp_max"`
 	ControlUserName     *string            `json:"control_user_name"`
@@ -316,7 +347,6 @@ func (q *Queries) ListNpcs(ctx context.Context, campaignID uuid.UUID) ([]ListNpc
 			&i.PartyID,
 			&i.LocationName,
 			&i.CharacterName,
-			&i.CharacterForged,
 			&i.CharacterHpCurrent,
 			&i.CharacterHpMax,
 			&i.ControlUserName,
