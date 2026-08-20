@@ -152,7 +152,11 @@ func (s *Server) SetHiddenSheets(ctx context.Context, request api.SetHiddenSheet
 		s.logEvent(ctx, campaignID, member.UserID, "table_rules",
 			"The DM lifts the veil — the party's sheets are open again")
 	}
-	return api.SetHiddenSheets200JSONResponse(toAPICampaign(updated, true)), nil
+	out, err := s.campaignOut(ctx, updated, true)
+	if err != nil {
+		return nil, err
+	}
+	return api.SetHiddenSheets200JSONResponse(out), nil
 }
 
 // RevealCharacter lifts (or drops) the veil on one seated hero (DM only).

@@ -1,0 +1,42 @@
+Realm:
+  type: object
+  required: [id, name, ownerUserId, createdAt, campaignCount]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    ownerUserId:
+      type: string
+      format: uuid
+    createdAt:
+      type: string
+      format: date-time
+    campaignCount:
+      type: integer
+      description: >
+        How many campaigns stand in this realm. Zero is a normal, useful state:
+        an emptied realm is where the next campaign on this ground begins.
+
+RealmInput:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 120
+
+SetRealmRequest:
+  type: object
+  required: [realmId]
+  properties:
+    realmId:
+      type: string
+      format: uuid
+      description: >-
+        The realm to move this campaign into. The nil UUID
+        (00000000-0000-0000-0000-000000000000) gives it a realm of its own,
+        freshly made and named after the campaign — the same thing founding a
+        table does by default.

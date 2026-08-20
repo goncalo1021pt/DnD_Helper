@@ -3288,6 +3288,94 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /realms:
+    get:
+      operationId: listRealms
+      summary: The caller's own realms
+      description: Realms belong to whoever made them and are listed to nobody else (#233). A player reads their campaign's realm NAME off the campaign itself; the list, which is what feeds the "found a campaign here" picker, is the owner's alone. Empty realms are included.
+      responses:
+        "200":
+          description: Your realms, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Realm"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /realms/{realmId}:
+    parameters:
+      - name: realmId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: renameRealm
+      summary: Rename a realm (owner only)
+      description: A backfilled realm is named after its one campaign, which is rarely what the setting is actually called — renaming is how it stops being a private container and starts being a place.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealmInput"
+      responses:
+        "200":
+          description: The renamed realm
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Realm"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteRealm
+      summary: Strike an empty realm (owner only)
+      description: Refused while any campaign stands in it — a realm holds years of play and is never a way to delete them sideways. Empty it first, by moving or striking the campaigns themselves.
+      responses:
+        "204":
+          description: Struck
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /campaigns/{campaignId}/realm:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setCampaignRealm
+      summary: Move a campaign into another of your realms (owner only)
+      description: "Nothing is shared between campaigns in stage one, so moving costs a table nothing and takes nothing from it. It exists because backfill gave every campaign that already existed a realm of its own: without a way to move one, the container would do nothing at all for the tables running today."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRealmRequest"
+      responses:
+        "200":
+          description: The campaign, now standing in that realm
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /campaigns/{campaignId}/parties:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -3825,6 +3913,8 @@ components:
         - name
         - ownerUserId
         - createdAt
+        - realmId
+        - realmName
       properties:
         id:
           type: string
@@ -3837,6 +3927,13 @@ components:
         createdAt:
           type: string
           format: date-time
+        realmId:
+          type: string
+          format: uuid
+          description: The realm this campaign stands in (#233). Every campaign has one — a table founded on its own ground gets a realm of its own, named after it — so this is never absent and never null.
+        realmName:
+          type: string
+          description: "What that realm is called. It reaches everyone at the table, DM and player alike: the name of the setting is not a secret, and this is the only place a player ever reads it. Listing, renaming, moving and striking realms remain the owner's alone."
         inviteCode:
           type: string
           description: |
@@ -3996,6 +4093,10 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+        realmId:
+          type: string
+          format: uuid
+          description: "Found this campaign in a realm you already have. Omitted — the default, and what every table did before #233 — it gets a realm of its own, named after the campaign."
     JoinCampaignRequest:
       type: object
       required:
@@ -6756,6 +6857,48 @@ components:
           format: uuid
           nullable: true
           description: "A sheet forged for one of this campaign's Folk (#227) — never a seated hero, because a sheet makes a person statted and not a party member. Sending the nil UUID strikes that body: it exists only for this person and nothing else points at it."
+    Realm:
+      type: object
+      required:
+        - id
+        - name
+        - ownerUserId
+        - createdAt
+        - campaignCount
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        ownerUserId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        campaignCount:
+          type: integer
+          description: |
+            How many campaigns stand in this realm. Zero is a normal, useful state: an emptied realm is where the next campaign on this ground begins.
+    RealmInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    SetRealmRequest:
+      type: object
+      required:
+        - realmId
+      properties:
+        realmId:
+          type: string
+          format: uuid
+          description: The realm to move this campaign into. The nil UUID (00000000-0000-0000-0000-000000000000) gives it a realm of its own, freshly made and named after the campaign — the same thing founding a table does by default.
     Party:
       type: object
       required:

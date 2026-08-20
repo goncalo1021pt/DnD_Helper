@@ -42,6 +42,8 @@ export type Npc =
 export type NpcInput = NonNullable<
   paths["/campaigns/{campaignId}/npcs"]["post"]["requestBody"]
 >["content"]["application/json"];
+export type Realm =
+  paths["/realms"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type Party =
   paths["/campaigns/{campaignId}/parties"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type PartyInput = NonNullable<

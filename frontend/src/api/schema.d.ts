@@ -1974,6 +1974,74 @@ export interface paths {
         patch: operations["updateNpc"];
         trace?: never;
     };
+    "/realms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's own realms
+         * @description Realms belong to whoever made them and are listed to nobody else (#233). A player reads their campaign's realm NAME off the campaign itself; the list, which is what feeds the "found a campaign here" picker, is the owner's alone. Empty realms are included.
+         */
+        get: operations["listRealms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/realms/{realmId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                realmId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Strike an empty realm (owner only)
+         * @description Refused while any campaign stands in it — a realm holds years of play and is never a way to delete them sideways. Empty it first, by moving or striking the campaigns themselves.
+         */
+        delete: operations["deleteRealm"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a realm (owner only)
+         * @description A backfilled realm is named after its one campaign, which is rarely what the setting is actually called — renaming is how it stops being a private container and starts being a place.
+         */
+        patch: operations["renameRealm"];
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/realm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Move a campaign into another of your realms (owner only)
+         * @description Nothing is shared between campaigns in stage one, so moving costs a table nothing and takes nothing from it. It exists because backfill gave every campaign that already existed a realm of its own: without a way to move one, the container would do nothing at all for the tables running today.
+         */
+        put: operations["setCampaignRealm"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/parties": {
         parameters: {
             query?: never;
@@ -2213,6 +2281,13 @@ export interface components {
             ownerUserId: string;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: uuid
+             * @description The realm this campaign stands in (#233). Every campaign has one — a table founded on its own ground gets a realm of its own, named after it — so this is never absent and never null.
+             */
+            realmId: string;
+            /** @description What that realm is called. It reaches everyone at the table, DM and player alike: the name of the setting is not a secret, and this is the only place a player ever reads it. Listing, renaming, moving and striking realms remain the owner's alone. */
+            realmName: string;
             /** @description DM-only. The code that admits anyone holding it, so it reaches the DM's payloads and nobody else's — it used to be required, which meant every player read their table's code out of `GET /campaigns` however carefully the screen hid it, and could hand it on after being kicked or banned (#207). Absent, not blank: a player has no invite code, they are not holding an empty one. */
             inviteCode?: string;
             /**
@@ -2288,6 +2363,11 @@ export interface components {
         };
         CreateCampaignRequest: {
             name: string;
+            /**
+             * Format: uuid
+             * @description Found this campaign in a realm you already have. Omitted — the default, and what every table did before #233 — it gets a realm of its own, named after the campaign.
+             */
+            realmId?: string;
         };
         JoinCampaignRequest: {
             code: string;
@@ -3647,6 +3727,27 @@ export interface components {
              * @description A sheet forged for one of this campaign's Folk (#227) — never a seated hero, because a sheet makes a person statted and not a party member. Sending the nil UUID strikes that body: it exists only for this person and nothing else points at it.
              */
             characterId?: string | null;
+        };
+        Realm: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            ownerUserId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description How many campaigns stand in this realm. Zero is a normal, useful state: an emptied realm is where the next campaign on this ground begins. */
+            campaignCount: number;
+        };
+        RealmInput: {
+            name: string;
+        };
+        SetRealmRequest: {
+            /**
+             * Format: uuid
+             * @description The realm to move this campaign into. The nil UUID (00000000-0000-0000-0000-000000000000) gives it a realm of its own, freshly made and named after the campaign — the same thing founding a table does by default.
+             */
+            realmId: string;
         };
         /**
          * @description A named group of heroes inside one campaign (#232) — the shape a table of
@@ -7690,6 +7791,109 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Npc"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listRealms: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your realms, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Realm"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteRealm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                realmId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Struck */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    renameRealm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                realmId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RealmInput"];
+            };
+        };
+        responses: {
+            /** @description The renamed realm */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Realm"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setCampaignRealm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRealmRequest"];
+            };
+        };
+        responses: {
+            /** @description The campaign, now standing in that realm */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
                 };
             };
             400: components["responses"]["BadRequest"];

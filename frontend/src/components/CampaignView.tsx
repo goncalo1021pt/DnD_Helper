@@ -153,7 +153,15 @@ export default function CampaignView() {
         <div className="flex min-w-0 flex-wrap items-center gap-[18px]">
           <div className="min-w-0">
             <div className="font-accent text-sm italic tracking-[.16em] text-[#c89a5a]">
-              Campaign
+              {/* The ground this table stands on (#233), named for everyone —
+                  a player learns their setting's name here and nowhere else.
+                  A realm still carrying its campaign's name is the container
+                  every table was given at backfill, and saying "Curse of
+                  Strahd, in Curse of Strahd" would be noise, so it stays
+                  quiet until the realm is somewhere in its own right. */}
+              {campaign.realmName !== campaign.name
+                ? `Campaign in ${campaign.realmName}`
+                : "Campaign"}
             </div>
             <div className="font-display truncate text-[clamp(17px,2.2vw,24px)] font-bold leading-[1.15] text-cream">
               {campaign.name}

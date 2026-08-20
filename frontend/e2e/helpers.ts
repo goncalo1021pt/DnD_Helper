@@ -84,6 +84,9 @@ export interface Campaign {
   id: string;
   name: string;
   inviteCode: string;
+  /** The ground it stands on (#233) — every campaign has one, never null. */
+  realmId: string;
+  realmName: string;
 }
 
 /**

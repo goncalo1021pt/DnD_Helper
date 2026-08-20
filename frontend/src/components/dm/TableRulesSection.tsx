@@ -4,13 +4,18 @@ import {
   useCharacters,
   useDeclareMilestone,
   useGrantXP,
+  useRealms,
   useRevokeMilestone,
+  useSetCampaignRealm,
   useSetMaxLevel,
   useSetMaxSeated,
   useSetProgression,
   useSetHiddenSheets,
   useSetSeatingApproval,
 } from "../../hooks";
+
+/** Sends a campaign back to ground of its own — the repo's clear-a-link sentinel. */
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 import ParchmentModal from "../ui/ParchmentModal";
 
 /*
@@ -24,6 +29,8 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
   const setSeatingApproval = useSetSeatingApproval(campaign.id);
   const setHiddenSheets = useSetHiddenSheets(campaign.id);
   const setMaxSeated = useSetMaxSeated(campaign.id);
+  const setRealm = useSetCampaignRealm();
+  const { data: realms } = useRealms();
   const milestone = useDeclareMilestone(campaign.id);
   const revoke = useRevokeMilestone(campaign.id);
   const grantXP = useGrantXP(campaign.id);
@@ -102,6 +109,34 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
             <option value="veiled">Veiled — names only</option>
           </select>
         </label>
+
+        {/* The ground this table stands on (#233). Only offered to whoever
+            owns the realm — a co-DM runs the campaign, they do not own the
+            setting — and only worth offering once there is somewhere else to
+            put it, which is why one lone realm draws no picker. */}
+        {(realms ?? []).some((r) => r.id === campaign.realmId) &&
+          (realms ?? []).length > 1 && (
+            <label className="flex flex-col gap-1.5">
+              <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
+                The ground
+              </span>
+              <select
+                value={campaign.realmId}
+                onChange={(e) =>
+                  setRealm.mutate({ campaignId: campaign.id, realmId: e.target.value })
+                }
+                disabled={setRealm.isPending}
+                className="input-hall h-9 w-52 text-[12px]"
+              >
+                {(realms ?? []).map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+                <option value={NIL_UUID}>A realm of its own…</option>
+              </select>
+            </label>
+          )}
 
         <label className="flex flex-col gap-1.5">
           <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">

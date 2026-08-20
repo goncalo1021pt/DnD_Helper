@@ -531,6 +531,7 @@ type Campaign struct {
 	RequireSeatingApproval bool               `json:"require_seating_approval"`
 	HiddenSheets           bool               `json:"hidden_sheets"`
 	MaxSeatedPerPlayer     int16              `json:"max_seated_per_player"`
+	RealmID                uuid.UUID          `json:"realm_id"`
 }
 
 type CampaignBan struct {
@@ -845,6 +846,15 @@ type QuestVisibility struct {
 	CharacterID uuid.UUID          `json:"character_id"`
 	Visible     bool               `json:"visible"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Realm struct {
+	ID          uuid.UUID          `json:"id"`
+	Name        string             `json:"name"`
+	OwnerUserID uuid.UUID          `json:"owner_user_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	Named       bool               `json:"named"`
 }
 
 type RevealBatch struct {

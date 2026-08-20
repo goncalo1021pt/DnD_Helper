@@ -1,6 +1,6 @@
 -- name: CreateCampaign :one
-INSERT INTO campaigns (name, owner_user_id, invite_code)
-VALUES ($1, $2, $3)
+INSERT INTO campaigns (name, owner_user_id, invite_code, realm_id)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetCampaign :one
@@ -29,10 +29,15 @@ RETURNING *;
 SELECT * FROM memberships WHERE user_id = $1 AND campaign_id = $2;
 
 -- name: ListCampaignsForUser :many
--- Campaigns the user belongs to, with their per-campaign role.
-SELECT c.*, m.role
+-- Campaigns the user belongs to, with their per-campaign role and the realm
+-- they stand in (#233). The realm's NAME rides along for everyone, DM and
+-- player alike: a table knowing the name of its setting is not a secret, and
+-- it is the only way a player ever learns it. Who may LIST, rename, move or
+-- strike a realm is a separate question, and the answer is its owner.
+SELECT c.*, m.role, r.name AS realm_name
 FROM campaigns c
 JOIN memberships m ON m.campaign_id = c.id
+JOIN realms r ON r.id = c.realm_id
 WHERE m.user_id = $1
 ORDER BY c.created_at;
 

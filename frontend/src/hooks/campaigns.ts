@@ -17,16 +17,24 @@ export function useCampaigns() {
   });
 }
 
+/**
+ * Found a campaign. `realmId` puts it on ground you already have (#233);
+ * omitted — the default, and what every table did before realms — it gets a
+ * realm of its own, named after it.
+ */
 export function useCreateCampaign() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (name: string) => {
-      const { data, error } = await api.POST("/campaigns", { body: { name } });
+    mutationFn: async ({ name, realmId }: { name: string; realmId?: string }) => {
+      const { data, error } = await api.POST("/campaigns", {
+        body: realmId ? { name, realmId } : { name },
+      });
       if (error) throw error;
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["realms"] });
       qc.invalidateQueries({ queryKey: ["me"] });
     },
   });
