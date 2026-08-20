@@ -68,9 +68,9 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 }
 
 const createMapPin = `-- name: CreateMapPin :one
-INSERT INTO map_pins (map_id, label, note, x, y, dm_only, link_map_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, map_id, label, note, x, y, dm_only, link_map_id, created_at
+INSERT INTO map_pins (map_id, label, note, x, y, dm_only, link_map_id, shape)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape
 `
 
 type CreateMapPinParams struct {
@@ -81,6 +81,7 @@ type CreateMapPinParams struct {
 	Y         float64     `json:"y"`
 	DmOnly    bool        `json:"dm_only"`
 	LinkMapID pgtype.UUID `json:"link_map_id"`
+	Shape     string      `json:"shape"`
 }
 
 func (q *Queries) CreateMapPin(ctx context.Context, arg CreateMapPinParams) (MapPin, error) {
@@ -92,6 +93,7 @@ func (q *Queries) CreateMapPin(ctx context.Context, arg CreateMapPinParams) (Map
 		arg.Y,
 		arg.DmOnly,
 		arg.LinkMapID,
+		arg.Shape,
 	)
 	var i MapPin
 	err := row.Scan(
@@ -104,6 +106,58 @@ func (q *Queries) CreateMapPin(ctx context.Context, arg CreateMapPinParams) (Map
 		&i.DmOnly,
 		&i.LinkMapID,
 		&i.CreatedAt,
+		&i.Shape,
+	)
+	return i, err
+}
+
+const createMapShape = `-- name: CreateMapShape :one
+INSERT INTO map_shapes (map_id, kind, label, points, color, dashed, width, opacity, dm_only, location_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, map_id, kind, label, points, color, dashed, width, opacity, dm_only, location_id, created_at, updated_at
+`
+
+type CreateMapShapeParams struct {
+	MapID      uuid.UUID    `json:"map_id"`
+	Kind       MapShapeKind `json:"kind"`
+	Label      string       `json:"label"`
+	Points     []byte       `json:"points"`
+	Color      string       `json:"color"`
+	Dashed     bool         `json:"dashed"`
+	Width      float64      `json:"width"`
+	Opacity    float64      `json:"opacity"`
+	DmOnly     bool         `json:"dm_only"`
+	LocationID pgtype.UUID  `json:"location_id"`
+}
+
+func (q *Queries) CreateMapShape(ctx context.Context, arg CreateMapShapeParams) (MapShape, error) {
+	row := q.db.QueryRow(ctx, createMapShape,
+		arg.MapID,
+		arg.Kind,
+		arg.Label,
+		arg.Points,
+		arg.Color,
+		arg.Dashed,
+		arg.Width,
+		arg.Opacity,
+		arg.DmOnly,
+		arg.LocationID,
+	)
+	var i MapShape
+	err := row.Scan(
+		&i.ID,
+		&i.MapID,
+		&i.Kind,
+		&i.Label,
+		&i.Points,
+		&i.Color,
+		&i.Dashed,
+		&i.Width,
+		&i.Opacity,
+		&i.DmOnly,
+		&i.LocationID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -126,6 +180,18 @@ DELETE FROM map_pins WHERE id = $1
 
 func (q *Queries) DeleteMapPin(ctx context.Context, id uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteMapPin, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteMapShape = `-- name: DeleteMapShape :execrows
+DELETE FROM map_shapes WHERE id = $1
+`
+
+func (q *Queries) DeleteMapShape(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteMapShape, id)
 	if err != nil {
 		return 0, err
 	}
@@ -187,7 +253,7 @@ func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, 
 }
 
 const getMapPin = `-- name: GetMapPin :one
-SELECT p.id, p.map_id, p.label, p.note, p.x, p.y, p.dm_only, p.link_map_id, p.created_at, m.campaign_id
+SELECT p.id, p.map_id, p.label, p.note, p.x, p.y, p.dm_only, p.link_map_id, p.created_at, p.shape, m.campaign_id
 FROM map_pins p
 JOIN maps m ON m.id = p.map_id
 WHERE p.id = $1
@@ -203,6 +269,7 @@ type GetMapPinRow struct {
 	DmOnly     bool               `json:"dm_only"`
 	LinkMapID  pgtype.UUID        `json:"link_map_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Shape      string             `json:"shape"`
 	CampaignID uuid.UUID          `json:"campaign_id"`
 }
 
@@ -220,13 +287,61 @@ func (q *Queries) GetMapPin(ctx context.Context, id uuid.UUID) (GetMapPinRow, er
 		&i.DmOnly,
 		&i.LinkMapID,
 		&i.CreatedAt,
+		&i.Shape,
+		&i.CampaignID,
+	)
+	return i, err
+}
+
+const getMapShape = `-- name: GetMapShape :one
+SELECT s.id, s.map_id, s.kind, s.label, s.points, s.color, s.dashed, s.width, s.opacity, s.dm_only, s.location_id, s.created_at, s.updated_at, m.campaign_id
+FROM map_shapes s
+JOIN maps m ON m.id = s.map_id
+WHERE s.id = $1
+`
+
+type GetMapShapeRow struct {
+	ID         uuid.UUID          `json:"id"`
+	MapID      uuid.UUID          `json:"map_id"`
+	Kind       MapShapeKind       `json:"kind"`
+	Label      string             `json:"label"`
+	Points     []byte             `json:"points"`
+	Color      string             `json:"color"`
+	Dashed     bool               `json:"dashed"`
+	Width      float64            `json:"width"`
+	Opacity    float64            `json:"opacity"`
+	DmOnly     bool               `json:"dm_only"`
+	LocationID pgtype.UUID        `json:"location_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
+}
+
+// A shape with its map's campaign, so handlers gate on membership in one read.
+func (q *Queries) GetMapShape(ctx context.Context, id uuid.UUID) (GetMapShapeRow, error) {
+	row := q.db.QueryRow(ctx, getMapShape, id)
+	var i GetMapShapeRow
+	err := row.Scan(
+		&i.ID,
+		&i.MapID,
+		&i.Kind,
+		&i.Label,
+		&i.Points,
+		&i.Color,
+		&i.Dashed,
+		&i.Width,
+		&i.Opacity,
+		&i.DmOnly,
+		&i.LocationID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 		&i.CampaignID,
 	)
 	return i, err
 }
 
 const listMapPins = `-- name: ListMapPins :many
-SELECT id, map_id, label, note, x, y, dm_only, link_map_id, created_at FROM map_pins WHERE map_id = $1 ORDER BY created_at
+SELECT id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape FROM map_pins WHERE map_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListMapPins(ctx context.Context, mapID uuid.UUID) ([]MapPin, error) {
@@ -248,6 +363,45 @@ func (q *Queries) ListMapPins(ctx context.Context, mapID uuid.UUID) ([]MapPin, e
 			&i.DmOnly,
 			&i.LinkMapID,
 			&i.CreatedAt,
+			&i.Shape,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMapShapes = `-- name: ListMapShapes :many
+SELECT id, map_id, kind, label, points, color, dashed, width, opacity, dm_only, location_id, created_at, updated_at FROM map_shapes WHERE map_id = $1 ORDER BY created_at
+`
+
+func (q *Queries) ListMapShapes(ctx context.Context, mapID uuid.UUID) ([]MapShape, error) {
+	rows, err := q.db.Query(ctx, listMapShapes, mapID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MapShape
+	for rows.Next() {
+		var i MapShape
+		if err := rows.Scan(
+			&i.ID,
+			&i.MapID,
+			&i.Kind,
+			&i.Label,
+			&i.Points,
+			&i.Color,
+			&i.Dashed,
+			&i.Width,
+			&i.Opacity,
+			&i.DmOnly,
+			&i.LocationID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -366,9 +520,9 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 
 const updateMapPin = `-- name: UpdateMapPin :one
 UPDATE map_pins
-SET label = $2, note = $3, x = $4, y = $5, dm_only = $6, link_map_id = $7
+SET label = $2, note = $3, x = $4, y = $5, dm_only = $6, link_map_id = $7, shape = $8
 WHERE id = $1
-RETURNING id, map_id, label, note, x, y, dm_only, link_map_id, created_at
+RETURNING id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape
 `
 
 type UpdateMapPinParams struct {
@@ -379,6 +533,7 @@ type UpdateMapPinParams struct {
 	Y         float64     `json:"y"`
 	DmOnly    bool        `json:"dm_only"`
 	LinkMapID pgtype.UUID `json:"link_map_id"`
+	Shape     string      `json:"shape"`
 }
 
 func (q *Queries) UpdateMapPin(ctx context.Context, arg UpdateMapPinParams) (MapPin, error) {
@@ -390,6 +545,7 @@ func (q *Queries) UpdateMapPin(ctx context.Context, arg UpdateMapPinParams) (Map
 		arg.Y,
 		arg.DmOnly,
 		arg.LinkMapID,
+		arg.Shape,
 	)
 	var i MapPin
 	err := row.Scan(
@@ -402,6 +558,58 @@ func (q *Queries) UpdateMapPin(ctx context.Context, arg UpdateMapPinParams) (Map
 		&i.DmOnly,
 		&i.LinkMapID,
 		&i.CreatedAt,
+		&i.Shape,
+	)
+	return i, err
+}
+
+const updateMapShape = `-- name: UpdateMapShape :one
+UPDATE map_shapes
+SET label = $2, points = $3, color = $4, dashed = $5, width = $6,
+    opacity = $7, dm_only = $8, location_id = $9, updated_at = now()
+WHERE id = $1
+RETURNING id, map_id, kind, label, points, color, dashed, width, opacity, dm_only, location_id, created_at, updated_at
+`
+
+type UpdateMapShapeParams struct {
+	ID         uuid.UUID   `json:"id"`
+	Label      string      `json:"label"`
+	Points     []byte      `json:"points"`
+	Color      string      `json:"color"`
+	Dashed     bool        `json:"dashed"`
+	Width      float64     `json:"width"`
+	Opacity    float64     `json:"opacity"`
+	DmOnly     bool        `json:"dm_only"`
+	LocationID pgtype.UUID `json:"location_id"`
+}
+
+func (q *Queries) UpdateMapShape(ctx context.Context, arg UpdateMapShapeParams) (MapShape, error) {
+	row := q.db.QueryRow(ctx, updateMapShape,
+		arg.ID,
+		arg.Label,
+		arg.Points,
+		arg.Color,
+		arg.Dashed,
+		arg.Width,
+		arg.Opacity,
+		arg.DmOnly,
+		arg.LocationID,
+	)
+	var i MapShape
+	err := row.Scan(
+		&i.ID,
+		&i.MapID,
+		&i.Kind,
+		&i.Label,
+		&i.Points,
+		&i.Color,
+		&i.Dashed,
+		&i.Width,
+		&i.Opacity,
+		&i.DmOnly,
+		&i.LocationID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

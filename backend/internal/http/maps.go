@@ -72,6 +72,7 @@ func toAPIPin(p db.MapPin) api.MapPin {
 		X:         float32(p.X),
 		Y:         float32(p.Y),
 		DmOnly:    p.DmOnly,
+		Shape:     (*api.MapPinShape)(&p.Shape),
 		CreatedAt: p.CreatedAt.Time,
 	}
 	if p.LinkMapID.Valid {
@@ -305,7 +306,15 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 		}
 		outPins = append(outPins, toAPIPin(p))
 	}
-	return api.GetMap200JSONResponse(api.MapDetail{Map: toAPIMap(mapRow(meta)), Pins: outPins, Revealed: revealed}), nil
+	// Roads and regions ride the same veil the pins do (#262): absent when
+	// DM-only, and a line clipped to the stretches this viewer has uncovered.
+	shapes, err := s.shapesFor(ctx, request.MapId, isDM, aspect, revealed, meta.FogEnabled)
+	if err != nil {
+		return nil, err
+	}
+	return api.GetMap200JSONResponse(api.MapDetail{
+		Map: toAPIMap(mapRow(meta)), Pins: outPins, Shapes: shapes, Revealed: revealed,
+	}), nil
 }
 
 // UpdateMap renames a map or re-hangs it under a parent (DM only).
@@ -396,6 +405,28 @@ func (s *Server) DeleteMap(ctx context.Context, request api.DeleteMapRequestObje
 	return api.DeleteMap204Response{}, nil
 }
 
+// pinShapes are the markers a pin may wear (#262). "pin" is the teardrop every
+// pin was before shapes existed, so an absent value means it.
+var pinShapes = map[string]bool{
+	"pin": true, "circle": true, "square": true, "diamond": true,
+	"triangle": true, "star": true, "cross": true, "skull": true,
+}
+
+// mustPinShape is pinShapeOf's value alone, for call sites that have already
+// had the input validated.
+func mustPinShape(v *api.MapPinInputShape) string {
+	s, _ := pinShapeOf(v)
+	return s
+}
+
+func pinShapeOf(v *api.MapPinInputShape) (string, bool) {
+	if v == nil || string(*v) == "" {
+		return "pin", true
+	}
+	s := string(*v)
+	return s, pinShapes[s]
+}
+
 // validatePinInput normalizes and checks a pin body against its map.
 func (s *Server) validatePinInput(ctx context.Context, campaignID uuid.UUID, body *api.MapPinInput) (label, note string, link pgtype.UUID, errMsg string, err error) {
 	label = strings.TrimSpace(body.Label)
@@ -407,6 +438,9 @@ func (s *Server) validatePinInput(ctx context.Context, campaignID uuid.UUID, bod
 	}
 	if body.Note != nil {
 		note = strings.TrimSpace(*body.Note)
+	}
+	if _, ok := pinShapeOf(body.Shape); !ok {
+		return "", "", pgtype.UUID{}, "that is not a marker this map knows", nil
 	}
 	if body.LinkMapId != nil {
 		target, err := s.queries.GetMapMeta(ctx, *body.LinkMapId)
@@ -457,6 +491,7 @@ func (s *Server) CreateMapPin(ctx context.Context, request api.CreateMapPinReque
 		Y:         float64(request.Body.Y),
 		DmOnly:    request.Body.DmOnly != nil && *request.Body.DmOnly,
 		LinkMapID: link,
+		Shape:     mustPinShape(request.Body.Shape),
 	})
 	if err != nil {
 		return nil, err
@@ -497,6 +532,7 @@ func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinReque
 		Y:         float64(request.Body.Y),
 		DmOnly:    request.Body.DmOnly != nil && *request.Body.DmOnly,
 		LinkMapID: link,
+		Shape:     mustPinShape(request.Body.Shape),
 	})
 	if err != nil {
 		return nil, err

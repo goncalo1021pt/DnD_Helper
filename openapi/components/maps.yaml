@@ -57,6 +57,12 @@ MapPin:
       description: Fraction of the image height, 0..1.
     dmOnly:
       type: boolean
+    shape:
+      type: string
+      enum: [pin, circle, square, diamond, triangle, star, cross, skull]
+      description: >-
+        What the marker looks like (#262). `pin` is the teardrop every pin was
+        before shapes existed, and remains the default.
     linkMapId:
       type: string
       format: uuid
@@ -68,7 +74,7 @@ MapPin:
 
 MapDetail:
   type: object
-  required: [map, pins, revealed]
+  required: [map, pins, shapes, revealed]
   properties:
     map:
       $ref: "../openapi.yaml#/components/schemas/CampaignMap"
@@ -76,6 +82,15 @@ MapDetail:
       type: array
       items:
         $ref: "../openapi.yaml#/components/schemas/MapPin"
+    shapes:
+      type: array
+      description: >
+        Roads and regions drawn on this map (#262), filtered for the caller
+        exactly as pins are: a DM-only shape is absent from a player's payload,
+        and under fog a line comes back clipped to the stretches standing on
+        ground they have uncovered.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MapShape"
     revealed:
       type: array
       description: >
@@ -237,7 +252,111 @@ MapPinInput:
       maximum: 1
     dmOnly:
       type: boolean
+    shape:
+      type: string
+      enum: [pin, circle, square, diamond, triangle, star, cross, skull]
+      description: >-
+        What the marker looks like (#262). `pin` is the teardrop every pin was
+        before shapes existed, and remains the default.
     linkMapId:
       type: string
       format: uuid
       nullable: true
+
+MapPoint:
+  type: object
+  required: [x, y]
+  properties:
+    x:
+      type: number
+      description: Fraction of the image width, 0..1.
+    y:
+      type: number
+      description: Fraction of the image height, 0..1.
+
+MapShape:
+  type: object
+  required: [id, mapId, kind, label, points, color, dashed, width, opacity, dmOnly, createdAt]
+  properties:
+    id:
+      type: string
+      format: uuid
+    mapId:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      enum: [line, area]
+      description: >-
+        `line` is stroked along its points — a road, a street, a river.
+        `area` is filled between them — a kingdom, a district, a region.
+        The two are one table because they are one gesture (#262).
+    label:
+      type: string
+    points:
+      type: array
+      description: >-
+        The run of points, in order, as fractions of the image — the same
+        normalisation a pin's x/y uses, so a shape survives the map being
+        re-hung at another size. An `area` closes itself; the first point is
+        not repeated at the end.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MapPoint"
+    color:
+      type: string
+      description: '#rrggbb — the stroke of a line, the fill of an area.'
+    dashed:
+      type: boolean
+    width:
+      type: number
+      description: >-
+        Stroke width as a fraction of the image width, so it scales with the
+        map: a width in pixels would be a hair on one map and a river on another.
+    opacity:
+      type: number
+      description: Fill opacity for an area, 0..1. Ignored by a line.
+    dmOnly:
+      type: boolean
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        The place this shape depicts, if any. Tint Barovia, and clicking it
+        opens Barovia. Losing the place dims the link, never the drawing.
+    locationName:
+      type: string
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time
+
+MapShapeInput:
+  type: object
+  required: [kind, points]
+  properties:
+    kind:
+      type: string
+      enum: [line, area]
+    label:
+      type: string
+      maxLength: 80
+    points:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MapPoint"
+    color:
+      type: string
+    dashed:
+      type: boolean
+    width:
+      type: number
+    opacity:
+      type: number
+    dmOnly:
+      type: boolean
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The nil UUID detaches the place, as everywhere else in this API.

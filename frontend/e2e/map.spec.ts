@@ -330,6 +330,11 @@ test("a DM stamps the fog back, takes one stamp off, and seals the rest", async 
 
   // Three taps at different places on the map. The count is the only thing the
   // draft shows for itself, and it is what says the tap became a circle.
+  //
+  // page.mouse takes raw viewport coordinates and does NOT scroll to reach
+  // them, so a map hanging below the fold silently swallows the taps that fall
+  // past it. Bring it into view first and read the box afterwards.
+  await canvas.scrollIntoViewIfNeeded();
   const box = (await canvas.boundingBox())!;
   for (const [fx, fy] of [[0.3, 0.4], [0.5, 0.5], [0.7, 0.6]]) {
     await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
