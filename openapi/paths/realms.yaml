@@ -1,0 +1,104 @@
+/realms:
+  get:
+    operationId: listRealms
+    summary: The caller's own realms
+    description: >-
+      Realms belong to whoever made them and are listed to nobody else (#233).
+      A player reads their campaign's realm NAME off the campaign itself; the
+      list, which is what feeds the "found a campaign here" picker, is the
+      owner's alone. Empty realms are included.
+    responses:
+      "200":
+        description: Your realms, oldest first
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Realm"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/realms/{realmId}:
+  parameters:
+    - name: realmId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: renameRealm
+    summary: Rename a realm (owner only)
+    description: >-
+      A backfilled realm is named after its one campaign, which is rarely what
+      the setting is actually called — renaming is how it stops being a private
+      container and starts being a place.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/RealmInput"
+    responses:
+      "200":
+        description: The renamed realm
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Realm"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteRealm
+    summary: Strike an empty realm (owner only)
+    description: >-
+      Refused while any campaign stands in it — a realm holds years of play and
+      is never a way to delete them sideways. Empty it first, by moving or
+      striking the campaigns themselves.
+    responses:
+      "204":
+        description: Struck
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/realm:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setCampaignRealm
+    summary: Move a campaign into another of your realms (owner only)
+    description: >-
+      Nothing is shared between campaigns in stage one, so moving costs a table
+      nothing and takes nothing from it. It exists because backfill gave every
+      campaign that already existed a realm of its own: without a way to move
+      one, the container would do nothing at all for the tables running today.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetRealmRequest"
+    responses:
+      "200":
+        description: The campaign, now standing in that realm
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

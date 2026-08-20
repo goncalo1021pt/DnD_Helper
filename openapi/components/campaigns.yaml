@@ -1,6 +1,6 @@
 Campaign:
   type: object
-  required: [id, name, ownerUserId, createdAt]
+  required: [id, name, ownerUserId, createdAt, realmId, realmName]
   properties:
     id:
       type: string
@@ -13,6 +13,20 @@ Campaign:
     createdAt:
       type: string
       format: date-time
+    realmId:
+      type: string
+      format: uuid
+      description: >-
+        The realm this campaign stands in (#233). Every campaign has one — a
+        table founded on its own ground gets a realm of its own, named after
+        it — so this is never absent and never null.
+    realmName:
+      type: string
+      description: >-
+        What that realm is called. It reaches everyone at the table, DM and
+        player alike: the name of the setting is not a secret, and this is the
+        only place a player ever reads it. Listing, renaming, moving and
+        striking realms remain the owner's alone.
     inviteCode:
       type: string
       description: >
@@ -155,6 +169,13 @@ CreateCampaignRequest:
       type: string
       minLength: 1
       maxLength: 120
+    realmId:
+      type: string
+      format: uuid
+      description: >-
+        Found this campaign in a realm you already have. Omitted — the default,
+        and what every table did before #233 — it gets a realm of its own,
+        named after the campaign.
 
 JoinCampaignRequest:
   type: object

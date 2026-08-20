@@ -99,9 +99,29 @@ func (s *Server) CreateCampaign(ctx context.Context, request api.CreateCampaignR
 		}}, nil
 	}
 
+	// Found it on ground you already have, or on ground of its own (#233).
+	// Absent is the default and is what every table did before realms existed.
+	var realmID uuid.UUID
+	if request.Body != nil && request.Body.RealmId != nil {
+		realmID = uuid.UUID(*request.Body.RealmId)
+		if realmID != uuid.Nil {
+			realm, err := s.queries.GetRealm(ctx, realmID)
+			// Somebody else's realm is answered as no realm at all, so the
+			// door cannot be used to find out whose settings exist.
+			if err != nil || realm.OwnerUserID != uid {
+				if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+					return nil, err
+				}
+				return api.CreateCampaign400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+					Error: "that realm is not one of yours",
+				}}, nil
+			}
+		}
+	}
+
 	// Retry on the (rare) chance of an invite-code collision.
 	for attempt := 0; attempt < 5; attempt++ {
-		campaign, err := s.createCampaignTx(ctx, name, uid, generateInviteCode())
+		campaign, err := s.createCampaignTx(ctx, name, uid, generateInviteCode(), realmID)
 		if err != nil {
 			if isUniqueViolation(err) {
 				continue
@@ -110,13 +130,20 @@ func (s *Server) CreateCampaign(ctx context.Context, request api.CreateCampaignR
 		}
 		metrics.CampaignCreated()
 		// Whoever creates a table is its DM, and needs the code to fill it.
-		return api.CreateCampaign201JSONResponse(toAPICampaign(campaign, true)), nil
+		out, err := s.campaignOut(ctx, campaign, true)
+		if err != nil {
+			return nil, err
+		}
+		return api.CreateCampaign201JSONResponse(out), nil
 	}
 	return nil, errors.New("could not generate a unique invite code")
 }
 
-// createCampaignTx atomically creates a campaign and the owner's DM membership.
-func (s *Server) createCampaignTx(ctx context.Context, name string, uid uuid.UUID, code string) (db.Campaign, error) {
+// createCampaignTx atomically creates a campaign, the realm it stands on when
+// it is founding its own, and the owner's DM membership. All three or none:
+// a campaign with no realm cannot exist, the column says so, and a realm minted
+// for a campaign that then failed to appear would be a container nobody made.
+func (s *Server) createCampaignTx(ctx context.Context, name string, uid uuid.UUID, code string, realmID uuid.UUID) (db.Campaign, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return db.Campaign{}, err
@@ -124,8 +151,16 @@ func (s *Server) createCampaignTx(ctx context.Context, name string, uid uuid.UUI
 	defer tx.Rollback(ctx)
 	qtx := s.queries.WithTx(tx)
 
+	if realmID == uuid.Nil {
+		realm, err := realmOfItsOwn(ctx, qtx, name, uid)
+		if err != nil {
+			return db.Campaign{}, err
+		}
+		realmID = realm.ID
+	}
+
 	campaign, err := qtx.CreateCampaign(ctx, db.CreateCampaignParams{
-		Name: name, OwnerUserID: uid, InviteCode: code,
+		Name: name, OwnerUserID: uid, InviteCode: code, RealmID: realmID,
 	})
 	if err != nil {
 		return db.Campaign{}, err
@@ -182,10 +217,14 @@ func (s *Server) JoinCampaign(ctx context.Context, request api.JoinCampaignReque
 	if err != nil {
 		return nil, err
 	}
+	joined, err := s.campaignOut(ctx, campaign, false)
+	if err != nil {
+		return nil, err
+	}
 	// A player walks in holding the code; that is not a reason to hand them a
 	// copy of it to keep and pass on.
 	return api.JoinCampaign200JSONResponse{
-		Campaign: toAPICampaign(campaign, false),
+		Campaign: joined,
 		Role:     toAPIRole(m.Role),
 	}, nil
 }
@@ -221,7 +260,11 @@ func (s *Server) RegenerateInvite(ctx context.Context, request api.RegenerateInv
 			return nil, err
 		}
 		// Gated on requireDM above, and the new code is the whole answer.
-		return api.RegenerateInvite200JSONResponse(toAPICampaign(campaign, true)), nil
+		out, err := s.campaignOut(ctx, campaign, true)
+		if err != nil {
+			return nil, err
+		}
+		return api.RegenerateInvite200JSONResponse(out), nil
 	}
 	return nil, errors.New("could not generate a unique invite code")
 }
@@ -265,6 +308,12 @@ func (s *Server) deleteCampaignTx(ctx context.Context, campaignID uuid.UUID) err
 	defer tx.Rollback(ctx)
 	qtx := s.queries.WithTx(tx)
 
+	// Read the ground before the table goes, so the realm can be judged after.
+	campaign, err := qtx.GetCampaign(ctx, campaignID)
+	if err != nil {
+		return err
+	}
+
 	cid := pgUUID(campaignID)
 	if err := qtx.DeleteTableBornOfCampaign(ctx, cid); err != nil {
 		return err
@@ -278,6 +327,14 @@ func (s *Server) deleteCampaignTx(ctx context.Context, campaignID uuid.UUID) err
 		return err
 	}
 	if err := qtx.DeleteCampaign(ctx, campaignID); err != nil {
+		return err
+	}
+	// Disbanding leaves the ground behind, and an unnamed realm is nothing but
+	// the dead campaign's name — it would go on offering itself in the "found
+	// a table here" picker forever (#233). A realm the owner NAMED outlives
+	// its campaigns on purpose: that is where the next one on this ground
+	// begins, which is the whole reason the container exists.
+	if err := sweepUnnamedRealm(ctx, qtx, campaign.RealmID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -294,21 +351,24 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 		// row. A player's row carries no code — which is what makes a ban
 		// mean something, since a banned member cannot hand on what they were
 		// never given.
+		campaign := toAPICampaign(db.Campaign{
+			ID:                     row.ID,
+			Name:                   row.Name,
+			OwnerUserID:            row.OwnerUserID,
+			CreatedAt:              row.CreatedAt,
+			InviteCode:             row.InviteCode,
+			NextSessionAt:          row.NextSessionAt,
+			Progression:            row.Progression,
+			MaxLevel:               row.MaxLevel,
+			RequireSeatingApproval: row.RequireSeatingApproval,
+			MaxSeatedPerPlayer:     row.MaxSeatedPerPlayer,
+			HiddenSheets:           row.HiddenSheets,
+			RealmID:                row.RealmID,
+		}, row.Role == db.MembershipRoleDm)
+		campaign.RealmName = row.RealmName
 		out = append(out, api.CampaignMembership{
-			Campaign: toAPICampaign(db.Campaign{
-				ID:                     row.ID,
-				Name:                   row.Name,
-				OwnerUserID:            row.OwnerUserID,
-				CreatedAt:              row.CreatedAt,
-				InviteCode:             row.InviteCode,
-				NextSessionAt:          row.NextSessionAt,
-				Progression:            row.Progression,
-				MaxLevel:               row.MaxLevel,
-				RequireSeatingApproval: row.RequireSeatingApproval,
-				MaxSeatedPerPlayer:     row.MaxSeatedPerPlayer,
-				HiddenSheets:           row.HiddenSheets,
-			}, row.Role == db.MembershipRoleDm),
-			Role: toAPIRole(row.Role),
+			Campaign: campaign,
+			Role:     toAPIRole(row.Role),
 		})
 	}
 	return out, nil
@@ -362,12 +422,28 @@ func toAPICampaign(c db.Campaign, forDM bool) api.Campaign {
 		RequireSeatingApproval: &c.RequireSeatingApproval,
 		MaxSeatedPerPlayer:     &maxSeated,
 		HiddenSheets:           &c.HiddenSheets,
+		RealmId:                c.RealmID,
 	}
 	if forDM {
 		code := c.InviteCode
 		out.InviteCode = &code
 	}
 	return out
+}
+
+// campaignOut shapes a campaign for the wire, naming the realm it stands on
+// (#233). The name is not on the campaign row, and the listing gets it from a
+// join — so every OTHER path goes through here rather than each remembering to
+// look it up, which is how `realmName` would quietly come back empty from one
+// settings toggle and not another.
+func (s *Server) campaignOut(ctx context.Context, c db.Campaign, forDM bool) (api.Campaign, error) {
+	out := toAPICampaign(c, forDM)
+	realm, err := s.queries.GetRealm(ctx, c.RealmID)
+	if err != nil {
+		return api.Campaign{}, err
+	}
+	out.RealmName = realm.Name
+	return out, nil
 }
 
 // campaignCeiling is the highest level heroes may reach at this table.

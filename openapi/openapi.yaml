@@ -232,6 +232,13 @@ paths:
     $ref: "./paths/npcs.yaml#/~1campaigns~1{campaignId}~1npcs"
   /npcs/{npcId}:
     $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}"
+  /realms:
+    $ref: "./paths/realms.yaml#/~1realms"
+  /realms/{realmId}:
+    $ref: "./paths/realms.yaml#/~1realms~1{realmId}"
+  /campaigns/{campaignId}/realm:
+    $ref: "./paths/realms.yaml#/~1campaigns~1{campaignId}~1realm"
+
   /campaigns/{campaignId}/parties:
     $ref: "./paths/parties.yaml#/~1campaigns~1{campaignId}~1parties"
   /parties/{partyId}:
@@ -648,6 +655,13 @@ components:
       $ref: "./components/npcs.yaml#/Npc"
     NpcInput:
       $ref: "./components/npcs.yaml#/NpcInput"
+    Realm:
+      $ref: "./components/realms.yaml#/Realm"
+    RealmInput:
+      $ref: "./components/realms.yaml#/RealmInput"
+    SetRealmRequest:
+      $ref: "./components/realms.yaml#/SetRealmRequest"
+
     Party:
       $ref: "./components/parties.yaml#/Party"
     PartyInput:

@@ -38,19 +38,25 @@ func (q *Queries) AddMembership(ctx context.Context, arg AddMembershipParams) (M
 }
 
 const createCampaign = `-- name: CreateCampaign :one
-INSERT INTO campaigns (name, owner_user_id, invite_code)
-VALUES ($1, $2, $3)
-RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player
+INSERT INTO campaigns (name, owner_user_id, invite_code, realm_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id
 `
 
 type CreateCampaignParams struct {
 	Name        string    `json:"name"`
 	OwnerUserID uuid.UUID `json:"owner_user_id"`
 	InviteCode  string    `json:"invite_code"`
+	RealmID     uuid.UUID `json:"realm_id"`
 }
 
 func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) (Campaign, error) {
-	row := q.db.QueryRow(ctx, createCampaign, arg.Name, arg.OwnerUserID, arg.InviteCode)
+	row := q.db.QueryRow(ctx, createCampaign,
+		arg.Name,
+		arg.OwnerUserID,
+		arg.InviteCode,
+		arg.RealmID,
+	)
 	var i Campaign
 	err := row.Scan(
 		&i.ID,
@@ -64,6 +70,7 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
@@ -82,7 +89,7 @@ func (q *Queries) DeleteCampaign(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCampaign = `-- name: GetCampaign :one
-SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player FROM campaigns WHERE id = $1
+SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id FROM campaigns WHERE id = $1
 `
 
 func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, error) {
@@ -100,12 +107,13 @@ func (q *Queries) GetCampaign(ctx context.Context, id uuid.UUID) (Campaign, erro
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
 
 const getCampaignByInviteCode = `-- name: GetCampaignByInviteCode :one
-SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player FROM campaigns WHERE invite_code = $1
+SELECT id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id FROM campaigns WHERE invite_code = $1
 `
 
 func (q *Queries) GetCampaignByInviteCode(ctx context.Context, inviteCode string) (Campaign, error) {
@@ -123,6 +131,7 @@ func (q *Queries) GetCampaignByInviteCode(ctx context.Context, inviteCode string
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
@@ -167,9 +176,10 @@ func (q *Queries) JoinCampaign(ctx context.Context, arg JoinCampaignParams) erro
 }
 
 const listCampaignsForUser = `-- name: ListCampaignsForUser :many
-SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, c.next_session_at, c.progression, c.max_level, c.require_seating_approval, c.hidden_sheets, c.max_seated_per_player, m.role
+SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, c.next_session_at, c.progression, c.max_level, c.require_seating_approval, c.hidden_sheets, c.max_seated_per_player, c.realm_id, m.role, r.name AS realm_name
 FROM campaigns c
 JOIN memberships m ON m.campaign_id = c.id
+JOIN realms r ON r.id = c.realm_id
 WHERE m.user_id = $1
 ORDER BY c.created_at
 `
@@ -186,10 +196,16 @@ type ListCampaignsForUserRow struct {
 	RequireSeatingApproval bool               `json:"require_seating_approval"`
 	HiddenSheets           bool               `json:"hidden_sheets"`
 	MaxSeatedPerPlayer     int16              `json:"max_seated_per_player"`
+	RealmID                uuid.UUID          `json:"realm_id"`
 	Role                   MembershipRole     `json:"role"`
+	RealmName              string             `json:"realm_name"`
 }
 
-// Campaigns the user belongs to, with their per-campaign role.
+// Campaigns the user belongs to, with their per-campaign role and the realm
+// they stand in (#233). The realm's NAME rides along for everyone, DM and
+// player alike: a table knowing the name of its setting is not a secret, and
+// it is the only way a player ever learns it. Who may LIST, rename, move or
+// strike a realm is a separate question, and the answer is its owner.
 func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([]ListCampaignsForUserRow, error) {
 	rows, err := q.db.Query(ctx, listCampaignsForUser, userID)
 	if err != nil {
@@ -211,7 +227,9 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 			&i.RequireSeatingApproval,
 			&i.HiddenSheets,
 			&i.MaxSeatedPerPlayer,
+			&i.RealmID,
 			&i.Role,
+			&i.RealmName,
 		); err != nil {
 			return nil, err
 		}
@@ -224,7 +242,7 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 }
 
 const regenerateInviteCode = `-- name: RegenerateInviteCode :one
-UPDATE campaigns SET invite_code = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player
+UPDATE campaigns SET invite_code = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id
 `
 
 type RegenerateInviteCodeParams struct {
@@ -247,12 +265,13 @@ func (q *Queries) RegenerateInviteCode(ctx context.Context, arg RegenerateInvite
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
 
 const setHiddenSheets = `-- name: SetHiddenSheets :one
-UPDATE campaigns SET hidden_sheets = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player
+UPDATE campaigns SET hidden_sheets = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id
 `
 
 type SetHiddenSheetsParams struct {
@@ -276,12 +295,13 @@ func (q *Queries) SetHiddenSheets(ctx context.Context, arg SetHiddenSheetsParams
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
 
 const setMaxLevel = `-- name: SetMaxLevel :one
-UPDATE campaigns SET max_level = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player
+UPDATE campaigns SET max_level = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id
 `
 
 type SetMaxLevelParams struct {
@@ -304,12 +324,13 @@ func (q *Queries) SetMaxLevel(ctx context.Context, arg SetMaxLevelParams) (Campa
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
 
 const setMaxSeatedPerPlayer = `-- name: SetMaxSeatedPerPlayer :one
-UPDATE campaigns SET max_seated_per_player = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player
+UPDATE campaigns SET max_seated_per_player = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id
 `
 
 type SetMaxSeatedPerPlayerParams struct {
@@ -332,12 +353,13 @@ func (q *Queries) SetMaxSeatedPerPlayer(ctx context.Context, arg SetMaxSeatedPer
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
 
 const setNextSession = `-- name: SetNextSession :one
-UPDATE campaigns SET next_session_at = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player
+UPDATE campaigns SET next_session_at = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id
 `
 
 type SetNextSessionParams struct {
@@ -360,12 +382,13 @@ func (q *Queries) SetNextSession(ctx context.Context, arg SetNextSessionParams) 
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
 
 const setProgression = `-- name: SetProgression :one
-UPDATE campaigns SET progression = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player
+UPDATE campaigns SET progression = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id
 `
 
 type SetProgressionParams struct {
@@ -388,6 +411,7 @@ func (q *Queries) SetProgression(ctx context.Context, arg SetProgressionParams) 
 		&i.RequireSeatingApproval,
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
 	)
 	return i, err
 }
