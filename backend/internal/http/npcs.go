@@ -228,22 +228,27 @@ const (
 	controlTable  = "table"
 )
 
-// runsAlly reports whether this viewer may move an ally's hit points and read
+// runsNpc reports whether this viewer may move an ally's hit points and read
 // what stands behind them. Nobody runs a person who is not traveling.
-func runsAlly(r db.ListNpcsRow, isDM bool, viewer uuid.UUID) bool {
+func runsNpc(n db.Npc, isDM bool, viewer uuid.UUID) bool {
 	if isDM {
 		return true
 	}
-	if !r.Traveling {
+	if !n.Traveling {
 		return false
 	}
-	switch r.Control {
+	switch n.Control {
 	case controlTable:
 		return true
 	case controlPlayer:
-		return r.ControlUserID.Valid && uuid.UUID(r.ControlUserID.Bytes) == viewer
+		return n.ControlUserID.Valid && uuid.UUID(n.ControlUserID.Bytes) == viewer
 	}
 	return false
+}
+
+// runsAlly is the same rule for a caller holding a list row.
+func runsAlly(r db.ListNpcsRow, isDM bool, viewer uuid.UUID) bool {
+	return runsNpc(npcFromListRow(r), isDM, viewer)
 }
 
 // allyHP resolves what a traveler has left and their maximum from whatever
@@ -321,14 +326,17 @@ func npcForViewer(r db.ListNpcsRow, nv *npcVeil, isDM, showStats bool, viewer uu
 			out.StatBlock = &block
 		}
 		if r.CharacterID.Valid {
-			// A freeform quick-add has no sheet worth opening — the link led
-			// players to an empty page (#250). The DM keeps it regardless;
-			// they may be mid-forge.
-			if forged, ok := r.CharacterForged.(bool); isDM || (ok && forged) {
-				id := uuid.UUID(r.CharacterID.Bytes)
-				out.CharacterId = &id
-				out.CharacterName = r.CharacterName
-			}
+			// #250 hid this from players unless the sheet came out of the
+			// Forge, because back then an NPC's sheet WAS a seated hero and a
+			// quick-added one was somebody's scratch entry — a link to an
+			// empty page. A body is not that (#227): it is forged for this
+			// person on the Folk page, it is the DM's to flesh out, and it can
+			// never carry a class_id because it never goes through the wizard.
+			// So the old test had quietly come to mean "never", and the stats
+			// veil the DM opened handed players nothing at all (#267).
+			id := uuid.UUID(r.CharacterID.Bytes)
+			out.CharacterId = &id
+			out.CharacterName = r.CharacterName
 		}
 	}
 	if isDM {
@@ -400,6 +408,71 @@ func (s *Server) loadNpcs(ctx context.Context, campaignID uuid.UUID, isDM bool, 
 	return out, nil
 }
 
+/*
+Reading a body (#267).
+
+A body is the sheet forged for one of the Folk, and it is read through its
+PERSON — never through `campaigns.hidden_sheets`. That veil is about players not
+reading one another's heroes, and a body has no player: it is DM-owned and
+seated only because a sheet has to live somewhere. Asking it about a body got
+the answer wrong in both directions. With the veil drawn it refused a sheet the
+DM had deliberately opened, so the Folk page offered a link that 403'd; with the
+veil down — which is nearly every table — it consulted nothing at all, and the
+person's own veil, the stats veil and the place tree above them were simply not
+in the conversation.
+
+So the rule is the one `GET /npcs` already runs, and the two doors now give the
+same answer because they are the same answer.
+*/
+
+// bodyReadable is the rule alone: may this viewer read the sheet forged for
+// this person? The DM always; whoever runs them, because control carries the
+// numbers (#228); otherwise the stats veil, which only ever opens where the
+// person is known.
+func bodyReadable(n db.Npc, nv *npcVeil, places *veil, isDM bool, viewer uuid.UUID, charIDs []uuid.UUID) bool {
+	if isDM || runsNpc(n, isDM, viewer) {
+		return true
+	}
+	return nv.statsVisibleToAny(n, places, charIDs)
+}
+
+// bodyReadableBy answers the same question for a body in hand, loading what the
+// rule needs. A body whose person has gone — which the schema no longer allows
+// to happen, but a 500 is not an answer — is nobody's to read but the DM's,
+// and they are already through on ownership before this is asked.
+func (s *Server) bodyReadableBy(ctx context.Context, body db.Character, viewer uuid.UUID) (bool, error) {
+	n, err := s.queries.GetNpcByCharacter(ctx, pgUUID(body.ID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	member, err := s.requireMember(ctx, n.CampaignID)
+	if err != nil {
+		if errors.Is(err, errForbidden) || errors.Is(err, errNoAuth) {
+			return false, nil
+		}
+		return false, err
+	}
+	if member.Role == db.MembershipRoleDm {
+		return true, nil
+	}
+	nv, err := s.loadNpcVeil(ctx, n.CampaignID)
+	if err != nil {
+		return false, err
+	}
+	places, err := s.loadVeil(ctx, n.CampaignID)
+	if err != nil {
+		return false, err
+	}
+	charIDs, err := s.seatedCharacterIDs(ctx, n.CampaignID, viewer)
+	if err != nil {
+		return false, err
+	}
+	return bodyReadable(n, nv, places, false, viewer, charIDs), nil
+}
+
 // oneNpc re-reads a single person after a DM's change, so every write answers
 // with the same shape the list does.
 func (s *Server) oneNpc(ctx context.Context, campaignID, npcID, viewer uuid.UUID) (api.Npc, error) {
@@ -450,6 +523,7 @@ const (
 	errNotInDen   = "that stat block is not in your Den"
 	errBothStats  = "a person carries a stat block or a sheet, never both"
 	errNotNpcBody = "that sheet is not one of this campaign's Folk — forge a body for the person instead"
+	errBodyTaken  = "that body was forged for somebody else — one sheet stands behind one person"
 	errHasBody    = "that person already has a sheet"
 )
 
@@ -504,6 +578,16 @@ func (s *Server) resolveNpcStats(ctx context.Context, campaignID, dmID uuid.UUID
 			at, ok := seatedCampaign(c)
 			if !ok || at != campaignID || c.Kind != db.CharacterKindNpc {
 				return pgtype.UUID{}, pgtype.UUID{}, errNotNpcBody, nil
+			}
+			// And it stands behind one person only (#267). A shared body has
+			// no single owner to be read through, and parting with it would
+			// strike a sheet the other person is still using — so the schema
+			// forbids it and this is the sentence that says why.
+			switch owner, err := s.queries.GetNpcByCharacter(ctx, pgUUID(c.ID)); {
+			case err != nil && !errors.Is(err, pgx.ErrNoRows):
+				return pgtype.UUID{}, pgtype.UUID{}, "", err
+			case err == nil && owner.ID != current.ID:
+				return pgtype.UUID{}, pgtype.UUID{}, errBodyTaken, nil
 			}
 			characterID = pgUUID(c.ID)
 			contentID = pgtype.UUID{}

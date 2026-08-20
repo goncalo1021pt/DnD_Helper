@@ -102,6 +102,7 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			Xp:             row.Xp,
 			PendingLevels:  row.PendingLevels,
 			TableBorn:      row.TableBorn,
+			Kind:           row.Kind,
 			PartyID:        row.PartyID,
 		}, row.OwnerName, member.UserID, row.ClassData, classesOf[row.ID])
 		character.PartyName = row.PartyName
@@ -482,6 +483,7 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 		CreatedAt:     c.CreatedAt.Time,
 		Mine:          c.OwnerUserID == viewer,
 		TableBorn:     c.TableBorn,
+		Kind:          api.CharacterKind(c.Kind),
 		PartyId:       partyID,
 	}
 }

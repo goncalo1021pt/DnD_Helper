@@ -5,7 +5,6 @@
 SELECT n.*,
        l.name AS location_name,
        c.name AS character_name,
-       (c.class_id IS NOT NULL) AS character_forged,
        -- A sheet-backed ally's hit points live on the sheet, which is the only
        -- place that can hold them; the person's own hp_current stays NULL.
        c.hp_current AS character_hp_current,
@@ -26,6 +25,13 @@ ORDER BY l.name NULLS LAST, n.name;
 
 -- name: GetNpc :one
 SELECT * FROM npcs WHERE id = $1;
+
+-- name: GetNpcByCharacter :one
+-- The person a body stands behind (#267). A body is read through its person's
+-- two veils rather than through the table's hero veil, so the sheet door has to
+-- be able to walk back from the sheet to whoever it was forged for. One row at
+-- most: a unique index holds one body to one person.
+SELECT * FROM npcs WHERE character_id = $1;
 
 -- name: CreateNpc :one
 INSERT INTO npcs (campaign_id, name, description, location_id, content_id, character_id, created_by)

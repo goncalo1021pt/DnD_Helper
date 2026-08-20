@@ -75,14 +75,27 @@ func (s *Server) GetCharacter(ctx context.Context, request api.GetCharacterReque
 	}
 	uid, _ := auth.UserID(ctx)
 
-	// A veiled table keeps the sheet itself out of reach — spells, inventory
-	// and all. The roster still names the hero.
-	veiled, err := s.sheetVeiledFrom(ctx, character, uid)
-	if err != nil {
-		return nil, err
-	}
-	if veiled {
-		return api.GetCharacter403JSONResponse{ForbiddenJSONResponse: veiledSheet()}, nil
+	if character.Kind == db.CharacterKindNpc {
+		// A body is read through its person, never through the table's hero
+		// veil (#267) — and a body the viewer may not read is absent rather
+		// than refused, so it cannot be told apart from one that never was.
+		readable, err := s.bodyReadableBy(ctx, character, uid)
+		if err != nil {
+			return nil, err
+		}
+		if !readable {
+			return api.GetCharacter404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+	} else {
+		// A veiled table keeps the sheet itself out of reach — spells,
+		// inventory and all. The roster still names the hero.
+		veiled, err := s.sheetVeiledFrom(ctx, character, uid)
+		if err != nil {
+			return nil, err
+		}
+		if veiled {
+			return api.GetCharacter403JSONResponse{ForbiddenJSONResponse: veiledSheet()}, nil
+		}
 	}
 
 	ownerName, err := s.ownerName(ctx, character.OwnerUserID)
