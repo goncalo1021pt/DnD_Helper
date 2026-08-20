@@ -254,3 +254,80 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+/maps/{mapId}/shapes:
+  parameters:
+    - name: mapId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: createMapShape
+    summary: Draw a road or a region on a map (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapShapeInput"
+    responses:
+      "201":
+        description: The shape as drawn
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapShape"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/shapes/{shapeId}:
+  parameters:
+    - name: shapeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateMapShape
+    summary: Redraw or restyle a shape (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapShapeInput"
+    responses:
+      "200":
+        description: The shape as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapShape"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteMapShape
+    summary: Rub a shape off the map (DM only)
+    responses:
+      "204":
+        description: Gone
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

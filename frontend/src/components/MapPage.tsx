@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
-import type { CampaignMap, MapPin } from "../api/client";
+import type { CampaignMap, MapPin, MapPoint, MapShape } from "../api/client";
 import {
   useCreateMapPin,
+  useCreateMapShape,
   useDeleteMapPin,
+  useDeleteMapShape,
+  useUpdateMapShape,
   useDeleteReveals,
   useLocations,
   useMapDetail,
@@ -22,6 +25,8 @@ import { FogCanvas, revealSig } from "./map/FogCanvas";
 import { HangMapForm } from "./map/HangMapForm";
 import { PinForm } from "./map/PinForm";
 import { PinMarker } from "./map/PinMarker";
+import { ShapeForm, type ShapeDraft } from "./map/ShapeForm";
+import { ShapeLayer } from "./map/ShapeLayer";
 import { RevealLedger } from "./map/RevealLedger";
 import { useMapViewer } from "./map/useMapViewer";
 import { useRevealDraft } from "./map/useRevealDraft";
@@ -51,6 +56,9 @@ export default function MapPage() {
   const parties = (partyRoll ?? []).filter((p) => p.heroCount > 0);
   const [submitPartyId, setSubmitPartyId] = useState("");
   const deleteReveals = useDeleteReveals(currentId ?? "");
+  const createShape = useCreateMapShape(currentId ?? "");
+  const updateShape = useUpdateMapShape(currentId ?? "");
+  const deleteShape = useDeleteMapShape(currentId ?? "");
   const setRevealLocation = useSetRevealLocation(currentId ?? "");
 
   // The place tree, so a reveal can be handed to whoever knows that place
@@ -83,6 +91,25 @@ export default function MapPage() {
   const [hanging, setHanging] = useState(false);
   const [atlasOpen, setAtlasOpen] = useState(false);
 
+  /*
+  Drawing a road or a region (#262).
+
+  One gesture serves both: tap to lay down points, and finish. What is being
+  drawn is only `drawKind`, which decides whether the run is stroked along or
+  filled in — and, at the end, which words the form uses.
+  */
+  const [drawKind, setDrawKind] = useState<"line" | "area" | null>(null);
+  const [drawPoints, setDrawPoints] = useState<MapPoint[]>([]);
+  const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
+
+  function stopDrawing() {
+    setDrawKind(null);
+    setDrawPoints([]);
+  }
+
+  // A line needs two points to go anywhere, a region three to enclose any.
+  const drawEnough = drawPoints.length >= (drawKind === "area" ? 3 : 2);
+
   // What a tap means is the page's business, not the viewer's: the viewer only
   // says that one happened, and where on the map it landed.
   const {
@@ -100,11 +127,14 @@ export default function MapPage() {
       mapId: currentId,
       onTap: (at) => {
         if (!isDM) return;
-        if (dropMode) setNewPinAt(at);
+        if (drawKind) setDrawPoints((pts) => [...pts, { x: at.x, y: at.y }]);
+        else if (dropMode) setNewPinAt(at);
         else if (stampMode) draftState.stamp(at);
       },
       onMapChanged: () => {
         setDropMode(false);
+        stopDrawing();
+        setShapeDraft(null);
         draftState.reset();
       },
     });
@@ -272,6 +302,20 @@ export default function MapPage() {
                   </button>
                 </>
               )}
+              {map && (
+                <button
+                  onClick={() => {
+                    setDrawKind((k) => (k ? null : "line"));
+                    setDrawPoints([]);
+                    setDropMode(false);
+                    setStampMode(false);
+                  }}
+                  className={`btn-base ${drawKind ? "btn-wax" : "btn-ghost-gold"} px-3 py-2.5 text-[11px]`}
+                >
+                  <IconPencil size={13} strokeWidth={1.9} />
+                  {drawKind ? "Drawing…" : "Draw"}
+                </button>
+              )}
               <button
                 onClick={() => setHanging(true)}
                 className="btn-base btn-gold clip-octagon h-10 px-4 text-[12px]"
@@ -358,6 +402,21 @@ export default function MapPage() {
                 isDM={isDM}
               />
             )}
+            {/* Under the pins, over the map: a road should not cover a
+                marker standing on it. */}
+            <ShapeLayer
+              shapes={detail?.shapes ?? []}
+              draft={drawKind ? drawPoints : undefined}
+              drawingArea={drawKind === "area"}
+              width={map.width}
+              height={map.height}
+              onOpen={
+                isDM && !drawKind
+                  ? (shape: MapShape) =>
+                      setShapeDraft({ kind: shape.kind, points: shape.points, existing: shape })
+                  : undefined
+              }
+            />
             {(detail?.pins ?? []).map((p) => (
               <PinMarker key={p.id} pin={p} scale={view.scale} onOpen={setOpenPin} />
             ))}
@@ -393,6 +452,59 @@ export default function MapPage() {
             </div>
           )}
 
+          {drawKind && (
+            <div
+              className="absolute left-1/2 top-3 flex max-w-[95%] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-[3px] px-3.5 py-2"
+              style={{ background: "rgba(16,9,5,.88)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.4)" }}
+            >
+              <span className="flex items-center gap-1">
+                {(["line", "area"] as const).map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => setDrawKind(k)}
+                    className={`label-stamp cursor-pointer rounded-[2px] border-none px-2 py-1 text-[9px] font-semibold tracking-[1px] transition ${
+                      drawKind === k ? "text-[#f0dfb8]" : "text-gold-muted hover:text-ember-bright"
+                    }`}
+                    style={{ background: drawKind === k ? "rgba(201,162,39,.22)" : "transparent" }}
+                  >
+                    {k === "line" ? "Road" : "Region"}
+                  </button>
+                ))}
+              </span>
+              <span className="label-stamp text-[10px] tracking-[1.5px] text-[#f0dfb8]">
+                {drawPoints.length === 0
+                  ? drawKind === "area"
+                    ? "Tap the corners"
+                    : "Tap along the road"
+                  : `${drawPoints.length} ${drawPoints.length === 1 ? "point" : "points"}`}
+              </span>
+              {drawPoints.length > 0 && (
+                <button
+                  onClick={() => setDrawPoints((pts) => pts.slice(0, -1))}
+                  className="label-stamp cursor-pointer border-none bg-transparent text-[10px] font-semibold tracking-[1px] text-gold-muted transition hover:text-ember-bright"
+                >
+                  Undo
+                </button>
+              )}
+              <button
+                disabled={!drawEnough}
+                onClick={() => {
+                  setShapeDraft({ kind: drawKind, points: drawPoints });
+                  stopDrawing();
+                }}
+                className="btn-base btn-gold h-7 px-3 py-0 text-[10px] disabled:opacity-40"
+              >
+                Finish
+              </button>
+              <button
+                onClick={stopDrawing}
+                className="label-stamp cursor-pointer border-none bg-transparent text-[10px] font-semibold tracking-[1px] text-gold-muted transition hover:text-ember-bright"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
           {/* the stamping bar: draft controls, nothing committed until Submit */}
           {stampMode && (
             <div
@@ -406,7 +518,10 @@ export default function MapPage() {
               </span>
               <span className="flex items-center gap-1">
                 <button
-                  onClick={() => setBrush((b) => Math.max(0.015, b / 1.35))}
+                  // The floor used to be 0.015, which reads as 3 on the dial —
+                  // too coarse to lift a single room or a stretch of street
+                  // (#262). The server has always accepted anything above 0.
+                  onClick={() => setBrush((b) => Math.max(0.005, b / 1.35))}
                   title="Smaller brush"
                   className="font-heading h-6 w-6 cursor-pointer rounded-[2px] border-none text-[13px] font-bold text-[#e0c890]"
                   style={{ background: "rgba(255,255,255,.06)" }}
@@ -530,7 +645,7 @@ export default function MapPage() {
             Drop a Pin
           </h3>
           <PinForm
-            initial={{ label: "", note: "", dmOnly: false, linkMapId: "" }}
+            initial={{ label: "", note: "", dmOnly: false, linkMapId: "", shape: "pin" }}
             maps={maps ?? []}
             currentMapId={map.id}
             isPending={createPin.isPending}
@@ -544,6 +659,7 @@ export default function MapPage() {
                   x: newPinAt.x,
                   y: newPinAt.y,
                   dmOnly: v.dmOnly,
+                  shape: v.shape,
                   ...(v.linkMapId ? { linkMapId: v.linkMapId } : {}),
                 },
                 {
@@ -573,6 +689,7 @@ export default function MapPage() {
               note: editingPin.note,
               dmOnly: editingPin.dmOnly,
               linkMapId: editingPin.linkMapId ?? "",
+              shape: editingPin.shape ?? "pin",
             }}
             maps={maps ?? []}
             currentMapId={map.id}
@@ -589,12 +706,50 @@ export default function MapPage() {
                     x: editingPin.x,
                     y: editingPin.y,
                     dmOnly: v.dmOnly,
+                    shape: v.shape,
                     ...(v.linkMapId ? { linkMapId: v.linkMapId } : {}),
                   },
                 },
                 { onSuccess: () => setEditingPin(null) },
               )
             }
+          />
+        </ParchmentModal>
+      )}
+
+      {/* naming and styling a road or a region (#262) */}
+      {shapeDraft && (
+        <ParchmentModal onClose={() => setShapeDraft(null)} maxWidth="max-w-[460px]">
+          <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
+            {shapeDraft.kind === "area" ? "A region" : "A road"}
+          </div>
+          <h3 className="font-display m-0 mb-4 text-center text-2xl font-bold text-ink">
+            {shapeDraft.existing ? "Redraw it" : "Ink it in"}
+          </h3>
+          <ShapeForm
+            draft={shapeDraft}
+            locations={locations ?? []}
+            isPending={createShape.isPending || updateShape.isPending}
+            errorText={
+              ((createShape.error ?? updateShape.error) as { error?: string } | null)?.error
+            }
+            onSubmit={(body) => {
+              const done = { onSuccess: () => setShapeDraft(null) };
+              if (shapeDraft.existing) {
+                updateShape.mutate({ shapeId: shapeDraft.existing.id, body }, done);
+              } else {
+                createShape.mutate(body, done);
+              }
+            }}
+            onDelete={
+              shapeDraft.existing
+                ? () =>
+                    deleteShape.mutate(shapeDraft.existing!.id, {
+                      onSuccess: () => setShapeDraft(null),
+                    })
+                : undefined
+            }
+            onCancel={() => setShapeDraft(null)}
           />
         </ParchmentModal>
       )}

@@ -1588,6 +1588,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/maps/{mapId}/shapes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Draw a road or a region on a map (DM only) */
+        post: operations["createMapShape"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/shapes/{shapeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shapeId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Rub a shape off the map (DM only) */
+        delete: operations["deleteMapShape"];
+        options?: never;
+        head?: never;
+        /** Redraw or restyle a shape (DM only) */
+        patch: operations["updateMapShape"];
+        trace?: never;
+    };
     "/maps/{mapId}/reveals": {
         parameters: {
             query?: never;
@@ -3014,6 +3053,11 @@ export interface components {
             y: number;
             dmOnly: boolean;
             /**
+             * @description What the marker looks like (#262). `pin` is the teardrop every pin was before shapes existed, and remains the default.
+             * @enum {string}
+             */
+            shape?: "pin" | "circle" | "square" | "diamond" | "triangle" | "star" | "cross" | "skull";
+            /**
              * Format: uuid
              * @description When set, this pin is a region marker leading into that sub-map.
              */
@@ -3021,9 +3065,63 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        MapPoint: {
+            /** @description Fraction of the image width, 0..1. */
+            x: number;
+            /** @description Fraction of the image height, 0..1. */
+            y: number;
+        };
+        MapShape: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            mapId: string;
+            /**
+             * @description `line` is stroked along its points — a road, a street, a river. `area` is filled between them — a kingdom, a district, a region. The two are one table because they are one gesture (#262).
+             * @enum {string}
+             */
+            kind: "line" | "area";
+            label: string;
+            /** @description The run of points, in order, as fractions of the image — the same normalisation a pin's x/y uses, so a shape survives the map being re-hung at another size. An `area` closes itself; the first point is not repeated at the end. */
+            points: components["schemas"]["MapPoint"][];
+            /** @description #rrggbb — the stroke of a line, the fill of an area. */
+            color: string;
+            dashed: boolean;
+            /** @description Stroke width as a fraction of the image width, so it scales with the map: a width in pixels would be a hair on one map and a river on another. */
+            width: number;
+            /** @description Fill opacity for an area, 0..1. Ignored by a line. */
+            opacity: number;
+            dmOnly: boolean;
+            /**
+             * Format: uuid
+             * @description The place this shape depicts, if any. Tint Barovia, and clicking it opens Barovia. Losing the place dims the link, never the drawing.
+             */
+            locationId?: string | null;
+            locationName?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        MapShapeInput: {
+            /** @enum {string} */
+            kind: "line" | "area";
+            label?: string;
+            points: components["schemas"]["MapPoint"][];
+            color?: string;
+            dashed?: boolean;
+            width?: number;
+            opacity?: number;
+            dmOnly?: boolean;
+            /**
+             * Format: uuid
+             * @description The nil UUID detaches the place, as everywhere else in this API.
+             */
+            locationId?: string | null;
+        };
         MapDetail: {
             map: components["schemas"]["CampaignMap"];
             pins: components["schemas"]["MapPin"][];
+            /** @description Roads and regions drawn on this map (#262), filtered for the caller exactly as pins are: a DM-only shape is absent from a player's payload, and under fog a line comes back clipped to the stretches standing on ground they have uncovered. */
+            shapes: components["schemas"]["MapShape"][];
             /** @description The caller's uncovered area — every circle for the DM; for a player, every circle stamped for the whole table plus every circle stamped while one of their own heroes stood in the party (#232). Empty when fog is off. */
             revealed: components["schemas"]["RevealCircle"][];
         };
@@ -3107,6 +3205,11 @@ export interface components {
             x: number;
             y: number;
             dmOnly?: boolean;
+            /**
+             * @description What the marker looks like (#262). `pin` is the teardrop every pin was before shapes existed, and remains the default.
+             * @enum {string}
+             */
+            shape?: "pin" | "circle" | "square" | "diamond" | "triangle" | "star" | "cross" | "skull";
             /** Format: uuid */
             linkMapId?: string | null;
         };
@@ -6989,6 +7092,89 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapPin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMapShape: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapShapeInput"];
+            };
+        };
+        responses: {
+            /** @description The shape as drawn */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapShape"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMapShape: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shapeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMapShape: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shapeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapShapeInput"];
+            };
+        };
+        responses: {
+            /** @description The shape as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapShape"];
                 };
             };
             400: components["responses"]["BadRequest"];

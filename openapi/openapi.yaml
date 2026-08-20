@@ -191,6 +191,10 @@ paths:
     $ref: "./paths/maps.yaml#/~1maps~1{mapId}"
   /maps/{mapId}/pins:
     $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1pins"
+  /maps/{mapId}/shapes:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1shapes"
+  /shapes/{shapeId}:
+    $ref: "./paths/maps.yaml#/~1shapes~1{shapeId}"
   /maps/{mapId}/reveals:
     $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1reveals"
   /reveals/{batchId}:
@@ -534,6 +538,12 @@ components:
       $ref: "./components/maps.yaml#/CampaignMap"
     MapPin:
       $ref: "./components/maps.yaml#/MapPin"
+    MapPoint:
+      $ref: "./components/maps.yaml#/MapPoint"
+    MapShape:
+      $ref: "./components/maps.yaml#/MapShape"
+    MapShapeInput:
+      $ref: "./components/maps.yaml#/MapShapeInput"
     MapDetail:
       $ref: "./components/maps.yaml#/MapDetail"
     RevealCircle:

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import type { PinShape } from "../../api/client";
+import { MarkerSwatch, PIN_SHAPES } from "./PinMarker";
 import type { CampaignMap } from "../../api/client";
 
 /* Create-or-edit pin form. */
@@ -11,18 +13,25 @@ export function PinForm({
   onCancel,
   onSubmit,
 }: {
-  initial: { label: string; note: string; dmOnly: boolean; linkMapId: string };
+  initial: { label: string; note: string; dmOnly: boolean; linkMapId: string; shape: PinShape };
   maps: CampaignMap[];
   currentMapId: string;
   isPending: boolean;
   errorText?: string;
   onCancel: () => void;
-  onSubmit: (v: { label: string; note: string; dmOnly: boolean; linkMapId: string }) => void;
+  onSubmit: (v: {
+    label: string;
+    note: string;
+    dmOnly: boolean;
+    linkMapId: string;
+    shape: PinShape;
+  }) => void;
 }) {
   const [label, setLabel] = useState(initial.label);
   const [note, setNote] = useState(initial.note);
   const [dmOnly, setDmOnly] = useState(initial.dmOnly);
   const [linkMapId, setLinkMapId] = useState(initial.linkMapId);
+  const [shape, setShape] = useState<PinShape>(initial.shape);
   const targets = maps.filter((m) => m.id !== currentMapId);
 
   return (
@@ -63,6 +72,32 @@ export function PinForm({
           </select>
         </label>
       )}
+
+      <div className="flex flex-col gap-1.5">
+        <span className="field-label">Marker</span>
+        <div className="flex flex-wrap gap-1.5">
+          {PIN_SHAPES.map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setShape(v)}
+              aria-label={v}
+              title={v}
+              className="flex h-8 w-8 items-center justify-center rounded-[3px] transition"
+              style={{
+                background: shape === v ? "rgba(139,37,32,.16)" : "rgba(60,35,15,.06)",
+                boxShadow:
+                  shape === v
+                    ? "inset 0 0 0 1.5px rgba(139,37,32,.7)"
+                    : "inset 0 0 0 1px rgba(60,35,15,.28)",
+              }}
+            >
+              <MarkerSwatch shape={v} />
+            </button>
+          ))}
+        </div>
+      </div>
+
       <label className="flex cursor-pointer items-center gap-2">
         <input
           type="checkbox"
@@ -81,7 +116,7 @@ export function PinForm({
           Cancel
         </button>
         <button
-          onClick={() => onSubmit({ label, note, dmOnly, linkMapId })}
+          onClick={() => onSubmit({ label, note, dmOnly, linkMapId, shape })}
           disabled={!label.trim() || isPending}
           className="btn-base btn-gold clip-octagon h-11 px-6 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
         >

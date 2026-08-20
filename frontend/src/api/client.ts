@@ -42,6 +42,13 @@ export type Npc =
 export type NpcInput = NonNullable<
   paths["/campaigns/{campaignId}/npcs"]["post"]["requestBody"]
 >["content"]["application/json"];
+export type MapShape =
+  paths["/maps/{mapId}"]["get"]["responses"]["200"]["content"]["application/json"]["shapes"][number];
+export type MapShapeInput = NonNullable<
+  paths["/maps/{mapId}/shapes"]["post"]["requestBody"]
+>["content"]["application/json"];
+export type MapPoint = MapShape["points"][number];
+export type PinShape = NonNullable<MapPin["shape"]>;
 export type Realm =
   paths["/realms"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type Party =

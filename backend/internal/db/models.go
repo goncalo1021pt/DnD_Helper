@@ -231,6 +231,48 @@ func (ns NullCreatureRole) Value() (driver.Value, error) {
 	return string(ns.CreatureRole), nil
 }
 
+type MapShapeKind string
+
+const (
+	MapShapeKindLine MapShapeKind = "line"
+	MapShapeKindArea MapShapeKind = "area"
+)
+
+func (e *MapShapeKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MapShapeKind(s)
+	case string:
+		*e = MapShapeKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MapShapeKind: %T", src)
+	}
+	return nil
+}
+
+type NullMapShapeKind struct {
+	MapShapeKind MapShapeKind `json:"map_shape_kind"`
+	Valid        bool         `json:"valid"` // Valid is true if MapShapeKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMapShapeKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.MapShapeKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MapShapeKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMapShapeKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MapShapeKind), nil
+}
+
 type MembershipRole string
 
 const (
@@ -761,6 +803,23 @@ type MapPin struct {
 	DmOnly    bool               `json:"dm_only"`
 	LinkMapID pgtype.UUID        `json:"link_map_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Shape     string             `json:"shape"`
+}
+
+type MapShape struct {
+	ID         uuid.UUID          `json:"id"`
+	MapID      uuid.UUID          `json:"map_id"`
+	Kind       MapShapeKind       `json:"kind"`
+	Label      string             `json:"label"`
+	Points     []byte             `json:"points"`
+	Color      string             `json:"color"`
+	Dashed     bool               `json:"dashed"`
+	Width      float64            `json:"width"`
+	Opacity    float64            `json:"opacity"`
+	DmOnly     bool               `json:"dm_only"`
+	LocationID pgtype.UUID        `json:"location_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Membership struct {

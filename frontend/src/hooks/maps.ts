@@ -4,7 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { MapPinInput } from "../api/client";
+import type { MapPinInput, MapShapeInput } from "../api/client";
 
 export function useMaps(campaignId: string) {
   return useQuery({
@@ -207,3 +207,50 @@ export function useDeleteReveals(mapId: string) {
 }
 
 // ── Encounters ───────────────────────────────────────────────────────────
+
+/*
+ * Roads and regions drawn on a map (#262).
+ *
+ * Both are the same thing to the server — an ordered run of points, stroked or
+ * filled — so one set of hooks serves the street tool and the kingdom overlay,
+ * and every one of them re-reads the map detail, which is where shapes arrive
+ * already filtered for the caller.
+ */
+function useShapeMutation<TVars>(mapId: string, run: (vars: TVars) => Promise<unknown>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: run,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["map", mapId] }),
+  });
+}
+
+export function useCreateMapShape(mapId: string) {
+  return useShapeMutation(mapId, async (body: MapShapeInput) => {
+    const { data, error } = await api.POST("/maps/{mapId}/shapes", {
+      params: { path: { mapId } },
+      body,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useUpdateMapShape(mapId: string) {
+  return useShapeMutation(mapId, async (vars: { shapeId: string; body: MapShapeInput }) => {
+    const { data, error } = await api.PATCH("/shapes/{shapeId}", {
+      params: { path: { shapeId: vars.shapeId } },
+      body: vars.body,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useDeleteMapShape(mapId: string) {
+  return useShapeMutation(mapId, async (shapeId: string) => {
+    const { error } = await api.DELETE("/shapes/{shapeId}", {
+      params: { path: { shapeId } },
+    });
+    if (error) throw error;
+  });
+}
