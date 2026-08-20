@@ -955,6 +955,14 @@ type User struct {
 	TotpEnabled   bool               `json:"totp_enabled"`
 }
 
+type UserIdentity struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     uuid.UUID          `json:"user_id"`
+	Provider   string             `json:"provider"`
+	ProviderID string             `json:"provider_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Vendor struct {
 	ID          uuid.UUID          `json:"id"`
 	CampaignID  uuid.UUID          `json:"campaign_id"`

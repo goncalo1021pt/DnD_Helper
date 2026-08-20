@@ -26,6 +26,40 @@ func (q *Queries) AddRecoveryCode(ctx context.Context, arg AddRecoveryCodeParams
 	return err
 }
 
+const adoptEmail = `-- name: AdoptEmail :one
+UPDATE users SET email = $2, email_verified = true
+WHERE id = $1 AND nullif(trim(email), '') IS NULL
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled
+`
+
+type AdoptEmailParams struct {
+	ID    uuid.UUID `json:"id"`
+	Email *string   `json:"email"`
+}
+
+// Give a verified address to an account that has none. A provider vouches for
+// what it hands over, so an account that arrived without one (Discord without
+// an email scope, a dev login) gains it the first time one is offered.
+func (q *Queries) AdoptEmail(ctx context.Context, arg AdoptEmailParams) (User, error) {
+	row := q.db.QueryRow(ctx, adoptEmail, arg.ID, arg.Email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
+		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
+	)
+	return i, err
+}
+
 const countUnusedRecoveryCodes = `-- name: CountUnusedRecoveryCodes :one
 SELECT count(*) FROM twofa_recovery_codes
 WHERE user_id = $1 AND used_at IS NULL
@@ -75,9 +109,15 @@ func (q *Queries) CreateEmailToken(ctx context.Context, arg CreateEmailTokenPara
 }
 
 const createLocalUser = `-- name: CreateLocalUser :one
-INSERT INTO users (name, username, email, password_hash, provider, provider_id)
-VALUES ($1, $2, $3, $4, 'local', lower($2))
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled
+WITH new_user AS (
+    INSERT INTO users (name, username, email, password_hash, provider, provider_id)
+    VALUES ($1, $2, $3, $4, 'local', lower($2))
+    RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled
+), door AS (
+    INSERT INTO user_identities (user_id, provider, provider_id)
+    SELECT id, 'local', lower($2) FROM new_user
+)
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM new_user
 `
 
 type CreateLocalUserParams struct {
@@ -87,15 +127,74 @@ type CreateLocalUserParams struct {
 	PasswordHash *string `json:"password_hash"`
 }
 
+type CreateLocalUserRow struct {
+	ID            uuid.UUID          `json:"id"`
+	Name          string             `json:"name"`
+	Email         *string            `json:"email"`
+	Image         *string            `json:"image"`
+	Provider      string             `json:"provider"`
+	ProviderID    string             `json:"provider_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Username      *string            `json:"username"`
+	PasswordHash  *string            `json:"password_hash"`
+	EmailVerified bool               `json:"email_verified"`
+	TotpSecret    *string            `json:"totp_secret"`
+	TotpEnabled   bool               `json:"totp_enabled"`
+}
+
 // Register a username+password account. Display name defaults to the username;
 // provider_id mirrors the lowercased username so (provider, provider_id) stays
 // meaningful and unique.
-func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams) (User, error) {
+// The door is hung in the same statement: an account with no identity row
+// could never be signed in to, nor linked to later (#269).
+func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams) (CreateLocalUserRow, error) {
 	row := q.db.QueryRow(ctx, createLocalUser,
 		arg.Name,
 		arg.Username,
 		arg.Email,
 		arg.PasswordHash,
+	)
+	var i CreateLocalUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
+		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
+	)
+	return i, err
+}
+
+const createOAuthUser = `-- name: CreateOAuthUser :one
+INSERT INTO users (name, email, image, provider, provider_id, email_verified)
+VALUES ($1, $2, $3, $4, $5, true)
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled
+`
+
+type CreateOAuthUserParams struct {
+	Name       string  `json:"name"`
+	Email      *string `json:"email"`
+	Image      *string `json:"image"`
+	Provider   string  `json:"provider"`
+	ProviderID string  `json:"provider_id"`
+}
+
+// A brand-new account arriving through a provider. The provider vouches for
+// the address, so it lands verified.
+func (q *Queries) CreateOAuthUser(ctx context.Context, arg CreateOAuthUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createOAuthUser,
+		arg.Name,
+		arg.Email,
+		arg.Image,
+		arg.Provider,
+		arg.ProviderID,
 	)
 	var i User
 	err := row.Scan(
@@ -142,6 +241,33 @@ func (q *Queries) EnableTOTP(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getAnyUserByEmail = `-- name: GetAnyUserByEmail :one
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM users
+WHERE lower(nullif(trim(email), '')) = lower(trim($1))
+`
+
+// Whoever holds this address, verified or not — for telling somebody why they
+// were turned away, never for letting them in.
+func (q *Queries) GetAnyUserByEmail(ctx context.Context, btrim string) (User, error) {
+	row := q.db.QueryRow(ctx, getAnyUserByEmail, btrim)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
+		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
+	)
+	return i, err
+}
+
 const getEmailToken = `-- name: GetEmailToken :one
 SELECT id, user_id, purpose, token_hash, expires_at, used_at, created_at FROM email_tokens
 WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
@@ -168,7 +294,9 @@ SELECT id, name, email, image, provider, provider_id, created_at, username, pass
 WHERE provider = 'local' AND lower(email) = lower($1)
 `
 
-// For password recovery: a local account by verified-or-not email.
+// For password recovery: a local account by verified-or-not email. Still
+// scoped to 'local' — recovery sets a PASSWORD, and only an account born with
+// one has a password to reset (#269 made the address unique, not the door).
 func (q *Queries) GetLocalUserByEmail(ctx context.Context, lower string) (User, error) {
 	row := q.db.QueryRow(ctx, getLocalUserByEmail, lower)
 	var i User
@@ -287,17 +415,50 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
-const getUserByProvider = `-- name: GetUserByProvider :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM users WHERE provider = $1 AND provider_id = $2
+const getUserByIdentity = `-- name: GetUserByIdentity :one
+SELECT u.id, u.name, u.email, u.image, u.provider, u.provider_id, u.created_at, u.username, u.password_hash, u.email_verified, u.totp_secret, u.totp_enabled FROM users u
+JOIN user_identities i ON i.user_id = u.id
+WHERE i.provider = $1 AND i.provider_id = $2
 `
 
-type GetUserByProviderParams struct {
+type GetUserByIdentityParams struct {
 	Provider   string `json:"provider"`
 	ProviderID string `json:"provider_id"`
 }
 
-func (q *Queries) GetUserByProvider(ctx context.Context, arg GetUserByProviderParams) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByProvider, arg.Provider, arg.ProviderID)
+// The account behind one door (#269). Sign-in is keyed here now rather than on
+// users, which is what lets one account answer to a password AND to Google.
+func (q *Queries) GetUserByIdentity(ctx context.Context, arg GetUserByIdentityParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByIdentity, arg.Provider, arg.ProviderID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
+		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
+	)
+	return i, err
+}
+
+const getVerifiedUserByEmail = `-- name: GetVerifiedUserByEmail :one
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled FROM users
+WHERE email_verified
+  AND lower(nullif(trim(email), '')) = lower(trim($1))
+`
+
+// Who already holds this address, if they have PROVEN they hold it. Only a
+// verified account may be linked to: an unverified one may be a squatter
+// sitting on somebody else's address, and linking would hand them the account.
+func (q *Queries) GetVerifiedUserByEmail(ctx context.Context, btrim string) (User, error) {
+	row := q.db.QueryRow(ctx, getVerifiedUserByEmail, btrim)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -332,6 +493,35 @@ func (q *Queries) InvalidateUserTokens(ctx context.Context, arg InvalidateUserTo
 	return err
 }
 
+const linkIdentity = `-- name: LinkIdentity :one
+INSERT INTO user_identities (user_id, provider, provider_id)
+VALUES ($1, $2, $3)
+ON CONFLICT (provider, provider_id)
+    DO UPDATE SET user_id = user_identities.user_id
+RETURNING id, user_id, provider, provider_id, created_at
+`
+
+type LinkIdentityParams struct {
+	UserID     uuid.UUID `json:"user_id"`
+	Provider   string    `json:"provider"`
+	ProviderID string    `json:"provider_id"`
+}
+
+// Hang another door on an account. Re-linking one that is already there is a
+// no-op rather than an error, so a racing double callback cannot 500.
+func (q *Queries) LinkIdentity(ctx context.Context, arg LinkIdentityParams) (UserIdentity, error) {
+	row := q.db.QueryRow(ctx, linkIdentity, arg.UserID, arg.Provider, arg.ProviderID)
+	var i UserIdentity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const recordAdminAction = `-- name: RecordAdminAction :exec
 INSERT INTO admin_actions (action, target_user_id, target_label, note)
 VALUES ($1, $2, $3, $4)
@@ -353,6 +543,40 @@ func (q *Queries) RecordAdminAction(ctx context.Context, arg RecordAdminActionPa
 		arg.Note,
 	)
 	return err
+}
+
+const refreshOAuthProfile = `-- name: RefreshOAuthProfile :one
+UPDATE users SET name = $2, image = $3 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled
+`
+
+type RefreshOAuthProfileParams struct {
+	ID    uuid.UUID `json:"id"`
+	Name  string    `json:"name"`
+	Image *string   `json:"image"`
+}
+
+// What the provider tells us about somebody each time they come back. The
+// address is deliberately NOT touched: it is the account's identity now, one
+// account holds it, and a provider changing its mind must not silently move an
+// address off another account (or collide with it and fail the sign-in).
+func (q *Queries) RefreshOAuthProfile(ctx context.Context, arg RefreshOAuthProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, refreshOAuthProfile, arg.ID, arg.Name, arg.Image)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Email,
+		&i.Image,
+		&i.Provider,
+		&i.ProviderID,
+		&i.CreatedAt,
+		&i.Username,
+		&i.PasswordHash,
+		&i.EmailVerified,
+		&i.TotpSecret,
+		&i.TotpEnabled,
+	)
+	return i, err
 }
 
 const setEmailVerified = `-- name: SetEmailVerified :exec
@@ -391,53 +615,6 @@ type SetTOTPSecretParams struct {
 func (q *Queries) SetTOTPSecret(ctx context.Context, arg SetTOTPSecretParams) error {
 	_, err := q.db.Exec(ctx, setTOTPSecret, arg.ID, arg.TotpSecret)
 	return err
-}
-
-const upsertUser = `-- name: UpsertUser :one
-INSERT INTO users (name, email, image, provider, provider_id, email_verified)
-VALUES ($1, $2, $3, $4, $5, true)
-ON CONFLICT (provider, provider_id) DO UPDATE
-    SET name           = EXCLUDED.name,
-        email          = EXCLUDED.email,
-        image          = EXCLUDED.image,
-        email_verified = true
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled
-`
-
-type UpsertUserParams struct {
-	Name       string  `json:"name"`
-	Email      *string `json:"email"`
-	Image      *string `json:"image"`
-	Provider   string  `json:"provider"`
-	ProviderID string  `json:"provider_id"`
-}
-
-// Create or update a user on OAuth login, keyed by (provider, provider_id).
-// The provider vouches for the address, so OAuth users are always verified.
-func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, upsertUser,
-		arg.Name,
-		arg.Email,
-		arg.Image,
-		arg.Provider,
-		arg.ProviderID,
-	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Email,
-		&i.Image,
-		&i.Provider,
-		&i.ProviderID,
-		&i.CreatedAt,
-		&i.Username,
-		&i.PasswordHash,
-		&i.EmailVerified,
-		&i.TotpSecret,
-		&i.TotpEnabled,
-	)
-	return i, err
 }
 
 const useEmailToken = `-- name: UseEmailToken :exec

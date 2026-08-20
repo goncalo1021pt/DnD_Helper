@@ -77,6 +77,46 @@ docker compose exec postgres psql -U questboard -d questboard -c "SELECT created
 
 ---
 
+## An account lost its email address in the upgrade to #269
+
+Until migration 57, an email address was only unique among *password* accounts,
+so one person could end up with two accounts on one address — sign in with
+Google after registering with a password and you got a second, separate you.
+Migration 57 makes the address name exactly one account, and to do that it has
+to resolve any pair that already exists.
+
+**The rule it applies:** the account that held the address **first** keeps it.
+Nothing is deleted and nothing is moved — the later account keeps its rows, its
+username and its password, and can still sign in. It loses only the address,
+and with it **password recovery**.
+
+That is worth knowing about, so each one is recorded. After upgrading, check:
+
+```bash
+docker compose exec postgres psql -U questboard -d questboard -c \
+  "SELECT created_at, target_label, note FROM admin_actions WHERE action = 'email_freed' ORDER BY created_at;"
+```
+
+An empty result means no account was affected, which is the usual case.
+
+If one of the freed accounts is a real account somebody uses, the fix is theirs
+to choose, and there are only two honest options:
+
+- **Sign in to it and stop using it**, moving anything it owns to the account
+  that kept the address. Nothing here does that for you: an account merge would
+  repoint eighteen foreign keys and cannot be undone, so it is not a command.
+- **Give it a different address.** There is no self-serve door for changing an
+  address, so this is a direct update, and the address must not belong to
+  anybody else:
+
+```bash
+docker compose exec postgres psql -U questboard -d questboard -c \
+  "UPDATE users SET email = 'their-other@address.example', email_verified = false WHERE id = '<uuid>';"
+```
+
+They then confirm it the normal way, and from that point the provider button
+will link to this account rather than being refused.
+
 ## Setting up offsite backups (once)
 
 The nightly dumps land in `./backups` on this machine. That survives a bad

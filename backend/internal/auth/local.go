@@ -1,12 +1,14 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/mail"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
@@ -89,9 +91,12 @@ func (o *OAuth) register(w http.ResponseWriter, r *http.Request) {
 		case "idx_users_username", "users_provider_provider_id_key":
 			o.loginLimiter.record(ip, time.Now())
 			authError(w, http.StatusConflict, "username", "That username is already taken.")
-		case "idx_users_local_email":
+		// One address names one account now, whoever holds it (#269) — so
+		// this fires for a Google account's address too, which is the whole
+		// point: registering here used to make a SECOND you.
+		case "idx_users_email":
 			o.loginLimiter.record(ip, time.Now())
-			authError(w, http.StatusConflict, "email", "An account with that email already exists.")
+			authError(w, http.StatusConflict, "email", emailTakenMessage(o.emailHolder(r.Context(), email)))
 		default:
 			http.Error(w, "failed to create account", http.StatusInternalServerError)
 		}
@@ -161,6 +166,50 @@ func (o *OAuth) localLogin(w http.ResponseWriter, r *http.Request) {
 
 // ptr returns a pointer to s, matching sqlc's pointer types for text columns.
 func ptr(s string) *string { return &s }
+
+/*
+Telling somebody an address is taken, and how much to tell them.
+
+Saying only "already exists" is what this said before, and for a self-hosted
+table it is the unhelpful half of the tradeoff: the person is almost always the
+owner, standing at the wrong one of two doors, and "already exists" leaves them
+with nowhere to go. Naming the door they should use solves it in a sentence.
+
+What it costs is that a stranger can learn an address has an account here and
+which provider it came from. That was already discoverable — the old message
+disclosed existence, and this only adds which button to press — and the app is
+a private tavern for one table rather than a public directory. Worth it.
+*/
+func emailTakenMessage(provider string) string {
+	switch provider {
+	case "":
+		return "An account with that email already exists."
+	case "local":
+		return "That email already has an account here — sign in with your password instead."
+	default:
+		return "That email already signs in with " + titleCase(provider) + " — use that button instead."
+	}
+}
+
+// titleCase capitalises a provider name for a sentence: "google" -> "Google".
+func titleCase(s string) string {
+	r := []rune(s)
+	if len(r) == 0 {
+		return s
+	}
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
+}
+
+// emailHolder names the provider an address already belongs to, or "" if it
+// cannot be read. Only ever used to phrase a refusal, never to let anybody in.
+func (o *OAuth) emailHolder(ctx context.Context, email string) string {
+	held, err := o.queries.GetAnyUserByEmail(ctx, email)
+	if err != nil {
+		return ""
+	}
+	return held.Provider
+}
 
 // uniqueField returns the constraint/index name of a unique-violation error, or
 // "" if err is not a unique violation.

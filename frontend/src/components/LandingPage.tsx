@@ -9,6 +9,37 @@ import ParchmentModal from "./ui/ParchmentModal";
 import SiteFooter from "./ui/SiteFooter";
 import { IconCoins, IconHome, IconScroll, IconUsers } from "./ui/icons";
 
+/*
+Why a provider sign-in was turned away (#269).
+
+The OAuth callback is a full-page redirect, so a refusal cannot be a JSON body
+the way the password form's is — it comes back as a query parameter. There is
+exactly one, and it is a foreseeable situation rather than a fault: the address
+this provider vouches for already belongs to an account here that has never
+confirmed it, and handing an unconfirmed account over to whoever turns up with
+a matching address is how someone else's table gets taken.
+*/
+const AUTH_ERRORS: Record<string, string> = {
+  "email-taken":
+    "That email already belongs to an account here that hasn't been confirmed yet. Sign in to it and confirm the address, and this button will work from then on.",
+};
+
+/**
+ * Reads a refusal out of the URL, once, and clears it so a reload does not
+ * re-show it. Read at the page level rather than inside the sign-in card,
+ * because the card lives in a modal — a refusal read in there would only be
+ * seen by somebody who happened to open the modal again, and the whole point
+ * is that they were just bounced back here without being told why.
+ */
+function readAuthError(): string {
+  const code = new URLSearchParams(window.location.search).get("authError");
+  if (!code) return "";
+  const url = new URL(window.location.href);
+  url.searchParams.delete("authError");
+  window.history.replaceState({}, "", url.toString());
+  return AUTH_ERRORS[code] ?? "That sign-in could not be completed.";
+}
+
 /* Full-page redirect to the backend OAuth flow. */
 function providerLogin(provider: string) {
   window.location.href = `/api/auth/${provider}/login`;
@@ -300,9 +331,12 @@ function LocalAuth() {
  * OAuth providers, and the dev shortcut. */
 function LoginModal({
   config,
+  authError,
   onClose,
 }: {
   config: AuthConfig | undefined;
+  /** Why a provider sign-in was turned away, if it was (#269). */
+  authError: string;
   onClose: () => void;
 }) {
   const [devName, setDevName] = useState("");
@@ -326,6 +360,16 @@ function LoginModal({
       <p className="font-body m-0 mb-6 text-center text-[14.5px] italic leading-relaxed text-ink-body">
         Sign in to gather your party by the fire.
       </p>
+
+      {authError && (
+        <div
+          role="alert"
+          className="font-body mb-5 rounded-[3px] px-3.5 py-3 text-[12.5px] italic leading-relaxed text-[#8b2520]"
+          style={{ background: "rgba(139,37,32,.07)", border: "1px solid rgba(139,37,32,.28)" }}
+        >
+          {authError}
+        </div>
+      )}
 
       {localAuth && <LocalAuth />}
 
@@ -447,7 +491,12 @@ const PARTY_CRESTS = [
 
 export default function LandingPage() {
   const { data: config } = useAuthConfig();
-  const [loginOpen, setLoginOpen] = useState(false);
+  // Read once on the way in, before anything can re-render and lose it. Being
+  // bounced back from a provider opens the door again by itself, with the
+  // reason on it — landing on a silent page is how somebody concludes the
+  // button is broken (#269).
+  const [authError] = useState(readAuthError);
+  const [loginOpen, setLoginOpen] = useState(!!authError);
 
   // Only strangers see the landing — entering means knocking first.
   const enter = () => setLoginOpen(true);
@@ -685,7 +734,7 @@ export default function LandingPage() {
       <SiteFooter />
 
       {loginOpen && (
-        <LoginModal config={config} onClose={() => setLoginOpen(false)} />
+        <LoginModal config={config} authError={authError} onClose={() => setLoginOpen(false)} />
       )}
     </div>
   );
