@@ -364,6 +364,7 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 			MaxSeatedPerPlayer:     row.MaxSeatedPerPlayer,
 			HiddenSheets:           row.HiddenSheets,
 			RealmID:                row.RealmID,
+			Coinage:                row.Coinage,
 		}, row.Role == db.MembershipRoleDm)
 		campaign.RealmName = row.RealmName
 		out = append(out, api.CampaignMembership{
@@ -424,6 +425,11 @@ func toAPICampaign(c db.Campaign, forDM bool) api.Campaign {
 		HiddenSheets:           &c.HiddenSheets,
 		RealmId:                c.RealmID,
 	}
+	// Absent means the standard ladder, but everyone reads the same list —
+	// a client that had to know the default would be a second place for the
+	// coins to be defined (#195).
+	coins := toAPICoins(coinageOf(c.Coinage))
+	out.Coinage = &coins
 	if forDM {
 		code := c.InviteCode
 		out.InviteCode = &code

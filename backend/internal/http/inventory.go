@@ -50,6 +50,7 @@ func toAPIInventoryItem(row db.ListCharacterItemsRow, viewer uuid.UUID) api.Inve
 		Qty:      int(row.Qty),
 		Equipped: row.Equipped,
 		Attuned:  row.Attuned,
+		IsPurse:  &row.IsPurse,
 		Slot:     &slot,
 	}
 	if row.ContentID.Valid && row.Kind != nil && row.Source != nil {
@@ -143,11 +144,21 @@ func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryI
 		}
 	}
 
+	// Writing in your own coin is how a purse is made, and how it always was
+	// — before #195 a row literally named "Gold Pieces" simply WAS the purse.
+	// The rule is the same, said out loud: a written-in row named for this
+	// table's coin becomes the purse, but only when the hero has none yet, so
+	// a second one is a pouch of loose change rather than a rival till.
+	purse, err := s.wouldBePurse(ctx, character, contentID, name)
+	if err != nil {
+		return nil, err
+	}
 	created, err := s.queries.AddCharacterItem(ctx, db.AddCharacterItemParams{
 		CharacterID: character.ID,
 		ContentID:   contentID,
 		Name:        name,
 		Qty:         qty,
+		IsPurse:     purse,
 	})
 	if err != nil {
 		return nil, err
@@ -156,6 +167,30 @@ func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryI
 		return nil, err
 	}
 	return api.AddInventoryItem201JSONResponse(s.freshInventoryItem(ctx, created, uid)), nil
+}
+
+// wouldBePurse reports whether a freshly written-in row is this hero's coin:
+// content-less, named for the table's coin, and the first such row they have.
+func (s *Server) wouldBePurse(ctx context.Context, c db.Character, contentID pgtype.UUID, name string) (bool, error) {
+	if contentID.Valid {
+		return false, nil
+	}
+	ladder := standardCoinage
+	if campaignID, seated := seatedCampaign(c); seated {
+		campaign, err := s.queries.GetCampaign(ctx, campaignID)
+		if err != nil {
+			return false, err
+		}
+		ladder = coinageOf(campaign.Coinage)
+	}
+	if !strings.EqualFold(strings.TrimSpace(name), ladder.purseName()) {
+		return false, nil
+	}
+	items, err := s.queries.ListCharacterItems(ctx, c.ID)
+	if err != nil {
+		return false, err
+	}
+	return pickPurse(items) == nil, nil
 }
 
 // freshInventoryItem re-reads one row through the list query's join shape.

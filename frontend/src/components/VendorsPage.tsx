@@ -16,7 +16,7 @@ import {
   useUpdateVendor,
   useVendors,
 } from "../hooks";
-import { priceGp } from "../lib/money";
+import { coinageOf, formatCoins, priceBase, type Coin } from "../lib/money";
 import ContentEntry from "./ui/ContentEntry";
 import ParchmentModal from "./ui/ParchmentModal";
 import { IconPlus, IconTrash } from "./ui/icons";
@@ -55,9 +55,11 @@ export default function VendorsPage() {
   const [buyingAs, setBuyingAs] = useState("");
   const heroId = buyingAs || myHeroes[0]?.id || "";
   const { data: heroDetail } = useCharacterDetail(!isDM && heroId ? heroId : undefined);
-  const purse = heroDetail?.items.find((i) => !i.content && i.name === "Gold Pieces");
+  const purse = heroDetail?.items.find((i) => i.isPurse);
   const buyer: Buyer | null =
     !isDM && heroId ? { heroId, gold: purse?.qty ?? 0 } : null;
+  // What this table counts in. Absent means the standard coins.
+  const ladder = coinageOf(campaign.coinage);
 
   // Grouped by the place they trade in, because that is how a party meets them
   // — "we're in Phandalin, who's open?" — and unfiled shops last.
@@ -111,7 +113,7 @@ export default function VendorsPage() {
               className="label-stamp rounded-[2px] px-2.5 py-1.5 text-[10px] tracking-[1px] text-gold-muted tabular-nums"
               style={{ background: "rgba(201,162,39,.10)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }}
             >
-              {buyer.gold} GP
+              {formatCoins(buyer.gold, ladder)}
             </span>
           </div>
         )}
@@ -181,6 +183,7 @@ export default function VendorsPage() {
                     campaignId={campaign.id}
                     vendor={v}
                     buyer={buyer}
+                    ladder={ladder}
                     onRead={setReading}
                   />
                 ))}
@@ -203,11 +206,14 @@ function VendorCard({
   campaignId,
   vendor,
   buyer,
+  ladder,
   onRead,
 }: {
   campaignId: string;
   vendor: Vendor;
   buyer: Buyer | null;
+  /** The coins this table counts in (#195). */
+  ladder: Coin[];
   onRead: (s: VendorStock) => void;
 }) {
   const update = useUpdateVendor(campaignId);
@@ -344,6 +350,7 @@ function VendorCard({
               line={line}
               isDM={vendor.isDM}
               buyer={buyer}
+              ladder={ladder}
               onRead={onRead}
               onPatch={(body) => updateStock.mutate({ stockId: line.id, body })}
               onDelete={() => removeStock.mutate(line.id)}
@@ -352,7 +359,10 @@ function VendorCard({
                   { stockId: line.id, characterId: heroId },
                   {
                     onSuccess: (r) =>
-                      setReceipt(`Paid ${r.paidGp} gp for ${line.name} — ${r.goldRemaining} gp left in the purse.`),
+                      setReceipt(
+                        `Paid ${formatCoins(r.paidGp, ladder)} for ${line.name} — ` +
+                          `${formatCoins(r.goldRemaining, ladder)} left in the purse.`,
+                      ),
                   },
                 )
               }
@@ -427,6 +437,7 @@ function StockRow({
   line,
   isDM,
   buyer,
+  ladder,
   onRead,
   onPatch,
   onDelete,
@@ -436,6 +447,8 @@ function StockRow({
   line: VendorStock;
   isDM: boolean;
   buyer: Buyer | null;
+  /** The coins this table counts in (#195). */
+  ladder: Coin[];
   onRead: (s: VendorStock) => void;
   onPatch: (body: { price?: string; qty?: number | null; revealed?: boolean }) => void;
   onDelete: () => void;
@@ -445,7 +458,7 @@ function StockRow({
   const [price, setPrice] = useState(line.price);
   const [qty, setQty] = useState(line.qty == null ? "" : String(line.qty));
   const soldOut = line.qty === 0;
-  const cost = priceGp(line.price);
+  const cost = priceBase(line.price, ladder);
 
   const commitPrice = () => {
     if (price.trim() !== line.price) onPatch({ price: price.trim() });
@@ -459,7 +472,7 @@ function StockRow({
     !buyer ? "no seated hero to buy with"
     : cost === null ? "no price the till can take"
     : soldOut ? "sold out"
-    : buyer.gold < cost ? `not enough gold — ${cost} gp asked`
+    : buyer.gold < cost ? `not enough — ${formatCoins(cost, ladder)} asked`
     : "";
 
   return (
@@ -482,13 +495,13 @@ function StockRow({
             aria-label={`Price of ${line.name}`}
             placeholder="—"
             title={
-              price.trim() && priceGp(price) === null
+              price.trim() && priceBase(price, ladder) === null
                 ? "Players cannot buy a line priced like this — the till reads coin, not prose"
                 : undefined
             }
             className="input-hall h-7 w-[90px] text-[12px] tabular-nums"
             style={
-              price.trim() && priceGp(price) === null
+              price.trim() && priceBase(price, ladder) === null
                 ? { boxShadow: "inset 0 0 0 1px rgba(201,120,39,.6)" }
                 : undefined
             }

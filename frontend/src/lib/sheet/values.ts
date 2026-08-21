@@ -1,4 +1,5 @@
 import type { CharacterDetail, InventoryItem, RulesContent } from "../../api/client";
+import { coinageOf, coinCounts, type Coin } from "../money";
 import { isMulticlass, multiclassLine } from "../classes";
 import { abilityMod } from "../abilities";
 import { acFromEquipment, featuresOf, profBonus, weaponAttacks } from "../derive";
@@ -25,6 +26,8 @@ import {
 
 export interface SheetSources {
   detail: CharacterDetail;
+  /** The coins this table counts in (#195); absent means the standard ones. */
+  coinage?: Coin[] | null;
   classes?: RulesContent[];
   subclasses?: RulesContent[];
   species?: RulesContent[];
@@ -124,11 +127,13 @@ function halve(list: string[]): [string, string] {
 
 export function buildSheetValues({
   detail,
+  coinage,
   classes,
   subclasses,
   species,
   backgrounds,
 }: SheetSources): SheetValues {
+  const ladder = coinageOf(coinage);
   const character = detail.character;
   const sheet = character.sheet;
   const v: SheetValues = {};
@@ -321,12 +326,28 @@ export function buildSheetValues({
   v.toolProfs = names([backgroundData.tool]);
 
   // — the pack —
-  const purse = detail.items.find((i) => !i.content && i.name === "Gold Pieces");
-  v.coinGP = purse ? String(purse.qty) : "";
-  v.coinCP = "";
-  v.coinSP = "";
-  v.coinEP = "";
-  v.coinPP = "";
+  //
+  // The official sheet has five coin cells, printed CP/SP/EP/GP/PP on Wizards'
+  // artwork, and a table may count in coins of its own (#195). They are filled
+  // by RANK — smallest coin in the leftmost cell — and the printed labels are
+  // left alone: a DM running glimmer and crowns knows which column is which,
+  // and painting over the artwork to correct it would read as damage.
+  //
+  // A ladder shorter than five leaves the upper cells empty; a longer one
+  // spills its largest coins into the last cell as a single count, which is
+  // the only honest thing five boxes can say about six coins.
+  const purse = detail.items.find((i) => i.isPurse);
+  const cells: (keyof SheetValues)[] = ["coinCP", "coinSP", "coinEP", "coinGP", "coinPP"];
+  for (const cell of cells) v[cell] = "";
+  if (purse) {
+    const counted = coinCounts(purse.qty, ladder);
+    counted.slice(0, cells.length).forEach((n, i) => {
+      const cell = cells[i];
+      // The last cell carries whatever is left over on a long ladder.
+      const carry = i === cells.length - 1 ? counted.slice(i).reduce((a, b) => a + b, 0) : n;
+      v[cell] = carry > 0 ? String(carry) : "";
+    });
+  }
   v.equipment = detail.items
     .filter((i) => i.id !== purse?.id)
     .map(itemLine)

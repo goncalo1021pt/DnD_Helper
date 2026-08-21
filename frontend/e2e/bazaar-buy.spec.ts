@@ -74,17 +74,20 @@ test("coin for goods, sold-out shelves, and the till's refusals", async ({ brows
   await fundHero(player.request, heroId, 40);
 
   await player.goto(`/questboard/campaigns/${campaign.id}/vendors`);
-  await expect(player.getByText("40 GP", { exact: true })).toBeVisible();
+  await expect(player.getByText("40 gp", { exact: true })).toBeVisible();
 
   // Buy: coin leaves the purse, goods reach the pack, the shelf counts down.
   await player.getByRole("button", { name: "Buy Longsword" }).click();
   await expect(player.getByText(/Paid 15 gp for Longsword — 25 gp left/)).toBeVisible();
-  await expect(player.getByText("25 GP", { exact: true })).toBeVisible();
+  await expect(player.getByText("25 gp", { exact: true })).toBeVisible();
   const detail = (await (
     await player.request.get(`/api/characters/${heroId}`)
-  ).json()) as { items: Array<{ name: string; qty: number }> };
+  ).json()) as { items: Array<{ name: string; qty: number; isPurse?: boolean }> };
   expect(detail.items.find((i) => i.name === "Longsword")?.qty).toBe(1);
-  expect(detail.items.find((i) => i.name === "Gold Pieces")?.qty).toBe(25);
+  // The purse counts BASE units — copper on the standard ladder (#195) — so
+  // 25 gold reads as 2,500. The row says it is the purse rather than being
+  // recognised by its name, which is what lets a table rename its money.
+  expect(detail.items.find((i) => i.isPurse)?.qty).toBe(2500);
 
   // Again: the purchase stacks onto the same row, and the shelf runs dry.
   await player.getByRole("button", { name: "Buy Longsword" }).click();
@@ -113,6 +116,7 @@ test("coin for goods, sold-out shelves, and the till's refusals", async ({ brows
   );
   expect(poor.status()).toBe(400);
   expect(await poor.text()).toContain("the purse holds 10 gp");
+  expect(await poor.text()).toContain("asks 75 gp");
 
   // The line under the counter cannot be bought even by its id — and the
   // refusal reads exactly like absence, not like a locked door.

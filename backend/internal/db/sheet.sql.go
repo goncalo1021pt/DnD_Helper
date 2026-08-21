@@ -13,9 +13,9 @@ import (
 )
 
 const addCharacterItem = `-- name: AddCharacterItem :one
-INSERT INTO character_items (character_id, content_id, name, qty)
-VALUES ($1, $2, $3, $4)
-RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned
+INSERT INTO character_items (character_id, content_id, name, qty, is_purse)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse
 `
 
 type AddCharacterItemParams struct {
@@ -23,6 +23,7 @@ type AddCharacterItemParams struct {
 	ContentID   pgtype.UUID `json:"content_id"`
 	Name        string      `json:"name"`
 	Qty         int32       `json:"qty"`
+	IsPurse     bool        `json:"is_purse"`
 }
 
 func (q *Queries) AddCharacterItem(ctx context.Context, arg AddCharacterItemParams) (CharacterItem, error) {
@@ -31,6 +32,7 @@ func (q *Queries) AddCharacterItem(ctx context.Context, arg AddCharacterItemPara
 		arg.ContentID,
 		arg.Name,
 		arg.Qty,
+		arg.IsPurse,
 	)
 	var i CharacterItem
 	err := row.Scan(
@@ -43,6 +45,7 @@ func (q *Queries) AddCharacterItem(ctx context.Context, arg AddCharacterItemPara
 		&i.CreatedAt,
 		&i.Slot,
 		&i.Attuned,
+		&i.IsPurse,
 	)
 	return i, err
 }
@@ -77,7 +80,7 @@ func (q *Queries) DeleteCharacterItem(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCharacterItem = `-- name: GetCharacterItem :one
-SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned FROM character_items WHERE id = $1
+SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse FROM character_items WHERE id = $1
 `
 
 func (q *Queries) GetCharacterItem(ctx context.Context, id uuid.UUID) (CharacterItem, error) {
@@ -93,6 +96,7 @@ func (q *Queries) GetCharacterItem(ctx context.Context, id uuid.UUID) (Character
 		&i.CreatedAt,
 		&i.Slot,
 		&i.Attuned,
+		&i.IsPurse,
 	)
 	return i, err
 }
@@ -128,7 +132,7 @@ func (q *Queries) ListCharacterContentRefs(ctx context.Context, characterID uuid
 
 const listCharacterItems = `-- name: ListCharacterItems :many
 SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped, ci.slot,
-       ci.attuned,
+       ci.attuned, ci.is_purse,
        COALESCE(rc.name, ci.name) AS name,
        rc.kind, rc.source, rc.summary, rc.data, rc.created_by,
        u.name AS creator_name
@@ -147,6 +151,7 @@ type ListCharacterItemsRow struct {
 	Equipped    bool           `json:"equipped"`
 	Slot        string         `json:"slot"`
 	Attuned     bool           `json:"attuned"`
+	IsPurse     bool           `json:"is_purse"`
 	Name        string         `json:"name"`
 	Kind        *ContentKind   `json:"kind"`
 	Source      *ContentSource `json:"source"`
@@ -174,6 +179,7 @@ func (q *Queries) ListCharacterItems(ctx context.Context, characterID uuid.UUID)
 			&i.Equipped,
 			&i.Slot,
 			&i.Attuned,
+			&i.IsPurse,
 			&i.Name,
 			&i.Kind,
 			&i.Source,
@@ -249,7 +255,7 @@ func (q *Queries) ListCharacterSpells(ctx context.Context, characterID uuid.UUID
 }
 
 const lockCharacterItem = `-- name: LockCharacterItem :one
-SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned FROM character_items WHERE id = $1 FOR UPDATE
+SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse FROM character_items WHERE id = $1 FOR UPDATE
 `
 
 // The purse under lock: a buy reads the balance and spends it as one act, so
@@ -267,6 +273,7 @@ func (q *Queries) LockCharacterItem(ctx context.Context, id uuid.UUID) (Characte
 		&i.CreatedAt,
 		&i.Slot,
 		&i.Attuned,
+		&i.IsPurse,
 	)
 	return i, err
 }
@@ -309,7 +316,7 @@ const updateCharacterItem = `-- name: UpdateCharacterItem :one
 UPDATE character_items
 SET qty = $2, equipped = $3, slot = $4, attuned = $5
 WHERE id = $1
-RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned
+RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse
 `
 
 type UpdateCharacterItemParams struct {
@@ -339,6 +346,7 @@ func (q *Queries) UpdateCharacterItem(ctx context.Context, arg UpdateCharacterIt
 		&i.CreatedAt,
 		&i.Slot,
 		&i.Attuned,
+		&i.IsPurse,
 	)
 	return i, err
 }

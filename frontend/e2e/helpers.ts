@@ -245,8 +245,12 @@ export async function fundHero(
   characterId: string,
   gold: number,
 ): Promise<void> {
+  // Still spelled in GOLD, because that is what a test means when it says a
+  // hero has 500 — but a purse counts BASE units now, the smallest coin on the
+  // table's ladder (#195), and on the standard ladder that is copper. Writing
+  // in a row named for the table's coin is what makes it the purse.
   const res = await request.post(`/api/characters/${characterId}/items`, {
-    data: { name: "Gold Pieces", qty: gold },
+    data: { name: "Gold Pieces", qty: gold * 100 },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
 }

@@ -574,6 +574,7 @@ type Campaign struct {
 	HiddenSheets           bool               `json:"hidden_sheets"`
 	MaxSeatedPerPlayer     int16              `json:"max_seated_per_player"`
 	RealmID                uuid.UUID          `json:"realm_id"`
+	Coinage                []byte             `json:"coinage"`
 }
 
 type CampaignBan struct {
@@ -669,6 +670,7 @@ type CharacterItem struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	Slot        string             `json:"slot"`
 	Attuned     bool               `json:"attuned"`
+	IsPurse     bool               `json:"is_purse"`
 }
 
 type CharacterNode struct {

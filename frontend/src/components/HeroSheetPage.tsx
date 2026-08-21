@@ -12,6 +12,7 @@ import {
   useUpdateItem,
 } from "../hooks";
 import { classLine } from "../lib/classes";
+import { coinageOf, formatCoins } from "../lib/money";
 import { levelUpHold } from "../lib/progression";
 import { acFromEquipment, featuresOf, profBonus, weaponAttacks, type Feature } from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
@@ -85,8 +86,12 @@ export default function HeroSheetPage() {
   const species = speciesLibrary?.find((s) => s.id === sheet?.speciesId);
   const background = backgroundLibrary?.find((b) => b.id === sheet?.backgroundId);
 
-  // The rig: what sits where. Coin gets a purse, not a tile.
-  const purse = detail?.items.find((i) => !i.content && i.name === "Gold Pieces");
+  // The rig: what sits where. Coin gets a purse, not a tile — and the purse is
+  // the row that says it is, since a table may have renamed its money (#195).
+  const purse = detail?.items.find((i) => i.isPurse);
+  // The coins this hero's table counts in, when they are seated at one.
+  const coinage = memberships?.find((m) => m.campaign.id === character?.campaignId)?.campaign.coinage;
+  const ladder = coinageOf(coinage);
   const packItems = (detail?.items ?? []).filter((i) => i.id !== purse?.id);
   const bySlot = Object.fromEntries(
     (Object.keys(SLOT_LABEL) as EquipSlot[]).map((s) => [s, detail?.items.find((i) => i.slot === s)]),
@@ -321,6 +326,7 @@ export default function HeroSheetPage() {
               try {
                 await printHeroSheet({
                   detail,
+                  coinage,
                   classes,
                   subclasses,
                   species: speciesLibrary,
@@ -609,7 +615,7 @@ export default function HeroSheetPage() {
                     style={{ background: "rgba(201,162,39,.10)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }}
                   >
                     <IconCoin size={13} strokeWidth={1.8} />
-                    {purse.qty} GP
+                    {formatCoins(purse.qty, ladder)}
                   </button>
                 )}
               </div>

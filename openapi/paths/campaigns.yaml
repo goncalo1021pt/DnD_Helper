@@ -413,3 +413,39 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
       "403":
         $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/coinage:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setCoinage
+    summary: Set the coins this table counts in (DM only)
+    description: >-
+      A DM names their own money (#195) — glimmer, trade bars, faction scrip —
+      and the Bazaar prices and charges in it. Sending an empty list puts the
+      table back on the standard cp/sp/ep/gp/pp.
+
+
+      Changing the ladder does not convert anybody's purse. The numbers stand
+      and their meaning changes, because an invented coin has no rate against
+      the old one — so this is a thing to settle before play rather than during
+      it, and the screen says so before it lets you.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetCoinageRequest"
+    responses:
+      "200":
+        description: The campaign, counting in its new coin
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
