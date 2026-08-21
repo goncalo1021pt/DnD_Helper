@@ -4,6 +4,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Coin } from "../lib/money";
 import { api } from "../api/client";
 
 export function useCampaigns() {
@@ -123,3 +124,30 @@ export function useSetNextSession(campaignId: string) {
 }
 
 // --- Party roster ---
+
+/**
+ * The coins this table counts in (#195). An empty list puts it back on the
+ * standard cp/sp/ep/gp/pp.
+ *
+ * Every purse and every price is read through the ladder, so this invalidates
+ * the campaign listing AND the heroes whose coin is now counted differently.
+ */
+export function useSetCoinage(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (coins: Coin[]) => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/coinage", {
+        params: { path: { campaignId } },
+        body: { coins },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["vendors", campaignId] });
+    },
+  });
+}

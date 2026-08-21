@@ -30,8 +30,8 @@ SELECT ci.content_id FROM character_items ci
 WHERE ci.character_id = $1 AND ci.content_id IS NOT NULL;
 
 -- name: AddCharacterItem :one
-INSERT INTO character_items (character_id, content_id, name, qty)
-VALUES ($1, $2, $3, $4)
+INSERT INTO character_items (character_id, content_id, name, qty, is_purse)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetCharacterItem :one
@@ -49,7 +49,7 @@ DELETE FROM character_items WHERE id = $1;
 -- name: ListCharacterItems :many
 -- Inventory with live content; a snapshot name covers deleted content.
 SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped, ci.slot,
-       ci.attuned,
+       ci.attuned, ci.is_purse,
        COALESCE(rc.name, ci.name) AS name,
        rc.kind, rc.source, rc.summary, rc.data, rc.created_by,
        u.name AS creator_name

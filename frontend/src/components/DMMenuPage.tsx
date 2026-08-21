@@ -16,6 +16,7 @@ import AtTheDoorSection from "./dm/AtTheDoorSection";
 import DisbandSection from "./dm/DisbandSection";
 import Face from "./dm/Face";
 import TableRulesSection from "./dm/TableRulesSection";
+import CoinageSection from "./dm/CoinageSection";
 import TheVeilSection from "./dm/TheVeilSection";
 
 /* What the DM is about to do to a member, held until they confirm it. */
@@ -59,6 +60,7 @@ export default function DMMenuPage() {
   return (
     <div className="grid gap-7">
       <TableRulesSection campaign={campaign} />
+      <CoinageSection campaign={campaign} />
 
       <TheVeilSection campaign={campaign} />
 

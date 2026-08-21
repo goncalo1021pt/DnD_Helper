@@ -156,7 +156,7 @@ func (q *Queries) RenameRealm(ctx context.Context, arg RenameRealmParams) (Realm
 }
 
 const setCampaignRealm = `-- name: SetCampaignRealm :one
-UPDATE campaigns SET realm_id = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id
+UPDATE campaigns SET realm_id = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id, coinage
 `
 
 type SetCampaignRealmParams struct {
@@ -180,6 +180,7 @@ func (q *Queries) SetCampaignRealm(ctx context.Context, arg SetCampaignRealmPara
 		&i.HiddenSheets,
 		&i.MaxSeatedPerPlayer,
 		&i.RealmID,
+		&i.Coinage,
 	)
 	return i, err
 }

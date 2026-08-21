@@ -836,6 +836,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/coinage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the coins this table counts in (DM only)
+         * @description A DM names their own money (#195) — glimmer, trade bars, faction scrip — and the Bazaar prices and charges in it. Sending an empty list puts the table back on the standard cp/sp/ep/gp/pp.
+         *
+         *     Changing the ladder does not convert anybody's purse. The numbers stand and their meaning changes, because an invented coin has no rate against the old one — so this is a thing to settle before play rather than during it, and the screen says so before it lets you.
+         */
+        put: operations["setCoinage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/hidden-sheets": {
         parameters: {
             query?: never;
@@ -2345,8 +2369,22 @@ export interface components {
             requireSeatingApproval?: boolean;
             /** @description How many heroes one player may seat at this table at once. The DM's dial; defaults to one. The cap holds the door — heroes already seated are never evicted by lowering it. */
             maxSeatedPerPlayer?: number;
+            /** @description The coins this table counts in, smallest first (#195). Null means the standard cp/sp/ep/gp/pp ladder, which is what every campaign had before a DM could say otherwise. A purse and a price are both reckoned in the smallest coin's units. */
+            coinage?: components["schemas"]["Coin"][] | null;
             /** @description When true the veil is drawn over the table's character sheets: a player sees only the names of the other heroes. Owners and the DM always read their own sheets in full, and the DM may lift the veil on individual heroes. */
             hiddenSheets?: boolean;
+        };
+        Coin: {
+            /** @description What the coin is called — "Glimmer", "Trade Bar", "Gold Pieces". */
+            name: string;
+            /** @description What a price writes it as: "3 glm". Letters only, unique within the ladder, and matched case-insensitively. */
+            abbrev: string;
+            /** @description What one is worth in base units. The smallest coin is 1 by definition, so a ladder always has one rung worth exactly that. */
+            value: number;
+        };
+        SetCoinageRequest: {
+            /** @description The ladder, in any order — it is sorted on the way in. An empty list puts the table back on the standard coins. */
+            coins: components["schemas"]["Coin"][];
         };
         CampaignMembership: {
             campaign: components["schemas"]["Campaign"];
@@ -2792,7 +2830,10 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @description How many. For the purse (#195) this is the hero's coin in BASE units — the campaign's smallest denomination — which is what lets it be broken back into coins for display. */
             qty: number;
+            /** @description True for the one row that is the hero's coin. It used to be inferred from the name "Gold Pieces" in four places at once, a rule that stopped being true the moment a DM renamed their currency (#195). */
+            isPurse?: boolean;
             equipped: boolean;
             /** @description Whether this row holds one of the hero's three attunements. Per row regardless of qty — the same way a stack equipped in a hand fights as one weapon — and independent of equipped: stowing a ring does not break the bond. */
             attuned: boolean;
@@ -5457,6 +5498,35 @@ export interface operations {
         };
         responses: {
             /** @description The campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setCoinage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCoinageRequest"];
+            };
+        };
+        responses: {
+            /** @description The campaign, counting in its new coin */
             200: {
                 headers: {
                     [name: string]: unknown;

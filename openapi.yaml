@@ -1303,6 +1303,35 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /campaigns/{campaignId}/coinage:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setCoinage
+      summary: Set the coins this table counts in (DM only)
+      description: |-
+        A DM names their own money (#195) — glimmer, trade bars, faction scrip — and the Bazaar prices and charges in it. Sending an empty list puts the table back on the standard cp/sp/ep/gp/pp.
+
+        Changing the ladder does not convert anybody's purse. The numbers stand and their meaning changes, because an invented coin has no rate against the old one — so this is a thing to settle before play rather than during it, and the screen says so before it lets you.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetCoinageRequest"
+      responses:
+        "200":
+          description: The campaign, counting in its new coin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /campaigns/{campaignId}/hidden-sheets:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -4036,10 +4065,48 @@ components:
           type: integer
           description: |
             How many heroes one player may seat at this table at once. The DM's dial; defaults to one. The cap holds the door — heroes already seated are never evicted by lowering it.
+        coinage:
+          type: array
+          nullable: true
+          description: The coins this table counts in, smallest first (#195). Null means the standard cp/sp/ep/gp/pp ladder, which is what every campaign had before a DM could say otherwise. A purse and a price are both reckoned in the smallest coin's units.
+          items:
+            $ref: "#/components/schemas/Coin"
         hiddenSheets:
           type: boolean
           description: |
             When true the veil is drawn over the table's character sheets: a player sees only the names of the other heroes. Owners and the DM always read their own sheets in full, and the DM may lift the veil on individual heroes.
+    Coin:
+      type: object
+      required:
+        - name
+        - abbrev
+        - value
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: What the coin is called — "Glimmer", "Trade Bar", "Gold Pieces".
+        abbrev:
+          type: string
+          minLength: 1
+          maxLength: 8
+          description: "What a price writes it as: \"3 glm\". Letters only, unique within the ladder, and matched case-insensitively."
+        value:
+          type: integer
+          minimum: 1
+          description: What one is worth in base units. The smallest coin is 1 by definition, so a ladder always has one rung worth exactly that.
+    SetCoinageRequest:
+      type: object
+      required:
+        - coins
+      properties:
+        coins:
+          type: array
+          description: The ladder, in any order — it is sorted on the way in. An empty list puts the table back on the standard coins.
+          maxItems: 8
+          items:
+            $ref: "#/components/schemas/Coin"
     CampaignMembership:
       type: object
       required:
@@ -5024,6 +5091,10 @@ components:
           type: string
         qty:
           type: integer
+          description: How many. For the purse (#195) this is the hero's coin in BASE units — the campaign's smallest denomination — which is what lets it be broken back into coins for display.
+        isPurse:
+          type: boolean
+          description: True for the one row that is the hero's coin. It used to be inferred from the name "Gold Pieces" in four places at once, a rule that stopped being true the moment a DM renamed their currency (#195).
         equipped:
           type: boolean
         attuned:

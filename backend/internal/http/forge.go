@@ -47,6 +47,9 @@ type backgroundRules struct {
 type gearItem struct {
 	Name string `json:"name"`
 	Qty  int    `json:"qty"`
+	// Coin, rather than a thing carried. Never comes from content JSON — the
+	// stocking code sets it — so it stays off the wire.
+	purse bool `json:"-"`
 }
 
 type gearOption struct {
@@ -415,7 +418,7 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 			CharacterID: hero.ID,
 			Column2:     spellIDs,
 			// The class they are prepared from (#190).
-			ClassID:     pgUUID(class.ID),
+			ClassID: pgUUID(class.ID),
 		}); err != nil {
 			return nil, err
 		}
@@ -423,15 +426,28 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 
 	// Stock the inventory: the chosen class option plus the background's kit.
 	// Rows link to armory content where names match; the rest ride as
-	// free-text, and coin becomes a Gold Pieces row.
+	// free-text, and coin becomes the purse.
+	//
+	// A class's starting coin is written in gold, and a purse counts BASE
+	// units (#195) — so it is multiplied up by what a gold is worth at this
+	// table. On the standard ladder that is a hundred coppers, which is the
+	// same worth the hero always started with.
 	if chosenGear != nil {
 		stock := append([]gearItem{}, chosenGear.Items...)
 		gold := chosenGear.Gold
 		bgItems, bgGold := parseEquipmentLine(br.Equipment)
 		stock = append(stock, bgItems...)
 		gold += bgGold
+		ladder := standardCoinage
+		if seatedAt, seated := seatedCampaign(hero); seated {
+			if c, err := qtx.GetCampaign(ctx, seatedAt); err == nil {
+				ladder = coinageOf(c.Coinage)
+			}
+		}
 		if gold > 0 {
-			stock = append(stock, gearItem{Name: "Gold Pieces", Qty: gold})
+			stock = append(stock, gearItem{
+				Name: ladder.purseName(), Qty: gold * int(goldWorth(ladder)), purse: true,
+			})
 		}
 
 		armory, err := qtx.ListContentByKind(ctx, db.ListContentByKindParams{
@@ -468,6 +484,7 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 				ContentID:   contentID,
 				Name:        row.Name,
 				Qty:         int32(qty),
+				IsPurse:     row.purse,
 			}); err != nil {
 				return nil, err
 			}

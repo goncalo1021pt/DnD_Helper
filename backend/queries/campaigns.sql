@@ -63,3 +63,7 @@ UPDATE campaigns SET hidden_sheets = $2 WHERE id = $1 RETURNING *;
 -- bans, and seat requests. Characters are handled separately beforehand —
 -- table-born ones die with the table, seated heroes are unseated first.
 DELETE FROM campaigns WHERE id = $1;
+
+-- name: SetCoinage :one
+-- The coins a table counts in (#195). NULL puts it back on the standard ladder.
+UPDATE campaigns SET coinage = $2 WHERE id = $1 RETURNING *;

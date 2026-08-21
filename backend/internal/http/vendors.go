@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -451,13 +450,13 @@ func (s *Server) DeleteStock(ctx context.Context, request api.DeleteStockRequest
 
 // --- the till (#174) --------------------------------------------------------
 
-// pickPurse finds the hero's Gold Pieces: the first content-less row bearing
-// exactly that name, which is the same rule the sheet reads it by
-// (HeroSheetPage.tsx) — the two must agree or the Buy button and the till
-// would argue about the same purse.
+// pickPurse finds the hero's coin. It used to be "the first content-less row
+// named exactly Gold Pieces", a rule spelled out in four places that all had to
+// agree — and one a DM renaming their currency would have broken in all four
+// at once (#195). The row says what it is now.
 func pickPurse(items []db.ListCharacterItemsRow) *db.ListCharacterItemsRow {
 	for i := range items {
-		if !items[i].ContentID.Valid && items[i].Name == "Gold Pieces" {
+		if items[i].IsPurse {
 			return &items[i]
 		}
 	}
@@ -539,7 +538,12 @@ func (s *Server) BuyStock(ctx context.Context, request api.BuyStockRequestObject
 	if ch.OwnerUserID != member.UserID && !isDM {
 		return api.BuyStock403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
 	}
-	gp, ok := priceGP(row.Price)
+	campaign, err := s.queries.GetCampaign(ctx, row.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	ladder := coinageOf(campaign.Coinage)
+	cost, ok := priceBase(row.Price, ladder)
 	if !ok {
 		return badRequest("this line has no price the till can take")
 	}
@@ -566,31 +570,31 @@ func (s *Server) BuyStock(ctx context.Context, request api.BuyStockRequestObject
 	if purse != nil {
 		goldRemaining = int(purse.Qty)
 	}
-	if gp > 0 {
+	if cost > 0 {
 		if purse == nil {
-			return badRequest("the purse is empty and the trader asks " + strconv.Itoa(gp) + " gp")
+			return badRequest("the purse is empty and the trader asks " + formatCoins(cost, ladder))
 		}
 		// Under lock: two purchases must not both spend the same coin.
 		locked, err := qtx.LockCharacterItem(ctx, purse.ID)
 		if err != nil {
 			return nil, err
 		}
-		if int(locked.Qty) < gp {
-			return badRequest("the purse holds " + strconv.Itoa(int(locked.Qty)) +
-				" gp and the trader asks " + strconv.Itoa(gp) + " gp")
+		if int64(locked.Qty) < cost {
+			return badRequest("the purse holds " + formatCoins(int64(locked.Qty), ladder) +
+				" and the trader asks " + formatCoins(cost, ladder))
 		}
-		if int(locked.Qty) == gp {
+		if int64(locked.Qty) == cost {
 			// The schema forbids a zero-quantity row; an emptied purse is gone.
 			if err := qtx.DeleteCharacterItem(ctx, locked.ID); err != nil {
 				return nil, err
 			}
 		} else if _, err := qtx.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
-			ID: locked.ID, Qty: locked.Qty - int32(gp),
+			ID: locked.ID, Qty: locked.Qty - int32(cost),
 			Equipped: locked.Equipped, Slot: locked.Slot, Attuned: locked.Attuned,
 		}); err != nil {
 			return nil, err
 		}
-		goldRemaining = int(locked.Qty) - gp
+		goldRemaining = int(int64(locked.Qty) - cost)
 	}
 	// No codex check, deliberately: the DM shelving this line IS the world
 	// admitting the item (contrast AddInventoryItem, where the player brings
@@ -620,7 +624,7 @@ func (s *Server) BuyStock(ctx context.Context, request api.BuyStockRequestObject
 		return nil, err
 	}
 	s.logEvent(ctx, row.CampaignID, member.UserID, "purchase",
-		ch.Name+" buys "+row.Name+" from "+vendor.Name+" for "+strconv.Itoa(gp)+" gp")
+		ch.Name+" buys "+row.Name+" from "+vendor.Name+" for "+formatCoins(cost, ladder))
 	s.publish(row.CampaignID, live.TopicVendors)
 	s.publish(row.CampaignID, live.TopicParty)
 
@@ -629,7 +633,7 @@ func (s *Server) BuyStock(ctx context.Context, request api.BuyStockRequestObject
 		return nil, err
 	}
 	return api.BuyStock200JSONResponse(api.BuyReceipt{
-		Vendor: out, PaidGp: gp, GoldRemaining: goldRemaining,
+		Vendor: out, PaidGp: int(cost), GoldRemaining: goldRemaining,
 	}), nil
 }
 

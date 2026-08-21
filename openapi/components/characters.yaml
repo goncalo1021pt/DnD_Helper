@@ -490,6 +490,16 @@ InventoryItem:
       type: string
     qty:
       type: integer
+      description: >-
+        How many. For the purse (#195) this is the hero's coin in BASE units —
+        the campaign's smallest denomination — which is what lets it be broken
+        back into coins for display.
+    isPurse:
+      type: boolean
+      description: >-
+        True for the one row that is the hero's coin. It used to be inferred
+        from the name "Gold Pieces" in four places at once, a rule that stopped
+        being true the moment a DM renamed their currency (#195).
     equipped:
       type: boolean
     attuned:

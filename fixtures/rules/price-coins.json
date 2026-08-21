@@ -1,0 +1,72 @@
+{
+  "_note": [
+    "The till's half of the Bazaar (#174), now reckoned in a campaign's own",
+    "coin (#195). Implemented twice — backend/internal/http/money.go so the",
+    "server can charge, frontend/src/lib/money.ts so the Buy button knows",
+    "affordability without a round trip — and this file keeps them honest.",
+    "",
+    "Everything is in BASE units, the ladder's smallest coin, because that is",
+    "the only unit every price and every purse can be stated in exactly. A",
+    "sub-base remainder rounds UP: the shopkeeper's handling fee, kept from",
+    "#174. A null base means the till refuses — prose prices (\"a favor owed\")",
+    "are legal on a shelf and simply not buyable, and so is a coin this table",
+    "does not use.",
+    "",
+    "This replaces price-gold.json, whose answers were in whole gold because",
+    "gold was the only unit a purse could hold. The worth is unchanged: a purse",
+    "of 120 gp became 12,000 cp in the same migration, so 15 gp still buys what",
+    "it always bought. What changed is that a copper now costs a copper rather",
+    "than being rounded up to a whole gold piece."
+  ],
+  "standard": [
+    { "name": "Copper Pieces", "abbrev": "cp", "value": 1 },
+    { "name": "Silver Pieces", "abbrev": "sp", "value": 10 },
+    { "name": "Electrum Pieces", "abbrev": "ep", "value": 50 },
+    { "name": "Gold Pieces", "abbrev": "gp", "value": 100 },
+    { "name": "Platinum Pieces", "abbrev": "pp", "value": 1000 }
+  ],
+  "invented": [
+    { "name": "Shard", "abbrev": "shd", "value": 1 },
+    { "name": "Glimmer", "abbrev": "glm", "value": 10 },
+    { "name": "Crown", "abbrev": "crn", "value": 100 }
+  ],
+  "cases": [
+    { "name": "the plain case", "ladder": "standard", "price": "15 gp", "base": 1500 },
+    { "name": "no space is how half the books write it", "ladder": "standard", "price": "15gp", "base": 1500 },
+    { "name": "thousands keep their commas", "ladder": "standard", "price": "5,000 gp", "base": 500000 },
+    { "name": "a copper is a copper now, not a rounded-up gold", "ladder": "standard", "price": "1 cp", "base": 1 },
+    { "name": "silver is ten copper", "ladder": "standard", "price": "1 sp", "base": 10 },
+    { "name": "electrum is fifty", "ladder": "standard", "price": "1 ep", "base": 50 },
+    { "name": "platinum is a thousand", "ladder": "standard", "price": "1 pp", "base": 1000 },
+    { "name": "a fractional platinum lands whole", "ladder": "standard", "price": "1.5 pp", "base": 1500 },
+    { "name": "a quarter platinum is exact in copper", "ladder": "standard", "price": "1.25 pp", "base": 1250 },
+    { "name": "half a gold is exact too", "ladder": "standard", "price": "0.5 gp", "base": 50 },
+    { "name": "a fraction of a copper rounds up — the handling fee", "ladder": "standard", "price": "0.5 cp", "base": 1 },
+    { "name": "and so does the thinnest sliver of one", "ladder": "standard", "price": "0.001 cp", "base": 1 },
+    { "name": "free is free", "ladder": "standard", "price": "0 gp", "base": 0 },
+    { "name": "case and padding are the scribe's business", "ladder": "standard", "price": "  15 GP  ", "base": 1500 },
+    { "name": "a one-word coin name is a price too", "ladder": "invented", "price": "3 glimmer", "base": 30 },
+    { "name": "but a two-word one is prose — the shape is a number and ONE word", "ladder": "standard", "price": "15 gold pieces", "base": null },
+    { "name": "a blank price is not a price", "ladder": "standard", "price": "", "base": null },
+    { "name": "prose is for the table, not the till", "ladder": "standard", "price": "a favor owed", "base": null },
+    { "name": "malformed commas are refused", "ladder": "standard", "price": "1,00 gp", "base": null },
+    { "name": "debt is not a price", "ladder": "standard", "price": "-5 gp", "base": null },
+    { "name": "trailing words spoil the number", "ladder": "standard", "price": "15 gp each", "base": null },
+    { "name": "two coins are one coin too many", "ladder": "standard", "price": "1 gp 5 sp", "base": null },
+
+    { "name": "an invented coin is charged in its own base", "ladder": "invented", "price": "3 glm", "base": 30 },
+    { "name": "the top of an invented ladder", "ladder": "invented", "price": "4 crn", "base": 400 },
+    { "name": "its base unit is one", "ladder": "invented", "price": "7 shd", "base": 7 },
+    { "name": "a fraction of an invented coin still rounds up", "ladder": "invented", "price": "0.05 shd", "base": 1 },
+    { "name": "gold is not a coin at a table that never minted one", "ladder": "invented", "price": "15 gp", "base": null },
+    { "name": "and the invented coin is not one at a standard table", "ladder": "standard", "price": "3 glm", "base": null }
+  ],
+  "purses": [
+    { "name": "a standard purse reads in gold and change, never up into platinum", "ladder": "standard", "base": 12345, "coins": "123 gp 4 sp 5 cp" },
+    { "name": "a round sum is just gold", "ladder": "standard", "base": 4000, "coins": "40 gp" },
+    { "name": "rungs that come to nothing are left out", "ladder": "standard", "base": 1010, "coins": "10 gp 1 sp" },
+    { "name": "an empty purse still has a name", "ladder": "standard", "base": 0, "coins": "0 cp" },
+    { "name": "the invented ladder counts the same way", "ladder": "invented", "base": 412, "coins": "4 crn 1 glm 2 shd" },
+    { "name": "a single base unit", "ladder": "invented", "base": 1, "coins": "1 shd" }
+  ]
+}

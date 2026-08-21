@@ -106,6 +106,8 @@ paths:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1max-seated"
   /campaigns/{campaignId}/seating-approval:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1seating-approval"
+  /campaigns/{campaignId}/coinage:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1coinage"
   /campaigns/{campaignId}/hidden-sheets:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1hidden-sheets"
 
@@ -404,6 +406,10 @@ components:
 
     Campaign:
       $ref: "./components/campaigns.yaml#/Campaign"
+    Coin:
+      $ref: "./components/campaigns.yaml#/Coin"
+    SetCoinageRequest:
+      $ref: "./components/campaigns.yaml#/SetCoinageRequest"
     CampaignMembership:
       $ref: "./components/campaigns.yaml#/CampaignMembership"
     Member:

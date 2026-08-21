@@ -123,22 +123,29 @@ The till's pickers (#174), pure and DB-free like the rest of this file.
 */
 
 func purseRow(id uuid.UUID, name string, qty int32) db.ListCharacterItemsRow {
-	return db.ListCharacterItemsRow{ID: id, Name: name, Qty: qty}
+	return db.ListCharacterItemsRow{ID: id, Name: name, Qty: qty, IsPurse: true}
 }
 
-func TestThePurseIsTheFirstContentlessGoldPieces(t *testing.T) {
-	first, second := uuid.New(), uuid.New()
+// The purse used to be "the first content-less row named exactly Gold Pieces",
+// which a DM renaming their currency would have broken in four places at once
+// (#195). It says what it is now — so a shelf line wearing the coin's name is
+// no longer a trap, and a renamed purse is still the purse.
+func TestThePurseIsTheRowThatSaysItIs(t *testing.T) {
+	coin := uuid.New()
 	items := []db.ListCharacterItemsRow{
-		{ID: uuid.New(), Name: "Gold Pieces", Qty: 5, ContentID: pgUUID(uuid.New())}, // a shelf item, not coin
-		purseRow(first, "Gold Pieces", 10),
-		purseRow(second, "Gold Pieces", 99),
+		{ID: uuid.New(), Name: "Gold Pieces", Qty: 5, ContentID: pgUUID(uuid.New())}, // a shelf item
+		{ID: uuid.New(), Name: "Gold Pieces", Qty: 7},                                // written-in, not coin
+		purseRow(coin, "Glimmer", 4120),                                              // renamed, and the purse
 	}
 	got := pickPurse(items)
-	if got == nil || got.ID != first {
-		t.Fatalf("expected the first content-less Gold Pieces row, got %+v", got)
+	if got == nil || got.ID != coin {
+		t.Fatalf("expected the row flagged as the purse, got %+v", got)
 	}
 	if pickPurse(nil) != nil {
 		t.Error("no rows should mean no purse")
+	}
+	if pickPurse(items[:2]) != nil {
+		t.Error("a hero with no coin row has no purse, whatever their rows are called")
 	}
 }
 
@@ -161,8 +168,8 @@ func TestAPurchaseStacksOntoTheRightRow(t *testing.T) {
 		t.Fatal("a written-in purchase should stack onto its namesake")
 	}
 
-	// Never the purse: a shelf line named "Gold Pieces" must not merge into
-	// the coin that just paid for it.
+	// Never the purse: a shelf line sharing the coin's name must not merge
+	// into the coin that just paid for it.
 	coin := purseRow(purse, "Gold Pieces", 10)
 	if got := pickMergeTarget([]db.ListCharacterItemsRow{coin}, pgtype.UUID{}, "Gold Pieces", purse); got != nil {
 		t.Fatalf("the purchase merged into the purse: %+v", got)
