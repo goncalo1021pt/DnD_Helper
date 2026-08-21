@@ -15,6 +15,21 @@ paths:
   /me:
     $ref: "./paths/core.yaml#/~1me"
 
+  /me/friends:
+    $ref: "./paths/social.yaml#/~1me~1friends"
+  /me/friends/code:
+    $ref: "./paths/social.yaml#/~1me~1friends~1code"
+  /me/friends/{userId}:
+    $ref: "./paths/social.yaml#/~1me~1friends~1{userId}"
+  /me/blocks/{userId}:
+    $ref: "./paths/social.yaml#/~1me~1blocks~1{userId}"
+  /me/messages:
+    $ref: "./paths/social.yaml#/~1me~1messages"
+  /me/messages/{userId}:
+    $ref: "./paths/social.yaml#/~1me~1messages~1{userId}"
+  /parties/{partyId}/messages:
+    $ref: "./paths/social.yaml#/~1parties~1{partyId}~1messages"
+
   /campaigns:
     $ref: "./paths/campaigns.yaml#/~1campaigns"
   /campaigns/join:
@@ -671,6 +686,19 @@ components:
       $ref: "./components/npcs.yaml#/Npc"
     NpcInput:
       $ref: "./components/npcs.yaml#/NpcInput"
+    Friend:
+      $ref: "./components/social.yaml#/Friend"
+    FriendRoll:
+      $ref: "./components/social.yaml#/FriendRoll"
+    AskFriendRequest:
+      $ref: "./components/social.yaml#/AskFriendRequest"
+    Message:
+      $ref: "./components/social.yaml#/Message"
+    SendMessageRequest:
+      $ref: "./components/social.yaml#/SendMessageRequest"
+    DirectThread:
+      $ref: "./components/social.yaml#/DirectThread"
+
     Realm:
       $ref: "./components/realms.yaml#/Realm"
     RealmInput:

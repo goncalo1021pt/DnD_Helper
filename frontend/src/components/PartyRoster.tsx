@@ -26,6 +26,7 @@ import { hpColor, initials, medallionFor } from "../lib/party";
 import { nextLevelXP, readyToLevel } from "../lib/progression";
 import AbilityRow from "./ui/AbilityRow";
 import CharacterForm, { emptyHero } from "./CharacterForm";
+import { PartyRoom } from "./party/PartyRoom";
 import type { CampaignContext } from "./CampaignView";
 import FloatingDiceTray from "./ui/DiceTray";
 import ContentEntry from "./ui/ContentEntry";
@@ -893,17 +894,21 @@ export default function PartyRoster() {
   /* The roster grouped by party, with everyone riding alone at the foot. A
      table that has formed no parties gets exactly one group and no heading —
      the shape it has always had (#232). */
-  const groups = (() => {
+  const groups: Array<{ key: string; name: string; partyId?: string; members: Character[] }> = (() => {
     const heroes = characters ?? [];
     if (parties.length === 0) return [{ key: "all", name: "The Party", members: heroes }];
-    const out = parties.map((p) => ({
+    const out: Array<{ key: string; name: string; partyId?: string; members: Character[] }> =
+      parties.map((p) => ({
       key: p.id,
       name: p.name,
+      // Only a real party has a room; "riding with no party" is not a party
+      // and has nowhere to talk that the Chronicle is not already (#181).
+      partyId: p.id,
       members: heroes.filter((c) => c.partyId === p.id),
     }));
     const loose = heroes.filter((c) => !c.partyId);
     if (loose.length > 0) {
-      out.push({ key: "loose", name: "Riding with no party", members: loose });
+      out.push({ key: "loose", name: "Riding with no party", partyId: undefined, members: loose });
     }
     return out.filter((g) => g.members.length > 0);
   })();
@@ -991,7 +996,11 @@ export default function PartyRoster() {
                   </span>
                 </div>
               )}
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-6">
+              {/* A party with a name has a room of its own (#181). The heroes
+                  riding with nobody are not a party and have nowhere to talk
+                  that the Chronicle is not already. */}
+              {g.partyId && <PartyRoom partyId={g.partyId} partyName={g.name} />}
+              <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-6">
                 {g.members.map((c) =>
                   c.concealed ? (
                     <VeiledCard key={c.id} character={c} />

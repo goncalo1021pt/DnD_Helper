@@ -49,6 +49,13 @@ export type MapShapeInput = NonNullable<
 >["content"]["application/json"];
 export type MapPoint = MapShape["points"][number];
 export type PinShape = NonNullable<MapPin["shape"]>;
+export type FriendRoll =
+  paths["/me/friends"]["get"]["responses"]["200"]["content"]["application/json"];
+export type Friend = FriendRoll["friends"][number];
+export type DirectThread =
+  paths["/me/messages"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type Message =
+  paths["/me/messages/{userId}"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type Realm =
   paths["/realms"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type Party =

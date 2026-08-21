@@ -698,6 +698,20 @@ type CharacterTree struct {
 	PicksGranted int32     `json:"picks_granted"`
 }
 
+type DirectMessage struct {
+	ID          uuid.UUID          `json:"id"`
+	SenderID    uuid.UUID          `json:"sender_id"`
+	RecipientID uuid.UUID          `json:"recipient_id"`
+	Body        string             `json:"body"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type DirectRead struct {
+	UserID     uuid.UUID          `json:"user_id"`
+	PeerID     uuid.UUID          `json:"peer_id"`
+	LastReadAt pgtype.Timestamptz `json:"last_read_at"`
+}
+
 type EmailToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -741,6 +755,14 @@ type EncounterCombatant struct {
 	DeathSaveSuccesses int16              `json:"death_save_successes"`
 	DeathSaveFailures  int16              `json:"death_save_failures"`
 	NpcID              pgtype.UUID        `json:"npc_id"`
+}
+
+type Friendship struct {
+	RequesterID uuid.UUID          `json:"requester_id"`
+	AddresseeID uuid.UUID          `json:"addressee_id"`
+	State       string             `json:"state"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Handout struct {
@@ -870,6 +892,20 @@ type Party struct {
 	CampaignID uuid.UUID          `json:"campaign_id"`
 	Name       string             `json:"name"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type PartyMessage struct {
+	ID        uuid.UUID          `json:"id"`
+	PartyID   uuid.UUID          `json:"party_id"`
+	AuthorID  uuid.UUID          `json:"author_id"`
+	Body      string             `json:"body"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type PartyRead struct {
+	UserID     uuid.UUID          `json:"user_id"`
+	PartyID    uuid.UUID          `json:"party_id"`
+	LastReadAt pgtype.Timestamptz `json:"last_read_at"`
 }
 
 type Quest struct {
@@ -1014,6 +1050,13 @@ type User struct {
 	EmailVerified bool               `json:"email_verified"`
 	TotpSecret    *string            `json:"totp_secret"`
 	TotpEnabled   bool               `json:"totp_enabled"`
+	FriendCode    string             `json:"friend_code"`
+}
+
+type UserBlock struct {
+	BlockerID uuid.UUID          `json:"blocker_id"`
+	BlockedID uuid.UUID          `json:"blocked_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type UserIdentity struct {

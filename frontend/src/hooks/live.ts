@@ -33,6 +33,12 @@ const KEYS: Record<string, string[][]> = {
   party: [["characters"], ["character-detail"], ["my-characters"], ["seat-requests"], ["my-seat-requests"]],
   vendors: [["vendors"]],
   npcs: [["npcs"]],
+  // A party room lives inside a campaign, so its nudge rides the campaign's
+  // stream; the ones who may not read it are told nothing by a topic that
+  // carries nothing (#181).
+  // `me` carries the header's waiting count, so both topics make it stale.
+  messages: [["party-messages"], ["threads"], ["thread"], ["me"]],
+  friends: [["friends"], ["threads"], ["me"]],
 };
 
 /**
@@ -73,4 +79,38 @@ export function useLiveCampaign(campaignId: string | undefined) {
       source.close();
     };
   }, [campaignId, qc]);
+}
+
+
+/*
+The account's own stream (#181).
+
+Friendship and a direct message belong to a person rather than to a table, so
+they travel in a room of their own — and one that has to be listened to from
+anywhere in the app, not only inside a campaign. Mounted once, high up, beside
+the campaign one.
+*/
+export function useLiveAccount(signedIn: boolean) {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!signedIn || typeof EventSource === "undefined") return;
+
+    const source = new EventSource("/api/me/events/stream");
+    const listeners: Array<[string, () => void]> = (["friends", "messages"] as const).map(
+      (topic) => [
+        topic,
+        () => {
+          for (const key of KEYS[topic]) qc.invalidateQueries({ queryKey: key });
+        },
+      ],
+    );
+    for (const [topic, handler] of listeners) source.addEventListener(topic, handler);
+    source.onerror = () => {};
+
+    return () => {
+      for (const [topic, handler] of listeners) source.removeEventListener(topic, handler);
+      source.close();
+    };
+  }, [signedIn, qc]);
 }

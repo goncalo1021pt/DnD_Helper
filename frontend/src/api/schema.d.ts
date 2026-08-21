@@ -38,6 +38,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/friends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your friends, the requests either way, and who you have blocked */
+        get: operations["listFriends"];
+        put?: never;
+        /**
+         * Ask somebody to be your friend, by their code
+         * @description Answers 404 for a code nobody holds, and the same 404 for a code held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes.
+         */
+        post: operations["askFriend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/friends/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Draw a fresh friend code, retiring the old one */
+        post: operations["reforgeFriendCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/friends/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Accept a request somebody made of you */
+        put: operations["acceptFriend"];
+        post?: never;
+        /**
+         * Withdraw a request, decline one, or part ways
+         * @description One door for all three, because they are one act: the row between you goes. What was said is not deleted with it — a conversation you both had is not the friendship's to erase.
+         */
+        delete: operations["dropFriend"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/blocks/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Block somebody — parts you if you were friends, and stops both directions */
+        put: operations["blockUser"];
+        post?: never;
+        /** Lift a block. It does not restore the friendship. */
+        delete: operations["unblockUser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The inbox — everyone you have spoken with, newest first */
+        get: operations["listThreads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/messages/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        /** One conversation, oldest first, and marks it read */
+        get: operations["readThread"];
+        put?: never;
+        /**
+         * Say something to one person
+         * @description Open to a friend, or to anybody you already share a table with — the social graph of this app is mostly the campaigns you sit at, and needing to befriend the player beside you first would be ceremony. A block closes it in both directions.
+         */
+        post: operations["sendDirectMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parties/{partyId}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        /** A party's own room, for a table that has split */
+        get: operations["listPartyMessages"];
+        put?: never;
+        /**
+         * Say something to your party
+         * @description Open to the DM and to whoever rides with that party right now. A player whose heroes ride elsewhere is answered 404 rather than 403, exactly as the rest of the app answers a room you are not in.
+         */
+        post: operations["sendPartyMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns": {
         parameters: {
             query?: never;
@@ -2333,6 +2477,11 @@ export interface components {
             emailVerified: boolean;
             /** @description Whether the account has TOTP two-factor authentication turned on (local accounts only). */
             twofaEnabled: boolean;
+            /** @description What is waiting on this account (#181) — friend requests to answer, and direct messages unread. It rides /me, which the shell already fetches, so the header's badge costs no request of its own; the account's own live stream makes /me stale when either number moves. */
+            waiting?: {
+                requests: number;
+                unread: number;
+            };
             /** Format: date-time */
             createdAt: string;
         };
@@ -3872,6 +4021,55 @@ export interface components {
              */
             characterId?: string | null;
         };
+        Friend: {
+            /** Format: uuid */
+            userId: string;
+            name: string;
+            image?: string | null;
+            /** @enum {string} */
+            state: "pending" | "accepted";
+            /**
+             * @description `asked` — you asked them and they have not answered. `invited` — they asked you. `mutual` — it was accepted, and who asked stops mattering.
+             * @enum {string}
+             */
+            direction: "asked" | "invited" | "mutual";
+            /** Format: date-time */
+            since: string;
+        };
+        FriendRoll: {
+            /** @description The code you hand somebody so they can ask to be your friend (#181). Discovery is a code rather than a search: a search box over accounts is an enumeration door onto a private tavern, and an account that arrived through Google has no username to be found by. Reforging one leaves every existing friendship alone. */
+            friendCode: string;
+            friends: components["schemas"]["Friend"][];
+            blocked: components["schemas"]["Friend"][];
+        };
+        AskFriendRequest: {
+            friendCode: string;
+        };
+        Message: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            authorId: string;
+            authorName: string;
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            mine: boolean;
+        };
+        SendMessageRequest: {
+            body: string;
+        };
+        DirectThread: {
+            /** Format: uuid */
+            peerId: string;
+            peerName: string;
+            peerImage?: string | null;
+            lastBody: string;
+            /** Format: date-time */
+            lastAt: string;
+            lastWasMine: boolean;
+            unread: number;
+        };
         Realm: {
             /** Format: uuid */
             id: string;
@@ -4061,6 +4259,298 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listFriends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roll */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendRoll"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    askFriend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskFriendRequest"];
+            };
+        };
+        responses: {
+            /** @description The roll, as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendRoll"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    reforgeFriendCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roll, carrying the new code */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendRoll"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    acceptFriend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roll, as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendRoll"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    dropFriend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roll, as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendRoll"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    blockUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roll, as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendRoll"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    unblockUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The roll, as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FriendRoll"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listThreads: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One row per conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectThread"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    readThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The thread */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    sendDirectMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description What was said */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPartyMessages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The room */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    sendPartyMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                partyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description What was said */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listCampaigns: {

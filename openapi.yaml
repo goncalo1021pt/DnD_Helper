@@ -41,6 +41,237 @@ paths:
                 $ref: "#/components/schemas/CurrentUser"
         "401":
           $ref: "#/components/responses/Unauthorized"
+  /me/friends:
+    get:
+      operationId: listFriends
+      summary: Your friends, the requests either way, and who you have blocked
+      responses:
+        "200":
+          description: The roll
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRoll"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: askFriend
+      summary: Ask somebody to be your friend, by their code
+      description: Answers 404 for a code nobody holds, and the same 404 for a code held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskFriendRequest"
+      responses:
+        "200":
+          description: The roll, as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRoll"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /me/friends/code:
+    post:
+      operationId: reforgeFriendCode
+      summary: Draw a fresh friend code, retiring the old one
+      responses:
+        "200":
+          description: The roll, carrying the new code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRoll"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me/friends/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: acceptFriend
+      summary: Accept a request somebody made of you
+      responses:
+        "200":
+          description: The roll, as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRoll"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: dropFriend
+      summary: Withdraw a request, decline one, or part ways
+      description: "One door for all three, because they are one act: the row between you goes. What was said is not deleted with it — a conversation you both had is not the friendship's to erase."
+      responses:
+        "200":
+          description: The roll, as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRoll"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me/blocks/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: blockUser
+      summary: Block somebody — parts you if you were friends, and stops both directions
+      responses:
+        "200":
+          description: The roll, as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRoll"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: unblockUser
+      summary: Lift a block. It does not restore the friendship.
+      responses:
+        "200":
+          description: The roll, as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendRoll"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me/messages:
+    get:
+      operationId: listThreads
+      summary: The inbox — everyone you have spoken with, newest first
+      responses:
+        "200":
+          description: One row per conversation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DirectThread"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /me/messages/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: readThread
+      summary: One conversation, oldest first, and marks it read
+      responses:
+        "200":
+          description: The thread
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: sendDirectMessage
+      summary: Say something to one person
+      description: Open to a friend, or to anybody you already share a table with — the social graph of this app is mostly the campaigns you sit at, and needing to befriend the player beside you first would be ceremony. A block closes it in both directions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "201":
+          description: What was said
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /parties/{partyId}/messages:
+    parameters:
+      - name: partyId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: listPartyMessages
+      summary: A party's own room, for a table that has split
+      responses:
+        "200":
+          description: The room
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: sendPartyMessage
+      summary: Say something to your party
+      description: Open to the DM and to whoever rides with that party right now. A player whose heroes ride elsewhere is answered 404 rather than 403, exactly as the rest of the app answers a room you are not in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "201":
+          description: What was said
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /campaigns:
     get:
       operationId: listCampaigns
@@ -4008,6 +4239,17 @@ components:
         twofaEnabled:
           type: boolean
           description: Whether the account has TOTP two-factor authentication turned on (local accounts only).
+        waiting:
+          type: object
+          required:
+            - requests
+            - unread
+          description: What is waiting on this account (#181) — friend requests to answer, and direct messages unread. It rides /me, which the shell already fetches, so the header's badge costs no request of its own; the account's own live stream makes /me stale when either number moves.
+          properties:
+            requests:
+              type: integer
+            unread:
+              type: integer
         createdAt:
           type: string
           format: date-time
@@ -7138,6 +7380,126 @@ components:
           format: uuid
           nullable: true
           description: "A sheet forged for one of this campaign's Folk (#227) — never a seated hero, because a sheet makes a person statted and not a party member. Sending the nil UUID strikes that body: it exists only for this person and nothing else points at it."
+    Friend:
+      type: object
+      required:
+        - userId
+        - name
+        - state
+        - direction
+        - since
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        image:
+          type: string
+          nullable: true
+        state:
+          type: string
+          enum:
+            - pending
+            - accepted
+        direction:
+          type: string
+          enum:
+            - asked
+            - invited
+            - mutual
+          description: "`asked` — you asked them and they have not answered. `invited` — they asked you. `mutual` — it was accepted, and who asked stops mattering."
+        since:
+          type: string
+          format: date-time
+    FriendRoll:
+      type: object
+      required:
+        - friendCode
+        - friends
+        - blocked
+      properties:
+        friendCode:
+          type: string
+          description: "The code you hand somebody so they can ask to be your friend (#181). Discovery is a code rather than a search: a search box over accounts is an enumeration door onto a private tavern, and an account that arrived through Google has no username to be found by. Reforging one leaves every existing friendship alone."
+        friends:
+          type: array
+          items:
+            $ref: "#/components/schemas/Friend"
+        blocked:
+          type: array
+          items:
+            $ref: "#/components/schemas/Friend"
+    AskFriendRequest:
+      type: object
+      required:
+        - friendCode
+      properties:
+        friendCode:
+          type: string
+          minLength: 1
+          maxLength: 32
+    Message:
+      type: object
+      required:
+        - id
+        - authorId
+        - authorName
+        - body
+        - createdAt
+        - mine
+      properties:
+        id:
+          type: string
+          format: uuid
+        authorId:
+          type: string
+          format: uuid
+        authorName:
+          type: string
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        mine:
+          type: boolean
+    SendMessageRequest:
+      type: object
+      required:
+        - body
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 4000
+    DirectThread:
+      type: object
+      required:
+        - peerId
+        - peerName
+        - lastBody
+        - lastAt
+        - lastWasMine
+        - unread
+      properties:
+        peerId:
+          type: string
+          format: uuid
+        peerName:
+          type: string
+        peerImage:
+          type: string
+          nullable: true
+        lastBody:
+          type: string
+        lastAt:
+          type: string
+          format: date-time
+        lastWasMine:
+          type: boolean
+        unread:
+          type: integer
     Realm:
       type: object
       required:

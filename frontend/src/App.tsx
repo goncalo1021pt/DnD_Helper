@@ -11,6 +11,7 @@ import CampaignsPage from "./components/CampaignsPage";
 import ProfilePage from "./components/ProfilePage";
 import ForgeWizard from "./components/ForgeWizard";
 import HeroSheetPage from "./components/HeroSheetPage";
+import CompanionsPage from "./components/CompanionsPage";
 import ArchivesPage from "./components/ArchivesPage";
 import RulesPage from "./components/RulesPage";
 import CodexPage from "./components/CodexPage";
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="heroes" element={<Navigate to="/questboard/profile" replace />} />
         <Route path="heroes/forge" element={<ForgeWizard />} />
         <Route path="heroes/:heroId" element={<HeroSheetPage />} />
+        <Route path="companions" element={<CompanionsPage />} />
         <Route path="archives" element={<ArchivesPage />} />
         <Route path="rules" element={<RulesPage />} />
         {/* old shelves point at the merged library */}

@@ -63,8 +63,19 @@ func (s *Server) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserRequest
 		return nil, err
 	}
 
+	out := toAPIUser(user)
+	// What is waiting on them, carried by the payload the shell already
+	// fetches (#181). A badge with a poll of its own is how a header becomes
+	// the most expensive thing on every page.
+	if waiting, err := s.queries.CountWaiting(ctx, uid); err == nil {
+		out.Waiting = &struct {
+			Requests int `json:"requests"`
+			Unread   int `json:"unread"`
+		}{Requests: int(waiting.Requests), Unread: int(waiting.Unread)}
+	}
+
 	return api.GetCurrentUser200JSONResponse{
-		User:      toAPIUser(user),
+		User:      out,
 		Campaigns: memberships,
 	}, nil
 }

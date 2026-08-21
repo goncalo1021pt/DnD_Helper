@@ -1,0 +1,251 @@
+/me/friends:
+  get:
+    operationId: listFriends
+    summary: Your friends, the requests either way, and who you have blocked
+    responses:
+      "200":
+        description: The roll
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/FriendRoll"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  post:
+    operationId: askFriend
+    summary: Ask somebody to be your friend, by their code
+    description: >-
+      Answers 404 for a code nobody holds, and the same 404 for a code held by
+      somebody who has blocked you — a block that could be detected by probing
+      would not be much of a block. Asking somebody who has already asked you
+      accepts instead, because two people asking each other means yes.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/AskFriendRequest"
+    responses:
+      "200":
+        description: The roll, as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/FriendRoll"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/me/friends/code:
+  post:
+    operationId: reforgeFriendCode
+    summary: Draw a fresh friend code, retiring the old one
+    responses:
+      "200":
+        description: The roll, carrying the new code
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/FriendRoll"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/me/friends/{userId}:
+  parameters:
+    - name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  put:
+    operationId: acceptFriend
+    summary: Accept a request somebody made of you
+    responses:
+      "200":
+        description: The roll, as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/FriendRoll"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: dropFriend
+    summary: Withdraw a request, decline one, or part ways
+    description: >-
+      One door for all three, because they are one act: the row between you
+      goes. What was said is not deleted with it — a conversation you both had
+      is not the friendship's to erase.
+    responses:
+      "200":
+        description: The roll, as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/FriendRoll"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/me/blocks/{userId}:
+  parameters:
+    - name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  put:
+    operationId: blockUser
+    summary: Block somebody — parts you if you were friends, and stops both directions
+    responses:
+      "200":
+        description: The roll, as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/FriendRoll"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  delete:
+    operationId: unblockUser
+    summary: Lift a block. It does not restore the friendship.
+    responses:
+      "200":
+        description: The roll, as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/FriendRoll"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/me/messages:
+  get:
+    operationId: listThreads
+    summary: The inbox — everyone you have spoken with, newest first
+    responses:
+      "200":
+        description: One row per conversation
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/DirectThread"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+
+/me/messages/{userId}:
+  parameters:
+    - name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  get:
+    operationId: readThread
+    summary: One conversation, oldest first, and marks it read
+    responses:
+      "200":
+        description: The thread
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Message"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  post:
+    operationId: sendDirectMessage
+    summary: Say something to one person
+    description: >-
+      Open to a friend, or to anybody you already share a table with — the
+      social graph of this app is mostly the campaigns you sit at, and needing
+      to befriend the player beside you first would be ceremony. A block closes
+      it in both directions.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SendMessageRequest"
+    responses:
+      "201":
+        description: What was said
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Message"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/parties/{partyId}/messages:
+  parameters:
+    - name: partyId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  get:
+    operationId: listPartyMessages
+    summary: A party's own room, for a table that has split
+    responses:
+      "200":
+        description: The room
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Message"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  post:
+    operationId: sendPartyMessage
+    summary: Say something to your party
+    description: >-
+      Open to the DM and to whoever rides with that party right now. A player
+      whose heroes ride elsewhere is answered 404 rather than 403, exactly as
+      the rest of the app answers a room you are not in.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SendMessageRequest"
+    responses:
+      "201":
+        description: What was said
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Message"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

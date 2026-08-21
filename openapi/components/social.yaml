@@ -1,0 +1,105 @@
+Friend:
+  type: object
+  required: [userId, name, state, direction, since]
+  properties:
+    userId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    image:
+      type: string
+      nullable: true
+    state:
+      type: string
+      enum: [pending, accepted]
+    direction:
+      type: string
+      enum: [asked, invited, mutual]
+      description: >-
+        `asked` — you asked them and they have not answered. `invited` — they
+        asked you. `mutual` — it was accepted, and who asked stops mattering.
+    since:
+      type: string
+      format: date-time
+
+FriendRoll:
+  type: object
+  required: [friendCode, friends, blocked]
+  properties:
+    friendCode:
+      type: string
+      description: >-
+        The code you hand somebody so they can ask to be your friend (#181).
+        Discovery is a code rather than a search: a search box over accounts is
+        an enumeration door onto a private tavern, and an account that arrived
+        through Google has no username to be found by. Reforging one leaves
+        every existing friendship alone.
+    friends:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Friend"
+    blocked:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Friend"
+
+AskFriendRequest:
+  type: object
+  required: [friendCode]
+  properties:
+    friendCode:
+      type: string
+      minLength: 1
+      maxLength: 32
+
+Message:
+  type: object
+  required: [id, authorId, authorName, body, createdAt, mine]
+  properties:
+    id:
+      type: string
+      format: uuid
+    authorId:
+      type: string
+      format: uuid
+    authorName:
+      type: string
+    body:
+      type: string
+    createdAt:
+      type: string
+      format: date-time
+    mine:
+      type: boolean
+
+SendMessageRequest:
+  type: object
+  required: [body]
+  properties:
+    body:
+      type: string
+      minLength: 1
+      maxLength: 4000
+
+DirectThread:
+  type: object
+  required: [peerId, peerName, lastBody, lastAt, lastWasMine, unread]
+  properties:
+    peerId:
+      type: string
+      format: uuid
+    peerName:
+      type: string
+    peerImage:
+      type: string
+      nullable: true
+    lastBody:
+      type: string
+    lastAt:
+      type: string
+      format: date-time
+    lastWasMine:
+      type: boolean
+    unread:
+      type: integer
