@@ -52,6 +52,9 @@ func NewRouter(deps Deps) http.Handler {
 		// reason: a strict handler returns a typed object and is done, and a
 		// stream is the opposite of done.
 		ar.Get("/campaigns/{campaignID}/events/stream", srv.ServeCampaignStream)
+		// The account's own stream: friendship and direct messages belong to a
+		// person rather than to a table, so they travel in a room of their own.
+		ar.Get("/me/events/stream", srv.ServeMeStream)
 
 		// Register the generated, type-checked operation handlers onto this
 		// subrouter (paths: /health, /me, /campaigns).

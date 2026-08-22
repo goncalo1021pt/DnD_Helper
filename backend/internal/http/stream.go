@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
@@ -40,6 +41,18 @@ to redo every one of those rules per subscriber.
 // pipe warm and costs two bytes.
 const streamHeartbeat = 25 * time.Second
 
+// ServeMeStream opens an SSE stream for one ACCOUNT — the room friendship and
+// direct messages travel in (#181). No membership to check: the room is the
+// signed-in account itself, and nobody else can subscribe to it.
+func (s *Server) ServeMeStream(w http.ResponseWriter, r *http.Request) {
+	uid, ok := auth.UserID(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	s.streamRoom(w, r, "user:"+uid.String())
+}
+
 // ServeCampaignStream opens an SSE stream for one campaign's members.
 func (s *Server) ServeCampaignStream(w http.ResponseWriter, r *http.Request) {
 	campaignID, err := uuid.Parse(chi.URLParam(r, "campaignID"))
@@ -53,7 +66,13 @@ func (s *Server) ServeCampaignStream(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
+	s.streamRoom(w, r, campaignID.String())
+}
 
+// streamRoom is the stream itself, once. Who may listen is the caller's
+// business; keeping the loop in one place is what stops a second door from
+// quietly shipping without a heartbeat.
+func (s *Server) streamRoom(w http.ResponseWriter, r *http.Request, room string) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
@@ -68,7 +87,7 @@ func (s *Server) ServeCampaignStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
-	sub, leave := s.hub.Subscribe(campaignID.String())
+	sub, leave := s.hub.Subscribe(room)
 	defer leave()
 
 	// An opening comment so the browser sees bytes and settles the connection
@@ -93,6 +112,16 @@ func (s *Server) ServeCampaignStream(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, ": ping\n\n")
 			flusher.Flush()
 		}
+	}
+}
+
+// nudge wakes one PERSON's own stream, wherever they happen to be looking.
+// Friendship and direct messages belong to an account rather than to a table,
+// so their room is the account (#181). Same contract as publish: never blocks,
+// never fails, and carries a topic and never the thing that changed.
+func (s *Server) nudge(userID uuid.UUID, topic live.Topic) {
+	if s.hub != nil {
+		s.hub.Publish("user:"+userID.String(), topic)
 	}
 }
 

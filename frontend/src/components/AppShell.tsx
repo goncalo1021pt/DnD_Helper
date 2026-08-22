@@ -3,6 +3,7 @@ import { Link, Outlet } from "react-router-dom";
 import type { CurrentUser } from "../api/client";
 import { apiFetch } from "../lib/http";
 import { initials, medallionFor } from "../lib/party";
+import { useLiveAccount } from "../hooks";
 import Crest from "./ui/Crest";
 import SiteFooter from "./ui/SiteFooter";
 
@@ -44,6 +45,14 @@ function VerifyBanner() {
 }
 
 export default function AppShell({ user }: { user: CurrentUser["user"] }) {
+  // What is waiting on this account: requests to answer, and words unread.
+  // The account's own stream, mounted once for the whole signed-in app: a
+  // request or a message arrives wherever the person happens to be looking,
+  // and makes /me stale so the badge below follows it.
+  useLiveAccount(!!user);
+  // Carried by /me, which the shell already has. Two queries of its own here
+  // would ride along on every page in the app for the sake of one number.
+  const waiting = (user.waiting?.requests ?? 0) + (user.waiting?.unread ?? 0);
   return (
     <div className="bg-hearth font-body relative flex min-h-screen flex-col overflow-x-hidden text-cream">
       <div className="overlay-vignette fixed" />
@@ -72,6 +81,24 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
             className="label-stamp text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
           >
             Campaigns
+          </Link>
+          {/* Companions sits beside the campaigns rather than inside one:
+              a friendship belongs to the account and outlives every table
+              it sits at (#181). The count is what is waiting on YOU —
+              requests to answer and words unread. */}
+          <Link
+            to="/questboard/companions"
+            className="label-stamp relative text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
+          >
+            Companions
+            {waiting > 0 && (
+              <span
+                className="absolute -right-3.5 -top-2 rounded-full px-1.5 text-[9px] font-bold text-[#f0dfb8]"
+                style={{ background: "rgba(139,37,32,.9)" }}
+              >
+                {waiting}
+              </span>
+            )}
           </Link>
           <Link
             to="/questboard/archives"

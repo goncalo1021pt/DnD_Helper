@@ -21,6 +21,7 @@ export * from "./live";
 export * from "./rules";
 export * from "./vendors";
 export * from "./npcs";
+export * from "./social";
 export * from "./realms";
 export * from "./parties";
 export * from "./chronicle";

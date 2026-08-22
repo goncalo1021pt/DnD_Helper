@@ -37,6 +37,12 @@ const (
 	TopicParty     Topic = "party"     // a hero was seated, healed, levelled
 	TopicVendors   Topic = "vendors"   // a shop or a shelf was revealed
 	TopicNpcs      Topic = "npcs"      // a person or their stats were revealed
+
+	// These two are published into a PERSON's room rather than a campaign's
+	// (#181). Friendship and a direct message belong to an account and outlive
+	// every table it sits at, so the room they travel in is the account itself.
+	TopicFriends  Topic = "friends"  // somebody asked, accepted, parted or blocked
+	TopicMessages Topic = "messages" // something was said to you
 )
 
 // buffer is how far behind a client may fall before it is cut loose. Small on

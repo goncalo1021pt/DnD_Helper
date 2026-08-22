@@ -41,6 +41,19 @@ User:
     twofaEnabled:
       type: boolean
       description: Whether the account has TOTP two-factor authentication turned on (local accounts only).
+    waiting:
+      type: object
+      required: [requests, unread]
+      description: >-
+        What is waiting on this account (#181) — friend requests to answer, and
+        direct messages unread. It rides /me, which the shell already fetches,
+        so the header's badge costs no request of its own; the account's own
+        live stream makes /me stale when either number moves.
+      properties:
+        requests:
+          type: integer
+        unread:
+          type: integer
     createdAt:
       type: string
       format: date-time
