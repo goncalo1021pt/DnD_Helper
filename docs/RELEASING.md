@@ -67,8 +67,8 @@ arg, which `docker-compose.yml` feeds from the environment.
 make version    # what this tree would build as
 ```
 
-- On a release tag: `1.7.0`
-- On main, past a tag: `1.7.0-12-gabc1234` — honest about not being a release
+- On a release tag: `2.0.0`
+- On main, past a tag: `2.0.0-12-gabc1234` — honest about not being a release
 - With uncommitted edits: `…-dirty`
 - Unstamped (`go run ./cmd/server`, or a build that skipped the flag):
   `0.0.0-dev`, which is meant to look wrong rather than quietly claim to be

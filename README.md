@@ -6,7 +6,7 @@ A small, self-hosted web app for running **D&D 5.5e (2024)** campaigns: a tavern
 homebrew-friendly rules **codex** — all behind a single container and your own
 login.
 
-> **Status: v1.7.0.** Runs in production as a single container behind a
+> **Status: v2.0.0.** Runs in production as a single container behind a
 > Cloudflare Tunnel. An open instance is live at
 > **[dnd.fontao.net](https://dnd.fontao.net)** — sign up and bring your table,
 > or self-host your own with the walkthrough below.
@@ -16,29 +16,48 @@ login.
 - **Tavern quest board** — the DM nails up quests with gold/XP/reputation rewards;
   players join a campaign by invite code and claim quests themselves.
 - **Character builder** — forge heroes from classes, subclasses, species,
-  backgrounds and feats; level them up; two custom skill-tree systems; a hero
-  sheet page. Your imported content is a per-account library.
+  backgrounds and feats; level them up, including **into a second class**, with
+  the spell slots, hit dice and resource pools each class actually grants; two
+  custom skill-tree systems; a hero sheet page. Your imported content is a
+  per-account library.
 - **Print to the real sheet** — one button on a hero's page prints them onto the
   **official 2024 character sheet**, which ships with the app, at coordinates
   measured off it. Assembled entirely in the browser. See
   [docs/PRINTING.md](docs/PRINTING.md).
-- **Maps & fog of war** — upload battle maps, nest sub-maps, drop pins, and reveal
-  the world through **knowledge pools**. Fog is composited **server-side**, so
-  players never receive the pixels they haven't uncovered.
+- **Maps & fog of war** — upload battle maps, nest sub-maps, drop pins in a
+  choice of markers, draw **roads and tinted regions**, and lift the fog stamp
+  by stamp. What a reveal uncovers is remembered against **the heroes who were
+  standing there**, so it follows a player between parties. Fog is composited
+  **server-side**, so players never receive the pixels they haven't uncovered.
 - **Encounters** — a D&D-Beyond-style two-pane builder (filter the Monster Den,
   expand full stat cards inline, add with a tap) plus a live **initiative
   tracker** with HP, hidden enemies, and a redacted player view.
 - **Monster Den & Bestiary** — the DM's private menagerie, and a player-facing
   creature journal revealed one hard-won section at a time.
-- **Chronicle** — a campaign log and player chat with channel filters.
+- **The world** — a place tree the DM authors, with quests, shops, folk and maps
+  filed under it, each veiled per party or per hero. A campaign stands on a
+  **realm** that outlives it, so the next campaign can begin on the same ground.
+- **The Folk** — the people of a campaign, veiled twice over: knowing somebody
+  exists is one secret, reading their numbers is another. One can travel with
+  the party as an **ally**, handed to a player to run.
+- **Parties** — named groups of heroes for a table that splits, with a room of
+  their own to talk in.
+- **The Bazaar** — shops with shelves the DM reveals a line at a time, and a
+  till that takes real coin. A table can **mint its own currency** — glimmer,
+  trade bars, crowns — and every price and purse is counted in it.
+- **Chronicle** — a campaign log and player chat with channel filters, plus
+  DM **handouts**: the letter, the torn map corner, the sigil.
+- **Companions** — friends across tables, found by a code you hand out rather
+  than a search, and direct messages between friends or table-mates.
 - **Rules reference** — quick 5e lookups (saves, conditions, proficiency, etc.).
 - **Homebrew codex** — classes, subclasses, species, backgrounds, feats, spells,
   items and monsters are content-as-data; import/export as packs.
 - **Accounts & security** — sign in with **Discord/Google** or a local
-  **username + password**; email verification and password recovery (Resend);
-  optional **two-factor auth (TOTP)** with recovery codes. HTTPS is enforced
-  end-to-end (edge redirect + HSTS), and session cookies are `Secure`,
-  `HttpOnly`, `SameSite=Lax`.
+  **username + password**, and one account answers to as many of those doors as
+  you hang on it: an address names exactly one person here. Email verification
+  and password recovery (Resend); optional **two-factor auth (TOTP)** with
+  recovery codes. HTTPS is enforced end-to-end (edge redirect + HSTS), and
+  session cookies are `Secure`, `HttpOnly`, `SameSite=Lax`.
 
 ## Stack
 

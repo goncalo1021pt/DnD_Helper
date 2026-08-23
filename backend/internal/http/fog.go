@@ -51,11 +51,12 @@ func (s *Server) revealLocation(ctx context.Context, campaignID uuid.UUID, id *u
 // shared by the JSON map and the composited image so the two can never drift
 // into disagreeing about what this viewer may see.
 //
-// Both gates apply: the pool query has already dropped batches from pools this
-// user is not in, and every batch that names a place is then held against that
-// place's veil, resolved through the viewer's own heroes and every place above
-// it — hiding a country hides the cities inside it here exactly as it does on
-// the quest board.
+// Both gates apply: the query has already dropped the batches none of this
+// viewer's heroes were standing for (#232 — it was keyed by user before, and
+// `knowledge_pools` is gone), and every batch that names a place is then held
+// against that place's veil, resolved through those same heroes and every place
+// above them — hiding a country hides the cities inside it here exactly as it
+// does on the quest board.
 func (s *Server) playerRevealCircles(ctx context.Context, mapID, campaignID, userID uuid.UUID) ([]circleGeom, error) {
 	// Fog used to be the one veil in the app keyed by user; it resolves through
 	// the viewer's own heroes now, like everything else (#232). The heroes are
@@ -90,8 +91,8 @@ func (s *Server) playerRevealCircles(ctx context.Context, mapID, campaignID, use
 	return filterRevealCircles(rows, v, charIDs), nil
 }
 
-// filterRevealCircles is the place gate itself, over a candidate set the pool
-// query has already narrowed. A circle in no place is kept; a circle in a place
+// filterRevealCircles is the place gate itself, over a candidate set the query
+// has already narrowed to the batches this viewer's heroes were standing for. A circle in no place is kept; a circle in a place
 // survives only if one of the viewer's heroes may see that place.
 func filterRevealCircles(rows []db.ListVisibleRevealCirclesRow, v *veil, charIDs []uuid.UUID) []circleGeom {
 	out := make([]circleGeom, 0, len(rows))
