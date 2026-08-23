@@ -795,6 +795,40 @@ v1.6.0 release, which proved the milestone names and the tags had drifted
 apart. From here the convention is the normal one — waves count v1.7, v1.8, …
 and a 2.0.0 tag waits for a genuinely breaking change, not a headline feature.
 
+## v2.0.0 shipped (2026-08-22)
+
+Thirty-three commits since v1.7.0, deployed to dnd.fontao.net the same day.
+Multiclassing, handouts, the atlas, the Folk and their allies, parties, realms,
+map roads and regions, a table's own coinage, and companions — plus the account
+and veil fixes that came out of running the thing.
+
+**Why the major, given the note above retired the v2 label from planning.** The
+rule that replaced it was that a 2.0.0 tag waits for a genuinely breaking
+change rather than a headline feature. This release clears that bar several
+times over, and the tag was cut on those grounds rather than on the size of the
+list:
+
+- **A DM relearns statting an NPC.** A sheet used to be a seat at the table;
+  it is a body filed under a person now (#227), and one is read through that
+  person's veils rather than the table's (#267).
+- **A DM relearns the invite code**, which is the DM's alone and no longer
+  rides in every player's payload (#207).
+- **Money changed units.** A purse counts base units, and every existing one
+  was multiplied by a hundred (#195). The worth is identical; the number on the
+  row is not.
+- **Accounts link.** One address names one account, and the duplicate that
+  already existed in production lost its address — and with it password
+  recovery — which is a thing a person has to be told (#269).
+
+Four migrations rewrote existing rows and all four were verified against
+production afterwards: nothing was lost, and every purse came out an exact
+hundredfold.
+
+**What was deliberately not in it.** #234 (the atlas moves up to the realm) was
+held back: realms shipped as the container only, and stage two is a data
+migration best done after the table has played on stage one. #180 (share
+character features) was never started. Both are open.
+
 ## How work is tracked (decided 2026-07-29)
 
 Three intake channels had grown with no single queue: this file (strategy),
