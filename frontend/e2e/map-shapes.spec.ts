@@ -8,6 +8,12 @@ Two asks from the table that turned out to be one feature: a brush that draws a
 street, and an overlay that tints a kingdom. Both are an ordered run of points;
 only whether the run is stroked or filled differs.
 
+These specs were all API-level when #262 shipped, and that is exactly how the
+shapes reached production untouchable: the form's Rub it out button was wired
+and correct, and no human could open the form, because the viewer captured the
+press for panning before it reached the mark (#277). The last test here drives
+a real browser for that reason.
+
 What is worth pinning is the veil, because a road is as much a piece of
 knowledge as a village. A DM-only shape is absent from a player's payload, and
 under fog a LINE comes back clipped to the stretches standing on ground that
@@ -232,4 +238,92 @@ test("under fog a road is clipped to the stretch the party has walked", async ({
 
   await dmCtx.close();
   await plCtx.close();
+});
+
+test("a road answers a press, a region is still ground, and both can be rubbed out", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("dmink"));
+  const campaign = await createCampaign(page.request, unique("Inkwork "));
+  const mapId = await hangMap(page, campaign.id, false);
+
+  await page.request.post(`/api/maps/${mapId}/shapes`, {
+    data: {
+      kind: "line",
+      label: "The High Road",
+      points: [{ x: 0.1, y: 0.6 }, { x: 0.5, y: 0.6 }, { x: 0.9, y: 0.6 }],
+      color: "#c96a5a",
+      width: 0.006,
+    },
+  });
+  await page.request.post(`/api/maps/${mapId}/shapes`, {
+    data: {
+      kind: "area",
+      label: "Barovia",
+      points: [
+        { x: 0.12, y: 0.12 }, { x: 0.55, y: 0.12 },
+        { x: 0.55, y: 0.4 }, { x: 0.12, y: 0.4 },
+      ],
+      color: "#7d9b6a",
+      opacity: 0.3,
+    },
+  });
+
+  await page.goto(`/questboard/campaigns/${campaign.id}/map/${mapId}`);
+  await expect(page.getByRole("button", { name: /Draw/ })).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(1200);
+
+  /** Where a drawn shape sits on the screen right now. */
+  const boxOf = (label: string) =>
+    page.evaluate((t) => {
+      const g = Array.from(document.querySelectorAll("g[data-shape-id]")).find((x) =>
+        (x.textContent || "").includes(t),
+      );
+      if (!g) return null;
+      const r = g.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    }, label);
+
+  // Pressing the road opens the form it has always had — the whole of #277.
+  const road = await boxOf("High Road");
+  expect(road, "the road should be drawn").toBeTruthy();
+  await page.mouse.click(road!.x + road!.w / 2, road!.y + road!.h / 2);
+  await expect(page.getByRole("button", { name: "Rub it out" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  // A region is grabbed by its border, never by its fill: pressing the edge
+  // opens it...
+  const area = await boxOf("Barovia");
+  await page.mouse.click(area!.x + 1, area!.y + area!.h / 2);
+  await expect(page.getByRole("button", { name: "Rub it out" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
+  // ...while dragging from inside it still pans the map. A kingdom covering
+  // half the chart must not be half a chart you cannot move.
+  const where = () =>
+    page.evaluate(
+      () => document.querySelector("g[data-shape-id]")!.getBoundingClientRect().x,
+    );
+  const before = await where();
+  const inX = area!.x + area!.w * 0.75;
+  const inY = area!.y + area!.h * 0.8;
+  await page.mouse.move(inX, inY);
+  await page.mouse.down();
+  await page.mouse.move(inX - 90, inY, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  expect(before - (await where()), "dragging inside a region should pan").toBeGreaterThan(50);
+
+  // And the list is the other way in — the one a DM looks for, and the one
+  // that reaches a road clipped away under fog or drawn off the screen.
+  await page.getByRole("button", { name: /Draw/ }).click();
+  await expect(page.getByRole("heading", { name: "The Inkwork" })).toBeVisible();
+  await page.getByRole("button", { name: "Rub out The High Road" }).click();
+  await page.getByRole("button", { name: "Rub it out" }).click();
+
+  await expect
+    .poll(async () => (await shapesOf(page.request, mapId)).map((s) => s.label))
+    .toEqual(["Barovia"]);
 });
