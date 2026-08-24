@@ -1756,6 +1756,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/maps/{mapId}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Reveal or hide a map, for the table, a party or one hero (DM only). Choosing the table clears every per-hero exception. */
+        put: operations["setMapVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/maps/{mapId}/visibility/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: string;
+                characterId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Drop one hero's exception so they follow the table again (DM only) */
+        delete: operations["clearMapVisibilityOverride"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/maps/{mapId}/shapes": {
         parameters: {
             query?: never;
@@ -3229,6 +3268,10 @@ export interface components {
              */
             locationId?: string | null;
             locationName?: string | null;
+            /** @description Whether the whole table may know this map exists (#276). Absent from a player's payload — a veiled map never reaches them at all, and the state of the veil is the DM's business. */
+            visibleToParty?: boolean;
+            /** @description Heroes singled out against the party-wide flag. DM only, like the invite code: absent rather than empty for a player. */
+            visibilityOverrides?: components["schemas"]["VisibilityOverride"][];
         };
         MapPin: {
             /** Format: uuid */
@@ -3376,6 +3419,8 @@ export interface components {
              * @description The place this map depicts, when it depicts one (#229).
              */
             locationId?: string | null;
+            /** @description Whether the table may see it straight away. Defaults to false — a map is the DM's until they hang it in the hall (#276). */
+            visibleToParty?: boolean;
         };
         UpdateMapRequest: {
             name: string;
@@ -7655,6 +7700,62 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setMapVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVisibilityRequest"];
+            };
+        };
+        responses: {
+            /** @description The map with its veil as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignMap"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearMapVisibilityOverride: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mapId: string;
+                characterId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The map with its veil as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignMap"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

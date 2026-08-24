@@ -202,6 +202,19 @@ export default function MapPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          {/* A DM stamping fog on a map nobody can see is doing work for
+              nobody, so the map on the table says when it is still theirs
+              alone (#276). It leads to the atlas, where the veil is set. */}
+          {isDM && map && map.visibleToParty === false && (
+            <button
+              onClick={() => setAtlasOpen(true)}
+              title="The table cannot see this map at all — press to hang it in the hall"
+              className="btn-base btn-ghost-ember px-3 py-2 text-[10px]"
+            >
+              <IconEyeOff size={12} strokeWidth={1.9} />
+              Yours alone
+            </button>
+          )}
           {/* The atlas replaced a bare <select> here (#216): switching, and for
               the DM striking, happen on a page where each map is a row. */}
           {(maps ?? []).length > (isDM ? 0 : 1) && (

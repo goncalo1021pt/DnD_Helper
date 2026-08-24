@@ -43,7 +43,9 @@ async function flatPng(page: Page): Promise<string> {
 
 async function hangMap(page: Page, campaignId: string, fog: boolean): Promise<string> {
   const res = await page.request.post(`/api/campaigns/${campaignId}/maps`, {
-    data: { name: unique("Chart "), imageBase64: await flatPng(page) },
+    // Hung in the hall: a map is the DM's own by default (#276), and none of
+    // these tests is about that veil — they are about what rides on the map.
+    data: { name: unique("Chart "), imageBase64: await flatPng(page), visibleToParty: true },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
   const mapId = (await res.json()).id as string;

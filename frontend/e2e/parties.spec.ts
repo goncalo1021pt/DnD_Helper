@@ -170,7 +170,7 @@ test("fog remembers the heroes who were there, not the party they were in", asyn
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
   const map = (await (
     await dm.request.post(`/api/campaigns/${campaign.id}/maps`, {
-      data: { name: "The Reach", imageBase64: TINY_PNG },
+      data: { name: "The Reach", imageBase64: TINY_PNG, visibleToParty: true },
     })
   ).json()) as { id: string };
   // Fog is opt-in per map; a fresh one is open ground.

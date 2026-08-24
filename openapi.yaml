@@ -2914,6 +2914,68 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /maps/{mapId}/visibility:
+    parameters:
+      - name: mapId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setMapVisibility
+      summary: Reveal or hide a map, for the table, a party or one hero (DM only). Choosing the table clears every per-hero exception.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetVisibilityRequest"
+      responses:
+        "200":
+          description: The map with its veil as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignMap"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /maps/{mapId}/visibility/{characterId}:
+    parameters:
+      - name: mapId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: characterId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: clearMapVisibilityOverride
+      summary: Drop one hero's exception so they follow the table again (DM only)
+      responses:
+        "200":
+          description: The map with its veil as it now stands
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignMap"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /maps/{mapId}/shapes:
     parameters:
       - name: mapId
@@ -5817,6 +5879,14 @@ components:
         locationName:
           type: string
           nullable: true
+        visibleToParty:
+          type: boolean
+          description: Whether the whole table may know this map exists (#276). Absent from a player's payload — a veiled map never reaches them at all, and the state of the veil is the DM's business.
+        visibilityOverrides:
+          type: array
+          description: "Heroes singled out against the party-wide flag. DM only, like the invite code: absent rather than empty for a player."
+          items:
+            $ref: "#/components/schemas/VisibilityOverride"
     MapPin:
       type: object
       required:
@@ -6100,6 +6170,9 @@ components:
           format: uuid
           description: The place this map depicts, when it depicts one (#229).
           nullable: true
+        visibleToParty:
+          type: boolean
+          description: Whether the table may see it straight away. Defaults to false — a map is the DM's until they hang it in the hall (#276).
     UpdateMapRequest:
       type: object
       required:

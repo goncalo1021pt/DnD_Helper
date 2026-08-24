@@ -99,7 +99,7 @@ test("the fog is composited server-side: a player never receives hidden pixels",
 
   // Hang a map the test can reason about.
   const res = await dmPage.request.post(`/api/campaigns/${campaignId}/maps`, {
-    data: { name: "The Road East", imageBase64: await twoTonePng(dmPage) },
+    data: { name: "The Road East", imageBase64: await twoTonePng(dmPage), visibleToParty: true },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
   const mapId = (await res.json()).id as string;
@@ -163,7 +163,7 @@ test("players never receive DM-only pins", async ({ browser }) => {
   const mapId = (
     await (
       await dmPage.request.post(`/api/campaigns/${campaignId}/maps`, {
-        data: { name: "Pinboard", imageBase64: await twoTonePng(dmPage) },
+        data: { name: "Pinboard", imageBase64: await twoTonePng(dmPage), visibleToParty: true },
       })
     ).json()
   ).id as string;
@@ -204,13 +204,13 @@ test("a sub-map hangs off its parent and is reachable", async ({ page }) => {
   const parentId = (
     await (
       await page.request.post(`/api/campaigns/${campaignId}/maps`, {
-        data: { name: "The Overworld", imageBase64: png },
+        data: { name: "The Overworld", imageBase64: png, visibleToParty: true },
       })
     ).json()
   ).id as string;
 
   const childRes = await page.request.post(`/api/campaigns/${campaignId}/maps`, {
-    data: { name: "The Crypt Below", imageBase64: png, parentMapId: parentId },
+    data: { name: "The Crypt Below", imageBase64: png, parentMapId: parentId, visibleToParty: true },
   });
   expect(childRes.ok(), await childRes.text()).toBeTruthy();
 
@@ -269,7 +269,7 @@ test("a stranger with the URL gets nothing", async ({ browser }) => {
   const mapId = (
     await (
       await dmPage.request.post(`/api/campaigns/${campaignId}/maps`, {
-        data: { name: "Private", imageBase64: await twoTonePng(dmPage) },
+        data: { name: "Private", imageBase64: await twoTonePng(dmPage), visibleToParty: true },
       })
     ).json()
   ).id as string;
@@ -311,7 +311,7 @@ test("a DM stamps the fog back, takes one stamp off, and seals the rest", async 
   const campaign = await createCampaign(page.request, unique("Stamping "));
 
   const res = await page.request.post(`/api/campaigns/${campaign.id}/maps`, {
-    data: { name: "The Fogged Vale", imageBase64: await twoTonePng(page) },
+    data: { name: "The Fogged Vale", imageBase64: await twoTonePng(page), visibleToParty: true },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
   const mapId = (await res.json()).id as string;
@@ -376,7 +376,7 @@ test("a pin lands where it was dropped, in the map's own coordinates", async ({ 
   const campaign = await createCampaign(page.request, unique("Pinning "));
 
   const res = await page.request.post(`/api/campaigns/${campaign.id}/maps`, {
-    data: { name: "The Coast Road", imageBase64: await twoTonePng(page) },
+    data: { name: "The Coast Road", imageBase64: await twoTonePng(page), visibleToParty: true },
   });
   const mapId = (await res.json()).id as string;
 
@@ -429,7 +429,7 @@ test("a reveal tied to a place lifts only for the heroes who know it", async ({ 
   const mapId = (
     await (
       await dmPage.request.post(`/api/campaigns/${campaignId}/maps`, {
-        data: { name: "The Coast", imageBase64: await twoTonePng(dmPage) },
+        data: { name: "The Coast", imageBase64: await twoTonePng(dmPage), visibleToParty: true },
       })
     ).json()
   ).id as string;
@@ -544,7 +544,7 @@ test("a map hangs on a place, re-files, and survives a say-nothing rename", asyn
   const porto = await createLocation(page.request, campaign.id, "Porto");
 
   const create = await page.request.post(`/api/campaigns/${campaign.id}/maps`, {
-    data: { name: "City of Ars", imageBase64: await twoTonePng(page), locationId: ars },
+    data: { name: "City of Ars", imageBase64: await twoTonePng(page), locationId: ars, visibleToParty: true },
   });
   expect(create.ok(), await create.text()).toBeTruthy();
   const mapId = (await create.json()).id as string;

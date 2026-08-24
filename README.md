@@ -26,8 +26,11 @@ login.
   [docs/PRINTING.md](docs/PRINTING.md).
 - **Maps & fog of war** — upload battle maps, nest sub-maps, drop pins in a
   choice of markers, draw **roads and tinted regions**, and lift the fog stamp
-  by stamp. What a reveal uncovers is remembered against **the heroes who were
-  standing there**, so it follows a player between parties. Fog is composited
+  by stamp. A map is veiled like everything else: a new one is **yours until
+  you hang it in the hall**, and a veiled one is off the table's shelf
+  entirely — not its name, not its picture, not the marker leading to it. What
+  a reveal uncovers is remembered against **the heroes who were standing
+  there**, so it follows a player between parties. Fog is composited
   **server-side**, so players never receive the pixels they haven't uncovered.
 - **Encounters** — a D&D-Beyond-style two-pane builder (filter the Monster Den,
   expand full stat cards inline, add with a tap) plus a live **initiative

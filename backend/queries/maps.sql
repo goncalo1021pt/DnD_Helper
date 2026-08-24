@@ -1,20 +1,21 @@
 -- name: CreateMap :one
-INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height, location_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id;
+INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height, location_id, visible_to_party)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id, visible_to_party;
 
 -- name: ListMapsByCampaign :many
 -- The atlas shelf: every map of the campaign, oldest first, no image bytes.
 -- The place a map depicts rides along by name (#229).
 SELECT m.id, m.campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height, m.created_at,
-       m.location_id, l.name AS location_name
+       m.location_id, m.visible_to_party, l.name AS location_name
 FROM maps m
 LEFT JOIN locations l ON l.id = m.location_id
 WHERE m.campaign_id = $1
 ORDER BY m.created_at;
 
 -- name: GetMapMeta :one
-SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
+SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
+       visible_to_party
 FROM maps
 WHERE id = $1;
 
@@ -27,7 +28,8 @@ WHERE id = $1;
 UPDATE maps
 SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5
 WHERE id = $1
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id;
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
+          visible_to_party;
 
 -- name: DeleteMap :execrows
 DELETE FROM maps WHERE id = $1;
@@ -80,3 +82,32 @@ RETURNING *;
 
 -- name: DeleteMapShape :execrows
 DELETE FROM map_shapes WHERE id = $1;
+
+-- The veil over a map's very existence (#276). Same two layers as everything
+-- else in a campaign: one party-wide flag, per-hero exceptions over it.
+
+-- name: SetMapPartyVisibility :one
+UPDATE maps
+SET visible_to_party = $2
+WHERE id = $1
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
+          visible_to_party;
+
+-- name: SetMapOverride :exec
+INSERT INTO map_visibility (map_id, character_id, visible)
+VALUES ($1, $2, $3)
+ON CONFLICT (map_id, character_id)
+DO UPDATE SET visible = EXCLUDED.visible, updated_at = now();
+
+-- name: DeleteMapOverride :exec
+DELETE FROM map_visibility WHERE map_id = $1 AND character_id = $2;
+
+-- name: ClearMapOverrides :exec
+DELETE FROM map_visibility WHERE map_id = $1;
+
+-- name: ListMapVisibilityByCampaign :many
+SELECT v.map_id, v.character_id, v.visible, c.name AS character_name
+FROM map_visibility v
+JOIN maps m ON m.id = v.map_id
+JOIN characters c ON c.id = v.character_id
+WHERE m.campaign_id = $1;

@@ -31,18 +31,36 @@ const maxMapImageBytes = 10 << 20 // 10 MB decoded
 
 // mapRow is the shared shape of every no-image maps query row.
 type mapRow struct {
-	ID          uuid.UUID
-	CampaignID  uuid.UUID
-	ParentMapID pgtype.UUID
-	Name        string
-	FogEnabled  bool
-	Width       int32
-	Height      int32
-	CreatedAt   pgtype.Timestamptz
-	LocationID  pgtype.UUID
+	ID             uuid.UUID
+	CampaignID     uuid.UUID
+	ParentMapID    pgtype.UUID
+	Name           string
+	FogEnabled     bool
+	Width          int32
+	Height         int32
+	CreatedAt      pgtype.Timestamptz
+	LocationID     pgtype.UUID
+	VisibleToParty bool
 }
 
-func toAPIMap(m mapRow) api.CampaignMap {
+// listedMapRow narrows the atlas query's row to the shared shape. sqlc gives
+// the joined query its own struct, so this is the one place the two are lined
+// up rather than a conversion repeated at every call site.
+func listedMapRow(r db.ListMapsByCampaignRow) mapRow {
+	return mapRow{
+		ID: r.ID, CampaignID: r.CampaignID, ParentMapID: r.ParentMapID,
+		Name: r.Name, FogEnabled: r.FogEnabled, Width: r.Width,
+		Height: r.Height, CreatedAt: r.CreatedAt, LocationID: r.LocationID,
+		VisibleToParty: r.VisibleToParty,
+	}
+}
+
+// toAPIMap renders one map. forDM is a parameter and never a default, the
+// lesson the invite code taught (#207): every call site has to say who is
+// reading, so a new one cannot leak the veil by forgetting. A player's copy
+// carries nothing about who else may see it — and a map they may not see is
+// absent from their payload entirely, so the flag would only ever say true.
+func toAPIMap(m mapRow, forDM bool, overrides []api.VisibilityOverride) api.CampaignMap {
 	out := api.CampaignMap{
 		Id:         m.ID,
 		CampaignId: m.CampaignID,
@@ -59,6 +77,11 @@ func toAPIMap(m mapRow) api.CampaignMap {
 	if m.ParentMapID.Valid {
 		id := uuid.UUID(m.ParentMapID.Bytes)
 		out.ParentMapId = &id
+	}
+	if forDM {
+		visible := m.VisibleToParty
+		out.VisibleToParty = &visible
+		out.VisibilityOverrides = &overrides
 	}
 	return out
 }
@@ -154,7 +177,8 @@ func (s *Server) validateParentMap(ctx context.Context, campaignID, childID uuid
 
 // ListMaps returns the campaign's atlas — metadata only, members.
 func (s *Server) ListMaps(ctx context.Context, request api.ListMapsRequestObject) (api.ListMapsResponseObject, error) {
-	if _, err := s.requireMember(ctx, request.CampaignId); err != nil {
+	m, err := s.requireMember(ctx, request.CampaignId)
+	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.ListMaps401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -167,15 +191,21 @@ func (s *Server) ListMaps(ctx context.Context, request api.ListMapsRequestObject
 	if err != nil {
 		return nil, err
 	}
+	isDM := m.Role == db.MembershipRoleDm
+	viewer, err := s.mapViewerFor(ctx, request.CampaignId, m.UserID, isDM)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]api.CampaignMap, 0, len(rows))
 	for _, r := range rows {
-		m := toAPIMap(mapRow{
-			ID: r.ID, CampaignID: r.CampaignID, ParentMapID: r.ParentMapID,
-			Name: r.Name, FogEnabled: r.FogEnabled, Width: r.Width,
-			Height: r.Height, CreatedAt: r.CreatedAt, LocationID: r.LocationID,
-		})
-		m.LocationName = r.LocationName
-		out = append(out, m)
+		row := listedMapRow(r)
+		// Absent, not flagged: a veiled map never reaches the shelf at all.
+		if !viewer.mayRead(row) {
+			continue
+		}
+		am := toAPIMap(row, isDM, viewer.veil.overridesFor(r.ID))
+		am.LocationName = r.LocationName
+		out = append(out, am)
 	}
 	return api.ListMaps200JSONResponse(out), nil
 }
@@ -215,20 +245,25 @@ func (s *Server) CreateMap(ctx context.Context, request api.CreateMapRequestObje
 	if request.Body.LocationId != nil && !locID.Valid {
 		return api.CreateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errUnknownPlace}}, nil
 	}
+	// A new map is the DM's until they hang it in the hall (#276) — a lair map
+	// is uploaded before the session it is found in. The form may say otherwise
+	// in the same breath, for the world map that is nobody's secret.
+	visible := request.Body.VisibleToParty != nil && *request.Body.VisibleToParty
 	row, err := s.queries.CreateMap(ctx, db.CreateMapParams{
-		CampaignID:  request.CampaignId,
-		ParentMapID: parent,
-		LocationID:  locID,
-		Name:        name,
-		Image:       data,
-		ContentType: contentType,
-		Width:       int32(w),
-		Height:      int32(h),
+		CampaignID:     request.CampaignId,
+		ParentMapID:    parent,
+		LocationID:     locID,
+		Name:           name,
+		Image:          data,
+		ContentType:    contentType,
+		Width:          int32(w),
+		Height:         int32(h),
+		VisibleToParty: visible,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return api.CreateMap201JSONResponse(toAPIMap(mapRow(row))), nil
+	return api.CreateMap201JSONResponse(toAPIMap(mapRow(row), true, nil)), nil
 }
 
 // GetMap returns one map with its pins; players never receive DM-only pins.
@@ -250,11 +285,22 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 		}
 		return nil, err
 	}
+	isDM := m.Role == db.MembershipRoleDm
+	// One viewer for this whole request: the map on the table, and every
+	// marker leading off it (#276).
+	viewer, err := s.mapViewerFor(ctx, meta.CampaignID, m.UserID, isDM)
+	if err != nil {
+		return nil, err
+	}
+	// A map you may not know exists must not be tellable from one that never
+	// did: 404, never 403.
+	if !viewer.mayRead(mapRow(meta)) {
+		return api.GetMap404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+	}
 	pins, err := s.queries.ListMapPins(ctx, request.MapId)
 	if err != nil {
 		return nil, err
 	}
-	isDM := m.Role == db.MembershipRoleDm
 
 	// The caller's uncovered ground: everything for the DM, the union of
 	// their pools for a player. Stays empty while the fog is off.
@@ -294,6 +340,29 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 		return false
 	}
 
+	// A region marker leading into a map this viewer may not know exists is
+	// that map's name in their hand (#276), so it goes with it. Resolved once
+	// per map rather than once per pin: several pins may lead to the same one.
+	leadsSomewhereVeiled := func(db.MapPin) bool { return false }
+	if !isDM {
+		seen := map[uuid.UUID]bool{}
+		leadsSomewhereVeiled = func(p db.MapPin) bool {
+			if !p.LinkMapID.Valid {
+				return false
+			}
+			id := uuid.UUID(p.LinkMapID.Bytes)
+			if known, ok := seen[id]; ok {
+				return known
+			}
+			// A map that has since been struck reads as veiled: a marker
+			// leading nowhere is not worth handing over either.
+			linked, lerr := s.mapMeta(ctx, id)
+			veiled := lerr != nil || !viewer.mayRead(mapRow(linked))
+			seen[id] = veiled
+			return veiled
+		}
+	}
+
 	outPins := make([]api.MapPin, 0, len(pins))
 	for _, p := range pins {
 		if !isDM {
@@ -301,6 +370,9 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 				continue
 			}
 			if meta.FogEnabled && !inRevealed(p) {
+				continue
+			}
+			if leadsSomewhereVeiled(p) {
 				continue
 			}
 		}
@@ -313,7 +385,10 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 		return nil, err
 	}
 	return api.GetMap200JSONResponse(api.MapDetail{
-		Map: toAPIMap(mapRow(meta)), Pins: outPins, Shapes: shapes, Revealed: revealed,
+		Map:      toAPIMap(mapRow(meta), isDM, viewer.veil.overridesFor(meta.ID)),
+		Pins:     outPins,
+		Shapes:   shapes,
+		Revealed: revealed,
 	}), nil
 }
 
@@ -378,7 +453,13 @@ func (s *Server) UpdateMap(ctx context.Context, request api.UpdateMapRequestObje
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateMap200JSONResponse(toAPIMap(mapRow(row))), nil
+	// Only the DM reaches this handler, and the veil is not theirs to change
+	// here — /maps/{id}/visibility is the one door onto it.
+	mv, err := s.loadMapVeil(ctx, meta.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	return api.UpdateMap200JSONResponse(toAPIMap(mapRow(row), true, mv.overridesFor(row.ID))), nil
 }
 
 // DeleteMap strikes a map and, by cascade, its pins (DM only).
@@ -597,6 +678,19 @@ func (s *Server) ServeMapImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	isDM := m.Role == db.MembershipRoleDm
+
+	// The same gate the JSON map goes through (#276), and the same answer —
+	// 404, not 403 — so the picture and the payload can never disagree about
+	// whether a map exists.
+	viewer, err := s.mapViewerFor(r.Context(), meta.CampaignID, m.UserID, isDM)
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if !viewer.mayRead(mapRow(meta)) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
 
 	// Fogged path: a player on a fog-enabled map only sees revealed ground.
 	if meta.FogEnabled && !isDM {
