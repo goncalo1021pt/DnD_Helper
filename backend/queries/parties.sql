@@ -56,6 +56,12 @@ SELECT $1, c.id, $3 FROM characters c WHERE c.party_id = $2 AND c.kind = 'hero'
 ON CONFLICT (npc_id, character_id)
 DO UPDATE SET visible = EXCLUDED.visible, updated_at = now();
 
+-- name: SetMapOverridesForParty :exec
+INSERT INTO map_visibility (map_id, character_id, visible)
+SELECT $1, c.id, $3 FROM characters c WHERE c.party_id = $2 AND c.kind = 'hero'
+ON CONFLICT (map_id, character_id)
+DO UPDATE SET visible = EXCLUDED.visible, updated_at = now();
+
 -- name: SetHandoutOverridesForParty :exec
 INSERT INTO handout_visibility (handout_id, character_id, visible)
 SELECT $1, c.id, $3 FROM characters c WHERE c.party_id = $2 AND c.kind = 'hero'

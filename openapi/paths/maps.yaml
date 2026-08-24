@@ -331,3 +331,69 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/maps/{mapId}/visibility:
+  parameters:
+    - name: mapId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  put:
+    operationId: setMapVisibility
+    summary: >-
+      Reveal or hide a map, for the table, a party or one hero (DM only).
+      Choosing the table clears every per-hero exception.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetVisibilityRequest"
+    responses:
+      "200":
+        description: The map with its veil as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CampaignMap"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/maps/{mapId}/visibility/{characterId}:
+  parameters:
+    - name: mapId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: characterId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  delete:
+    operationId: clearMapVisibilityOverride
+    summary: Drop one hero's exception so they follow the table again (DM only)
+    responses:
+      "200":
+        description: The map with its veil as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CampaignMap"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

@@ -9,6 +9,12 @@ is why this one call is allowed to be slow — see slowUpload() in lib/http.ts.
 Striking a map used to live here too, an arm's length from the name of the
 thing being deleted; it moved to the atlas (#216), where the strike sits on
 the row it strikes.
+
+A new map is the DM's until they hang it in the hall (#276) — a lair map is
+uploaded before the session it is found in, and a table that watches a dungeon
+appear in the atlas has been told something. The switch is here rather than
+only in the atlas because the world map is nobody's secret and saying so in the
+same breath saves a trip.
 */
 
 import { useState } from "react";
@@ -33,6 +39,7 @@ export function HangMapForm({
   const [mapParent, setMapParent] = useState("");
   const [mapPlace, setMapPlace] = useState("");
   const [mapFile, setMapFile] = useState<File | null>(null);
+  const [mapShown, setMapShown] = useState(false);
   const [hangError, setHangError] = useState("");
 
   function hangMap() {
@@ -46,6 +53,7 @@ export function HangMapForm({
           imageBase64: String(reader.result),
           ...(mapParent ? { parentMapId: mapParent } : {}),
           ...(mapPlace ? { locationId: mapPlace } : {}),
+          visibleToParty: mapShown,
         },
         {
           onSuccess: (m) => {
@@ -53,6 +61,7 @@ export function HangMapForm({
             setMapName("");
             setMapParent("");
             setMapPlace("");
+            setMapShown(false);
             setMapFile(null);
             onHung(m.id);
           },
@@ -127,6 +136,22 @@ export function HangMapForm({
                 </select>
               </label>
             )}
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={mapShown}
+                onChange={(e) => setMapShown(e.target.checked)}
+                className="mt-0.5 h-4 w-4 cursor-pointer accent-[#8b2520]"
+              />
+              <span className="font-body text-sm text-ink-body">
+                <span className="text-ink-strong">Hang it in the hall</span> — the
+                table may know this map exists.
+                <span className="block text-[12.5px] italic text-ink-faded">
+                  Left unticked it is yours alone, and you can hang it later from
+                  the Atlas.
+                </span>
+              </span>
+            </label>
             {hangError && (
               <div className="font-body text-sm italic text-[#8b2520]">{hangError}</div>
             )}

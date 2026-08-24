@@ -9,6 +9,9 @@ import type { CharacterInput } from "../api/client";
 export function useCharacters(campaignId: string) {
   return useQuery({
     queryKey: ["characters", campaignId],
+    // An empty id is never a request worth making — it lets a caller say "not
+    // for this viewer" without a wasted round trip (#276).
+    enabled: !!campaignId,
     queryFn: async () => {
       const { data, error } = await api.GET("/campaigns/{campaignId}/characters", {
         params: { path: { campaignId } },

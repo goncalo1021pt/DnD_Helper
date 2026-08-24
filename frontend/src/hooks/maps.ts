@@ -4,7 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { MapPinInput, MapShapeInput } from "../api/client";
+import type { MapPinInput, MapShapeInput, SetVisibilityInput } from "../api/client";
 
 export function useMaps(campaignId: string) {
   return useQuery({
@@ -26,6 +26,9 @@ export function useCreateMap(campaignId: string) {
       name: string;
       imageBase64: string;
       parentMapId?: string;
+      locationId?: string;
+      // Omitted means hidden (#276): a new map is the DM's until they say.
+      visibleToParty?: boolean;
     }) => {
       const { data, error } = await api.POST("/campaigns/{campaignId}/maps", {
         params: { path: { campaignId } },
@@ -36,6 +39,57 @@ export function useCreateMap(campaignId: string) {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["maps", campaignId] }),
   });
+}
+
+/*
+The veil over a map's existence (#276). Both doors answer with the map as it
+now stands, and both invalidate the atlas AND that map's detail: revealing one
+changes what a player's shelf holds, and hiding one changes whether the page
+they are standing on still answers at all.
+*/
+function useMapVeilMutation<V>(
+  campaignId: string,
+  mutationFn: (vars: V) => Promise<unknown>,
+  mapIdOf: (vars: V) => string,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["maps", campaignId] });
+      qc.invalidateQueries({ queryKey: ["map", mapIdOf(vars)] });
+    },
+  });
+}
+
+export function useSetMapVisibility(campaignId: string) {
+  return useMapVeilMutation(
+    campaignId,
+    async (vars: { mapId: string; body: SetVisibilityInput }) => {
+      const { data, error } = await api.PUT("/maps/{mapId}/visibility", {
+        params: { path: { mapId: vars.mapId } },
+        body: vars.body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    (v) => v.mapId,
+  );
+}
+
+// Dropping a hero's exception puts them back on whatever the table sees.
+export function useClearMapOverride(campaignId: string) {
+  return useMapVeilMutation(
+    campaignId,
+    async (vars: { mapId: string; characterId: string }) => {
+      const { data, error } = await api.DELETE("/maps/{mapId}/visibility/{characterId}", {
+        params: { path: { mapId: vars.mapId, characterId: vars.characterId } },
+      });
+      if (error) throw error;
+      return data;
+    },
+    (v) => v.mapId,
+  );
 }
 
 export function useMapDetail(mapId: string | undefined) {

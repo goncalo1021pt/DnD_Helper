@@ -276,6 +276,24 @@ func (q *Queries) SetLocationOverridesForParty(ctx context.Context, arg SetLocat
 	return err
 }
 
+const setMapOverridesForParty = `-- name: SetMapOverridesForParty :exec
+INSERT INTO map_visibility (map_id, character_id, visible)
+SELECT $1, c.id, $3 FROM characters c WHERE c.party_id = $2 AND c.kind = 'hero'
+ON CONFLICT (map_id, character_id)
+DO UPDATE SET visible = EXCLUDED.visible, updated_at = now()
+`
+
+type SetMapOverridesForPartyParams struct {
+	MapID   uuid.UUID   `json:"map_id"`
+	PartyID pgtype.UUID `json:"party_id"`
+	Visible bool        `json:"visible"`
+}
+
+func (q *Queries) SetMapOverridesForParty(ctx context.Context, arg SetMapOverridesForPartyParams) error {
+	_, err := q.db.Exec(ctx, setMapOverridesForParty, arg.MapID, arg.PartyID, arg.Visible)
+	return err
+}
+
 const setNpcOverridesForParty = `-- name: SetNpcOverridesForParty :exec
 INSERT INTO npc_visibility (npc_id, character_id, visible)
 SELECT $1, c.id, $3 FROM characters c WHERE c.party_id = $2 AND c.kind = 'hero'

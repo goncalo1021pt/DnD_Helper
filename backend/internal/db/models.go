@@ -804,17 +804,18 @@ type LocationVisibility struct {
 }
 
 type Map struct {
-	ID          uuid.UUID          `json:"id"`
-	CampaignID  uuid.UUID          `json:"campaign_id"`
-	ParentMapID pgtype.UUID        `json:"parent_map_id"`
-	Name        string             `json:"name"`
-	Image       []byte             `json:"image"`
-	ContentType string             `json:"content_type"`
-	Width       int32              `json:"width"`
-	Height      int32              `json:"height"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	FogEnabled  bool               `json:"fog_enabled"`
-	LocationID  pgtype.UUID        `json:"location_id"`
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
+	Name           string             `json:"name"`
+	Image          []byte             `json:"image"`
+	ContentType    string             `json:"content_type"`
+	Width          int32              `json:"width"`
+	Height         int32              `json:"height"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	FogEnabled     bool               `json:"fog_enabled"`
+	LocationID     pgtype.UUID        `json:"location_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
 }
 
 type MapPin struct {
@@ -844,6 +845,13 @@ type MapShape struct {
 	LocationID pgtype.UUID        `json:"location_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MapVisibility struct {
+	MapID       uuid.UUID          `json:"map_id"`
+	CharacterID uuid.UUID          `json:"character_id"`
+	Visible     bool               `json:"visible"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Membership struct {

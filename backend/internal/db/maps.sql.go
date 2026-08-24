@@ -12,33 +12,44 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearMapOverrides = `-- name: ClearMapOverrides :exec
+DELETE FROM map_visibility WHERE map_id = $1
+`
+
+func (q *Queries) ClearMapOverrides(ctx context.Context, mapID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearMapOverrides, mapID)
+	return err
+}
+
 const createMap = `-- name: CreateMap :one
-INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height, location_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
+INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height, location_id, visible_to_party)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id, visible_to_party
 `
 
 type CreateMapParams struct {
-	CampaignID  uuid.UUID   `json:"campaign_id"`
-	ParentMapID pgtype.UUID `json:"parent_map_id"`
-	Name        string      `json:"name"`
-	Image       []byte      `json:"image"`
-	ContentType string      `json:"content_type"`
-	Width       int32       `json:"width"`
-	Height      int32       `json:"height"`
-	LocationID  pgtype.UUID `json:"location_id"`
+	CampaignID     uuid.UUID   `json:"campaign_id"`
+	ParentMapID    pgtype.UUID `json:"parent_map_id"`
+	Name           string      `json:"name"`
+	Image          []byte      `json:"image"`
+	ContentType    string      `json:"content_type"`
+	Width          int32       `json:"width"`
+	Height         int32       `json:"height"`
+	LocationID     pgtype.UUID `json:"location_id"`
+	VisibleToParty bool        `json:"visible_to_party"`
 }
 
 type CreateMapRow struct {
-	ID          uuid.UUID          `json:"id"`
-	CampaignID  uuid.UUID          `json:"campaign_id"`
-	ParentMapID pgtype.UUID        `json:"parent_map_id"`
-	Name        string             `json:"name"`
-	FogEnabled  bool               `json:"fog_enabled"`
-	Width       int32              `json:"width"`
-	Height      int32              `json:"height"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	LocationID  pgtype.UUID        `json:"location_id"`
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
+	Name           string             `json:"name"`
+	FogEnabled     bool               `json:"fog_enabled"`
+	Width          int32              `json:"width"`
+	Height         int32              `json:"height"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	LocationID     pgtype.UUID        `json:"location_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
 }
 
 func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMapRow, error) {
@@ -51,6 +62,7 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 		arg.Width,
 		arg.Height,
 		arg.LocationID,
+		arg.VisibleToParty,
 	)
 	var i CreateMapRow
 	err := row.Scan(
@@ -63,6 +75,7 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 		&i.Height,
 		&i.CreatedAt,
 		&i.LocationID,
+		&i.VisibleToParty,
 	)
 	return i, err
 }
@@ -174,6 +187,20 @@ func (q *Queries) DeleteMap(ctx context.Context, id uuid.UUID) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const deleteMapOverride = `-- name: DeleteMapOverride :exec
+DELETE FROM map_visibility WHERE map_id = $1 AND character_id = $2
+`
+
+type DeleteMapOverrideParams struct {
+	MapID       uuid.UUID `json:"map_id"`
+	CharacterID uuid.UUID `json:"character_id"`
+}
+
+func (q *Queries) DeleteMapOverride(ctx context.Context, arg DeleteMapOverrideParams) error {
+	_, err := q.db.Exec(ctx, deleteMapOverride, arg.MapID, arg.CharacterID)
+	return err
+}
+
 const deleteMapPin = `-- name: DeleteMapPin :execrows
 DELETE FROM map_pins WHERE id = $1
 `
@@ -218,21 +245,23 @@ func (q *Queries) GetMapImage(ctx context.Context, id uuid.UUID) (GetMapImageRow
 }
 
 const getMapMeta = `-- name: GetMapMeta :one
-SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
+SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
+       visible_to_party
 FROM maps
 WHERE id = $1
 `
 
 type GetMapMetaRow struct {
-	ID          uuid.UUID          `json:"id"`
-	CampaignID  uuid.UUID          `json:"campaign_id"`
-	ParentMapID pgtype.UUID        `json:"parent_map_id"`
-	Name        string             `json:"name"`
-	FogEnabled  bool               `json:"fog_enabled"`
-	Width       int32              `json:"width"`
-	Height      int32              `json:"height"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	LocationID  pgtype.UUID        `json:"location_id"`
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
+	Name           string             `json:"name"`
+	FogEnabled     bool               `json:"fog_enabled"`
+	Width          int32              `json:"width"`
+	Height         int32              `json:"height"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	LocationID     pgtype.UUID        `json:"location_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
 }
 
 func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, error) {
@@ -248,6 +277,7 @@ func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, 
 		&i.Height,
 		&i.CreatedAt,
 		&i.LocationID,
+		&i.VisibleToParty,
 	)
 	return i, err
 }
@@ -413,9 +443,49 @@ func (q *Queries) ListMapShapes(ctx context.Context, mapID uuid.UUID) ([]MapShap
 	return items, nil
 }
 
+const listMapVisibilityByCampaign = `-- name: ListMapVisibilityByCampaign :many
+SELECT v.map_id, v.character_id, v.visible, c.name AS character_name
+FROM map_visibility v
+JOIN maps m ON m.id = v.map_id
+JOIN characters c ON c.id = v.character_id
+WHERE m.campaign_id = $1
+`
+
+type ListMapVisibilityByCampaignRow struct {
+	MapID         uuid.UUID `json:"map_id"`
+	CharacterID   uuid.UUID `json:"character_id"`
+	Visible       bool      `json:"visible"`
+	CharacterName string    `json:"character_name"`
+}
+
+func (q *Queries) ListMapVisibilityByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListMapVisibilityByCampaignRow, error) {
+	rows, err := q.db.Query(ctx, listMapVisibilityByCampaign, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMapVisibilityByCampaignRow
+	for rows.Next() {
+		var i ListMapVisibilityByCampaignRow
+		if err := rows.Scan(
+			&i.MapID,
+			&i.CharacterID,
+			&i.Visible,
+			&i.CharacterName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMapsByCampaign = `-- name: ListMapsByCampaign :many
 SELECT m.id, m.campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height, m.created_at,
-       m.location_id, l.name AS location_name
+       m.location_id, m.visible_to_party, l.name AS location_name
 FROM maps m
 LEFT JOIN locations l ON l.id = m.location_id
 WHERE m.campaign_id = $1
@@ -423,16 +493,17 @@ ORDER BY m.created_at
 `
 
 type ListMapsByCampaignRow struct {
-	ID           uuid.UUID          `json:"id"`
-	CampaignID   uuid.UUID          `json:"campaign_id"`
-	ParentMapID  pgtype.UUID        `json:"parent_map_id"`
-	Name         string             `json:"name"`
-	FogEnabled   bool               `json:"fog_enabled"`
-	Width        int32              `json:"width"`
-	Height       int32              `json:"height"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	LocationID   pgtype.UUID        `json:"location_id"`
-	LocationName *string            `json:"location_name"`
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
+	Name           string             `json:"name"`
+	FogEnabled     bool               `json:"fog_enabled"`
+	Width          int32              `json:"width"`
+	Height         int32              `json:"height"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	LocationID     pgtype.UUID        `json:"location_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
+	LocationName   *string            `json:"location_name"`
 }
 
 // The atlas shelf: every map of the campaign, oldest first, no image bytes.
@@ -456,6 +527,7 @@ func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) 
 			&i.Height,
 			&i.CreatedAt,
 			&i.LocationID,
+			&i.VisibleToParty,
 			&i.LocationName,
 		); err != nil {
 			return nil, err
@@ -468,11 +540,77 @@ func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) 
 	return items, nil
 }
 
+const setMapOverride = `-- name: SetMapOverride :exec
+INSERT INTO map_visibility (map_id, character_id, visible)
+VALUES ($1, $2, $3)
+ON CONFLICT (map_id, character_id)
+DO UPDATE SET visible = EXCLUDED.visible, updated_at = now()
+`
+
+type SetMapOverrideParams struct {
+	MapID       uuid.UUID `json:"map_id"`
+	CharacterID uuid.UUID `json:"character_id"`
+	Visible     bool      `json:"visible"`
+}
+
+func (q *Queries) SetMapOverride(ctx context.Context, arg SetMapOverrideParams) error {
+	_, err := q.db.Exec(ctx, setMapOverride, arg.MapID, arg.CharacterID, arg.Visible)
+	return err
+}
+
+const setMapPartyVisibility = `-- name: SetMapPartyVisibility :one
+
+UPDATE maps
+SET visible_to_party = $2
+WHERE id = $1
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
+          visible_to_party
+`
+
+type SetMapPartyVisibilityParams struct {
+	ID             uuid.UUID `json:"id"`
+	VisibleToParty bool      `json:"visible_to_party"`
+}
+
+type SetMapPartyVisibilityRow struct {
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
+	Name           string             `json:"name"`
+	FogEnabled     bool               `json:"fog_enabled"`
+	Width          int32              `json:"width"`
+	Height         int32              `json:"height"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	LocationID     pgtype.UUID        `json:"location_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
+}
+
+// The veil over a map's very existence (#276). Same two layers as everything
+// else in a campaign: one party-wide flag, per-hero exceptions over it.
+func (q *Queries) SetMapPartyVisibility(ctx context.Context, arg SetMapPartyVisibilityParams) (SetMapPartyVisibilityRow, error) {
+	row := q.db.QueryRow(ctx, setMapPartyVisibility, arg.ID, arg.VisibleToParty)
+	var i SetMapPartyVisibilityRow
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.ParentMapID,
+		&i.Name,
+		&i.FogEnabled,
+		&i.Width,
+		&i.Height,
+		&i.CreatedAt,
+		&i.LocationID,
+		&i.VisibleToParty,
+	)
+	return i, err
+}
+
 const updateMapMeta = `-- name: UpdateMapMeta :one
 UPDATE maps
 SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5
 WHERE id = $1
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
+RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
+          visible_to_party
 `
 
 type UpdateMapMetaParams struct {
@@ -484,15 +622,16 @@ type UpdateMapMetaParams struct {
 }
 
 type UpdateMapMetaRow struct {
-	ID          uuid.UUID          `json:"id"`
-	CampaignID  uuid.UUID          `json:"campaign_id"`
-	ParentMapID pgtype.UUID        `json:"parent_map_id"`
-	Name        string             `json:"name"`
-	FogEnabled  bool               `json:"fog_enabled"`
-	Width       int32              `json:"width"`
-	Height      int32              `json:"height"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	LocationID  pgtype.UUID        `json:"location_id"`
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
+	Name           string             `json:"name"`
+	FogEnabled     bool               `json:"fog_enabled"`
+	Width          int32              `json:"width"`
+	Height         int32              `json:"height"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	LocationID     pgtype.UUID        `json:"location_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
 }
 
 func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (UpdateMapMetaRow, error) {
@@ -514,6 +653,7 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 		&i.Height,
 		&i.CreatedAt,
 		&i.LocationID,
+		&i.VisibleToParty,
 	)
 	return i, err
 }

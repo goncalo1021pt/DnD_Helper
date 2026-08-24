@@ -412,7 +412,7 @@ test("a place's page gathers its folk, shops, notices and maps — and the playe
     data: { scope: "table", visible: true },
   });
   const mapRes = await dm.request.post(`/api/campaigns/${campaign.id}/maps`, {
-    data: { name: "Ars, street by street", imageBase64: TINY_PNG, locationId: city },
+    data: { name: "Ars, street by street", imageBase64: TINY_PNG, locationId: city, visibleToParty: true },
   });
   expect(mapRes.ok(), await mapRes.text()).toBeTruthy();
 

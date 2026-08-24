@@ -208,6 +208,10 @@ paths:
     $ref: "./paths/maps.yaml#/~1maps~1{mapId}"
   /maps/{mapId}/pins:
     $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1pins"
+  /maps/{mapId}/visibility:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1visibility"
+  /maps/{mapId}/visibility/{characterId}:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1visibility~1{characterId}"
   /maps/{mapId}/shapes:
     $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1shapes"
   /shapes/{shapeId}:
