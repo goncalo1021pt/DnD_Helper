@@ -122,9 +122,14 @@ export function useMapViewer({
   function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
     const el = containerRef.current;
     if (!el) return;
-    // A press on a pin or a control is theirs — capturing it would eat
-    // their click (captured pointers retarget every later event).
-    if ((e.target as HTMLElement).closest?.("button, [data-pin-id]")) return;
+    // A press on a pin, a drawn shape, or a control is theirs — capturing it
+    // would eat their click (captured pointers retarget every later event,
+    // so the browser resolves the click onto this container instead).
+    //
+    // A shape is exempted here but answers pointer events only along its
+    // stroke (see ShapeLayer): a region covering half the map must still be
+    // ground you can drag, or the map would lock up inside its own borders.
+    if ((e.target as HTMLElement).closest?.("button, [data-pin-id], [data-shape-id]")) return;
     el.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 1) {

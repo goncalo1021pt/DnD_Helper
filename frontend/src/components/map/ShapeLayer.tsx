@@ -13,6 +13,14 @@ in. `vectorEffect="non-scaling-stroke"` would freeze it in screen pixels, which
 is the opposite mistake — a road should be a road on the map. So the width is
 stored as a fraction of the image and multiplied up here: it stays true to the
 ground, which is what a map means.
+
+A shape is grabbed by its EDGE and never by its fill (#277). The sheet and the
+marks are transparent to the pointer; one generous invisible stroke along the
+run is the only thing that answers, plus the name where there is one. A region
+covering half the map would otherwise be half a map you cannot drag — and the
+tap that lands inside it still drops a pin or stamps fog, as open ground should.
+Which is also why `data-shape-id` sits on the group: the viewer reads it to know
+this press belongs to the shape rather than to the pan (see useMapViewer).
 */
 
 /** A shape's points as an SVG path, closed when it encloses something. */
@@ -53,14 +61,23 @@ function ShapeMark({
 
   return (
     <g
+      data-shape-id={shape.id}
       onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(shape); } : undefined}
-      style={{ cursor: onOpen ? "pointer" : "default", pointerEvents: onOpen ? "auto" : "none" }}
+      // Nothing here answers by default; the hit stroke and the name opt in.
+      style={{ pointerEvents: "none" }}
       opacity={shape.dmOnly ? 0.72 : 1}
     >
-      {/* A generous invisible stroke under a thin road, so it can be clicked
-          without demanding pixel accuracy at low zoom. */}
+      {/* A generous invisible stroke ALONG the run — the whole of a road, the
+          border of a region — so it can be grabbed without demanding pixel
+          accuracy at low zoom, and so the inside of a region stays ground. */}
       {onOpen && (
-        <path d={d} fill="none" stroke="transparent" strokeWidth={Math.max(stroke * 3, 14)} />
+        <path
+          d={d}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={Math.max(stroke * 3, 14)}
+          style={{ pointerEvents: "stroke", cursor: "pointer" }}
+        />
       )}
       <path
         d={d}
@@ -87,7 +104,12 @@ function ShapeMark({
             stroke="rgba(16,9,5,.75)"
             strokeWidth={Math.max(width * 0.0035, 2)}
             paintOrder="stroke"
-            style={{ letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 600 }}
+            style={{
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              fontWeight: 600,
+              ...(onOpen ? { pointerEvents: "auto" as const, cursor: "pointer" } : {}),
+            }}
           >
             {label}
           </text>
@@ -106,7 +128,11 @@ function ShapeMark({
               stroke="rgba(16,9,5,.8)"
               strokeWidth={Math.max(width * 0.003, 1.6)}
               paintOrder="stroke"
-              style={{ letterSpacing: "0.1em", fontWeight: 600 }}
+              style={{
+                letterSpacing: "0.1em",
+                fontWeight: 600,
+                ...(onOpen ? { pointerEvents: "auto" as const, cursor: "pointer" } : {}),
+              }}
             >
               <textPath href={`#shape-path-${shape.id}-${runKey}`} startOffset="50%" textAnchor="middle">
                 {label}

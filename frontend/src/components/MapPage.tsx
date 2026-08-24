@@ -23,6 +23,7 @@ import { IconBook, IconEye, IconEyeOff, IconMapPin, IconPencil, IconPlus, IconTr
 import { AtlasModal } from "./map/AtlasModal";
 import { FogCanvas, revealSig } from "./map/FogCanvas";
 import { HangMapForm } from "./map/HangMapForm";
+import { InkworkModal } from "./map/InkworkModal";
 import { PinForm } from "./map/PinForm";
 import { PinMarker } from "./map/PinMarker";
 import { ShapeForm, type ShapeDraft } from "./map/ShapeForm";
@@ -101,6 +102,8 @@ export default function MapPage() {
   const [drawKind, setDrawKind] = useState<"line" | "area" | null>(null);
   const [drawPoints, setDrawPoints] = useState<MapPoint[]>([]);
   const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
+  // What is already drawn (#277) — and where a new run is chosen from.
+  const [inkworkOpen, setInkworkOpen] = useState(false);
 
   function stopDrawing() {
     setDrawKind(null);
@@ -135,6 +138,7 @@ export default function MapPage() {
         setDropMode(false);
         stopDrawing();
         setShapeDraft(null);
+        setInkworkOpen(false);
         draftState.reset();
       },
     });
@@ -305,10 +309,18 @@ export default function MapPage() {
               {map && (
                 <button
                   onClick={() => {
-                    setDrawKind((k) => (k ? null : "line"));
-                    setDrawPoints([]);
+                    // Mid-run this is the way out; otherwise it opens the
+                    // inkwork, which asks road-or-region and lists what is
+                    // already drawn (#277). One button either way — the
+                    // toolbar wrapping is what pushed the map off the fold
+                    // when #262 tried two.
+                    if (drawKind) {
+                      stopDrawing();
+                      return;
+                    }
                     setDropMode(false);
                     setStampMode(false);
+                    setInkworkOpen(true);
                   }}
                   className={`btn-base ${drawKind ? "btn-wax" : "btn-ghost-gold"} px-3 py-2.5 text-[11px]`}
                 >
@@ -752,6 +764,25 @@ export default function MapPage() {
             onCancel={() => setShapeDraft(null)}
           />
         </ParchmentModal>
+      )}
+
+      {/* everything drawn on this map, and where a new run starts (#277) */}
+      {inkworkOpen && map && (
+        <InkworkModal
+          shapes={detail?.shapes ?? []}
+          isPending={deleteShape.isPending}
+          onEdit={(shape) => {
+            setInkworkOpen(false);
+            setShapeDraft({ kind: shape.kind, points: shape.points, existing: shape });
+          }}
+          onDraw={(kind) => {
+            setInkworkOpen(false);
+            setDrawKind(kind);
+            setDrawPoints([]);
+          }}
+          onDelete={(id) => deleteShape.mutate(id)}
+          onClose={() => setInkworkOpen(false)}
+        />
       )}
 
       {/* submit-reveals modal */}
