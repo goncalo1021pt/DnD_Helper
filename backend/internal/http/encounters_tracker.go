@@ -135,6 +135,13 @@ func (s *Server) combatantSnapshot(ctx context.Context, b *api.AddCombatantReque
 	if b.Label != nil && strings.TrimSpace(*b.Label) != "" {
 		snap.Label = strings.TrimSpace(*b.Label)
 	}
+	// A combatant is named to the party by default (#286). The reveal label
+	// was built to let a DM say "Looming Shape" instead of "Ancient Red
+	// Dragon", but it started blank and nothing ever set it, so every enemy
+	// read "Unknown" for good — the veil was on with no way to lift it. Most
+	// fights are "three goblins attack", so the real name is the default and
+	// the mystery is the thing you ask for.
+	snap.PlayerLabel = snap.Label
 	if b.PlayerLabel != nil {
 		snap.PlayerLabel = *b.PlayerLabel
 	}

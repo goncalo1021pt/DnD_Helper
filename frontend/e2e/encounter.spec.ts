@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { createCampaign, newAccount, quickAddHero, registerViaAPI, unique } from "./helpers";
+import { createCampaign, joinCampaign, newAccount, quickAddHero, registerViaAPI, unique } from "./helpers";
 
 /*
 The DM's combat tool: prepare a fight at home, trigger it at the table, run
@@ -294,4 +294,101 @@ test("the builder says how heavy a fight is, and who it assumed was coming", asy
   await expect(meter.getByText(/300 \/ 450 \/ 800/)).toBeVisible();
   await expect(meter.getByText("Moderate", { exact: true })).toBeVisible();
   await expect(meter.getByRole("button", { name: /^Bryn/ })).toHaveAttribute("aria-pressed", "false");
+});
+
+/*
+What the party is allowed to call a monster (#286).
+
+`player_label` decided the player's view from the day the tracker shipped, and
+nothing in the app ever set it — so it stayed blank, the fallback fired, and
+every enemy read "Unknown" for good. The veil was on with no way to lift it.
+
+So this drives the two things that were missing: a monster arrives already
+named, and the DM can take the name back at a press. Both are read from the
+PLAYER's payload, because the DM's screen shows the true label either way and
+would pass whatever we did.
+*/
+test("a monster arrives named to the party, and the DM can take the name back", async ({
+  browser,
+}) => {
+  const dmCtx = await browser.newContext();
+  const dm = await dmCtx.newPage();
+  await dm.goto("/");
+  await registerViaAPI(dm.request, newAccount("dmname"));
+  const campaign = await createCampaign(dm.request, unique("Naming Fight "));
+
+  const plCtx = await browser.newContext();
+  const pl = await plCtx.newPage();
+  await pl.goto("/");
+  await registerViaAPI(pl.request, newAccount("plname"));
+  await joinCampaign(pl.request, campaign.inviteCode);
+  const heroId = await seatedHero(pl.request, campaign.id, {
+    name: unique("Ines "),
+    className: "Fighter",
+    abilities: { str: 15, dex: 14, con: 13, int: 10, wis: 12, cha: 8 },
+    skills: ["Athletics", "Survival"],
+  });
+
+  const made = await dm.request.post(`/api/campaigns/${campaign.id}/encounters`, {
+    data: { name: "The Final Battle" },
+  });
+  const encounterId = (await made.json()).id as string;
+  await dm.request.post(`/api/encounters/${encounterId}/combatants`, {
+    data: { kind: "pc", characterId: heroId },
+  });
+
+  const den = (await (await dm.request.get("/api/rules/monster")).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const goblin = den.find((m) => m.name === "Goblin") ?? den[0];
+  const addedRes = await dm.request.post(`/api/encounters/${encounterId}/combatants`, {
+    data: { kind: "monster", contentId: goblin.id, hidden: false },
+  });
+  expect(addedRes.ok(), await addedRes.text()).toBeTruthy();
+  const [foe] = (await addedRes.json()) as Array<{ id: string; playerLabel?: string }>;
+
+  await dm.request.patch(`/api/encounters/${encounterId}`, { data: { status: "active" } });
+
+  // A player reads the fight their own hero stands in, never one by id —
+  // encounters_run.go scopes it to their seat, so this is the only door.
+  const partySees = async () => {
+    const res = await pl.request.get(`/api/campaigns/${campaign.id}/encounters/active`);
+    expect(res.ok(), await res.text()).toBeTruthy();
+    const d = (await res.json()) as { combatants: Array<{ id: string; name: string }> };
+    return d.combatants.find((c) => c.id === foe.id)?.name;
+  };
+
+  // It arrives named — the whole of the bug.
+  expect(await partySees(), "a revealed monster should say what it is").toBe(goblin.name);
+
+  // The DM takes the name back; the party is left with Unknown, which is what
+  // the reveal label was for.
+  await dm.request.patch(`/api/combatants/${foe.id}`, { data: { playerLabel: "" } });
+  expect(await partySees()).toBe("Unknown");
+
+  // And a name of the DM's own choosing reaches them instead.
+  await dm.request.patch(`/api/combatants/${foe.id}`, { data: { playerLabel: "Looming Shape" } });
+  expect(await partySees()).toBe("Looming Shape");
+
+  // The control the DM actually uses, in a real browser: the chip states what
+  // the party reads and flips it.
+  await dm.goto(`/questboard/campaigns/${campaign.id}/encounters`);
+  // Wait for the fight itself before hunting controls inside it. Probing for
+  // the chip straight after goto finds the login gate — the SPA renders it
+  // while /me is still in flight — and a probe that early reads "no chip"
+  // rather than "not yet".
+  await expect(dm.getByRole("heading", { name: "The Final Battle" })).toBeVisible({
+    timeout: 30_000,
+  });
+  const chip = dm.getByRole("button", { name: /party sees/ }).first();
+  await expect(chip).toBeVisible({ timeout: 20_000 });
+  await expect(chip).toHaveText(/Looming Shape/);
+  await chip.click();
+  await expect.poll(partySees).toBe("Unknown");
+  await chip.click();
+  await expect.poll(partySees).toBe(goblin.name);
+
+  await dmCtx.close();
+  await plCtx.close();
 });
