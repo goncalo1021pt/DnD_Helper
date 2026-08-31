@@ -4,6 +4,7 @@ import type { Combatant } from "../../api/client";
 import { useDeleteCombatant, useRollCombatant, useUpdateCombatant } from "../../hooks";
 import { IconEye, IconEyeOff, IconTrash } from "../ui/icons";
 import { ConditionChips, ConditionEditor, DeathSavePips, shouldShowDeathSaves } from "./conditionParts";
+import { RevealName } from "./rowParts";
 import { GREEN_BTN, HP_STATE_TONE, HP_STEP, RED_BTN } from "./theme";
 
 /* ═══ DM: the encounter tool ═══════════════════════════════════════════════ */
@@ -93,9 +94,16 @@ export function CombatantRow({
             </button>
           )}
         </div>
-        <div className="label-stamp mt-0.5 text-[8.5px] tracking-[1px] text-gold-muted">
-          AC {c.ac} · {c.initMod >= 0 ? "+" : ""}{c.initMod} init
-          {c.kind !== "pc" && <span className="ml-1.5">{c.hidden ? "· hidden" : "· shown"}</span>}
+        <div className="label-stamp mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[8.5px] tracking-[1px] text-gold-muted">
+          <span>
+            AC {c.ac} · {c.initMod >= 0 ? "+" : ""}{c.initMod} init
+            {c.kind !== "pc" && (c.hidden ? " · hidden" : " · shown")}
+          </span>
+          {/* A hero is always known to their own party, and an ally walks with
+              it (#228) — only a monster or a custom line has a name to keep. */}
+          {c.kind !== "pc" && c.kind !== "ally" && (
+            <RevealName members={[c]} campaignId={campaignId} encounterId={encounterId} />
+          )}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 
 import { useMemo } from "react";
 import type { EncounterDetail } from "../../api/client";
-import { useRollInitiative, useUpdateEncounter } from "../../hooks";
+import { useRollInitiative, useUpdateCombatant, useUpdateEncounter } from "../../hooks";
 import type { CampaignContext } from "../CampaignView";
 import { AddCombatant } from "./AddCombatant";
 import { CombatantRow } from "./CombatantRow";
@@ -26,7 +26,22 @@ export function ActiveTracker({ campaign, detail }: { campaign: CampaignContext[
   const enc = detail.encounter;
   const combatants = detail.combatants;
   const update = useUpdateEncounter(campaign.id);
+  const updateCombatant = useUpdateCombatant(campaign.id, enc.id);
   const rollAll = useRollInitiative(campaign.id, enc.id);
+
+  /* Naming ten monsters one at a time is the complaint #286 makes, worded
+     differently. A fight prepared before the reveal label had any control at
+     all is all "Unknown"; this is the one press that fixes it. */
+  const nameable = combatants.filter((c) => c.kind !== "pc" && c.kind !== "ally");
+  const anyUnnamed = nameable.some((c) => (c.playerLabel ?? "").trim() === "");
+  function nameEveryone(name: boolean) {
+    nameable.forEach((c) => {
+      const next = name ? c.name : "";
+      if ((c.playerLabel ?? "") !== next) {
+        updateCombatant.mutate({ combatantId: c.id, body: { playerLabel: next } });
+      }
+    });
+  }
 
   // Turns advance one ENTRY at a time, and a mob is a single entry — otherwise
   // a pack of eight skeletons would eat eight presses of "Next turn". The
@@ -73,6 +88,20 @@ export function ActiveTracker({ campaign, detail }: { campaign: CampaignContext[
           ‹ Prev
         </button>
         <button onClick={() => step(1)} className="btn-base btn-wax h-9 px-4 text-[12px]">Next turn ›</button>
+        {nameable.length > 0 && (
+          <button
+            onClick={() => nameEveryone(anyUnnamed)}
+            title={
+              anyUnnamed
+                ? "Let the party read every name in this fight"
+                : "Take every name back — the party sees Unknown"
+            }
+            className="btn-base h-9 px-3 text-[12px]"
+            style={NEUTRAL_BTN}
+          >
+            {anyUnnamed ? "Name them all" : "Veil the names"}
+          </button>
+        )}
         <button
           onClick={() => update.mutate({ encounterId: enc.id, body: { status: "inactive" } })}
           title="Stand the fight down — releases the party and clears initiative; the monsters stay prepared"

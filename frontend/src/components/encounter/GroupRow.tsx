@@ -9,7 +9,7 @@ import {
 } from "../../hooks";
 import { IconEye, IconEyeOff, IconTrash } from "../ui/icons";
 import { mobName } from "./entries";
-import { HpStatePill } from "./rowParts";
+import { HpStatePill, RevealName } from "./rowParts";
 import { GREEN_BTN, HP_STATE_TONE, HP_STEP, RED_BTN } from "./theme";
 
 /* A mob: monsters added together in one go. They share an initiative and act on
@@ -112,9 +112,15 @@ export function GroupRow({
               </button>
             )}
           </div>
-          <div className="label-stamp mt-0.5 pl-[15px] text-[8.5px] tracking-[1px] text-gold-muted">
-            {standing} standing · AC {lead.ac} · {lead.initMod >= 0 ? "+" : ""}{lead.initMod} init
-            {editable && <span className="ml-1.5">{anyHidden ? "· hidden" : "· shown"}</span>}
+          <div className="label-stamp mt-0.5 flex flex-wrap items-center gap-x-1.5 pl-[15px] text-[8.5px] tracking-[1px] text-gold-muted">
+            <span>
+              {standing} standing · AC {lead.ac} · {lead.initMod >= 0 ? "+" : ""}{lead.initMod} init
+              {editable && (anyHidden ? " · hidden" : " · shown")}
+            </span>
+            {/* A mob shares one identity — naming any names all of them (#286). */}
+            {editable && lead.kind !== "pc" && lead.kind !== "ally" && (
+              <RevealName members={members} campaignId={campaignId} encounterId={encounterId} />
+            )}
           </div>
         </div>
 
