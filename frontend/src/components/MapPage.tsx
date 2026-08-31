@@ -127,7 +127,6 @@ export default function MapPage() {
   } =
     useMapViewer({
       map,
-      mapId: currentId,
       onTap: (at) => {
         if (!isDM) return;
         if (drawKind) setDrawPoints((pts) => [...pts, { x: at.x, y: at.y }]);
@@ -371,6 +370,7 @@ export default function MapPage() {
       ) : (
         <div
           ref={containerRef}
+          data-testid="map-viewport"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -400,6 +400,7 @@ export default function MapPage() {
             </div>
           )}
           <div
+            data-testid="map-canvas"
             style={{
               position: "absolute",
               width: map.width,
