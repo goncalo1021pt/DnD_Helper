@@ -41,12 +41,10 @@ export interface MapViewer {
 
 export function useMapViewer({
   map,
-  mapId,
   onTap,
   onMapChanged,
 }: {
   map: CampaignMap | undefined;
-  mapId: string | undefined;
   /** A genuine tap on open ground, in the map's own fractions (both within 0..1). */
   onTap: (at: { x: number; y: number }) => void;
   /** The map on the table changed — fires once per map, before it is fitted. */
@@ -89,6 +87,11 @@ export function useMapViewer({
   }, [map]);
 
   // Wheel zoom, attached non-passively so the page never scrolls under it.
+  // Keyed on the map *id*, not the route param: the container only mounts once
+  // the map has loaded, and the id goes undefined→set exactly then — so the
+  // listener binds to the container that actually exists. Keying it on a route
+  // param that is already set during loading left the listener bound to nothing,
+  // and the wheel fell through to the page (#292).
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -105,7 +108,7 @@ export function useMapViewer({
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapId]);
+  }, [map?.id]);
 
   function zoomBy(k: number) {
     const el = containerRef.current;

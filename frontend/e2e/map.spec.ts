@@ -584,3 +584,48 @@ test("a map hangs on a place, re-files, and survives a say-nothing rename", asyn
   });
   expect(refused.status(), "a place from another campaign is unknown here").toBe(400);
 });
+
+/*
+Zoom over a freshly-loaded map (#292).
+
+The wheel listener is attached non-passively so scrolling zooms the map, not the
+page. But it used to bind in an effect keyed on the route param, which never
+changed between the loading screen and the map appearing — so on a cold load it
+bound to a container that wasn't there yet, and the wheel fell through to the
+page. This drives that exact path: land on the map cold, scroll once, and the
+map must scale while the document stays put.
+*/
+test("scrolling the wheel over a freshly-loaded map zooms it, not the page (#292)", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("zoom"));
+  const campaign = await createCampaign(page.request, unique("Zooming "));
+  const made = await page.request.post(`/api/campaigns/${campaign.id}/maps`, {
+    data: { name: "Zoomable Vale", imageBase64: await twoTonePng(page), visibleToParty: true },
+  });
+  expect(made.ok(), await made.text()).toBeTruthy();
+
+  // Cold navigation — the container mounts only once the map loads, which is
+  // exactly the moment the old binding missed.
+  await page.goto(`/questboard/campaigns/${campaign.id}/map`);
+  const viewport = page.getByTestId("map-viewport");
+  const canvas = page.getByTestId("map-canvas");
+  await expect(canvas).toBeVisible({ timeout: 20_000 });
+
+  const scaleOf = () =>
+    canvas.evaluate((el) => {
+      const m = /scale\(([\d.]+)\)/.exec((el as HTMLElement).style.transform);
+      return m ? Number(m[1]) : NaN;
+    });
+  const before = await scaleOf();
+
+  // Point at the middle of the viewport and scroll up (deltaY < 0 = zoom in).
+  const box = await viewport.boundingBox();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await page.mouse.wheel(0, -240);
+
+  // The map scaled up — proof the wheel reached the viewer, not the document.
+  await expect.poll(scaleOf).toBeGreaterThan(before);
+  expect(await page.evaluate(() => window.scrollY), "the page must not scroll").toBe(0);
+});
