@@ -3,6 +3,7 @@ import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import type { Location } from "../api/client";
 import { useCharacters, useCreateQuest, useLocations, useQuests } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
+import { LocationPicker } from "./LocationPicker";
 import QuestCard from "./QuestCard";
 import QuestForm, { emptyQuest } from "./QuestForm";
 import FloatingDiceTray from "./ui/DiceTray";
@@ -101,43 +102,23 @@ export default function QuestBoard() {
         </div>
       </div>
 
-      {/* place filter — the board narrows to one corner of the map */}
+      {/* place filter — one scalable picker in place of a wall of buttons (#290) */}
       {places.length > 0 && (
         <div className="mb-6 flex flex-wrap items-center gap-2.5">
           <span className="label-stamp text-[10px] tracking-[2px] text-gold-muted">
             Where
           </span>
-          <button
-            onClick={() => setPlace("")}
-            className={`btn-base clip-octagon px-3.5 py-2 text-[11px] ${
-              place === "" ? "btn-gold" : "btn-ghost-gold"
-            }`}
-          >
-            Everywhere
-          </button>
-          {places.map((l) => (
-            <button
-              key={l.id}
-              onClick={() => setPlace(l.id)}
-              title={l.depth > 0 ? "Nested place" : undefined}
-              className={`btn-base clip-octagon px-3.5 py-2 text-[11px] ${
-                place === l.id ? "btn-gold" : "btn-ghost-gold"
-              }`}
-              style={{ opacity: 1 - Math.min(l.depth, 3) * 0.12 }}
-            >
-              <IconMapPin size={12} strokeWidth={2} />
-              {l.name}
-              <span className="opacity-70">{l.questCount}</span>
-            </button>
-          ))}
-          <button
-            onClick={() => setPlace("none")}
-            className={`btn-base clip-octagon px-3.5 py-2 text-[11px] ${
-              place === "none" ? "btn-gold" : "btn-ghost-gold"
-            }`}
-          >
-            Unpinned
-          </button>
+          <LocationPicker
+            locations={places}
+            value={place}
+            onChange={setPlace}
+            showCounts
+            surface="hall"
+            specials={[
+              { key: "", label: "Everywhere" },
+              { key: "none", label: "Unpinned" },
+            ]}
+          />
         </div>
       )}
 

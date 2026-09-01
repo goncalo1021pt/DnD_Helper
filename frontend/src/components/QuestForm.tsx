@@ -6,6 +6,7 @@ import type {
   RewardInput,
   RewardType,
 } from "../api/client";
+import { LocationPicker } from "./LocationPicker";
 import { IconEye, IconEyeOff, IconPlus, IconX } from "./ui/icons";
 
 const DIFFICULTIES: QuestDifficulty[] = ["trivial", "easy", "medium", "hard", "deadly"];
@@ -148,19 +149,14 @@ export default function QuestForm({
         </Field>
         {locations.length > 0 ? (
           <Field label="Where">
-            <select
-              className={`${input} cursor-pointer`}
+            <LocationPicker
+              locations={locations}
               value={v.locationId ?? ""}
-              onChange={(e) => set("locationId", e.target.value || null)}
-            >
-              <option value="">— nowhere in particular —</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {"— ".repeat(l.depth)}
-                  {l.name}
-                </option>
-              ))}
-            </select>
+              onChange={(k) => set("locationId", k || null)}
+              surface="parchment"
+              block
+              specials={[{ key: "", label: "nowhere in particular" }]}
+            />
           </Field>
         ) : (
           <Field label="Where">
