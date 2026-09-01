@@ -1917,6 +1917,114 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /campaigns/{campaignId}/pregens:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listPregens
+      summary: |
+        The pool of pre-made heroes waiting to be claimed at this table (#180). Any member sees it; a DM offers into it and a player claims from it.
+      responses:
+        "200":
+          description: Unclaimed pregens, oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Character"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: offerPregen
+      summary: |
+        Offer one of the DM's own unseated heroes into this campaign's pregen pool (DM only). It is seated here and held until a member claims it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PregenOffer"
+      responses:
+        "201":
+          description: The hero, now waiting in the pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /campaigns/{campaignId}/pregens/{characterId}:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/CharacterId"
+    delete:
+      operationId: withdrawPregen
+      summary: |
+        Pull an unclaimed pregen back out of the pool to the DM's shelf (DM only). A claimed one belongs to its player and cannot be withdrawn.
+      responses:
+        "204":
+          description: Withdrawn to the DM's My Heroes
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /characters/{characterId}/claim:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    post:
+      operationId: claimPregen
+      summary: |
+        Claim an unclaimed pregen (any member of its table). Ownership passes to the claimer; it is already seated, so it joins their roster at once. The table's seats-per-player cap still applies.
+      responses:
+        "200":
+          description: The hero, now the claimer's
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /characters/{characterId}/release:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    post:
+      operationId: releasePregen
+      summary: |
+        Release a claimed pregen back to the pool (its player, or the DM). Ownership returns to the author who offered it; it stays seated for the next taker.
+      responses:
+        "200":
+          description: The hero, back in the pool
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /campaigns/{campaignId}/trees:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -4763,6 +4871,10 @@ components:
         pendingLevels:
           type: integer
           description: Milestone level-ups waiting to be taken.
+        pregen:
+          type: boolean
+          description: |
+            True when this hero was offered as a pre-made pregen (#180) — either waiting in a one-shot's pool (owned by the DM who offered it) or claimed and now played by a member. Lets the roster mark a claimed pregen and offer to release it back to the pool.
         concealed:
           type: boolean
           description: |
@@ -5039,6 +5151,15 @@ components:
           format: uuid
           nullable: true
           description: Omit or null to unseat the hero back to My Heroes.
+    PregenOffer:
+      type: object
+      required:
+        - characterId
+      properties:
+        characterId:
+          type: string
+          format: uuid
+          description: One of the DM's own unseated heroes to offer into this campaign's pregen pool (#180).
     RulesContent:
       type: object
       required:

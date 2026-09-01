@@ -1,7 +1,10 @@
 -- name: ListCharactersByCampaign :many
 -- The party. A body forged for one of the Folk is not one of them (#227) —
 -- filtering here is what keeps NPC sheets out of the roster, the adventurer
--- count, the chronicle, encounter seating and the veil resolver at once.
+-- count, the chronicle, encounter seating and the veil resolver at once. An
+-- unclaimed pregen (#180) is likewise not one of the party: it waits in the
+-- pool until a member claims it, and only then — owner no longer its author —
+-- does it fall through here as their hero.
 SELECT c.*, u.name AS owner_name, rc_class.data AS class_data,
        pt.name AS party_name
 FROM characters c
@@ -9,7 +12,54 @@ JOIN users u ON u.id = c.owner_user_id
 LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
 LEFT JOIN parties pt ON pt.id = c.party_id
 WHERE c.campaign_id = $1 AND c.kind = 'hero'
+  AND NOT (c.pregen_by IS NOT NULL AND c.pregen_by = c.owner_user_id)
 ORDER BY c.created_at ASC;
+
+-- name: ListPregens :many
+-- The pool of pre-made heroes waiting to be claimed at this table (#180): the
+-- DM's own heroes, seated here and still held by the author who offered them.
+SELECT c.*, u.name AS owner_name, rc_class.data AS class_data,
+       pt.name AS party_name
+FROM characters c
+JOIN users u ON u.id = c.owner_user_id
+LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
+LEFT JOIN parties pt ON pt.id = c.party_id
+WHERE c.campaign_id = $1
+  AND c.pregen_by IS NOT NULL AND c.pregen_by = c.owner_user_id
+ORDER BY c.created_at ASC;
+
+-- name: OfferPregen :one
+-- Offer one of the DM's own heroes into a campaign's pregen pool: seat it and
+-- record the author, who holds it until a player claims it.
+UPDATE characters
+SET campaign_id = $2, pregen_by = $3, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: WithdrawPregen :one
+-- Pull an unclaimed pregen back out of the pool to the DM's shelf: unseat it
+-- and clear the flag, undoing an offer.
+UPDATE characters
+SET campaign_id = NULL, pregen_by = NULL, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: ClaimPregen :one
+-- A member takes a pre-made hero: ownership passes to them. It is already
+-- seated at this table, and the author stays recorded so a release can hand it
+-- back to the pool.
+UPDATE characters
+SET owner_user_id = $2, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: ReleasePregen :one
+-- Hand a claimed pre-made hero back to the pool: ownership returns to its
+-- author, and it stays seated for the next taker.
+UPDATE characters
+SET owner_user_id = pregen_by, updated_at = now()
+WHERE id = $1
+RETURNING *;
 
 -- name: GetCharacter :one
 SELECT * FROM characters WHERE id = $1;
@@ -42,7 +92,11 @@ SELECT c.*, camp.name AS campaign_name, rc_class.data AS class_data
 FROM characters c
 LEFT JOIN campaigns camp ON camp.id = c.campaign_id
 LEFT JOIN rules_content rc_class ON rc_class.id = c.class_id
+-- An offered pregen is seated in a campaign's pool, not resting on its author's
+-- shelf, so it drops out here (#180). Should its table be struck it is unseated
+-- (campaign_id NULL) and falls back onto the shelf as an ordinary hero.
 WHERE c.owner_user_id = $1 AND NOT c.table_born AND c.kind = 'hero'
+  AND NOT (c.pregen_by IS NOT NULL AND c.pregen_by = c.owner_user_id AND c.campaign_id IS NOT NULL)
 ORDER BY c.created_at ASC;
 
 -- name: DeleteTableBornOfUser :exec
@@ -69,10 +123,12 @@ WHERE campaign_id = $1;
 -- name: CountSeatedByOwner :one
 -- How many of a player's heroes already hold a seat at this table, besides
 -- the one asking. Table-born characters are the DM's roster, not a seat taken,
--- and neither are the bodies behind the Folk.
+-- and neither are the bodies behind the Folk, nor a pregen still sitting
+-- unclaimed in the pool under the DM's name (#180).
 SELECT COUNT(*) FROM characters
 WHERE owner_user_id = $1 AND campaign_id = $2
-  AND NOT table_born AND kind = 'hero' AND id <> $3;
+  AND NOT table_born AND kind = 'hero' AND id <> $3
+  AND NOT (pregen_by IS NOT NULL AND pregen_by = owner_user_id);
 
 -- name: SeatCharacter :one
 -- Seat a hero at a campaign (or NULL to return them to My Heroes).

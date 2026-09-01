@@ -635,6 +635,7 @@ type Character struct {
 	PactSlotsUsed  int16              `json:"pact_slots_used"`
 	Kind           CharacterKind      `json:"kind"`
 	PartyID        pgtype.UUID        `json:"party_id"`
+	PregenBy       pgtype.UUID        `json:"pregen_by"`
 }
 
 type CharacterClass struct {

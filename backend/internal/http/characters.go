@@ -104,6 +104,7 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			TableBorn:      row.TableBorn,
 			Kind:           row.Kind,
 			PartyID:        row.PartyID,
+			PregenBy:       row.PregenBy,
 		}, row.OwnerName, member.UserID, row.ClassData, classesOf[row.ID])
 		character.PartyName = row.PartyName
 		if veil.concealsFrom(row.ID, row.OwnerUserID, member.UserID, isDM) {
@@ -462,6 +463,7 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 	}
 	xp := int(c.Xp)
 	pending := int(c.PendingLevels)
+	pregen := c.PregenBy.Valid
 	// Dice by level alone — right for a quick-add hero, who has no class to
 	// ask. toAPICharacterWithClass replaces this with the real pools once the
 	// hero's classes are in hand (#190).
@@ -470,6 +472,7 @@ func toAPICharacter(c db.Character, ownerName string, viewer uuid.UUID) api.Char
 		Sheet:         sheet,
 		Xp:            &xp,
 		PendingLevels: &pending,
+		Pregen:        &pregen,
 		HitDice:       &hitDice,
 		Id:            c.ID,
 		CampaignId:    campaignID,
