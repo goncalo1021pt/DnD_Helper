@@ -146,6 +146,14 @@ paths:
     $ref: "./paths/characters.yaml#/~1campaigns~1{campaignId}~1characters"
   /characters/{characterId}:
     $ref: "./paths/characters.yaml#/~1characters~1{characterId}"
+  /campaigns/{campaignId}/pregens:
+    $ref: "./paths/characters.yaml#/~1campaigns~1{campaignId}~1pregens"
+  /campaigns/{campaignId}/pregens/{characterId}:
+    $ref: "./paths/characters.yaml#/~1campaigns~1{campaignId}~1pregens~1{characterId}"
+  /characters/{characterId}/claim:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1claim"
+  /characters/{characterId}/release:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1release"
 
   /campaigns/{campaignId}/trees:
     $ref: "./paths/trees.yaml#/~1campaigns~1{campaignId}~1trees"
@@ -487,6 +495,8 @@ components:
       $ref: "./components/characters.yaml#/CharacterInput"
     SeatRequest:
       $ref: "./components/characters.yaml#/SeatRequest"
+    PregenOffer:
+      $ref: "./components/characters.yaml#/PregenOffer"
 
     RulesContent:
       $ref: "./components/rules.yaml#/RulesContent"

@@ -106,4 +106,89 @@ export function useRevealCharacter(campaignId: string) {
   });
 }
 
+/*
+ * Pre-made heroes (#180): a DM offers heroes into a one-shot's pool and any
+ * member claims one. Claiming and releasing move a hero between the pool and
+ * the roster, so both invalidate both lists.
+ */
+export function usePregens(campaignId: string) {
+  return useQuery({
+    queryKey: ["pregens", campaignId],
+    enabled: !!campaignId,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/campaigns/{campaignId}/pregens", {
+        params: { path: { campaignId } },
+      });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+}
+
+function invalidatePregens(qc: ReturnType<typeof useQueryClient>, campaignId: string) {
+  qc.invalidateQueries({ queryKey: ["pregens", campaignId] });
+  qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+  qc.invalidateQueries({ queryKey: ["my-characters"] });
+}
+
+// DM only — offer one of the DM's own unseated heroes into the pool.
+export function useOfferPregen(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (characterId: string) => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/pregens", {
+        params: { path: { campaignId } },
+        body: { characterId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => invalidatePregens(qc, campaignId),
+  });
+}
+
+// DM only — pull an unclaimed pregen back to the DM's shelf.
+export function useWithdrawPregen(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (characterId: string) => {
+      const { error } = await api.DELETE("/campaigns/{campaignId}/pregens/{characterId}", {
+        params: { path: { campaignId, characterId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidatePregens(qc, campaignId),
+  });
+}
+
+// Any member — take a pre-made hero as your own.
+export function useClaimPregen(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (characterId: string) => {
+      const { data, error } = await api.POST("/characters/{characterId}/claim", {
+        params: { path: { characterId } },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => invalidatePregens(qc, campaignId),
+  });
+}
+
+// Its player, or the DM — hand a claimed pregen back to the pool.
+export function useReleasePregen(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (characterId: string) => {
+      const { data, error } = await api.POST("/characters/{characterId}/release", {
+        params: { path: { characterId } },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => invalidatePregens(qc, campaignId),
+  });
+}
+
 // --- My Heroes (account-level characters) ---

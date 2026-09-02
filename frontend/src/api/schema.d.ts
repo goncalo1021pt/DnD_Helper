@@ -1202,6 +1202,84 @@ export interface paths {
         patch: operations["updateCharacter"];
         trace?: never;
     };
+    "/campaigns/{campaignId}/pregens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The pool of pre-made heroes waiting to be claimed at this table (#180). Any member sees it; a DM offers into it and a player claims from it. */
+        get: operations["listPregens"];
+        put?: never;
+        /** Offer one of the DM's own unseated heroes into this campaign's pregen pool (DM only). It is seated here and held until a member claims it. */
+        post: operations["offerPregen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/pregens/{characterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Pull an unclaimed pregen back out of the pool to the DM's shelf (DM only). A claimed one belongs to its player and cannot be withdrawn. */
+        delete: operations["withdrawPregen"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim an unclaimed pregen (any member of its table). Ownership passes to the claimer; it is already seated, so it joins their roster at once. The table's seats-per-player cap still applies. */
+        post: operations["claimPregen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release a claimed pregen back to the pool (its player, or the DM). Ownership returns to the author who offered it; it stays seated for the next taker. */
+        post: operations["releasePregen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/trees": {
         parameters: {
             query?: never;
@@ -2735,6 +2813,8 @@ export interface components {
             xp?: number;
             /** @description Milestone level-ups waiting to be taken. */
             pendingLevels?: number;
+            /** @description True when this hero was offered as a pre-made pregen (#180) — either waiting in a one-shot's pool (owned by the DM who offered it) or claimed and now played by a member. Lets the roster mark a claimed pregen and offer to release it back to the pool. */
+            pregen?: boolean;
             /** @description True when the table's veil hides this hero from the caller. Only the name (and who plays them) is real — class, level, HP and the sheet come back emptied, and the full sheet is refused. */
             concealed?: boolean;
             /** @description True when the DM has lifted the veil on this hero, so the party reads their sheet even while the table's sheets are veiled. Only meaningful on a veiled table. */
@@ -2860,6 +2940,13 @@ export interface components {
              * @description Omit or null to unseat the hero back to My Heroes.
              */
             campaignId?: string | null;
+        };
+        PregenOffer: {
+            /**
+             * Format: uuid
+             * @description One of the DM's own unseated heroes to offer into this campaign's pregen pool (#180).
+             */
+            characterId: string;
         };
         RulesContent: {
             /** Format: uuid */
@@ -6479,6 +6566,137 @@ export interface operations {
         };
         responses: {
             /** @description Updated character */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listPregens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unclaimed pregens, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    offerPregen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PregenOffer"];
+            };
+        };
+        responses: {
+            /** @description The hero, now waiting in the pool */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    withdrawPregen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Withdrawn to the DM's My Heroes */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    claimPregen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The hero, now the claimer's */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    releasePregen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The hero, back in the pool */
             200: {
                 headers: {
                     [name: string]: unknown;

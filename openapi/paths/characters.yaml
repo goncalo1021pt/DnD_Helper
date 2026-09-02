@@ -482,6 +482,125 @@
       "403":
         $ref: "../openapi.yaml#/components/responses/Forbidden"
 
+/campaigns/{campaignId}/pregens:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listPregens
+    summary: >
+      The pool of pre-made heroes waiting to be claimed at this table (#180).
+      Any member sees it; a DM offers into it and a player claims from it.
+    responses:
+      "200":
+        description: Unclaimed pregens, oldest first
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Character"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: offerPregen
+    summary: >
+      Offer one of the DM's own unseated heroes into this campaign's pregen
+      pool (DM only). It is seated here and held until a member claims it.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/PregenOffer"
+    responses:
+      "201":
+        description: The hero, now waiting in the pool
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/pregens/{characterId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  delete:
+    operationId: withdrawPregen
+    summary: >
+      Pull an unclaimed pregen back out of the pool to the DM's shelf (DM
+      only). A claimed one belongs to its player and cannot be withdrawn.
+    responses:
+      "204":
+        description: Withdrawn to the DM's My Heroes
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/claim:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: claimPregen
+    summary: >
+      Claim an unclaimed pregen (any member of its table). Ownership passes to
+      the claimer; it is already seated, so it joins their roster at once. The
+      table's seats-per-player cap still applies.
+    responses:
+      "200":
+        description: The hero, now the claimer's
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/release:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  post:
+    operationId: releasePregen
+    summary: >
+      Release a claimed pregen back to the pool (its player, or the DM).
+      Ownership returns to the author who offered it; it stays seated for the
+      next taker.
+    responses:
+      "200":
+        description: The hero, back in the pool
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
 /campaigns/{campaignId}/seat-requests:
   parameters:
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"

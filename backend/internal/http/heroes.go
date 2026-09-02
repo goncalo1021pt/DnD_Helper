@@ -57,6 +57,7 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			PendingLevels:  row.PendingLevels,
 			TableBorn:      row.TableBorn,
 			Kind:           row.Kind,
+			PregenBy:       row.PregenBy,
 		}, me.Name, uid, row.ClassData, classesOf[row.ID])
 		c.CampaignName = row.CampaignName
 		out = append(out, c)

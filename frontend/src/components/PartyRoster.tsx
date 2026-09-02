@@ -5,13 +5,17 @@ import {
   useCharacters,
   useSetSpellSlots,
   useCharacterTree,
+  useClaimPregen,
   useCreateCharacter,
   useDeleteCharacter,
   useMyCharacters,
   useCreateParty,
   useDeleteParty,
   useNpcs,
+  useOfferPregen,
   useParties,
+  usePregens,
+  useReleasePregen,
   useRenameParty,
   useSetCharacterParty,
   useRevealCharacter,
@@ -20,6 +24,7 @@ import {
   useSetPact,
   useTrees,
   useUpdateCharacter,
+  useWithdrawPregen,
 } from "../hooks";
 import { classLine } from "../lib/classes";
 import { hpColor, initials, medallionFor } from "../lib/party";
@@ -282,6 +287,7 @@ function CharacterCard({
   const update = useUpdateCharacter(campaignId);
   const del = useDeleteCharacter(campaignId);
   const seat = useSeatCharacter();
+  const release = useReleasePregen(campaignId);
 
   const color = hpColor(character.hpCurrent, character.hpMax);
   const pct = character.hpMax > 0 ? (character.hpCurrent / character.hpMax) * 100 : 0;
@@ -351,6 +357,14 @@ function CharacterCard({
                 title="Born of this table — not in anyone's My Heroes"
               >
                 of this table
+              </span>
+            )}
+            {character.pregen && (
+              <span
+                className="label-stamp ml-2 text-[8px] tracking-[1px] text-ink-label"
+                title="A pre-made hero claimed from the pool — release it to hand it back"
+              >
+                pre-made
               </span>
             )}
           </div>
@@ -460,7 +474,24 @@ function CharacterCard({
               <IconPencil strokeWidth={1.8} />
             </button>
           )}
-          {character.tableBorn ? (
+          {character.pregen ? (
+            /* A claimed pre-made hero (#180): giving it back is a release to
+               the pool, not an unseat to a shelf — it was borrowed, not owned.
+               Its player or the DM may hand it back. */
+            (character.mine || isDM) && (
+              <button
+                onClick={() => {
+                  if (confirm(`Release "${character.name}" back to the pregen pool? It returns for another player to claim.`))
+                    release.mutate(character.id);
+                }}
+                disabled={release.isPending}
+                title="Release — the hero returns to the pregen pool for another to claim"
+                className="btn-base btn-ghost-ink px-3 py-[9px] text-[10px]"
+              >
+                Release
+              </button>
+            )
+          ) : character.tableBorn ? (
             /* Born of the table: striking it destroys it — there is no shelf
                to return to. Account heroes can only be unseated here; deleting
                one is the owner's act, from My Heroes. */
@@ -879,6 +910,164 @@ function TravelingSection({ campaignId, allies }: { campaignId: string; allies: 
   );
 }
 
+/* One pre-made hero waiting in the pool (#180): a full card so the table can
+   size it up before claiming, with the Claim (and the DM's Withdraw) below. */
+function PregenCard({
+  character,
+  isDM,
+  campaignId,
+}: {
+  character: Character;
+  isDM: boolean;
+  campaignId: string;
+}) {
+  const claim = useClaimPregen(campaignId);
+  const withdraw = useWithdrawPregen(campaignId);
+  const [err, setErr] = useState<string | null>(null);
+
+  return (
+    <div className="parchment px-[22px] pb-5 pt-[18px]">
+      <div className="flex items-center gap-3.5">
+        <div
+          className="font-heading relative flex h-[50px] w-[50px] flex-none items-center justify-center rounded-[3px] text-[15px] font-bold text-[#f3e6c8]"
+          style={{
+            background: medallionFor(character.id),
+            boxShadow: "inset 0 0 0 1.5px rgba(201,162,39,.5), 0 3px 6px rgba(0,0,0,.35)",
+          }}
+        >
+          {initials(character.name) || "?"}
+          <span
+            className="font-heading absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-ember-bright"
+            style={{ background: "#1c1108", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.55)" }}
+            title={`Level ${character.level}`}
+          >
+            {character.level}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="font-display block truncate text-[17px] font-bold leading-tight text-ink">
+            {character.name}
+          </div>
+          <div className="truncate text-[12.5px] text-ink-body">{classLine(character)}</div>
+        </div>
+      </div>
+
+      {character.sheet && (
+        <div className="mt-3.5">
+          <AbilityRow abilities={character.sheet.abilities} />
+          {character.sheet.skills.length > 0 && (
+            <div className="label-stamp mt-2 text-[8.5px] leading-relaxed tracking-[1px] text-ink-label">
+              {character.sheet.skills.join(" · ")}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center gap-2">
+        <button
+          onClick={() =>
+            claim.mutate(character.id, {
+              onError: (e) =>
+                setErr((e as { error?: string } | null)?.error ?? "Could not claim — try again."),
+            })
+          }
+          disabled={claim.isPending}
+          className="btn-base btn-wax clip-octagon flex-1 px-4 py-[10px] text-[11px]"
+        >
+          Claim this hero
+        </button>
+        {isDM && (
+          <button
+            onClick={() => {
+              if (confirm(`Withdraw "${character.name}" from the pool? It returns to your My Heroes.`))
+                withdraw.mutate(character.id);
+            }}
+            disabled={withdraw.isPending}
+            title="Withdraw — the hero returns to your My Heroes shelf"
+            className="btn-base btn-ghost-red p-[9px]"
+          >
+            <IconTrash strokeWidth={1.8} />
+          </button>
+        )}
+      </div>
+      {err && <p className="font-body mt-2 text-[12px] italic text-[#8b2520]">{err}</p>}
+    </div>
+  );
+}
+
+/* The DM sets a pre-made hero out for the table: one of their own resting
+   heroes, offered into this campaign's pool. Mirrors SummonControl — the same
+   picker, the other direction. */
+function OfferPregenControl({ campaignId }: { campaignId: string }) {
+  const { data: myHeroes } = useMyCharacters();
+  const offer = useOfferPregen(campaignId);
+  const [choice, setChoice] = useState("");
+  const resting = (myHeroes ?? []).filter((h) => !h.campaignId);
+  if (resting.length === 0) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={choice}
+        onChange={(e) => setChoice(e.target.value)}
+        aria-label="Offer a pre-made hero"
+        className="input-hall input-compact w-48 cursor-pointer text-[13px]"
+      >
+        <option value="">Offer a pre-made hero…</option>
+        {resting.map((h) => (
+          <option key={h.id} value={h.id}>
+            {h.name}
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={() => choice && offer.mutate(choice, { onSuccess: () => setChoice("") })}
+        disabled={!choice || offer.isPending}
+        className="btn-base btn-ghost-gold h-10 px-3 text-[10px]"
+      >
+        Offer
+      </button>
+    </div>
+  );
+}
+
+/* The pool of pre-made heroes (#180). A player sees it only when it holds
+   something; the DM always gets the offer control, so an empty pool is still
+   a place to start one. */
+function PregenPool({ campaignId, isDM }: { campaignId: string; isDM: boolean }) {
+  const { data: pregens } = usePregens(campaignId);
+  const pool = pregens ?? [];
+  if (pool.length === 0 && !isDM) return null;
+  return (
+    <section className="mt-8">
+      <div
+        className="mb-4 flex flex-wrap items-baseline justify-between gap-3 pb-2.5"
+        style={{ borderTop: "1px solid rgba(201,162,39,.18)", paddingTop: "22px" }}
+      >
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h3 className="font-display m-0 text-[18px] font-black text-[#e7d3a6]">
+            Pre-made heroes
+          </h3>
+          <span className="font-accent text-[12.5px] italic text-cream-muted">
+            — ready-built characters, waiting for a player to claim them. —
+          </span>
+        </div>
+        {isDM && <OfferPregenControl campaignId={campaignId} />}
+      </div>
+      {pool.length > 0 ? (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(290px,100%),1fr))] gap-6">
+          {pool.map((c) => (
+            <PregenCard key={c.id} character={c} isDM={isDM} campaignId={campaignId} />
+          ))}
+        </div>
+      ) : (
+        <p className="font-accent text-[13px] italic text-cream-muted">
+          None set out yet — offer one of your resting heroes above and the table can claim it.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function PartyRoster() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
@@ -1034,6 +1223,8 @@ export default function PartyRoster() {
           </div>
         </div>
       )}
+
+      <PregenPool campaignId={campaign.id} isDM={isDM} />
 
       <TravelingSection campaignId={campaign.id} allies={allies} />
 

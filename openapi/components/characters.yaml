@@ -109,6 +109,13 @@ Character:
     pendingLevels:
       type: integer
       description: Milestone level-ups waiting to be taken.
+    pregen:
+      type: boolean
+      description: >
+        True when this hero was offered as a pre-made pregen (#180) — either
+        waiting in a one-shot's pool (owned by the DM who offered it) or claimed
+        and now played by a member. Lets the roster mark a claimed pregen and
+        offer to release it back to the pool.
     concealed:
       type: boolean
       description: >
@@ -340,6 +347,17 @@ SeatRequest:
       format: uuid
       nullable: true
       description: Omit or null to unseat the hero back to My Heroes.
+
+PregenOffer:
+  type: object
+  required: [characterId]
+  properties:
+    characterId:
+      type: string
+      format: uuid
+      description: >-
+        One of the DM's own unseated heroes to offer into this campaign's
+        pregen pool (#180).
 
 SpellSwap:
   type: object
