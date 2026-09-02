@@ -166,6 +166,26 @@ type spellData struct {
 	Classes []string `json:"classes"`
 }
 
+// codexRefuses returns a readable refusal if the campaign's codex bars any of
+// these spells, or "" when all are admitted. A zero campaignID means the hero
+// sits at no table, so no codex rules the pick — the forge is unseated, and its
+// bans bite at the seat door. Strict seating's contract is that banned content
+// is refused wherever it is picked, so every pick and swap runs through here
+// (#239).
+func (s *Server) codexRefuses(ctx context.Context, campaignID uuid.UUID, ids []uuid.UUID) (string, error) {
+	if campaignID == uuid.Nil || len(ids) == 0 {
+		return "", nil
+	}
+	blockers, err := s.codexBlockers(ctx, campaignID, ids)
+	if err != nil {
+		return "", err
+	}
+	if len(blockers) > 0 {
+		return blockers[0].row.Name + " is not admitted by the campaign's codex — ask the DM", nil
+	}
+	return "", nil
+}
+
 // validateSpellPicks checks new spell choices for a hero of the given class
 // at the given level: visibility, kind, class list, spell level, duplicates,
 // and cantrip/prepared caps (caps are ≤, so under-picked heroes self-heal).
@@ -175,6 +195,7 @@ type spellData struct {
 func (s *Server) validateSpellPicks(
 	ctx context.Context,
 	uid uuid.UUID,
+	campaignID uuid.UUID,
 	class db.RulesContent,
 	subclassData []byte,
 	atLevel int,
@@ -251,6 +272,12 @@ func (s *Server) validateSpellPicks(
 	if maxP := casting.Prepared[atLevel-1]; leveled > maxP {
 		return fmt.Sprintf("%s prepares at most %d spells at level %d", class.Name, maxP, atLevel), nil, nil
 	}
+	// A seated hero's picks answer to the table's codex like everything else.
+	if msg, err := s.codexRefuses(ctx, campaignID, newIDs); err != nil {
+		return "", nil, err
+	} else if msg != "" {
+		return msg, nil, nil
+	}
 	return "", newIDs, nil
 }
 
@@ -272,6 +299,7 @@ type swapResult struct {
 func (s *Server) validateSpellSwaps(
 	ctx context.Context,
 	uid uuid.UUID,
+	campaignID uuid.UUID,
 	class db.RulesContent,
 	subclassData []byte,
 	atLevel int,
@@ -397,6 +425,14 @@ func (s *Server) validateSpellSwaps(
 		return msg, swapResult{}, nil
 	}
 	if msg := check(preparedSwaps, changes.Prepared, "prepared spell", "prepared spells"); msg != "" {
+		return msg, swapResult{}, nil
+	}
+	// The spell being traded IN answers to the table's codex — the ban that
+	// bars a spell at the forge and the seat door bars it at the swap too. This
+	// is the one door the level-up swap used to slip through (#239).
+	if msg, err := s.codexRefuses(ctx, campaignID, out.In); err != nil {
+		return "", swapResult{}, err
+	} else if msg != "" {
 		return msg, swapResult{}, nil
 	}
 	return "", out, nil

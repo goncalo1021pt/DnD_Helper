@@ -340,13 +340,18 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		}
 	}
 
+	// A seated hero's new spells answer to the campaign's codex; the validators
+	// run that check when a campaign is given, so an unseated hero (uuid.Nil)
+	// is ruled by no codex — the level-up swap used to slip the ban here (#239).
+	codexCampaign, _ := seatedCampaign(character)
+
 	// Bard, Sorcerer and Warlock trade a spell on the way up rather than on a
 	// Long Rest. The swap is settled first so the new picks are counted against
 	// the list the hero will actually have.
 	var swaps swapResult
 	if body.SpellSwaps != nil && len(*body.SpellSwaps) > 0 {
 		msg, resolved, err := s.validateSpellSwaps(
-			ctx, uid, class, subclassData, classLevel, classSpells, *body.SpellSwaps, "level-up")
+			ctx, uid, codexCampaign, class, subclassData, classLevel, classSpells, *body.SpellSwaps, "level-up")
 		if err != nil {
 			return nil, err
 		}
@@ -368,7 +373,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 			}
 		}
 	}
-	if msg, _, err := s.validateSpellPicks(ctx, uid, class, subclassData, classLevel, afterSwaps, newSpells); err != nil {
+	if msg, _, err := s.validateSpellPicks(ctx, uid, codexCampaign, class, subclassData, classLevel, afterSwaps, newSpells); err != nil {
 		return nil, err
 	} else if msg != "" {
 		return badRequest(msg)
@@ -397,8 +402,10 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		}
 	}
 
-	// A seated hero's new choices must also be legal in that campaign's world.
-	if campaignID, seated := seatedCampaign(character); seated {
+	// A seated hero's new feat and subclass must also be legal in that
+	// campaign's world. New spells and swap-ins are ruled by the validators
+	// above (they carry codexCampaign), so only the two sheet choices remain.
+	if codexCampaign != uuid.Nil {
 		var chosen []uuid.UUID
 		if hasFeat {
 			chosen = append(chosen, uuid.UUID(*body.FeatId))
@@ -406,8 +413,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		if newLevel == cr.SubclassLevel && body.SubclassId != nil {
 			chosen = append(chosen, uuid.UUID(*body.SubclassId))
 		}
-		chosen = append(chosen, newSpells...)
-		blockers, err := s.codexBlockers(ctx, campaignID, chosen)
+		blockers, err := s.codexBlockers(ctx, codexCampaign, chosen)
 		if err != nil {
 			return nil, err
 		}
