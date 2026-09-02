@@ -350,8 +350,9 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		}
 	}
 	// No subclass data to pass: a forged hero is level 1, and subclasses do
-	// not exist before level 3.
-	if msg, _, err := s.validateSpellPicks(ctx, uid, class, nil, 1, nil, spellIDs); err != nil {
+	// not exist before level 3. A forged hero is unseated (uuid.Nil campaign),
+	// so no codex rules its picks yet — the ban bites at the seat door.
+	if msg, _, err := s.validateSpellPicks(ctx, uid, uuid.Nil, class, nil, 1, nil, spellIDs); err != nil {
 		return nil, err
 	} else if msg != "" {
 		return badRequest(msg)

@@ -77,27 +77,18 @@ func (s *Server) SwapCharacterSpells(ctx context.Context, request api.SwapCharac
 		}
 	}
 
+	// A seated hero's trades answer to the table's codex like every other
+	// pick; validateSpellSwaps runs that check when a campaign is given, so an
+	// unseated hero (uuid.Nil) is ruled by no codex (#239).
+	seatedAt, _ := seatedCampaign(character)
 	msg, swaps, err := s.validateSpellSwaps(
-		ctx, uid, class, subclassData, classLevel,
+		ctx, uid, seatedAt, class, subclassData, classLevel,
 		spellsOfClass(existing, class.ID, character.ClassID), request.Body.Swaps, "long-rest")
 	if err != nil {
 		return nil, err
 	}
 	if msg != "" {
 		return badRequest(msg)
-	}
-
-	// A seated hero's trades answer to the table's codex like every other
-	// pick — the ban that bars a spell at the forge and the level-up bars it
-	// at the long rest too (#239).
-	if seatedAt, ok := seatedCampaign(character); ok {
-		blockers, err := s.codexBlockers(ctx, seatedAt, swaps.In)
-		if err != nil {
-			return nil, err
-		}
-		if len(blockers) > 0 {
-			return badRequest(blockers[0].row.Name + " is not admitted by the campaign's codex — ask the DM")
-		}
 	}
 
 	if err := s.applySpellSwaps(ctx, character.ID, pgUUID(class.ID), swaps); err != nil {
