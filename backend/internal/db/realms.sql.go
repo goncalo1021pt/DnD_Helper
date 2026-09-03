@@ -83,6 +83,33 @@ func (q *Queries) GetRealm(ctx context.Context, id uuid.UUID) (Realm, error) {
 	return i, err
 }
 
+const listCampaignIDsByRealm = `-- name: ListCampaignIDsByRealm :many
+SELECT id FROM campaigns WHERE realm_id = $1
+`
+
+// Every table standing on a realm — the fan-out for a change to shared
+// ground (#234): a place renamed or a road drawn must refresh every atlas
+// open on that realm, not only the one it was drawn from.
+func (q *Queries) ListCampaignIDsByRealm(ctx context.Context, realmID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listCampaignIDsByRealm, realmID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRealms = `-- name: ListRealms :many
 SELECT r.id, r.name, r.owner_user_id, r.created_at, r.updated_at, r.named, (SELECT count(*) FROM campaigns c WHERE c.realm_id = r.id) AS campaign_count
 FROM realms r

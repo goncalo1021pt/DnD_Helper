@@ -149,15 +149,16 @@ func (s *Server) validateShapeInput(ctx context.Context, campaignID uuid.UUID, b
 	// map must not be able to name somebody else's world.
 	var location pgtype.UUID
 	if body.LocationId != nil && uuid.UUID(*body.LocationId) != uuid.Nil {
-		loc, err := s.queries.GetLocation(ctx, uuid.UUID(*body.LocationId))
+		// Through the campaign's lens (#234): a place off this campaign's
+		// realm is no row at all.
+		loc, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{
+			LocationID: uuid.UUID(*body.LocationId), CampaignID: campaignID,
+		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return out, "that place is not one of this campaign's", nil
 			}
 			return out, "", err
-		}
-		if loc.CampaignID != campaignID {
-			return out, "that place is not one of this campaign's", nil
 		}
 		location = pgUUID(loc.ID)
 	}
@@ -263,20 +264,22 @@ func (s *Server) shapesFor(ctx context.Context, mapID uuid.UUID, isDM bool, aspe
 	return out, nil
 }
 
-// requireShapeDM resolves a shape and enforces the DM role over its campaign.
-func (s *Server) requireShapeDM(ctx context.Context, shapeID uuid.UUID) (db.GetMapShapeRow, error) {
-	row, err := s.queries.GetMapShape(ctx, shapeID)
-	if err != nil {
+// requireShapeDM enforces the DM role over the lens campaign, then resolves
+// the shape through it (#234): a shape whose map is not on that campaign's
+// realm is no row, and the caller's ErrNoRows branch answers 404.
+func (s *Server) requireShapeDM(ctx context.Context, shapeID, campaignID uuid.UUID) (db.GetMapShapeRow, error) {
+	if _, err := s.requireDM(ctx, campaignID); err != nil {
 		return db.GetMapShapeRow{}, err
 	}
-	if _, err := s.requireDM(ctx, row.CampaignID); err != nil {
+	row, err := s.queries.GetMapShape(ctx, db.GetMapShapeParams{ShapeID: shapeID, CampaignID: campaignID})
+	if err != nil {
 		return db.GetMapShapeRow{}, err
 	}
 	return row, nil
 }
 
 func (s *Server) CreateMapShape(ctx context.Context, request api.CreateMapShapeRequestObject) (api.CreateMapShapeResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.CreateMapShape404JSONResponse{NotFoundJSONResponse: notFound()}, nil
@@ -304,13 +307,13 @@ func (s *Server) CreateMapShape(ctx context.Context, request api.CreateMapShapeR
 	if err != nil {
 		return nil, err
 	}
-	s.publish(meta.CampaignID, live.TopicMap)
+	s.publishRealm(ctx, meta.RealmID, live.TopicMap)
 	return api.CreateMapShape201JSONResponse(
 		toAPIShape(row, s.shapeName(ctx, row.LocationID), decodePoints(row.Points))), nil
 }
 
 func (s *Server) UpdateMapShape(ctx context.Context, request api.UpdateMapShapeRequestObject) (api.UpdateMapShapeResponseObject, error) {
-	current, err := s.requireShapeDM(ctx, request.ShapeId)
+	current, err := s.requireShapeDM(ctx, request.ShapeId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -322,7 +325,7 @@ func (s *Server) UpdateMapShape(ctx context.Context, request api.UpdateMapShapeR
 		}
 		return nil, err
 	}
-	params, msg, err := s.validateShapeInput(ctx, current.CampaignID, request.Body)
+	params, msg, err := s.validateShapeInput(ctx, uuid.UUID(request.Params.CampaignId), request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -344,13 +347,13 @@ func (s *Server) UpdateMapShape(ctx context.Context, request api.UpdateMapShapeR
 	if err != nil {
 		return nil, err
 	}
-	s.publish(current.CampaignID, live.TopicMap)
+	s.publishRealm(ctx, current.RealmID, live.TopicMap)
 	return api.UpdateMapShape200JSONResponse(
 		toAPIShape(row, s.shapeName(ctx, row.LocationID), decodePoints(row.Points))), nil
 }
 
 func (s *Server) DeleteMapShape(ctx context.Context, request api.DeleteMapShapeRequestObject) (api.DeleteMapShapeResponseObject, error) {
-	current, err := s.requireShapeDM(ctx, request.ShapeId)
+	current, err := s.requireShapeDM(ctx, request.ShapeId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -365,6 +368,6 @@ func (s *Server) DeleteMapShape(ctx context.Context, request api.DeleteMapShapeR
 	if _, err := s.queries.DeleteMapShape(ctx, request.ShapeId); err != nil {
 		return nil, err
 	}
-	s.publish(current.CampaignID, live.TopicMap)
+	s.publishRealm(ctx, current.RealmID, live.TopicMap)
 	return api.DeleteMapShape204Response{}, nil
 }

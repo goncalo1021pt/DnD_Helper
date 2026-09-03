@@ -32,3 +32,9 @@ SELECT count(*) FROM campaigns WHERE realm_id = $1;
 
 -- name: SetCampaignRealm :one
 UPDATE campaigns SET realm_id = $2 WHERE id = $1 RETURNING *;
+
+-- name: ListCampaignIDsByRealm :many
+-- Every table standing on a realm — the fan-out for a change to shared
+-- ground (#234): a place renamed or a road drawn must refresh every atlas
+-- open on that realm, not only the one it was drawn from.
+SELECT id FROM campaigns WHERE realm_id = $1;

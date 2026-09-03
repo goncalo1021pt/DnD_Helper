@@ -66,9 +66,10 @@ async function atlasOf(request: APIRequestContext, campaignId: string) {
 async function setVeil(
   request: APIRequestContext,
   mapId: string,
+  campaignId: string,
   body: Record<string, unknown>,
 ) {
-  const res = await request.put(`/api/maps/${mapId}/visibility`, { data: body });
+  const res = await request.put(`/api/maps/${mapId}/visibility?campaignId=${campaignId}`, { data: body });
   expect(res.ok(), await res.text()).toBeTruthy();
   return res;
 }
@@ -100,11 +101,11 @@ test("a newly hung map is the DM's alone, in all three places it could be reache
 
   // The payload and the picture: 404, never 403. A refusal that says
   // "forbidden" confirms the dungeon is there.
-  expect((await pl.request.get(`/api/maps/${secret}`)).status()).toBe(404);
-  expect((await pl.request.get(`/api/maps/${secret}/image`)).status()).toBe(404);
+  expect((await pl.request.get(`/api/maps/${secret}?campaignId=${campaign.id}`)).status()).toBe(404);
+  expect((await pl.request.get(`/api/maps/${secret}/image?campaignId=${campaign.id}`)).status()).toBe(404);
   // The one they were given answers normally.
-  expect((await pl.request.get(`/api/maps/${shown}`)).status()).toBe(200);
-  expect((await pl.request.get(`/api/maps/${shown}/image`)).ok()).toBeTruthy();
+  expect((await pl.request.get(`/api/maps/${shown}?campaignId=${campaign.id}`)).status()).toBe(200);
+  expect((await pl.request.get(`/api/maps/${shown}/image?campaignId=${campaign.id}`)).ok()).toBeTruthy();
 
   // The DM's own atlas still holds both, and says which is which.
   const mine = await atlasOf(dm.request, campaign.id);
@@ -113,7 +114,7 @@ test("a newly hung map is the DM's alone, in all three places it could be reache
   expect(mine.find((m) => m.id === shown)!.visibleToParty).toBe(true);
 
   // A player cannot set a veil, on any map.
-  const forbidden = await pl.request.put(`/api/maps/${shown}/visibility`, {
+  const forbidden = await pl.request.put(`/api/maps/${shown}/visibility?campaignId=${campaign.id}`, {
     data: { scope: "table", visible: false },
   });
   expect(forbidden.status()).toBe(403);
@@ -153,14 +154,14 @@ test("one scout holds a map the rest of the table cannot", async ({ browser }) =
   await registerViaAPI(rest.request, newAccount("plrest"));
   await joinCampaign(rest.request, campaign.inviteCode);
 
-  await setVeil(dm.request, ahead, { scope: "character", characterId: heroId, visible: true });
+  await setVeil(dm.request, ahead, campaign.id, { scope: "character", characterId: heroId, visible: true });
 
   expect((await atlasOf(scout.request, campaign.id)).map((m) => m.id)).toEqual([ahead]);
   expect(await atlasOf(rest.request, campaign.id)).toHaveLength(0);
-  expect((await rest.request.get(`/api/maps/${ahead}`)).status()).toBe(404);
+  expect((await rest.request.get(`/api/maps/${ahead}?campaignId=${campaign.id}`)).status()).toBe(404);
 
   // Handing it to the whole table clears the exception and reaches everyone.
-  await setVeil(dm.request, ahead, { scope: "table", visible: true });
+  await setVeil(dm.request, ahead, campaign.id, { scope: "table", visible: true });
   expect(await atlasOf(rest.request, campaign.id)).toHaveLength(1);
   const mine = await atlasOf(dm.request, campaign.id);
   expect(mine[0].visibleToParty).toBe(true);
@@ -192,10 +193,10 @@ test("a map of a place nobody knows of is a map of nothing", async ({ browser })
   // Places start veiled, so the map hung on one starts unreachable however
   // wide its own veil is opened.
   expect(await atlasOf(pl.request, campaign.id)).toHaveLength(0);
-  expect((await pl.request.get(`/api/maps/${cityMap}/image`)).status()).toBe(404);
+  expect((await pl.request.get(`/api/maps/${cityMap}/image?campaignId=${campaign.id}`)).status()).toBe(404);
 
   // Showing the place shows the map, with nothing touched on the map itself.
-  await revealLocation(dm.request, country);
+  await revealLocation(dm.request, country, campaign.id);
   expect((await atlasOf(pl.request, campaign.id)).map((m) => m.id)).toEqual([cityMap]);
 
   await dmCtx.close();
@@ -211,11 +212,11 @@ test("a marker leading into a veiled map does not carry its name out", async ({ 
   const world = await hangMap(dm, campaign.id, { visibleToParty: true });
   const lair = await hangMap(dm, campaign.id);
 
-  const doorway = await dm.request.post(`/api/maps/${world}/pins`, {
+  const doorway = await dm.request.post(`/api/maps/${world}/pins?campaignId=${campaign.id}`, {
     data: { label: "The Cragmaw Hideout", x: 0.5, y: 0.5, linkMapId: lair },
   });
   expect(doorway.ok(), await doorway.text()).toBeTruthy();
-  await dm.request.post(`/api/maps/${world}/pins`, {
+  await dm.request.post(`/api/maps/${world}/pins?campaignId=${campaign.id}`, {
     data: { label: "Phandalin", x: 0.2, y: 0.3 },
   });
 
@@ -225,14 +226,14 @@ test("a marker leading into a veiled map does not carry its name out", async ({ 
   await registerViaAPI(pl.request, newAccount("plpin"));
   await joinCampaign(pl.request, campaign.inviteCode);
 
-  const detail = await pl.request.get(`/api/maps/${world}`);
+  const detail = await pl.request.get(`/api/maps/${world}?campaignId=${campaign.id}`);
   const pins = (await detail.json()).pins as Array<{ label: string }>;
   expect(pins.map((p) => p.label)).toEqual(["Phandalin"]);
   expect(JSON.stringify(pins)).not.toContain("Cragmaw");
 
   // Hang the lair in the hall and the doorway to it appears with it.
-  await setVeil(dm.request, lair, { scope: "table", visible: true });
-  const after = await pl.request.get(`/api/maps/${world}`);
+  await setVeil(dm.request, lair, campaign.id, { scope: "table", visible: true });
+  const after = await pl.request.get(`/api/maps/${world}?campaignId=${campaign.id}`);
   const seen = (await after.json()).pins as Array<{ label: string }>;
   expect(seen.map((p) => p.label).sort()).toEqual(["Phandalin", "The Cragmaw Hideout"]);
 

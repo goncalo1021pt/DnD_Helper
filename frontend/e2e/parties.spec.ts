@@ -174,13 +174,13 @@ test("fog remembers the heroes who were there, not the party they were in", asyn
     })
   ).json()) as { id: string };
   // Fog is opt-in per map; a fresh one is open ground.
-  const fogged = await dm.request.patch(`/api/maps/${map.id}`, {
+  const fogged = await dm.request.patch(`/api/maps/${map.id}?campaignId=${campaign.id}`, {
     data: { name: "The Reach", fogEnabled: true },
   });
   expect(fogged.ok(), await fogged.text()).toBeTruthy();
 
   // Stamped for the scouts alone.
-  const stamped = await dm.request.post(`/api/maps/${map.id}/reveals`, {
+  const stamped = await dm.request.post(`/api/maps/${map.id}/reveals?campaignId=${campaign.id}`, {
     data: {
       note: "session 3 — the ridge",
       partyId: scouts.id,
@@ -193,7 +193,7 @@ test("fog remembers the heroes who were there, not the party they were in", asyn
   expect(batch.heroCount).toBe(1);
 
   const seen = async (page: Page) =>
-    ((await (await page.request.get(`/api/maps/${map.id}`)).json()).revealed as unknown[]).length;
+    ((await (await page.request.get(`/api/maps/${map.id}?campaignId=${campaign.id}`)).json()).revealed as unknown[]).length;
   expect(await seen(a.page)).toBe(1);
   expect(await seen(b.page)).toBe(0);
 
@@ -206,7 +206,7 @@ test("fog remembers the heroes who were there, not the party they were in", asyn
 
   // A stamp for nobody is refused rather than quietly belonging to no one.
   await dm.request.put(`/api/characters/${b.hero}/party`, { data: { partyId: null } });
-  const empty = await dm.request.post(`/api/maps/${map.id}/reveals`, {
+  const empty = await dm.request.post(`/api/maps/${map.id}/reveals?campaignId=${campaign.id}`, {
     data: { partyId: scouts.id, circles: [{ x: 0.9, y: 0.9, r: 0.1 }] },
   });
   expect(empty.status()).toBe(400);

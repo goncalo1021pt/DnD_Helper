@@ -51,7 +51,7 @@ SetVisibilityRequest:
 
 Location:
   type: object
-  required: [id, campaignId, name, description, depth, questCount]
+  required: [id, campaignId, realmId, name, description, depth, questCount]
   description: |
     A place on a campaign's map. Locations nest to an arbitrary depth
     (capped at 10) — a region holds cities, a city holds districts.
@@ -62,6 +62,12 @@ Location:
     campaignId:
       type: string
       format: uuid
+    realmId:
+      type: string
+      format: uuid
+      description: >-
+        The realm this stands on (#234) — the ground shared by every campaign
+        founded there. `campaignId` is the lens it was read through.
     parentId:
       type: string
       format: uuid

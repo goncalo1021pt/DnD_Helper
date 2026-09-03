@@ -34,15 +34,16 @@ func (s *Server) revealLocation(ctx context.Context, campaignID uuid.UUID, id *u
 	if id == nil {
 		return pgtype.UUID{}, "", "", nil
 	}
-	loc, err := s.queries.GetLocation(ctx, *id)
+	// Through the campaign's lens (#234): a place not on this campaign's
+	// realm is no row at all.
+	loc, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{
+		LocationID: *id, CampaignID: campaignID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return pgtype.UUID{}, "", "that place is not on this campaign", nil
 		}
 		return pgtype.UUID{}, "", "", err
-	}
-	if loc.CampaignID != campaignID {
-		return pgtype.UUID{}, "", "that place is not on this campaign", nil
 	}
 	return pgUUID(*id), loc.Name, "", nil
 }
@@ -66,8 +67,7 @@ func (s *Server) playerRevealCircles(ctx context.Context, mapID, campaignID, use
 		return nil, err
 	}
 	rows, err := s.queries.ListVisibleRevealCircles(ctx, db.ListVisibleRevealCirclesParams{
-		MapID:   mapID,
-		Column2: charIDs,
+		MapID: mapID, CampaignID: campaignID, CharacterIds: charIDs,
 	})
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func toAPIRevealBatch(b db.ListRevealBatchesRow) api.RevealBatch {
 
 // ListReveals returns the DM's ledger of batches on a map.
 func (s *Server) ListReveals(ctx context.Context, request api.ListRevealsRequestObject) (api.ListRevealsResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.ListReveals404JSONResponse{NotFoundJSONResponse: notFound()}, nil
@@ -145,7 +145,7 @@ func (s *Server) ListReveals(ctx context.Context, request api.ListRevealsRequest
 		}
 		return nil, err
 	}
-	rows, err := s.queries.ListRevealBatches(ctx, request.MapId)
+	rows, err := s.queries.ListRevealBatches(ctx, db.ListRevealBatchesParams{MapID: request.MapId, CampaignID: meta.CampaignID})
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (s *Server) ListReveals(ctx context.Context, request api.ListRevealsRequest
 
 // SubmitReveals commits a stamped draft as one batch in the party pool.
 func (s *Server) SubmitReveals(ctx context.Context, request api.SubmitRevealsRequestObject) (api.SubmitRevealsResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.SubmitReveals404JSONResponse{NotFoundJSONResponse: notFound()}, nil
@@ -240,6 +240,7 @@ func (s *Server) SubmitReveals(ctx context.Context, request api.SubmitRevealsReq
 
 	batch, err := qtx.CreateRevealBatch(ctx, db.CreateRevealBatchParams{
 		MapID:      request.MapId,
+		CampaignID: meta.CampaignID,
 		Note:       note,
 		LocationID: locID,
 		PartyID:    stampedFor,
@@ -285,19 +286,22 @@ func (s *Server) SubmitReveals(ctx context.Context, request api.SubmitRevealsReq
 // deciding later that the eastern road was really "knowledge of Vale" should
 // not mean drawing it twice.
 func (s *Server) SetRevealLocation(ctx context.Context, request api.SetRevealLocationRequestObject) (api.SetRevealLocationResponseObject, error) {
-	row, err := s.queries.GetRevealBatch(ctx, request.BatchId)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.SetRevealLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, row.CampaignID); err != nil {
+	// The lens first, then the batch through it (#234): a batch is one
+	// table's, so another table's batch is no row and answers 404.
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.SetRevealLocation401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 		case errors.Is(err, errForbidden):
 			return api.SetRevealLocation403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	row, err := s.queries.GetRevealBatch(ctx, db.GetRevealBatchParams{BatchID: request.BatchId, CampaignID: lensID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.SetRevealLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
 		return nil, err
 	}
@@ -322,7 +326,7 @@ func (s *Server) SetRevealLocation(ctx context.Context, request api.SetRevealLoc
 
 	// Read the ledger back rather than assembling the answer: the batch's
 	// circle count lives in that query and nowhere else.
-	batches, err := s.queries.ListRevealBatches(ctx, row.MapID)
+	batches, err := s.queries.ListRevealBatches(ctx, db.ListRevealBatchesParams{MapID: row.MapID, CampaignID: row.CampaignID})
 	if err != nil {
 		return nil, err
 	}
@@ -337,19 +341,20 @@ func (s *Server) SetRevealLocation(ctx context.Context, request api.SetRevealLoc
 
 // DeleteReveals tears a batch out of the ledger; its circles fog over again.
 func (s *Server) DeleteReveals(ctx context.Context, request api.DeleteRevealsRequestObject) (api.DeleteRevealsResponseObject, error) {
-	row, err := s.queries.GetRevealBatch(ctx, request.BatchId)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.DeleteReveals404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, row.CampaignID); err != nil {
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.DeleteReveals401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 		case errors.Is(err, errForbidden):
 			return api.DeleteReveals403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+		}
+		return nil, err
+	}
+	row, err := s.queries.GetRevealBatch(ctx, db.GetRevealBatchParams{BatchID: request.BatchId, CampaignID: lensID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.DeleteReveals404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
 		return nil, err
 	}

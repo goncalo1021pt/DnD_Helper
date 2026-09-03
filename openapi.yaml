@@ -2354,6 +2354,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
   /locations/{locationId}:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - $ref: "#/components/parameters/LocationId"
     patch:
       operationId: updateLocation
@@ -2393,6 +2394,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /locations/{locationId}/parent:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - $ref: "#/components/parameters/LocationId"
     put:
       operationId: moveLocation
@@ -2420,6 +2422,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /locations/{locationId}/visibility:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - $ref: "#/components/parameters/LocationId"
     put:
       operationId: setLocationVisibility
@@ -2447,6 +2450,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /locations/{locationId}/visibility/{characterId}:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - $ref: "#/components/parameters/LocationId"
       - $ref: "#/components/parameters/CharacterId"
     delete:
@@ -2942,6 +2946,7 @@ paths:
           $ref: "#/components/responses/Forbidden"
   /maps/{mapId}:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - $ref: "#/components/parameters/MapId"
     get:
       operationId: getMap
@@ -2997,6 +3002,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /maps/{mapId}/pins:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - $ref: "#/components/parameters/MapId"
     post:
       operationId: createMapPin
@@ -3024,6 +3030,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /maps/{mapId}/visibility:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - name: mapId
         in: path
         required: true
@@ -3056,6 +3063,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /maps/{mapId}/visibility/{characterId}:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - name: mapId
         in: path
         required: true
@@ -3086,6 +3094,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /maps/{mapId}/shapes:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - name: mapId
         in: path
         required: true
@@ -3118,6 +3127,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /shapes/{shapeId}:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - name: shapeId
         in: path
         required: true
@@ -3162,6 +3172,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /maps/{mapId}/reveals:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - $ref: "#/components/parameters/MapId"
     get:
       operationId: listReveals
@@ -3207,6 +3218,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /reveals/{batchId}:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - name: batchId
         in: path
         required: true
@@ -3251,6 +3263,7 @@ paths:
           $ref: "#/components/responses/NotFound"
   /pins/{pinId}:
     parameters:
+      - $ref: "#/components/parameters/CampaignLens"
       - $ref: "#/components/parameters/PinId"
     patch:
       operationId: updateMapPin
@@ -4231,6 +4244,14 @@ components:
   security:
     - sessionCookie: []
   parameters:
+    CampaignLens:
+      name: campaignId
+      in: query
+      required: true
+      description: The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens.
+      schema:
+        type: string
+        format: uuid
     CampaignId:
       name: campaignId
       in: path
@@ -5962,6 +5983,7 @@ components:
       required:
         - id
         - campaignId
+        - realmId
         - name
         - fogEnabled
         - width
@@ -5974,6 +5996,10 @@ components:
         campaignId:
           type: string
           format: uuid
+        realmId:
+          type: string
+          format: uuid
+          description: The realm this stands on (#234) — the ground shared by every campaign founded there. `campaignId` is the lens it was read through.
         parentMapId:
           type: string
           format: uuid
@@ -7274,6 +7300,7 @@ components:
       required:
         - id
         - campaignId
+        - realmId
         - name
         - description
         - depth
@@ -7288,6 +7315,10 @@ components:
         campaignId:
           type: string
           format: uuid
+        realmId:
+          type: string
+          format: uuid
+          description: The realm this stands on (#234) — the ground shared by every campaign founded there. `campaignId` is the lens it was read through.
         parentId:
           type: string
           format: uuid

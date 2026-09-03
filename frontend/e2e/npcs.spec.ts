@@ -72,7 +72,7 @@ test("a person is a rumor until the DM says otherwise — and their numbers are 
   expect(stillDark, "a veiled place hides its people, whatever their own veil says").toEqual([]);
 
   // --- Porto's veil lifts: the person is known, the numbers are not ---------
-  await revealLocation(dmPage.request, town);
+  await revealLocation(dmPage.request, town, campaign.id);
 
   await plPage.reload();
   await expect(plPage.getByText(captain)).toBeVisible({ timeout: 20_000 });

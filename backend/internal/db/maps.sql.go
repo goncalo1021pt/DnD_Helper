@@ -22,39 +22,39 @@ func (q *Queries) ClearMapOverrides(ctx context.Context, mapID uuid.UUID) error 
 }
 
 const createMap = `-- name: CreateMap :one
-INSERT INTO maps (campaign_id, parent_map_id, name, image, content_type, width, height, location_id, visible_to_party)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id, visible_to_party
+INSERT INTO maps (realm_id, parent_map_id, name, image, content_type, width, height, location_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
 `
 
 type CreateMapParams struct {
-	CampaignID     uuid.UUID   `json:"campaign_id"`
-	ParentMapID    pgtype.UUID `json:"parent_map_id"`
-	Name           string      `json:"name"`
-	Image          []byte      `json:"image"`
-	ContentType    string      `json:"content_type"`
-	Width          int32       `json:"width"`
-	Height         int32       `json:"height"`
-	LocationID     pgtype.UUID `json:"location_id"`
-	VisibleToParty bool        `json:"visible_to_party"`
+	RealmID     uuid.UUID   `json:"realm_id"`
+	ParentMapID pgtype.UUID `json:"parent_map_id"`
+	Name        string      `json:"name"`
+	Image       []byte      `json:"image"`
+	ContentType string      `json:"content_type"`
+	Width       int32       `json:"width"`
+	Height      int32       `json:"height"`
+	LocationID  pgtype.UUID `json:"location_id"`
 }
 
 type CreateMapRow struct {
-	ID             uuid.UUID          `json:"id"`
-	CampaignID     uuid.UUID          `json:"campaign_id"`
-	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
-	Name           string             `json:"name"`
-	FogEnabled     bool               `json:"fog_enabled"`
-	Width          int32              `json:"width"`
-	Height         int32              `json:"height"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	LocationID     pgtype.UUID        `json:"location_id"`
-	VisibleToParty bool               `json:"visible_to_party"`
+	ID          uuid.UUID          `json:"id"`
+	RealmID     uuid.UUID          `json:"realm_id"`
+	ParentMapID pgtype.UUID        `json:"parent_map_id"`
+	Name        string             `json:"name"`
+	FogEnabled  bool               `json:"fog_enabled"`
+	Width       int32              `json:"width"`
+	Height      int32              `json:"height"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LocationID  pgtype.UUID        `json:"location_id"`
 }
 
+// Ground: a map hung on the realm (#234). The hanging table's veil over it is
+// written separately, into map_campaign_state.
 func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMapRow, error) {
 	row := q.db.QueryRow(ctx, createMap,
-		arg.CampaignID,
+		arg.RealmID,
 		arg.ParentMapID,
 		arg.Name,
 		arg.Image,
@@ -62,12 +62,11 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 		arg.Width,
 		arg.Height,
 		arg.LocationID,
-		arg.VisibleToParty,
 	)
 	var i CreateMapRow
 	err := row.Scan(
 		&i.ID,
-		&i.CampaignID,
+		&i.RealmID,
 		&i.ParentMapID,
 		&i.Name,
 		&i.FogEnabled,
@@ -75,7 +74,6 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 		&i.Height,
 		&i.CreatedAt,
 		&i.LocationID,
-		&i.VisibleToParty,
 	)
 	return i, err
 }
@@ -245,14 +243,59 @@ func (q *Queries) GetMapImage(ctx context.Context, id uuid.UUID) (GetMapImageRow
 }
 
 const getMapMeta = `-- name: GetMapMeta :one
-SELECT id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
-       visible_to_party
+SELECT id, realm_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
 FROM maps
 WHERE id = $1
 `
 
 type GetMapMetaRow struct {
+	ID          uuid.UUID          `json:"id"`
+	RealmID     uuid.UUID          `json:"realm_id"`
+	ParentMapID pgtype.UUID        `json:"parent_map_id"`
+	Name        string             `json:"name"`
+	FogEnabled  bool               `json:"fog_enabled"`
+	Width       int32              `json:"width"`
+	Height      int32              `json:"height"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LocationID  pgtype.UUID        `json:"location_id"`
+}
+
+// The ground row alone, for realm checks that need no lens — a parent, a link
+// target. Everything a viewer reads goes through GetMapMetaForCampaign.
+func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, error) {
+	row := q.db.QueryRow(ctx, getMapMeta, id)
+	var i GetMapMetaRow
+	err := row.Scan(
+		&i.ID,
+		&i.RealmID,
+		&i.ParentMapID,
+		&i.Name,
+		&i.FogEnabled,
+		&i.Width,
+		&i.Height,
+		&i.CreatedAt,
+		&i.LocationID,
+	)
+	return i, err
+}
+
+const getMapMetaForCampaign = `-- name: GetMapMetaForCampaign :one
+SELECT m.id, m.realm_id, c.id AS campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height,
+       m.created_at, m.location_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party
+FROM maps m
+JOIN campaigns c ON c.realm_id = m.realm_id
+LEFT JOIN map_campaign_state s ON s.map_id = m.id AND s.campaign_id = c.id
+WHERE m.id = $1 AND c.id = $2
+`
+
+type GetMapMetaForCampaignParams struct {
+	MapID      uuid.UUID `json:"map_id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
+type GetMapMetaForCampaignRow struct {
 	ID             uuid.UUID          `json:"id"`
+	RealmID        uuid.UUID          `json:"realm_id"`
 	CampaignID     uuid.UUID          `json:"campaign_id"`
 	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
 	Name           string             `json:"name"`
@@ -264,11 +307,15 @@ type GetMapMetaRow struct {
 	VisibleToParty bool               `json:"visible_to_party"`
 }
 
-func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, error) {
-	row := q.db.QueryRow(ctx, getMapMeta, id)
-	var i GetMapMetaRow
+// A map THROUGH one table (#234): the row with that table's veil overlaid, and
+// no row at all when the map is not on the campaign's realm — the same 404 as
+// a map that never was, which is the whole point of the veil.
+func (q *Queries) GetMapMetaForCampaign(ctx context.Context, arg GetMapMetaForCampaignParams) (GetMapMetaForCampaignRow, error) {
+	row := q.db.QueryRow(ctx, getMapMetaForCampaign, arg.MapID, arg.CampaignID)
+	var i GetMapMetaForCampaignRow
 	err := row.Scan(
 		&i.ID,
+		&i.RealmID,
 		&i.CampaignID,
 		&i.ParentMapID,
 		&i.Name,
@@ -283,29 +330,36 @@ func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, 
 }
 
 const getMapPin = `-- name: GetMapPin :one
-SELECT p.id, p.map_id, p.label, p.note, p.x, p.y, p.dm_only, p.link_map_id, p.created_at, p.shape, m.campaign_id
+SELECT p.id, p.map_id, p.label, p.note, p.x, p.y, p.dm_only, p.link_map_id, p.created_at, p.shape, m.realm_id
 FROM map_pins p
 JOIN maps m ON m.id = p.map_id
-WHERE p.id = $1
+JOIN campaigns c ON c.realm_id = m.realm_id
+WHERE p.id = $1 AND c.id = $2
 `
 
-type GetMapPinRow struct {
-	ID         uuid.UUID          `json:"id"`
-	MapID      uuid.UUID          `json:"map_id"`
-	Label      string             `json:"label"`
-	Note       string             `json:"note"`
-	X          float64            `json:"x"`
-	Y          float64            `json:"y"`
-	DmOnly     bool               `json:"dm_only"`
-	LinkMapID  pgtype.UUID        `json:"link_map_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Shape      string             `json:"shape"`
-	CampaignID uuid.UUID          `json:"campaign_id"`
+type GetMapPinParams struct {
+	PinID      uuid.UUID `json:"pin_id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
 }
 
-// A pin with its map's campaign, so handlers can gate on membership in one read.
-func (q *Queries) GetMapPin(ctx context.Context, id uuid.UUID) (GetMapPinRow, error) {
-	row := q.db.QueryRow(ctx, getMapPin, id)
+type GetMapPinRow struct {
+	ID        uuid.UUID          `json:"id"`
+	MapID     uuid.UUID          `json:"map_id"`
+	Label     string             `json:"label"`
+	Note      string             `json:"note"`
+	X         float64            `json:"x"`
+	Y         float64            `json:"y"`
+	DmOnly    bool               `json:"dm_only"`
+	LinkMapID pgtype.UUID        `json:"link_map_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Shape     string             `json:"shape"`
+	RealmID   uuid.UUID          `json:"realm_id"`
+}
+
+// A pin THROUGH one table (#234): its map must stand on the campaign's realm,
+// else no row. The realm rides along for the link-target check.
+func (q *Queries) GetMapPin(ctx context.Context, arg GetMapPinParams) (GetMapPinRow, error) {
+	row := q.db.QueryRow(ctx, getMapPin, arg.PinID, arg.CampaignID)
 	var i GetMapPinRow
 	err := row.Scan(
 		&i.ID,
@@ -318,17 +372,23 @@ func (q *Queries) GetMapPin(ctx context.Context, id uuid.UUID) (GetMapPinRow, er
 		&i.LinkMapID,
 		&i.CreatedAt,
 		&i.Shape,
-		&i.CampaignID,
+		&i.RealmID,
 	)
 	return i, err
 }
 
 const getMapShape = `-- name: GetMapShape :one
-SELECT s.id, s.map_id, s.kind, s.label, s.points, s.color, s.dashed, s.width, s.opacity, s.dm_only, s.location_id, s.created_at, s.updated_at, m.campaign_id
+SELECT s.id, s.map_id, s.kind, s.label, s.points, s.color, s.dashed, s.width, s.opacity, s.dm_only, s.location_id, s.created_at, s.updated_at, m.realm_id
 FROM map_shapes s
 JOIN maps m ON m.id = s.map_id
-WHERE s.id = $1
+JOIN campaigns c ON c.realm_id = m.realm_id
+WHERE s.id = $1 AND c.id = $2
 `
+
+type GetMapShapeParams struct {
+	ShapeID    uuid.UUID `json:"shape_id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
 
 type GetMapShapeRow struct {
 	ID         uuid.UUID          `json:"id"`
@@ -344,12 +404,13 @@ type GetMapShapeRow struct {
 	LocationID pgtype.UUID        `json:"location_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	CampaignID uuid.UUID          `json:"campaign_id"`
+	RealmID    uuid.UUID          `json:"realm_id"`
 }
 
-// A shape with its map's campaign, so handlers gate on membership in one read.
-func (q *Queries) GetMapShape(ctx context.Context, id uuid.UUID) (GetMapShapeRow, error) {
-	row := q.db.QueryRow(ctx, getMapShape, id)
+// A shape THROUGH one table (#234): its map must stand on the campaign's
+// realm, else no row. The realm rides along for the place check.
+func (q *Queries) GetMapShape(ctx context.Context, arg GetMapShapeParams) (GetMapShapeRow, error) {
+	row := q.db.QueryRow(ctx, getMapShape, arg.ShapeID, arg.CampaignID)
 	var i GetMapShapeRow
 	err := row.Scan(
 		&i.ID,
@@ -365,7 +426,7 @@ func (q *Queries) GetMapShape(ctx context.Context, id uuid.UUID) (GetMapShapeRow
 		&i.LocationID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.CampaignID,
+		&i.RealmID,
 	)
 	return i, err
 }
@@ -446,9 +507,8 @@ func (q *Queries) ListMapShapes(ctx context.Context, mapID uuid.UUID) ([]MapShap
 const listMapVisibilityByCampaign = `-- name: ListMapVisibilityByCampaign :many
 SELECT v.map_id, v.character_id, v.visible, c.name AS character_name
 FROM map_visibility v
-JOIN maps m ON m.id = v.map_id
 JOIN characters c ON c.id = v.character_id
-WHERE m.campaign_id = $1
+WHERE c.campaign_id = $1::uuid
 `
 
 type ListMapVisibilityByCampaignRow struct {
@@ -458,6 +518,8 @@ type ListMapVisibilityByCampaignRow struct {
 	CharacterName string    `json:"character_name"`
 }
 
+// Per-hero exceptions for one table: the overrides of heroes SEATED at this
+// campaign (#234). A hero sits at one table, so the rows were always its.
 func (q *Queries) ListMapVisibilityByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListMapVisibilityByCampaignRow, error) {
 	rows, err := q.db.Query(ctx, listMapVisibilityByCampaign, campaignID)
 	if err != nil {
@@ -484,16 +546,20 @@ func (q *Queries) ListMapVisibilityByCampaign(ctx context.Context, campaignID uu
 }
 
 const listMapsByCampaign = `-- name: ListMapsByCampaign :many
-SELECT m.id, m.campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height, m.created_at,
-       m.location_id, m.visible_to_party, l.name AS location_name
+SELECT m.id, m.realm_id, c.id AS campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height,
+       m.created_at, m.location_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party,
+       l.name AS location_name
 FROM maps m
+JOIN campaigns c ON c.realm_id = m.realm_id
+LEFT JOIN map_campaign_state s ON s.map_id = m.id AND s.campaign_id = c.id
 LEFT JOIN locations l ON l.id = m.location_id
-WHERE m.campaign_id = $1
+WHERE c.id = $1
 ORDER BY m.created_at
 `
 
 type ListMapsByCampaignRow struct {
 	ID             uuid.UUID          `json:"id"`
+	RealmID        uuid.UUID          `json:"realm_id"`
 	CampaignID     uuid.UUID          `json:"campaign_id"`
 	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
 	Name           string             `json:"name"`
@@ -506,8 +572,9 @@ type ListMapsByCampaignRow struct {
 	LocationName   *string            `json:"location_name"`
 }
 
-// The atlas shelf: every map of the campaign, oldest first, no image bytes.
-// The place a map depicts rides along by name (#229).
+// The atlas shelf as ONE table sees it (#234): every map on the campaign's
+// realm, oldest first, no image bytes, with this campaign's own veil overlaid
+// (no state row = veiled). The place a map depicts rides along by name (#229).
 func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListMapsByCampaignRow, error) {
 	rows, err := q.db.Query(ctx, listMapsByCampaign, campaignID)
 	if err != nil {
@@ -519,6 +586,7 @@ func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) 
 		var i ListMapsByCampaignRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.RealmID,
 			&i.CampaignID,
 			&i.ParentMapID,
 			&i.Name,
@@ -558,59 +626,34 @@ func (q *Queries) SetMapOverride(ctx context.Context, arg SetMapOverrideParams) 
 	return err
 }
 
-const setMapPartyVisibility = `-- name: SetMapPartyVisibility :one
+const setMapPartyVisibility = `-- name: SetMapPartyVisibility :exec
 
-UPDATE maps
-SET visible_to_party = $2
-WHERE id = $1
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
-          visible_to_party
+INSERT INTO map_campaign_state (map_id, campaign_id, visible_to_party)
+VALUES ($1, $2, $3)
+ON CONFLICT (map_id, campaign_id)
+DO UPDATE SET visible_to_party = EXCLUDED.visible_to_party, updated_at = now()
 `
 
 type SetMapPartyVisibilityParams struct {
-	ID             uuid.UUID `json:"id"`
+	MapID          uuid.UUID `json:"map_id"`
+	CampaignID     uuid.UUID `json:"campaign_id"`
 	VisibleToParty bool      `json:"visible_to_party"`
 }
 
-type SetMapPartyVisibilityRow struct {
-	ID             uuid.UUID          `json:"id"`
-	CampaignID     uuid.UUID          `json:"campaign_id"`
-	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
-	Name           string             `json:"name"`
-	FogEnabled     bool               `json:"fog_enabled"`
-	Width          int32              `json:"width"`
-	Height         int32              `json:"height"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	LocationID     pgtype.UUID        `json:"location_id"`
-	VisibleToParty bool               `json:"visible_to_party"`
-}
-
 // The veil over a map's very existence (#276). Same two layers as everything
-// else in a campaign: one party-wide flag, per-hero exceptions over it.
-func (q *Queries) SetMapPartyVisibility(ctx context.Context, arg SetMapPartyVisibilityParams) (SetMapPartyVisibilityRow, error) {
-	row := q.db.QueryRow(ctx, setMapPartyVisibility, arg.ID, arg.VisibleToParty)
-	var i SetMapPartyVisibilityRow
-	err := row.Scan(
-		&i.ID,
-		&i.CampaignID,
-		&i.ParentMapID,
-		&i.Name,
-		&i.FogEnabled,
-		&i.Width,
-		&i.Height,
-		&i.CreatedAt,
-		&i.LocationID,
-		&i.VisibleToParty,
-	)
-	return i, err
+// else in a campaign: one party-wide flag, per-hero exceptions over it. The
+// flag is one table's (#234) — an upsert, because "no row" is the veiled
+// default and a first reveal is what creates the row.
+func (q *Queries) SetMapPartyVisibility(ctx context.Context, arg SetMapPartyVisibilityParams) error {
+	_, err := q.db.Exec(ctx, setMapPartyVisibility, arg.MapID, arg.CampaignID, arg.VisibleToParty)
+	return err
 }
 
 const updateMapMeta = `-- name: UpdateMapMeta :one
 UPDATE maps
 SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5
 WHERE id = $1
-RETURNING id, campaign_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
-          visible_to_party
+RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
 `
 
 type UpdateMapMetaParams struct {
@@ -622,16 +665,15 @@ type UpdateMapMetaParams struct {
 }
 
 type UpdateMapMetaRow struct {
-	ID             uuid.UUID          `json:"id"`
-	CampaignID     uuid.UUID          `json:"campaign_id"`
-	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
-	Name           string             `json:"name"`
-	FogEnabled     bool               `json:"fog_enabled"`
-	Width          int32              `json:"width"`
-	Height         int32              `json:"height"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	LocationID     pgtype.UUID        `json:"location_id"`
-	VisibleToParty bool               `json:"visible_to_party"`
+	ID          uuid.UUID          `json:"id"`
+	RealmID     uuid.UUID          `json:"realm_id"`
+	ParentMapID pgtype.UUID        `json:"parent_map_id"`
+	Name        string             `json:"name"`
+	FogEnabled  bool               `json:"fog_enabled"`
+	Width       int32              `json:"width"`
+	Height      int32              `json:"height"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LocationID  pgtype.UUID        `json:"location_id"`
 }
 
 func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (UpdateMapMetaRow, error) {
@@ -645,7 +687,7 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 	var i UpdateMapMetaRow
 	err := row.Scan(
 		&i.ID,
-		&i.CampaignID,
+		&i.RealmID,
 		&i.ParentMapID,
 		&i.Name,
 		&i.FogEnabled,
@@ -653,7 +695,6 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 		&i.Height,
 		&i.CreatedAt,
 		&i.LocationID,
-		&i.VisibleToParty,
 	)
 	return i, err
 }

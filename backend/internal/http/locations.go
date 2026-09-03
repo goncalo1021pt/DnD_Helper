@@ -65,7 +65,8 @@ func (s *Server) buildLocations(ctx context.Context, campaignID uuid.UUID, isDM 
 		}
 		loc := api.Location{
 			Id:          l.ID,
-			CampaignId:  l.CampaignID,
+			CampaignId:  campaignID,
+			RealmId:     l.RealmID,
 			Name:        l.Name,
 			Description: l.Description,
 			Depth:       depth,
@@ -225,14 +226,19 @@ func (s *Server) CreateLocation(ctx context.Context, request api.CreateLocationR
 		}}, nil
 	}
 
+	// The ground this place is charted onto: the campaign's realm (#234).
+	campaign, err := s.queries.GetCampaign(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
 	v, err := s.loadVeil(ctx, campaignID)
 	if err != nil {
 		return nil, err
 	}
 	if body.ParentId != nil {
 		parentID := uuid.UUID(*body.ParentId)
-		parent, ok := v.locations[parentID]
-		if !ok || parent.CampaignID != campaignID {
+		// The veil holds exactly the realm's places, so presence is the check.
+		if _, ok := v.locations[parentID]; !ok {
 			return api.CreateLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
 				Error: "parent location not found on this campaign",
 			}}, nil
@@ -250,15 +256,23 @@ func (s *Server) CreateLocation(ctx context.Context, request api.CreateLocationR
 		visible = *body.VisibleToParty
 	}
 	loc, err := s.queries.CreateLocation(ctx, db.CreateLocationParams{
-		CampaignID:     campaignID,
-		ParentID:       optUUID(body.ParentId),
-		Name:           name,
-		Description:    optStr(body.Description),
-		VisibleToParty: visible,
+		RealmID:     campaign.RealmID,
+		ParentID:    optUUID(body.ParentId),
+		Name:        name,
+		Description: optStr(body.Description),
 	})
 	if err != nil {
 		return nil, err
 	}
+	// What the charting table knows of it is its own (#234): the ground row
+	// carries no veil.
+	if err := s.queries.SetLocationPartyVisibility(ctx, db.SetLocationPartyVisibilityParams{
+		LocationID: loc.ID, CampaignID: campaignID, VisibleToParty: visible,
+	}); err != nil {
+		return nil, err
+	}
+	// Charted onto shared ground: every table on the realm hears (veiled).
+	s.publishRealm(ctx, campaign.RealmID, live.TopicMap)
 	out, err := s.buildOneLocation(ctx, campaignID, loc.ID)
 	if err != nil {
 		return nil, err
@@ -268,14 +282,10 @@ func (s *Server) CreateLocation(ctx context.Context, request api.CreateLocationR
 
 func (s *Server) UpdateLocation(ctx context.Context, request api.UpdateLocationRequestObject) (api.UpdateLocationResponseObject, error) {
 	locationID := uuid.UUID(request.LocationId)
-	loc, err := s.queries.GetLocation(ctx, locationID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.UpdateLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, loc.CampaignID); err != nil {
+	// The lens first, then the place through it (#234): a place not on this
+	// campaign's realm is no row, and answers 404.
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.UpdateLocation401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -284,6 +294,13 @@ func (s *Server) UpdateLocation(ctx context.Context, request api.UpdateLocationR
 		default:
 			return nil, err
 		}
+	}
+	loc, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{LocationID: locationID, CampaignID: lensID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.UpdateLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
 	}
 
 	body := request.Body
@@ -304,7 +321,9 @@ func (s *Server) UpdateLocation(ctx context.Context, request api.UpdateLocationR
 	}); err != nil {
 		return nil, err
 	}
-	out, err := s.buildOneLocation(ctx, loc.CampaignID, locationID)
+	// A rename is shared ground: every table on the realm hears.
+	s.publishRealm(ctx, loc.RealmID, live.TopicMap)
+	out, err := s.buildOneLocation(ctx, lensID, locationID)
 	if err != nil {
 		return nil, err
 	}
@@ -318,14 +337,10 @@ func (s *Server) UpdateLocation(ctx context.Context, request api.UpdateLocationR
 // detaches a subtree and lifts the veil on everything under it.
 func (s *Server) MoveLocation(ctx context.Context, request api.MoveLocationRequestObject) (api.MoveLocationResponseObject, error) {
 	locationID := uuid.UUID(request.LocationId)
-	loc, err := s.queries.GetLocation(ctx, locationID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.MoveLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, loc.CampaignID); err != nil {
+	// The lens first, then the place through it (#234): a place not on this
+	// campaign's realm is no row, and answers 404.
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.MoveLocation401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -335,20 +350,27 @@ func (s *Server) MoveLocation(ctx context.Context, request api.MoveLocationReque
 			return nil, err
 		}
 	}
+	loc, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{LocationID: locationID, CampaignID: lensID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.MoveLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
 	if request.Body == nil {
 		return api.MoveLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
 			Error: "a parent is required — send null to make this place a root",
 		}}, nil
 	}
 
-	v, err := s.loadVeil(ctx, loc.CampaignID)
+	v, err := s.loadVeil(ctx, lensID)
 	if err != nil {
 		return nil, err
 	}
 	if request.Body.ParentId != nil {
 		parentID := uuid.UUID(*request.Body.ParentId)
-		parent, ok := v.locations[parentID]
-		if !ok || parent.CampaignID != loc.CampaignID {
+		// The veil holds exactly the realm's places, so presence is the check.
+		if _, ok := v.locations[parentID]; !ok {
 			return api.MoveLocation400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
 				Error: "parent location not found on this campaign",
 			}}, nil
@@ -376,7 +398,9 @@ func (s *Server) MoveLocation(ctx context.Context, request api.MoveLocationReque
 	}); err != nil {
 		return nil, err
 	}
-	out, err := s.buildOneLocation(ctx, loc.CampaignID, locationID)
+	// A re-hang is shared ground: every table on the realm hears.
+	s.publishRealm(ctx, loc.RealmID, live.TopicMap)
+	out, err := s.buildOneLocation(ctx, lensID, locationID)
 	if err != nil {
 		return nil, err
 	}
@@ -385,14 +409,10 @@ func (s *Server) MoveLocation(ctx context.Context, request api.MoveLocationReque
 
 func (s *Server) DeleteLocation(ctx context.Context, request api.DeleteLocationRequestObject) (api.DeleteLocationResponseObject, error) {
 	locationID := uuid.UUID(request.LocationId)
-	loc, err := s.queries.GetLocation(ctx, locationID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.DeleteLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, loc.CampaignID); err != nil {
+	// The lens first, then the place through it (#234): a place not on this
+	// campaign's realm is no row, and answers 404.
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.DeleteLocation401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -402,6 +422,13 @@ func (s *Server) DeleteLocation(ctx context.Context, request api.DeleteLocationR
 			return nil, err
 		}
 	}
+	loc, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{LocationID: locationID, CampaignID: lensID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.DeleteLocation404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
 	// Nested places cascade; quests and folk hanging in any of them are
 	// unpinned by ON DELETE SET NULL, so they survive losing their place. But
 	// the place's veil dies with it — so first, freeze what every viewer could
@@ -409,9 +436,21 @@ func (s *Server) DeleteLocation(ctx context.Context, request api.DeleteLocationR
 	// that was dark only because of its place must not surface to the whole
 	// table when the place is struck (#238); the fog side cascades its batches
 	// for exactly this reason (000048_fog_locations.up.sql).
-	plan, err := s.veilFreezePlan(ctx, loc)
+	// A shared place's veil dies for EVERY table on the realm at once (#234),
+	// so each table's audience is frozen, not only the lens's — a notice at a
+	// sibling table that was dark only because of this place must not surface
+	// there either.
+	campaignIDs, err := s.queries.ListCampaignIDsByRealm(ctx, loc.RealmID)
 	if err != nil {
 		return nil, err
+	}
+	plans := make([]*veilFreezePlan, 0, len(campaignIDs))
+	for _, cid := range campaignIDs {
+		plan, err := s.veilFreezePlan(ctx, cid, locationID)
+		if err != nil {
+			return nil, err
+		}
+		plans = append(plans, plan)
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -419,8 +458,10 @@ func (s *Server) DeleteLocation(ctx context.Context, request api.DeleteLocationR
 	}
 	defer tx.Rollback(ctx)
 	qtx := s.queries.WithTx(tx)
-	if err := plan.apply(ctx, qtx); err != nil {
-		return nil, err
+	for _, plan := range plans {
+		if err := plan.apply(ctx, qtx); err != nil {
+			return nil, err
+		}
 	}
 	// Stamp the names down so a notice still says where it used to hang —
 	// safe now that its audience is frozen: only viewers who already knew the
@@ -434,9 +475,9 @@ func (s *Server) DeleteLocation(ctx context.Context, request api.DeleteLocationR
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	s.publish(loc.CampaignID, live.TopicMap)
-	s.publish(loc.CampaignID, live.TopicQuests)
-	s.publish(loc.CampaignID, live.TopicNpcs)
+	s.publishRealm(ctx, loc.RealmID, live.TopicMap)
+	s.publishRealm(ctx, loc.RealmID, live.TopicQuests)
+	s.publishRealm(ctx, loc.RealmID, live.TopicNpcs)
 	return api.DeleteLocation204Response{}, nil
 }
 
@@ -459,24 +500,24 @@ type veilFreezePlan struct {
 // can outlive the place. Public stays public, dark stays dark, and a
 // hero-by-hero place keeps exactly its audience, frozen onto the content's
 // own veil.
-func (s *Server) veilFreezePlan(ctx context.Context, root db.Location) (*veilFreezePlan, error) {
-	v, err := s.loadVeil(ctx, root.CampaignID)
+func (s *Server) veilFreezePlan(ctx context.Context, campaignID, rootID uuid.UUID) (*veilFreezePlan, error) {
+	v, err := s.loadVeil(ctx, campaignID)
 	if err != nil {
 		return nil, err
 	}
-	doomed := map[uuid.UUID]bool{root.ID: true}
+	doomed := map[uuid.UUID]bool{rootID: true}
 	for id := range v.locations {
-		if v.isDescendant(id, root.ID) {
+		if v.isDescendant(id, rootID) {
 			doomed[id] = true
 		}
 	}
-	chars, err := s.queries.ListCharactersByCampaign(ctx, pgUUID(root.CampaignID))
+	chars, err := s.queries.ListCharactersByCampaign(ctx, pgUUID(campaignID))
 	if err != nil {
 		return nil, err
 	}
 
 	plan := &veilFreezePlan{}
-	quests, err := s.queries.ListQuestsByCampaign(ctx, root.CampaignID)
+	quests, err := s.queries.ListQuestsByCampaign(ctx, campaignID)
 	if err != nil {
 		return nil, err
 	}
@@ -493,11 +534,11 @@ func (s *Server) veilFreezePlan(ctx context.Context, root db.Location) (*veilFre
 		plan.quests = append(plan.quests, f)
 	}
 
-	nv, err := s.loadNpcVeil(ctx, root.CampaignID)
+	nv, err := s.loadNpcVeil(ctx, campaignID)
 	if err != nil {
 		return nil, err
 	}
-	people, err := s.queries.ListNpcs(ctx, root.CampaignID)
+	people, err := s.queries.ListNpcs(ctx, campaignID)
 	if err != nil {
 		return nil, err
 	}
@@ -549,14 +590,10 @@ func (p *veilFreezePlan) apply(ctx context.Context, q *db.Queries) error {
 
 func (s *Server) SetLocationVisibility(ctx context.Context, request api.SetLocationVisibilityRequestObject) (api.SetLocationVisibilityResponseObject, error) {
 	locationID := uuid.UUID(request.LocationId)
-	loc, err := s.queries.GetLocation(ctx, locationID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.SetLocationVisibility404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, loc.CampaignID); err != nil {
+	// The lens first, then the place through it (#234): a place not on this
+	// campaign's realm is no row, and answers 404.
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.SetLocationVisibility401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -566,8 +603,14 @@ func (s *Server) SetLocationVisibility(ctx context.Context, request api.SetLocat
 			return nil, err
 		}
 	}
+	if _, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{LocationID: locationID, CampaignID: lensID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.SetLocationVisibility404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
 
-	grain, badReq, err := s.visibilityTarget(ctx, loc.CampaignID, request.Body)
+	grain, badReq, err := s.visibilityTarget(ctx, lensID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -577,8 +620,8 @@ func (s *Server) SetLocationVisibility(ctx context.Context, request api.SetLocat
 
 	switch {
 	case grain.table:
-		if _, err := s.queries.SetLocationPartyVisibility(ctx, db.SetLocationPartyVisibilityParams{
-			ID: locationID, VisibleToParty: request.Body.Visible,
+		if err := s.queries.SetLocationPartyVisibility(ctx, db.SetLocationPartyVisibilityParams{
+			LocationID: locationID, CampaignID: lensID, VisibleToParty: request.Body.Visible,
 		}); err != nil {
 			return nil, err
 		}
@@ -603,9 +646,9 @@ func (s *Server) SetLocationVisibility(ctx context.Context, request api.SetLocat
 	// A place's veil now also gates the fog batches tied to it (#191), so
 	// lifting it uncovers ground on the map — the player's map is stale the
 	// moment this returns.
-	s.publish(loc.CampaignID, live.TopicMap)
+	s.publish(lensID, live.TopicMap)
 
-	out, err := s.buildOneLocation(ctx, loc.CampaignID, locationID)
+	out, err := s.buildOneLocation(ctx, lensID, locationID)
 	if err != nil {
 		return nil, err
 	}
@@ -673,14 +716,10 @@ func (s *Server) SetQuestVisibility(ctx context.Context, request api.SetQuestVis
 
 func (s *Server) ClearLocationVisibilityOverride(ctx context.Context, request api.ClearLocationVisibilityOverrideRequestObject) (api.ClearLocationVisibilityOverrideResponseObject, error) {
 	locationID := uuid.UUID(request.LocationId)
-	loc, err := s.queries.GetLocation(ctx, locationID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.ClearLocationVisibilityOverride404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, loc.CampaignID); err != nil {
+	// The lens first, then the place through it (#234): a place not on this
+	// campaign's realm is no row, and answers 404.
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.ClearLocationVisibilityOverride401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -690,13 +729,19 @@ func (s *Server) ClearLocationVisibilityOverride(ctx context.Context, request ap
 			return nil, err
 		}
 	}
+	if _, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{LocationID: locationID, CampaignID: lensID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.ClearLocationVisibilityOverride404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
 	if err := s.queries.DeleteLocationOverride(ctx, db.DeleteLocationOverrideParams{
 		LocationID: locationID, CharacterID: uuid.UUID(request.CharacterId),
 	}); err != nil {
 		return nil, err
 	}
-	s.publish(loc.CampaignID, live.TopicMap)
-	out, err := s.buildOneLocation(ctx, loc.CampaignID, locationID)
+	s.publish(lensID, live.TopicMap)
+	out, err := s.buildOneLocation(ctx, lensID, locationID)
 	if err != nil {
 		return nil, err
 	}

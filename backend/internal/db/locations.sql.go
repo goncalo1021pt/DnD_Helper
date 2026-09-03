@@ -33,37 +33,36 @@ func (q *Queries) CountQuestsInLocation(ctx context.Context, locationID pgtype.U
 }
 
 const createLocation = `-- name: CreateLocation :one
-INSERT INTO locations (campaign_id, parent_id, name, description, visible_to_party)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, campaign_id, parent_id, name, description, visible_to_party, created_at, updated_at
+INSERT INTO locations (realm_id, parent_id, name, description)
+VALUES ($1, $2, $3, $4)
+RETURNING id, parent_id, name, description, created_at, updated_at, realm_id
 `
 
 type CreateLocationParams struct {
-	CampaignID     uuid.UUID   `json:"campaign_id"`
-	ParentID       pgtype.UUID `json:"parent_id"`
-	Name           string      `json:"name"`
-	Description    string      `json:"description"`
-	VisibleToParty bool        `json:"visible_to_party"`
+	RealmID     uuid.UUID   `json:"realm_id"`
+	ParentID    pgtype.UUID `json:"parent_id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
 }
 
+// Ground: the place is charted onto the realm (#234). What the charting table
+// knows of it is written separately, into location_campaign_state.
 func (q *Queries) CreateLocation(ctx context.Context, arg CreateLocationParams) (Location, error) {
 	row := q.db.QueryRow(ctx, createLocation,
-		arg.CampaignID,
+		arg.RealmID,
 		arg.ParentID,
 		arg.Name,
 		arg.Description,
-		arg.VisibleToParty,
 	)
 	var i Location
 	err := row.Scan(
 		&i.ID,
-		&i.CampaignID,
 		&i.ParentID,
 		&i.Name,
 		&i.Description,
-		&i.VisibleToParty,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RealmID,
 	)
 	return i, err
 }
@@ -92,7 +91,7 @@ func (q *Queries) DeleteLocationOverride(ctx context.Context, arg DeleteLocation
 }
 
 const getLocation = `-- name: GetLocation :one
-SELECT id, campaign_id, parent_id, name, description, visible_to_party, created_at, updated_at FROM locations WHERE id = $1
+SELECT id, parent_id, name, description, created_at, updated_at, realm_id FROM locations WHERE id = $1
 `
 
 func (q *Queries) GetLocation(ctx context.Context, id uuid.UUID) (Location, error) {
@@ -100,13 +99,55 @@ func (q *Queries) GetLocation(ctx context.Context, id uuid.UUID) (Location, erro
 	var i Location
 	err := row.Scan(
 		&i.ID,
-		&i.CampaignID,
 		&i.ParentID,
 		&i.Name,
 		&i.Description,
-		&i.VisibleToParty,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RealmID,
+	)
+	return i, err
+}
+
+const getLocationForCampaign = `-- name: GetLocationForCampaign :one
+SELECT l.id, l.parent_id, l.name, l.description, l.created_at, l.updated_at, l.realm_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party
+FROM locations l
+JOIN campaigns c ON c.realm_id = l.realm_id
+LEFT JOIN location_campaign_state s ON s.location_id = l.id AND s.campaign_id = c.id
+WHERE l.id = $1 AND c.id = $2
+`
+
+type GetLocationForCampaignParams struct {
+	LocationID uuid.UUID `json:"location_id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
+type GetLocationForCampaignRow struct {
+	ID             uuid.UUID          `json:"id"`
+	ParentID       pgtype.UUID        `json:"parent_id"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	RealmID        uuid.UUID          `json:"realm_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
+}
+
+// A place THROUGH one table (#234): the row plus that table's flag — and no
+// row at all when the place is not on the campaign's realm, so a place you do
+// not stand on cannot be told from one that never was.
+func (q *Queries) GetLocationForCampaign(ctx context.Context, arg GetLocationForCampaignParams) (GetLocationForCampaignRow, error) {
+	row := q.db.QueryRow(ctx, getLocationForCampaign, arg.LocationID, arg.CampaignID)
+	var i GetLocationForCampaignRow
+	err := row.Scan(
+		&i.ID,
+		&i.ParentID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RealmID,
+		&i.VisibleToParty,
 	)
 	return i, err
 }
@@ -114,9 +155,8 @@ func (q *Queries) GetLocation(ctx context.Context, id uuid.UUID) (Location, erro
 const listLocationVisibilityByCampaign = `-- name: ListLocationVisibilityByCampaign :many
 SELECT v.location_id, v.character_id, v.visible, c.name AS character_name
 FROM location_visibility v
-JOIN locations l ON l.id = v.location_id
 JOIN characters c ON c.id = v.character_id
-WHERE l.campaign_id = $1
+WHERE c.campaign_id = $1::uuid
 `
 
 type ListLocationVisibilityByCampaignRow struct {
@@ -126,6 +166,8 @@ type ListLocationVisibilityByCampaignRow struct {
 	CharacterName string    `json:"character_name"`
 }
 
+// Per-hero exceptions for one table: the overrides of heroes SEATED at this
+// campaign (#234). A hero sits at one table, so the rows were always its.
 func (q *Queries) ListLocationVisibilityByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListLocationVisibilityByCampaignRow, error) {
 	rows, err := q.db.Query(ctx, listLocationVisibilityByCampaign, campaignID)
 	if err != nil {
@@ -152,27 +194,47 @@ func (q *Queries) ListLocationVisibilityByCampaign(ctx context.Context, campaign
 }
 
 const listLocationsByCampaign = `-- name: ListLocationsByCampaign :many
-SELECT id, campaign_id, parent_id, name, description, visible_to_party, created_at, updated_at FROM locations WHERE campaign_id = $1 ORDER BY name
+SELECT l.id, l.parent_id, l.name, l.description, l.created_at, l.updated_at, l.realm_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party
+FROM locations l
+JOIN campaigns c ON c.realm_id = l.realm_id
+LEFT JOIN location_campaign_state s ON s.location_id = l.id AND s.campaign_id = c.id
+WHERE c.id = $1
+ORDER BY l.name
 `
 
-func (q *Queries) ListLocationsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]Location, error) {
+type ListLocationsByCampaignRow struct {
+	ID             uuid.UUID          `json:"id"`
+	ParentID       pgtype.UUID        `json:"parent_id"`
+	Name           string             `json:"name"`
+	Description    string             `json:"description"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	RealmID        uuid.UUID          `json:"realm_id"`
+	VisibleToParty bool               `json:"visible_to_party"`
+}
+
+// The realm's places as ONE table knows them (#234): every place on the
+// campaign's realm, with this campaign's own visible_to_party overlaid. No
+// state row reads as veiled — a table founded on old ground starts dark, and
+// its DM reveals as the party finds things.
+func (q *Queries) ListLocationsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]ListLocationsByCampaignRow, error) {
 	rows, err := q.db.Query(ctx, listLocationsByCampaign, campaignID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Location
+	var items []ListLocationsByCampaignRow
 	for rows.Next() {
-		var i Location
+		var i ListLocationsByCampaignRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.CampaignID,
 			&i.ParentID,
 			&i.Name,
 			&i.Description,
-			&i.VisibleToParty,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.RealmID,
+			&i.VisibleToParty,
 		); err != nil {
 			return nil, err
 		}
@@ -189,7 +251,7 @@ UPDATE locations
 SET parent_id  = $2,
     updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, parent_id, name, description, visible_to_party, created_at, updated_at
+RETURNING id, parent_id, name, description, created_at, updated_at, realm_id
 `
 
 type MoveLocationParams struct {
@@ -202,13 +264,12 @@ func (q *Queries) MoveLocation(ctx context.Context, arg MoveLocationParams) (Loc
 	var i Location
 	err := row.Scan(
 		&i.ID,
-		&i.CampaignID,
 		&i.ParentID,
 		&i.Name,
 		&i.Description,
-		&i.VisibleToParty,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RealmID,
 	)
 	return i, err
 }
@@ -256,33 +317,24 @@ func (q *Queries) SetLocationOverride(ctx context.Context, arg SetLocationOverri
 	return err
 }
 
-const setLocationPartyVisibility = `-- name: SetLocationPartyVisibility :one
-UPDATE locations
-SET visible_to_party = $2,
-    updated_at       = now()
-WHERE id = $1
-RETURNING id, campaign_id, parent_id, name, description, visible_to_party, created_at, updated_at
+const setLocationPartyVisibility = `-- name: SetLocationPartyVisibility :exec
+INSERT INTO location_campaign_state (location_id, campaign_id, visible_to_party)
+VALUES ($1, $2, $3)
+ON CONFLICT (location_id, campaign_id)
+DO UPDATE SET visible_to_party = EXCLUDED.visible_to_party, updated_at = now()
 `
 
 type SetLocationPartyVisibilityParams struct {
-	ID             uuid.UUID `json:"id"`
+	LocationID     uuid.UUID `json:"location_id"`
+	CampaignID     uuid.UUID `json:"campaign_id"`
 	VisibleToParty bool      `json:"visible_to_party"`
 }
 
-func (q *Queries) SetLocationPartyVisibility(ctx context.Context, arg SetLocationPartyVisibilityParams) (Location, error) {
-	row := q.db.QueryRow(ctx, setLocationPartyVisibility, arg.ID, arg.VisibleToParty)
-	var i Location
-	err := row.Scan(
-		&i.ID,
-		&i.CampaignID,
-		&i.ParentID,
-		&i.Name,
-		&i.Description,
-		&i.VisibleToParty,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+// One table's flag on a place (#234) — an upsert, because "no row" is the
+// veiled default and a first reveal is what creates the row.
+func (q *Queries) SetLocationPartyVisibility(ctx context.Context, arg SetLocationPartyVisibilityParams) error {
+	_, err := q.db.Exec(ctx, setLocationPartyVisibility, arg.LocationID, arg.CampaignID, arg.VisibleToParty)
+	return err
 }
 
 const updateLocation = `-- name: UpdateLocation :one
@@ -291,7 +343,7 @@ SET name        = $2,
     description = $3,
     updated_at  = now()
 WHERE id = $1
-RETURNING id, campaign_id, parent_id, name, description, visible_to_party, created_at, updated_at
+RETURNING id, parent_id, name, description, created_at, updated_at, realm_id
 `
 
 type UpdateLocationParams struct {
@@ -307,13 +359,12 @@ func (q *Queries) UpdateLocation(ctx context.Context, arg UpdateLocationParams) 
 	var i Location
 	err := row.Scan(
 		&i.ID,
-		&i.CampaignID,
 		&i.ParentID,
 		&i.Name,
 		&i.Description,
-		&i.VisibleToParty,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.RealmID,
 	)
 	return i, err
 }

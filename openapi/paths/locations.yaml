@@ -42,6 +42,7 @@
 
 /locations/{locationId}:
   parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
     - $ref: "../openapi.yaml#/components/parameters/LocationId"
   patch:
     operationId: updateLocation
@@ -82,6 +83,7 @@
 
 /locations/{locationId}/parent:
   parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
     - $ref: "../openapi.yaml#/components/parameters/LocationId"
   put:
     operationId: moveLocation
@@ -110,6 +112,7 @@
 
 /locations/{locationId}/visibility:
   parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
     - $ref: "../openapi.yaml#/components/parameters/LocationId"
   put:
     operationId: setLocationVisibility
@@ -138,6 +141,7 @@
 
 /locations/{locationId}/visibility/{characterId}:
   parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
     - $ref: "../openapi.yaml#/components/parameters/LocationId"
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   delete:

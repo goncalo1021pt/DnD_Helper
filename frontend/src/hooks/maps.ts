@@ -1,5 +1,10 @@
 /*
  * Battle maps, pins, sub-maps, and the fog composited server-side.
+ *
+ * A map hangs on a realm, not a campaign (#234), so every id-addressed call
+ * names the campaign it is read through — the lens — as a query param, and
+ * the detail/reveal caches are keyed by it too: the same map read through two
+ * tables on one realm is two different views (their own veil, their own fog).
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -67,7 +72,7 @@ export function useSetMapVisibility(campaignId: string) {
     campaignId,
     async (vars: { mapId: string; body: SetVisibilityInput }) => {
       const { data, error } = await api.PUT("/maps/{mapId}/visibility", {
-        params: { path: { mapId: vars.mapId } },
+        params: { path: { mapId: vars.mapId }, query: { campaignId } },
         body: vars.body,
       });
       if (error) throw error;
@@ -83,7 +88,7 @@ export function useClearMapOverride(campaignId: string) {
     campaignId,
     async (vars: { mapId: string; characterId: string }) => {
       const { data, error } = await api.DELETE("/maps/{mapId}/visibility/{characterId}", {
-        params: { path: { mapId: vars.mapId, characterId: vars.characterId } },
+        params: { path: { mapId: vars.mapId, characterId: vars.characterId }, query: { campaignId } },
       });
       if (error) throw error;
       return data;
@@ -92,13 +97,13 @@ export function useClearMapOverride(campaignId: string) {
   );
 }
 
-export function useMapDetail(mapId: string | undefined) {
+export function useMapDetail(mapId: string | undefined, campaignId: string) {
   return useQuery({
-    queryKey: ["map", mapId],
+    queryKey: ["map", mapId, campaignId],
     enabled: !!mapId,
     queryFn: async () => {
       const { data, error } = await api.GET("/maps/{mapId}", {
-        params: { path: { mapId: mapId! } },
+        params: { path: { mapId: mapId! }, query: { campaignId } },
       });
       if (error) throw error;
       return data;
@@ -116,7 +121,7 @@ export function useUpdateMap(campaignId: string) {
       body: { name: string; parentMapId?: string; fogEnabled?: boolean; locationId?: string };
     }) => {
       const { data, error } = await api.PATCH("/maps/{mapId}", {
-        params: { path: { mapId: vars.mapId } },
+        params: { path: { mapId: vars.mapId }, query: { campaignId } },
         body: vars.body,
       });
       if (error) throw error;
@@ -134,7 +139,7 @@ export function useDeleteMap(campaignId: string) {
   return useMutation({
     mutationFn: async (mapId: string) => {
       const { error } = await api.DELETE("/maps/{mapId}", {
-        params: { path: { mapId } },
+        params: { path: { mapId }, query: { campaignId } },
       });
       if (error) throw error;
     },
@@ -142,12 +147,12 @@ export function useDeleteMap(campaignId: string) {
   });
 }
 
-export function useCreateMapPin(mapId: string) {
+export function useCreateMapPin(mapId: string, campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: MapPinInput) => {
       const { data, error } = await api.POST("/maps/{mapId}/pins", {
-        params: { path: { mapId } },
+        params: { path: { mapId }, query: { campaignId } },
         body,
       });
       if (error) throw error;
@@ -157,12 +162,12 @@ export function useCreateMapPin(mapId: string) {
   });
 }
 
-export function useUpdateMapPin(mapId: string) {
+export function useUpdateMapPin(mapId: string, campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: { pinId: string; body: MapPinInput }) => {
       const { data, error } = await api.PATCH("/pins/{pinId}", {
-        params: { path: { pinId: vars.pinId } },
+        params: { path: { pinId: vars.pinId }, query: { campaignId } },
         body: vars.body,
       });
       if (error) throw error;
@@ -172,12 +177,12 @@ export function useUpdateMapPin(mapId: string) {
   });
 }
 
-export function useDeleteMapPin(mapId: string) {
+export function useDeleteMapPin(mapId: string, campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (pinId: string) => {
       const { error } = await api.DELETE("/pins/{pinId}", {
-        params: { path: { pinId } },
+        params: { path: { pinId }, query: { campaignId } },
       });
       if (error) throw error;
     },
@@ -185,13 +190,13 @@ export function useDeleteMapPin(mapId: string) {
   });
 }
 
-export function useRevealBatches(mapId: string | undefined, enabled: boolean) {
+export function useRevealBatches(mapId: string | undefined, campaignId: string, enabled: boolean) {
   return useQuery({
-    queryKey: ["reveals", mapId],
+    queryKey: ["reveals", mapId, campaignId],
     enabled: !!mapId && enabled,
     queryFn: async () => {
       const { data, error } = await api.GET("/maps/{mapId}/reveals", {
-        params: { path: { mapId: mapId! } },
+        params: { path: { mapId: mapId! }, query: { campaignId } },
       });
       if (error) throw error;
       return data;
@@ -199,7 +204,7 @@ export function useRevealBatches(mapId: string | undefined, enabled: boolean) {
   });
 }
 
-export function useSubmitReveals(mapId: string) {
+export function useSubmitReveals(mapId: string, campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (body: {
@@ -208,7 +213,7 @@ export function useSubmitReveals(mapId: string) {
       circles: { x: number; y: number; r: number }[];
     }) => {
       const { data, error } = await api.POST("/maps/{mapId}/reveals", {
-        params: { path: { mapId } },
+        params: { path: { mapId }, query: { campaignId } },
         body,
       });
       if (error) throw error;
@@ -226,12 +231,12 @@ export function useSubmitReveals(mapId: string) {
  * DM's drawing — deciding later that the eastern road was really "knowledge of
  * Vale" should not mean stamping it all over again.
  */
-export function useSetRevealLocation(mapId: string) {
+export function useSetRevealLocation(mapId: string, campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (vars: { batchId: string; locationId: string | null }) => {
       const { data, error } = await api.PATCH("/reveals/{batchId}", {
-        params: { path: { batchId: vars.batchId } },
+        params: { path: { batchId: vars.batchId }, query: { campaignId } },
         body: { locationId: vars.locationId },
       });
       if (error) throw error;
@@ -244,12 +249,12 @@ export function useSetRevealLocation(mapId: string) {
   });
 }
 
-export function useDeleteReveals(mapId: string) {
+export function useDeleteReveals(mapId: string, campaignId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (batchId: string) => {
       const { error } = await api.DELETE("/reveals/{batchId}", {
-        params: { path: { batchId } },
+        params: { path: { batchId }, query: { campaignId } },
       });
       if (error) throw error;
     },
@@ -278,10 +283,10 @@ function useShapeMutation<TVars>(mapId: string, run: (vars: TVars) => Promise<un
   });
 }
 
-export function useCreateMapShape(mapId: string) {
+export function useCreateMapShape(mapId: string, campaignId: string) {
   return useShapeMutation(mapId, async (body: MapShapeInput) => {
     const { data, error } = await api.POST("/maps/{mapId}/shapes", {
-      params: { path: { mapId } },
+      params: { path: { mapId }, query: { campaignId } },
       body,
     });
     if (error) throw error;
@@ -289,10 +294,10 @@ export function useCreateMapShape(mapId: string) {
   });
 }
 
-export function useUpdateMapShape(mapId: string) {
+export function useUpdateMapShape(mapId: string, campaignId: string) {
   return useShapeMutation(mapId, async (vars: { shapeId: string; body: MapShapeInput }) => {
     const { data, error } = await api.PATCH("/shapes/{shapeId}", {
-      params: { path: { shapeId: vars.shapeId } },
+      params: { path: { shapeId: vars.shapeId }, query: { campaignId } },
       body: vars.body,
     });
     if (error) throw error;
@@ -300,10 +305,10 @@ export function useUpdateMapShape(mapId: string) {
   });
 }
 
-export function useDeleteMapShape(mapId: string) {
+export function useDeleteMapShape(mapId: string, campaignId: string) {
   return useShapeMutation(mapId, async (shapeId: string) => {
     const { error } = await api.DELETE("/shapes/{shapeId}", {
-      params: { path: { shapeId } },
+      params: { path: { shapeId }, query: { campaignId } },
     });
     if (error) throw error;
   });

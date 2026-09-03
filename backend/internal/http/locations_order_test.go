@@ -62,7 +62,7 @@ func TestTreeOrderKeepsChildrenWithTheirParent(t *testing.T) {
 		"6 Faced World",
 		"Demon Continent",
 		"Human Continent",
-		"Asura Kingdom",     // inside Human, and said so by sitting under it
+		"Asura Kingdom", // inside Human, and said so by sitting under it
 		"Milis Continent",
 		"Holy Milis Empire", // inside Milis
 	}
