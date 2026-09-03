@@ -50,7 +50,7 @@ async function hangMap(page: Page, campaignId: string, fog: boolean): Promise<st
   expect(res.ok(), await res.text()).toBeTruthy();
   const mapId = (await res.json()).id as string;
   if (fog) {
-    const on = await page.request.patch(`/api/maps/${mapId}`, {
+    const on = await page.request.patch(`/api/maps/${mapId}?campaignId=${campaignId}`, {
       data: { name: "Chart", fogEnabled: true },
     });
     expect(on.ok(), await on.text()).toBeTruthy();
@@ -58,8 +58,8 @@ async function hangMap(page: Page, campaignId: string, fog: boolean): Promise<st
   return mapId;
 }
 
-async function shapesOf(request: APIRequestContext, mapId: string) {
-  const res = await request.get(`/api/maps/${mapId}`);
+async function shapesOf(request: APIRequestContext, mapId: string, campaignId: string) {
+  const res = await request.get(`/api/maps/${mapId}?campaignId=${campaignId}`);
   expect(res.ok(), await res.text()).toBeTruthy();
   return (await res.json()).shapes as {
     id: string;
@@ -77,7 +77,7 @@ test("a road and a region are the same row wearing different clothes", async ({ 
   const mapId = await hangMap(page, campaign.id, false);
   const town = await createLocation(page.request, campaign.id, unique("Barovia "));
 
-  const road = await page.request.post(`/api/maps/${mapId}/shapes`, {
+  const road = await page.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: {
       kind: "line",
       label: "The High Road",
@@ -89,7 +89,7 @@ test("a road and a region are the same row wearing different clothes", async ({ 
   expect(road.status()).toBe(201);
   expect((await road.json()).dashed).toBe(true);
 
-  const region = await page.request.post(`/api/maps/${mapId}/shapes`, {
+  const region = await page.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: {
       kind: "area",
       label: "Barovia",
@@ -103,12 +103,12 @@ test("a road and a region are the same row wearing different clothes", async ({ 
   // A region can BE a place, not merely name one.
   expect((await region.json()).locationName).toBeTruthy();
 
-  const all = await shapesOf(page.request, mapId);
+  const all = await shapesOf(page.request, mapId, campaign.id);
   expect(all.map((s) => s.kind).sort()).toEqual(["area", "line"]);
 
   // A line cannot become an area by being restyled — the gesture differs, so
   // the answer is to rub it out and draw the other.
-  const morph = await page.request.patch(`/api/shapes/${(await road.json()).id}`, {
+  const morph = await page.request.patch(`/api/shapes/${(await road.json()).id}?campaignId=${campaign.id}`, {
     data: { kind: "area", points: [{ x: 0.1, y: 0.1 }, { x: 0.2, y: 0.2 }, { x: 0.3, y: 0.1 }] },
   });
   expect(morph.status()).toBe(400);
@@ -126,11 +126,11 @@ test("a shape needs enough points to be one, and a colour it can be drawn in", a
     ["line", [{ x: 0.1, y: 0.1 }]],
     ["area", [{ x: 0.1, y: 0.1 }, { x: 0.2, y: 0.2 }]],
   ] as const) {
-    const res = await page.request.post(`/api/maps/${mapId}/shapes`, { data: { kind, points } });
+    const res = await page.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, { data: { kind, points } });
     expect(res.status(), `${kind} with ${points.length}`).toBe(400);
   }
 
-  const bad = await page.request.post(`/api/maps/${mapId}/shapes`, {
+  const bad = await page.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: {
       kind: "line",
       points: [{ x: 0.1, y: 0.1 }, { x: 0.2, y: 0.2 }],
@@ -149,7 +149,7 @@ test("players never receive a DM-only shape", async ({ browser }) => {
   const campaign = await createCampaign(dm.request, unique("Secret Ways "));
   const mapId = await hangMap(dm, campaign.id, false);
 
-  await dm.request.post(`/api/maps/${mapId}/shapes`, {
+  await dm.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: {
       kind: "line",
       label: "The Smugglers' Run",
@@ -157,7 +157,7 @@ test("players never receive a DM-only shape", async ({ browser }) => {
       dmOnly: true,
     },
   });
-  await dm.request.post(`/api/maps/${mapId}/shapes`, {
+  await dm.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: { kind: "line", label: "The King's Road", points: [{ x: 0.1, y: 0.2 }, { x: 0.9, y: 0.2 }] },
   });
 
@@ -167,14 +167,14 @@ test("players never receive a DM-only shape", async ({ browser }) => {
   await registerViaAPI(pl.request, newAccount("plsecret"));
   await joinCampaign(pl.request, campaign.inviteCode);
 
-  const theirs = await shapesOf(pl.request, mapId);
+  const theirs = await shapesOf(pl.request, mapId, campaign.id);
   expect(theirs).toHaveLength(1);
   expect(theirs[0].label).toBe("The King's Road");
   // Absent, not flagged: nothing in the payload hints the other one exists.
   expect(JSON.stringify(theirs)).not.toContain("Smuggler");
 
   // And a player cannot draw on the DM's map either.
-  const forbidden = await pl.request.post(`/api/maps/${mapId}/shapes`, {
+  const forbidden = await pl.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: { kind: "line", points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] },
   });
   expect(forbidden.status()).toBe(403);
@@ -192,7 +192,7 @@ test("under fog a road is clipped to the stretch the party has walked", async ({
   const mapId = await hangMap(dm, campaign.id, true);
 
   // A road running the width of the map, and a kingdom over its left half.
-  await dm.request.post(`/api/maps/${mapId}/shapes`, {
+  await dm.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: {
       kind: "line",
       label: "The High Road",
@@ -202,7 +202,7 @@ test("under fog a road is clipped to the stretch the party has walked", async ({
       ],
     },
   });
-  await dm.request.post(`/api/maps/${mapId}/shapes`, {
+  await dm.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: {
       kind: "area",
       label: "The Westmarch",
@@ -217,15 +217,15 @@ test("under fog a road is clipped to the stretch the party has walked", async ({
   await joinCampaign(pl.request, campaign.inviteCode);
 
   // Nothing walked yet: the road and the kingdom are both simply absent.
-  expect(await shapesOf(pl.request, mapId)).toHaveLength(0);
+  expect(await shapesOf(pl.request, mapId, campaign.id)).toHaveLength(0);
 
   // The party walks the western end.
-  const lift = await dm.request.post(`/api/maps/${mapId}/reveals`, {
+  const lift = await dm.request.post(`/api/maps/${mapId}/reveals?campaignId=${campaign.id}`, {
     data: { circles: [{ x: 0.15, y: 0.5, r: 0.2 }] },
   });
   expect(lift.ok(), await lift.text()).toBeTruthy();
 
-  const seen = await shapesOf(pl.request, mapId);
+  const seen = await shapesOf(pl.request, mapId, campaign.id);
   const road = seen.find((s) => s.kind === "line");
   expect(road, "the walked stretch should arrive").toBeTruthy();
   // Three of the six points stand on uncovered ground; the eastern half of
@@ -251,7 +251,7 @@ test("a road answers a press, a region is still ground, and both can be rubbed o
   const campaign = await createCampaign(page.request, unique("Inkwork "));
   const mapId = await hangMap(page, campaign.id, false);
 
-  await page.request.post(`/api/maps/${mapId}/shapes`, {
+  await page.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: {
       kind: "line",
       label: "The High Road",
@@ -260,7 +260,7 @@ test("a road answers a press, a region is still ground, and both can be rubbed o
       width: 0.006,
     },
   });
-  await page.request.post(`/api/maps/${mapId}/shapes`, {
+  await page.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
     data: {
       kind: "area",
       label: "Barovia",
@@ -326,6 +326,6 @@ test("a road answers a press, a region is still ground, and both can be rubbed o
   await page.getByRole("button", { name: "Rub it out" }).click();
 
   await expect
-    .poll(async () => (await shapesOf(page.request, mapId)).map((s) => s.label))
+    .poll(async () => (await shapesOf(page.request, mapId, campaign.id)).map((s) => s.label))
     .toEqual(["Barovia"]);
 });

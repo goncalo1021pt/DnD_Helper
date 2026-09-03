@@ -110,7 +110,7 @@ test("renaming a place cannot quietly detach it, or lift the veil under it", asy
   // what sits above it. This is the state a detach would silently expose.
   const realm = await createLocation(dmPage.request, campaign.id, "Kingdom of Aur");
   const city = await createLocation(dmPage.request, campaign.id, "Redwater", realm);
-  await revealLocation(dmPage.request, city);
+  await revealLocation(dmPage.request, city, campaign.id);
 
   const plCtx = await browser.newContext();
   const plPage = await plCtx.newPage();
@@ -126,7 +126,7 @@ test("renaming a place cannot quietly detach it, or lift the veil under it", asy
   expect(await seenByPlayer()).not.toContain("Redwater");
 
   // A body that says nothing whatsoever about the tree.
-  const res = await dmPage.request.patch(`/api/locations/${city}`, {
+  const res = await dmPage.request.patch(`/api/locations/${city}?campaignId=${campaign.id}`, {
     data: { name: "Redwater Port", description: "" },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
@@ -195,7 +195,7 @@ test("the party's gazetteer holds only what the DM has revealed", async ({ brows
 
   const known = await createLocation(dmPage.request, campaign.id, "Havenport");
   await createLocation(dmPage.request, campaign.id, "The Drowned Vault");
-  await revealLocation(dmPage.request, known);
+  await revealLocation(dmPage.request, known, campaign.id);
 
   const plCtx = await browser.newContext();
   const plPage = await plCtx.newPage();
@@ -311,7 +311,7 @@ test("deleting a veiled place keeps its notices and folk dark; a public place's 
 
   // And a public place with a public notice — the control group.
   const publicLoc = await createLocation(dm.request, campaign.id, "Milltown");
-  await revealLocation(dm.request, publicLoc);
+  await revealLocation(dm.request, publicLoc, campaign.id);
   const publicQuest = await postQuest(dm.request, campaign.id, "Rats in the Granary", publicLoc);
   await dm.request.put(`/api/quests/${publicQuest}/visibility`, {
     data: { scope: "table", visible: true },
@@ -333,7 +333,7 @@ test("deleting a veiled place keeps its notices and folk dark; a public place's 
 
   // Strike both places.
   for (const id of [secret, publicLoc]) {
-    const del = await dm.request.delete(`/api/locations/${id}`);
+    const del = await dm.request.delete(`/api/locations/${id}?campaignId=${campaign.id}`);
     expect(del.ok(), await del.text()).toBeTruthy();
   }
 
@@ -380,7 +380,7 @@ test("a place's page gathers its folk, shops, notices and maps — and the playe
   const campaign = await createCampaign(dm.request, unique("Chapter Table "));
 
   const city = await createLocation(dm.request, campaign.id, "Ars");
-  await revealLocation(dm.request, city);
+  await revealLocation(dm.request, city, campaign.id);
   const district = await createLocation(dm.request, campaign.id, "The Shambles", city);
 
   // Two people: one the party knows, one veiled.

@@ -142,12 +142,14 @@ export async function createLocation(
   return (await res.json()).id as string;
 }
 
-/** Lift the party-wide veil on a place (DM only). */
+/** Lift the party-wide veil on a place, for one table (DM only). A place
+ *  belongs to a realm, so the campaign it is revealed AT is named (#234). */
 export async function revealLocation(
   request: APIRequestContext,
   locationId: string,
+  campaignId: string,
 ): Promise<void> {
-  const res = await request.put(`/api/locations/${locationId}/visibility`, {
+  const res = await request.put(`/api/locations/${locationId}/visibility?campaignId=${campaignId}`, {
     data: { scope: "table", visible: true },
   });
   expect(res.ok(), await res.text()).toBeTruthy();

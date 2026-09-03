@@ -21,7 +21,7 @@ func emptyNpcVeil() *npcVeil {
 
 func emptyPlaces() *veil {
 	return &veil{
-		locations:      map[uuid.UUID]db.Location{},
+		locations:      map[uuid.UUID]db.ListLocationsByCampaignRow{},
 		locOverrides:   map[uuid.UUID]map[uuid.UUID]bool{},
 		questOverrides: map[uuid.UUID]map[uuid.UUID]bool{},
 		charNames:      map[uuid.UUID]string{},
@@ -70,14 +70,14 @@ func TestAVeiledPlaceHidesItsPeople(t *testing.T) {
 	hero := uuid.New()
 
 	porto := uuid.New()
-	places.locations[porto] = db.Location{ID: porto, VisibleToParty: false}
+	places.locations[porto] = db.ListLocationsByCampaignRow{ID: porto, VisibleToParty: false}
 
 	n := db.Npc{ID: uuid.New(), VisibleToParty: true, LocationID: pgUUID(porto)}
 	if nv.npcVisibleToAny(n, places, []uuid.UUID{hero}) {
 		t.Fatal("a person filed in a veiled place should be hidden with it")
 	}
 
-	places.locations[porto] = db.Location{ID: porto, VisibleToParty: true}
+	places.locations[porto] = db.ListLocationsByCampaignRow{ID: porto, VisibleToParty: true}
 	if !nv.npcVisibleToAny(n, places, []uuid.UUID{hero}) {
 		t.Fatal("lifting the place's veil should reveal its people")
 	}
@@ -179,7 +179,7 @@ func TestAVeiledPlaceKeepsItsPeoplesSheets(t *testing.T) {
 	hero, viewer := uuid.New(), uuid.New()
 
 	porto := uuid.New()
-	places.locations[porto] = db.Location{ID: porto, VisibleToParty: false}
+	places.locations[porto] = db.ListLocationsByCampaignRow{ID: porto, VisibleToParty: false}
 	// Stats wide open — and it decides nothing while the town is dark, because
 	// the second veil only ever opens where the first has.
 	n := db.Npc{

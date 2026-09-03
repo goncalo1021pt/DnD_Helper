@@ -1459,7 +1459,10 @@ export interface paths {
     };
     "/locations/{locationId}": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -1479,7 +1482,10 @@ export interface paths {
     };
     "/locations/{locationId}/parent": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -1498,7 +1504,10 @@ export interface paths {
     };
     "/locations/{locationId}/visibility": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -1517,7 +1526,10 @@ export interface paths {
     };
     "/locations/{locationId}/visibility/{characterId}": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -1796,7 +1808,10 @@ export interface paths {
     };
     "/maps/{mapId}": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -1817,7 +1832,10 @@ export interface paths {
     };
     "/maps/{mapId}/pins": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -1836,7 +1854,10 @@ export interface paths {
     };
     "/maps/{mapId}/visibility": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: string;
@@ -1855,7 +1876,10 @@ export interface paths {
     };
     "/maps/{mapId}/visibility/{characterId}": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: string;
@@ -1875,7 +1899,10 @@ export interface paths {
     };
     "/maps/{mapId}/shapes": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: string;
@@ -1894,7 +1921,10 @@ export interface paths {
     };
     "/shapes/{shapeId}": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 shapeId: string;
@@ -1914,7 +1944,10 @@ export interface paths {
     };
     "/maps/{mapId}/reveals": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -1934,7 +1967,10 @@ export interface paths {
     };
     "/reveals/{batchId}": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 batchId: string;
@@ -1954,7 +1990,10 @@ export interface paths {
     };
     "/pins/{pinId}": {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 pinId: components["parameters"]["PinId"];
@@ -3338,6 +3377,11 @@ export interface components {
             campaignId: string;
             /**
              * Format: uuid
+             * @description The realm this stands on (#234) — the ground shared by every campaign founded there. `campaignId` is the lens it was read through.
+             */
+            realmId: string;
+            /**
+             * Format: uuid
              * @description The map this one details; null for an overworld.
              */
             parentMapId?: string | null;
@@ -3976,6 +4020,11 @@ export interface components {
             campaignId: string;
             /**
              * Format: uuid
+             * @description The realm this stands on (#234) — the ground shared by every campaign founded there. `campaignId` is the lens it was read through.
+             */
+            realmId: string;
+            /**
+             * Format: uuid
              * @description The place this one sits inside; null for a root.
              */
             parentId?: string | null;
@@ -4323,6 +4372,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+        CampaignLens: string;
         CampaignId: string;
         QuestId: string;
         CharacterId: string;
@@ -7125,7 +7176,10 @@ export interface operations {
     };
     deleteLocation: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -7148,7 +7202,10 @@ export interface operations {
     };
     updateLocation: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -7178,7 +7235,10 @@ export interface operations {
     };
     moveLocation: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -7208,7 +7268,10 @@ export interface operations {
     };
     setLocationVisibility: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -7238,7 +7301,10 @@ export interface operations {
     };
     clearLocationVisibilityOverride: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 locationId: components["parameters"]["LocationId"];
@@ -7817,7 +7883,10 @@ export interface operations {
     };
     getMap: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -7842,7 +7911,10 @@ export interface operations {
     };
     deleteMap: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -7865,7 +7937,10 @@ export interface operations {
     };
     updateMap: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -7895,7 +7970,10 @@ export interface operations {
     };
     createMapPin: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -7925,7 +8003,10 @@ export interface operations {
     };
     setMapVisibility: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: string;
@@ -7955,7 +8036,10 @@ export interface operations {
     };
     clearMapVisibilityOverride: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: string;
@@ -7981,7 +8065,10 @@ export interface operations {
     };
     createMapShape: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: string;
@@ -8011,7 +8098,10 @@ export interface operations {
     };
     deleteMapShape: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 shapeId: string;
@@ -8034,7 +8124,10 @@ export interface operations {
     };
     updateMapShape: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 shapeId: string;
@@ -8064,7 +8157,10 @@ export interface operations {
     };
     listReveals: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -8089,7 +8185,10 @@ export interface operations {
     };
     submitReveals: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 mapId: components["parameters"]["MapId"];
@@ -8119,7 +8218,10 @@ export interface operations {
     };
     deleteReveals: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 batchId: string;
@@ -8142,7 +8244,10 @@ export interface operations {
     };
     setRevealLocation: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 batchId: string;
@@ -8172,7 +8277,10 @@ export interface operations {
     };
     deleteMapPin: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 pinId: components["parameters"]["PinId"];
@@ -8195,7 +8303,10 @@ export interface operations {
     };
     updateMapPin: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
             header?: never;
             path: {
                 pinId: components["parameters"]["PinId"];

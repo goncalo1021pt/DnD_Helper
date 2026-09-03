@@ -1,12 +1,33 @@
 -- name: ListLocationsByCampaign :many
-SELECT * FROM locations WHERE campaign_id = $1 ORDER BY name;
+-- The realm's places as ONE table knows them (#234): every place on the
+-- campaign's realm, with this campaign's own visible_to_party overlaid. No
+-- state row reads as veiled — a table founded on old ground starts dark, and
+-- its DM reveals as the party finds things.
+SELECT l.*, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party
+FROM locations l
+JOIN campaigns c ON c.realm_id = l.realm_id
+LEFT JOIN location_campaign_state s ON s.location_id = l.id AND s.campaign_id = c.id
+WHERE c.id = sqlc.arg(campaign_id)
+ORDER BY l.name;
 
 -- name: GetLocation :one
 SELECT * FROM locations WHERE id = $1;
 
+-- name: GetLocationForCampaign :one
+-- A place THROUGH one table (#234): the row plus that table's flag — and no
+-- row at all when the place is not on the campaign's realm, so a place you do
+-- not stand on cannot be told from one that never was.
+SELECT l.*, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party
+FROM locations l
+JOIN campaigns c ON c.realm_id = l.realm_id
+LEFT JOIN location_campaign_state s ON s.location_id = l.id AND s.campaign_id = c.id
+WHERE l.id = sqlc.arg(location_id) AND c.id = sqlc.arg(campaign_id);
+
 -- name: CreateLocation :one
-INSERT INTO locations (campaign_id, parent_id, name, description, visible_to_party)
-VALUES ($1, $2, $3, $4, $5)
+-- Ground: the place is charted onto the realm (#234). What the charting table
+-- knows of it is written separately, into location_campaign_state.
+INSERT INTO locations (realm_id, parent_id, name, description)
+VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- Text only. Moving a place is MoveLocation, so that a rename can never touch
@@ -29,12 +50,13 @@ RETURNING *;
 -- name: DeleteLocation :exec
 DELETE FROM locations WHERE id = $1;
 
--- name: SetLocationPartyVisibility :one
-UPDATE locations
-SET visible_to_party = $2,
-    updated_at       = now()
-WHERE id = $1
-RETURNING *;
+-- name: SetLocationPartyVisibility :exec
+-- One table's flag on a place (#234) — an upsert, because "no row" is the
+-- veiled default and a first reveal is what creates the row.
+INSERT INTO location_campaign_state (location_id, campaign_id, visible_to_party)
+VALUES ($1, $2, $3)
+ON CONFLICT (location_id, campaign_id)
+DO UPDATE SET visible_to_party = EXCLUDED.visible_to_party, updated_at = now();
 
 -- Per-hero exceptions. Setting the party-wide flag clears these, so a
 -- party-wide reveal or hide always wins over stale per-hero rows.
@@ -52,11 +74,12 @@ DELETE FROM location_visibility WHERE location_id = $1 AND character_id = $2;
 DELETE FROM location_visibility WHERE location_id = $1;
 
 -- name: ListLocationVisibilityByCampaign :many
+-- Per-hero exceptions for one table: the overrides of heroes SEATED at this
+-- campaign (#234). A hero sits at one table, so the rows were always its.
 SELECT v.location_id, v.character_id, v.visible, c.name AS character_name
 FROM location_visibility v
-JOIN locations l ON l.id = v.location_id
 JOIN characters c ON c.id = v.character_id
-WHERE l.campaign_id = $1;
+WHERE c.campaign_id = sqlc.arg(campaign_id)::uuid;
 
 -- name: CountQuestsInLocation :one
 SELECT count(*) FROM quests WHERE location_id = $1;

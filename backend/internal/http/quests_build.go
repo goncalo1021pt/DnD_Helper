@@ -41,15 +41,16 @@ func (s *Server) resolveCampaignLocation(ctx context.Context, campaignID uuid.UU
 	if locationID == nil {
 		return pgtype.UUID{}, nil, nil
 	}
-	loc, err := s.queries.GetLocation(ctx, *locationID)
+	// Through the campaign's lens (#234): a place not on this campaign's realm
+	// is no row at all, so an id from another world reads as unknown.
+	loc, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{
+		LocationID: *locationID, CampaignID: campaignID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return pgtype.UUID{}, nil, nil
 		}
 		return pgtype.UUID{}, nil, err
-	}
-	if loc.CampaignID != campaignID {
-		return pgtype.UUID{}, nil, nil
 	}
 	name := loc.Name
 	return pgUUID(loc.ID), &name, nil

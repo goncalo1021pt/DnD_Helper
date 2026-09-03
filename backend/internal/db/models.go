@@ -787,13 +787,19 @@ type HandoutVisibility struct {
 }
 
 type Location struct {
-	ID             uuid.UUID          `json:"id"`
+	ID          uuid.UUID          `json:"id"`
+	ParentID    pgtype.UUID        `json:"parent_id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	RealmID     uuid.UUID          `json:"realm_id"`
+}
+
+type LocationCampaignState struct {
+	LocationID     uuid.UUID          `json:"location_id"`
 	CampaignID     uuid.UUID          `json:"campaign_id"`
-	ParentID       pgtype.UUID        `json:"parent_id"`
-	Name           string             `json:"name"`
-	Description    string             `json:"description"`
 	VisibleToParty bool               `json:"visible_to_party"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
@@ -805,18 +811,24 @@ type LocationVisibility struct {
 }
 
 type Map struct {
-	ID             uuid.UUID          `json:"id"`
+	ID          uuid.UUID          `json:"id"`
+	ParentMapID pgtype.UUID        `json:"parent_map_id"`
+	Name        string             `json:"name"`
+	Image       []byte             `json:"image"`
+	ContentType string             `json:"content_type"`
+	Width       int32              `json:"width"`
+	Height      int32              `json:"height"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	FogEnabled  bool               `json:"fog_enabled"`
+	LocationID  pgtype.UUID        `json:"location_id"`
+	RealmID     uuid.UUID          `json:"realm_id"`
+}
+
+type MapCampaignState struct {
+	MapID          uuid.UUID          `json:"map_id"`
 	CampaignID     uuid.UUID          `json:"campaign_id"`
-	ParentMapID    pgtype.UUID        `json:"parent_map_id"`
-	Name           string             `json:"name"`
-	Image          []byte             `json:"image"`
-	ContentType    string             `json:"content_type"`
-	Width          int32              `json:"width"`
-	Height         int32              `json:"height"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	FogEnabled     bool               `json:"fog_enabled"`
-	LocationID     pgtype.UUID        `json:"location_id"`
 	VisibleToParty bool               `json:"visible_to_party"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type MapPin struct {
@@ -970,6 +982,7 @@ type RevealBatch struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	LocationID pgtype.UUID        `json:"location_id"`
 	PartyID    pgtype.UUID        `json:"party_id"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
 }
 
 type RevealBatchHero struct {

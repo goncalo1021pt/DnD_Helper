@@ -45,22 +45,22 @@ export default function MapPage() {
     routeMapId ??
     (maps ?? []).find((m) => !m.parentMapId)?.id ??
     (maps ?? [])[0]?.id;
-  const { data: detail } = useMapDetail(currentId);
+  const { data: detail } = useMapDetail(currentId, campaign.id);
   const map = detail?.map;
 
   const updateMap = useUpdateMap(campaign.id);
-  const createPin = useCreateMapPin(currentId ?? "");
-  const updatePin = useUpdateMapPin(currentId ?? "");
-  const deletePin = useDeleteMapPin(currentId ?? "");
-  const submitReveals = useSubmitReveals(currentId ?? "");
+  const createPin = useCreateMapPin(currentId ?? "", campaign.id);
+  const updatePin = useUpdateMapPin(currentId ?? "", campaign.id);
+  const deletePin = useDeleteMapPin(currentId ?? "", campaign.id);
+  const submitReveals = useSubmitReveals(currentId ?? "", campaign.id);
   const { data: partyRoll } = useParties(campaign.id);
   const parties = (partyRoll ?? []).filter((p) => p.heroCount > 0);
   const [submitPartyId, setSubmitPartyId] = useState("");
-  const deleteReveals = useDeleteReveals(currentId ?? "");
-  const createShape = useCreateMapShape(currentId ?? "");
-  const updateShape = useUpdateMapShape(currentId ?? "");
-  const deleteShape = useDeleteMapShape(currentId ?? "");
-  const setRevealLocation = useSetRevealLocation(currentId ?? "");
+  const deleteReveals = useDeleteReveals(currentId ?? "", campaign.id);
+  const createShape = useCreateMapShape(currentId ?? "", campaign.id);
+  const updateShape = useUpdateMapShape(currentId ?? "", campaign.id);
+  const deleteShape = useDeleteMapShape(currentId ?? "", campaign.id);
+  const setRevealLocation = useSetRevealLocation(currentId ?? "", campaign.id);
 
   // The place tree, so a reveal can be handed to whoever knows that place
   // rather than to the whole table (#191). DM-only: the picker never renders
@@ -410,7 +410,7 @@ export default function MapPage() {
             }}
           >
             <img
-              src={`/api/maps/${map.id}/image?v=${
+              src={`/api/maps/${map.id}/image?campaignId=${campaign.id}&v=${
                 map.fogEnabled && !isDM ? revealSig(detail?.revealed ?? []) : "full"
               }`}
               alt={map.name}
@@ -915,6 +915,7 @@ export default function MapPage() {
       {/* reveal ledger */}
       {ledgerOpen && map && (
         <RevealLedger
+          campaignId={campaign.id}
           mapId={map.id}
           mapName={map.name}
           locations={locations ?? []}

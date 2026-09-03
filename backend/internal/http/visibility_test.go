@@ -18,13 +18,13 @@ type locSpec struct {
 
 func newVeil(locs map[uuid.UUID]locSpec) *veil {
 	v := &veil{
-		locations:      map[uuid.UUID]db.Location{},
+		locations:      map[uuid.UUID]db.ListLocationsByCampaignRow{},
 		locOverrides:   map[uuid.UUID]map[uuid.UUID]bool{},
 		questOverrides: map[uuid.UUID]map[uuid.UUID]bool{},
 		charNames:      map[uuid.UUID]string{},
 	}
 	for id, spec := range locs {
-		l := db.Location{ID: id, VisibleToParty: spec.visible}
+		l := db.ListLocationsByCampaignRow{ID: id, VisibleToParty: spec.visible}
 		if spec.parent != uuid.Nil {
 			l.ParentID = pgtype.UUID{Bytes: spec.parent, Valid: true}
 		}

@@ -303,6 +303,18 @@ components:
     - sessionCookie: []
 
   parameters:
+    CampaignLens:
+      name: campaignId
+      in: query
+      required: true
+      description: >-
+        The campaign this is read or changed through — the table whose veil
+        and fog apply (#234). A place or a map belongs to a realm that may hold
+        several campaigns, so every id-addressed atlas route names the one it
+        means; the route stays the resource, the campaign is the lens.
+      schema:
+        type: string
+        format: uuid
     CampaignId:
       name: campaignId
       in: path

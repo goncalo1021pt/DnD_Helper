@@ -24,7 +24,9 @@ const maxLocationDepth = 10
 // The whole campaign's locations and overrides are small enough to resolve in
 // memory, which keeps the rule in one readable place instead of a recursive CTE.
 type veil struct {
-	locations map[uuid.UUID]db.Location
+	// The realm's places as the lens campaign knows them (#234): each row
+	// carries that one table's visible_to_party, overlaid by the query.
+	locations map[uuid.UUID]db.ListLocationsByCampaignRow
 	// entity id -> character id -> visible
 	locOverrides   map[uuid.UUID]map[uuid.UUID]bool
 	questOverrides map[uuid.UUID]map[uuid.UUID]bool
@@ -48,7 +50,7 @@ func (s *Server) loadVeil(ctx context.Context, campaignID uuid.UUID) (*veil, err
 	}
 
 	v := &veil{
-		locations:      make(map[uuid.UUID]db.Location, len(locs)),
+		locations:      make(map[uuid.UUID]db.ListLocationsByCampaignRow, len(locs)),
 		locOverrides:   map[uuid.UUID]map[uuid.UUID]bool{},
 		questOverrides: map[uuid.UUID]map[uuid.UUID]bool{},
 		charNames:      map[uuid.UUID]string{},

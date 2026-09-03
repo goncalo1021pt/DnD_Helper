@@ -12,6 +12,7 @@ import { IconTrash } from "../ui/icons";
  * private knowledge and which are simply the map. */
 export function RevealLedger({
   mapId,
+  campaignId,
   mapName,
   locations,
   onDelete,
@@ -21,6 +22,7 @@ export function RevealLedger({
   onClose,
 }: {
   mapId: string;
+  campaignId: string;
   mapName: string;
   locations: Location[];
   onDelete: (batchId: string) => void;
@@ -29,7 +31,7 @@ export function RevealLedger({
   retying: boolean;
   onClose: () => void;
 }) {
-  const { data: batches } = useRevealBatches(mapId, true);
+  const { data: batches } = useRevealBatches(mapId, campaignId, true);
   return (
     <ParchmentModal onClose={onClose} maxWidth="max-w-[460px]">
       <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">

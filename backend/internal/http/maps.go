@@ -20,6 +20,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
 // The Map: campaign atlases with pins. Images live in postgres (one backup
@@ -29,9 +30,13 @@ import (
 
 const maxMapImageBytes = 10 << 20 // 10 MB decoded
 
-// mapRow is the shared shape of every no-image maps query row.
+// mapRow is the shared shape of every no-image maps query row read THROUGH a
+// campaign (#234): RealmID is the ground it hangs on, CampaignID the lens it
+// was read through, and VisibleToParty that lens's own veil. Field order
+// matches GetMapMetaForCampaignRow, so the struct conversion holds.
 type mapRow struct {
 	ID             uuid.UUID
+	RealmID        uuid.UUID
 	CampaignID     uuid.UUID
 	ParentMapID    pgtype.UUID
 	Name           string
@@ -48,7 +53,7 @@ type mapRow struct {
 // up rather than a conversion repeated at every call site.
 func listedMapRow(r db.ListMapsByCampaignRow) mapRow {
 	return mapRow{
-		ID: r.ID, CampaignID: r.CampaignID, ParentMapID: r.ParentMapID,
+		ID: r.ID, RealmID: r.RealmID, CampaignID: r.CampaignID, ParentMapID: r.ParentMapID,
 		Name: r.Name, FogEnabled: r.FogEnabled, Width: r.Width,
 		Height: r.Height, CreatedAt: r.CreatedAt, LocationID: r.LocationID,
 		VisibleToParty: r.VisibleToParty,
@@ -64,6 +69,7 @@ func toAPIMap(m mapRow, forDM bool, overrides []api.VisibilityOverride) api.Camp
 	out := api.CampaignMap{
 		Id:         m.ID,
 		CampaignId: m.CampaignID,
+		RealmId:    m.RealmID,
 		Name:       m.Name,
 		FogEnabled: m.FogEnabled,
 		Width:      int(m.Width),
@@ -133,15 +139,17 @@ func decodeMapImage(b64 string) (data []byte, contentType string, w, h int, err 
 	return data, contentType, cfg.Width, cfg.Height, nil
 }
 
-// mapCampaign resolves a map to its campaign, translating missing maps to
-// pgx.ErrNoRows for the caller's 404 branch.
-func (s *Server) mapMeta(ctx context.Context, mapID uuid.UUID) (db.GetMapMetaRow, error) {
-	return s.queries.GetMapMeta(ctx, mapID)
+// mapMeta reads a map THROUGH one campaign (#234): the row with that table's
+// veil overlaid, or pgx.ErrNoRows — the caller's 404 branch — when the map is
+// not on the campaign's realm, so a map you do not stand on cannot be told
+// from one that never was.
+func (s *Server) mapMeta(ctx context.Context, mapID, campaignID uuid.UUID) (db.GetMapMetaForCampaignRow, error) {
+	return s.queries.GetMapMetaForCampaign(ctx, db.GetMapMetaForCampaignParams{MapID: mapID, CampaignID: campaignID})
 }
 
-// validateParentMap checks that a prospective parent exists, shares the
-// campaign, and doesn't create a cycle back to the child.
-func (s *Server) validateParentMap(ctx context.Context, campaignID, childID uuid.UUID, parent *uuid.UUID) error {
+// validateParentMap checks that a prospective parent exists, stands on the
+// same realm, and doesn't create a cycle back to the child.
+func (s *Server) validateParentMap(ctx context.Context, realmID, childID uuid.UUID, parent *uuid.UUID) error {
 	if parent == nil {
 		return nil
 	}
@@ -158,8 +166,8 @@ func (s *Server) validateParentMap(ctx context.Context, campaignID, childID uuid
 			}
 			return err
 		}
-		if p.CampaignID != campaignID {
-			return fmt.Errorf("parent map belongs to another campaign")
+		if p.RealmID != realmID {
+			return fmt.Errorf("parent map belongs to another realm")
 		}
 		if !p.ParentMapID.Valid {
 			return nil
@@ -229,7 +237,12 @@ func (s *Server) CreateMap(ctx context.Context, request api.CreateMapRequestObje
 	if err != nil {
 		return api.CreateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: err.Error()}}, nil
 	}
-	if err := s.validateParentMap(ctx, request.CampaignId, uuid.Nil, request.Body.ParentMapId); err != nil {
+	// The ground this map is hung on: the campaign's realm (#234).
+	campaign, err := s.queries.GetCampaign(ctx, request.CampaignId)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.validateParentMap(ctx, campaign.RealmID, uuid.Nil, request.Body.ParentMapId); err != nil {
 		return api.CreateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: err.Error()}}, nil
 	}
 	parent := pgtype.UUID{}
@@ -250,25 +263,38 @@ func (s *Server) CreateMap(ctx context.Context, request api.CreateMapRequestObje
 	// in the same breath, for the world map that is nobody's secret.
 	visible := request.Body.VisibleToParty != nil && *request.Body.VisibleToParty
 	row, err := s.queries.CreateMap(ctx, db.CreateMapParams{
-		CampaignID:     request.CampaignId,
-		ParentMapID:    parent,
-		LocationID:     locID,
-		Name:           name,
-		Image:          data,
-		ContentType:    contentType,
-		Width:          int32(w),
-		Height:         int32(h),
-		VisibleToParty: visible,
+		RealmID:     campaign.RealmID,
+		ParentMapID: parent,
+		LocationID:  locID,
+		Name:        name,
+		Image:       data,
+		ContentType: contentType,
+		Width:       int32(w),
+		Height:      int32(h),
 	})
 	if err != nil {
 		return nil, err
 	}
-	return api.CreateMap201JSONResponse(toAPIMap(mapRow(row), true, nil)), nil
+	// The veil is the hanging table's own (#234): the ground row carries none.
+	if err := s.queries.SetMapPartyVisibility(ctx, db.SetMapPartyVisibilityParams{
+		MapID: row.ID, CampaignID: request.CampaignId, VisibleToParty: visible,
+	}); err != nil {
+		return nil, err
+	}
+	out := mapRow{
+		ID: row.ID, RealmID: row.RealmID, CampaignID: request.CampaignId,
+		ParentMapID: row.ParentMapID, Name: row.Name, FogEnabled: row.FogEnabled,
+		Width: row.Width, Height: row.Height, CreatedAt: row.CreatedAt,
+		LocationID: row.LocationID, VisibleToParty: visible,
+	}
+	// Hung on shared ground: every table on the realm hears of it (veiled).
+	s.publishRealm(ctx, campaign.RealmID, live.TopicMap)
+	return api.CreateMap201JSONResponse(toAPIMap(out, true, nil)), nil
 }
 
 // GetMap returns one map with its pins; players never receive DM-only pins.
 func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (api.GetMapResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.GetMap404JSONResponse{NotFoundJSONResponse: notFound()}, nil
@@ -307,7 +333,7 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 	revealed := []api.RevealCircle{}
 	if meta.FogEnabled {
 		if isDM {
-			rows, err := s.queries.ListAllRevealCircles(ctx, request.MapId)
+			rows, err := s.queries.ListAllRevealCircles(ctx, db.ListAllRevealCirclesParams{MapID: request.MapId, CampaignID: meta.CampaignID})
 			if err != nil {
 				return nil, err
 			}
@@ -356,7 +382,7 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 			}
 			// A map that has since been struck reads as veiled: a marker
 			// leading nowhere is not worth handing over either.
-			linked, lerr := s.mapMeta(ctx, id)
+			linked, lerr := s.mapMeta(ctx, id, meta.CampaignID)
 			veiled := lerr != nil || !viewer.mayRead(mapRow(linked))
 			seen[id] = veiled
 			return veiled
@@ -394,7 +420,7 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 
 // UpdateMap renames a map or re-hangs it under a parent (DM only).
 func (s *Server) UpdateMap(ctx context.Context, request api.UpdateMapRequestObject) (api.UpdateMapResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.UpdateMap404JSONResponse{NotFoundJSONResponse: notFound()}, nil
@@ -414,7 +440,7 @@ func (s *Server) UpdateMap(ctx context.Context, request api.UpdateMapRequestObje
 	if name == "" {
 		return api.UpdateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "the map needs a name"}}, nil
 	}
-	if err := s.validateParentMap(ctx, meta.CampaignID, request.MapId, request.Body.ParentMapId); err != nil {
+	if err := s.validateParentMap(ctx, meta.RealmID, request.MapId, request.Body.ParentMapId); err != nil {
 		return api.UpdateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: err.Error()}}, nil
 	}
 	parent := pgtype.UUID{}
@@ -454,17 +480,26 @@ func (s *Server) UpdateMap(ctx context.Context, request api.UpdateMapRequestObje
 		return nil, err
 	}
 	// Only the DM reaches this handler, and the veil is not theirs to change
-	// here — /maps/{id}/visibility is the one door onto it.
+	// here — /maps/{id}/visibility is the one door onto it — so the lens's
+	// flag is carried over unchanged (#234).
 	mv, err := s.loadMapVeil(ctx, meta.CampaignID)
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateMap200JSONResponse(toAPIMap(mapRow(row), true, mv.overridesFor(row.ID))), nil
+	out := mapRow{
+		ID: row.ID, RealmID: row.RealmID, CampaignID: meta.CampaignID,
+		ParentMapID: row.ParentMapID, Name: row.Name, FogEnabled: row.FogEnabled,
+		Width: row.Width, Height: row.Height, CreatedAt: row.CreatedAt,
+		LocationID: row.LocationID, VisibleToParty: meta.VisibleToParty,
+	}
+	// A rename or a re-hang is shared ground: every table on the realm hears.
+	s.publishRealm(ctx, meta.RealmID, live.TopicMap)
+	return api.UpdateMap200JSONResponse(toAPIMap(out, true, mv.overridesFor(row.ID))), nil
 }
 
 // DeleteMap strikes a map and, by cascade, its pins (DM only).
 func (s *Server) DeleteMap(ctx context.Context, request api.DeleteMapRequestObject) (api.DeleteMapResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.DeleteMap404JSONResponse{NotFoundJSONResponse: notFound()}, nil
@@ -483,6 +518,7 @@ func (s *Server) DeleteMap(ctx context.Context, request api.DeleteMapRequestObje
 	if _, err := s.queries.DeleteMap(ctx, request.MapId); err != nil {
 		return nil, err
 	}
+	s.publishRealm(ctx, meta.RealmID, live.TopicMap)
 	return api.DeleteMap204Response{}, nil
 }
 
@@ -509,7 +545,7 @@ func pinShapeOf(v *api.MapPinInputShape) (string, bool) {
 }
 
 // validatePinInput normalizes and checks a pin body against its map.
-func (s *Server) validatePinInput(ctx context.Context, campaignID uuid.UUID, body *api.MapPinInput) (label, note string, link pgtype.UUID, errMsg string, err error) {
+func (s *Server) validatePinInput(ctx context.Context, realmID uuid.UUID, body *api.MapPinInput) (label, note string, link pgtype.UUID, errMsg string, err error) {
 	label = strings.TrimSpace(body.Label)
 	if label == "" {
 		return "", "", pgtype.UUID{}, "the pin needs a label", nil
@@ -531,8 +567,8 @@ func (s *Server) validatePinInput(ctx context.Context, campaignID uuid.UUID, bod
 			}
 			return "", "", pgtype.UUID{}, "", err
 		}
-		if target.CampaignID != campaignID {
-			return "", "", pgtype.UUID{}, "linked map belongs to another campaign", nil
+		if target.RealmID != realmID {
+			return "", "", pgtype.UUID{}, "linked map belongs to another realm", nil
 		}
 		link = pgUUID(*body.LinkMapId)
 	}
@@ -541,7 +577,7 @@ func (s *Server) validatePinInput(ctx context.Context, campaignID uuid.UUID, bod
 
 // CreateMapPin drops a pin on a map (DM only).
 func (s *Server) CreateMapPin(ctx context.Context, request api.CreateMapPinRequestObject) (api.CreateMapPinResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.CreateMapPin404JSONResponse{NotFoundJSONResponse: notFound()}, nil
@@ -557,7 +593,7 @@ func (s *Server) CreateMapPin(ctx context.Context, request api.CreateMapPinReque
 		}
 		return nil, err
 	}
-	label, note, link, errMsg, err := s.validatePinInput(ctx, meta.CampaignID, request.Body)
+	label, note, link, errMsg, err := s.validatePinInput(ctx, meta.RealmID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -577,19 +613,16 @@ func (s *Server) CreateMapPin(ctx context.Context, request api.CreateMapPinReque
 	if err != nil {
 		return nil, err
 	}
+	s.publishRealm(ctx, meta.RealmID, live.TopicMap)
 	return api.CreateMapPin201JSONResponse(toAPIPin(pin)), nil
 }
 
 // UpdateMapPin moves or rewords a pin (DM only).
 func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinRequestObject) (api.UpdateMapPinResponseObject, error) {
-	row, err := s.queries.GetMapPin(ctx, request.PinId)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.UpdateMapPin404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, row.CampaignID); err != nil {
+	// The lens first, then the pin through it (#234): a pin whose map is not
+	// on this campaign's realm is no row, and answers 404.
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.UpdateMapPin401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -598,7 +631,14 @@ func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinReque
 		}
 		return nil, err
 	}
-	label, note, link, errMsg, err := s.validatePinInput(ctx, row.CampaignID, request.Body)
+	row, err := s.queries.GetMapPin(ctx, db.GetMapPinParams{PinID: request.PinId, CampaignID: lensID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.UpdateMapPin404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	label, note, link, errMsg, err := s.validatePinInput(ctx, row.RealmID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -618,19 +658,14 @@ func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinReque
 	if err != nil {
 		return nil, err
 	}
+	s.publishRealm(ctx, row.RealmID, live.TopicMap)
 	return api.UpdateMapPin200JSONResponse(toAPIPin(pin)), nil
 }
 
 // DeleteMapPin pulls a pin off the map (DM only).
 func (s *Server) DeleteMapPin(ctx context.Context, request api.DeleteMapPinRequestObject) (api.DeleteMapPinResponseObject, error) {
-	row, err := s.queries.GetMapPin(ctx, request.PinId)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.DeleteMapPin404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, row.CampaignID); err != nil {
+	lensID := uuid.UUID(request.Params.CampaignId)
+	if _, err := s.requireDM(ctx, lensID); err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.DeleteMapPin401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -639,9 +674,17 @@ func (s *Server) DeleteMapPin(ctx context.Context, request api.DeleteMapPinReque
 		}
 		return nil, err
 	}
+	row, err := s.queries.GetMapPin(ctx, db.GetMapPinParams{PinID: request.PinId, CampaignID: lensID})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.DeleteMapPin404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
 	if _, err := s.queries.DeleteMapPin(ctx, request.PinId); err != nil {
 		return nil, err
 	}
+	s.publishRealm(ctx, row.RealmID, live.TopicMap)
 	return api.DeleteMapPin204Response{}, nil
 }
 
@@ -663,7 +706,14 @@ func (s *Server) ServeMapImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "authentication required", http.StatusUnauthorized)
 		return
 	}
-	meta, err := s.mapMeta(r.Context(), mapID)
+	// The lens (#234), taken the way the JSON map takes it — the picture and
+	// the payload must agree about whose fog is on the glass.
+	lensID, err := uuid.Parse(r.URL.Query().Get("campaignId"))
+	if err != nil {
+		http.Error(w, "campaignId is required", http.StatusBadRequest)
+		return
+	}
+	meta, err := s.mapMeta(r.Context(), mapID, lensID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			http.Error(w, "not found", http.StatusNotFound)

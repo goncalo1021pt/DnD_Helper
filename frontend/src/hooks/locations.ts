@@ -1,6 +1,9 @@
 /*
  * The place tree, and the veil the DM draws over it. Quests hang off places,
  * so revealing either one invalidates the board.
+ *
+ * A place belongs to a realm, not a campaign (#234), so every id-addressed
+ * call names the campaign it is read through — the lens — as a query param.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -45,7 +48,7 @@ export function useUpdateLocation(campaignId: string) {
   return useMutation({
     mutationFn: async ({ locationId, body }: { locationId: string; body: UpdateLocationInput }) => {
       const { data, error } = await api.PATCH("/locations/{locationId}", {
-        params: { path: { locationId } },
+        params: { path: { locationId }, query: { campaignId } },
         body,
       });
       if (error) throw error;
@@ -72,7 +75,7 @@ export function useMoveLocation(campaignId: string) {
       parentId: string | null;
     }) => {
       const { data, error } = await api.PUT("/locations/{locationId}/parent", {
-        params: { path: { locationId } },
+        params: { path: { locationId }, query: { campaignId } },
         body: { parentId },
       });
       if (error) throw error;
@@ -87,7 +90,7 @@ export function useDeleteLocation(campaignId: string) {
   return useMutation({
     mutationFn: async (locationId: string) => {
       const { error } = await api.DELETE("/locations/{locationId}", {
-        params: { path: { locationId } },
+        params: { path: { locationId }, query: { campaignId } },
       });
       if (error) throw error;
     },
@@ -100,7 +103,7 @@ export function useSetLocationVisibility(campaignId: string) {
   return useMutation({
     mutationFn: async ({ locationId, body }: { locationId: string; body: SetVisibilityInput }) => {
       const { data, error } = await api.PUT("/locations/{locationId}/visibility", {
-        params: { path: { locationId } },
+        params: { path: { locationId }, query: { campaignId } },
         body,
       });
       if (error) throw error;
@@ -131,7 +134,7 @@ export function useClearLocationOverride(campaignId: string) {
   return useMutation({
     mutationFn: async ({ locationId, characterId }: { locationId: string; characterId: string }) => {
       const { error } = await api.DELETE("/locations/{locationId}/visibility/{characterId}", {
-        params: { path: { locationId, characterId } },
+        params: { path: { locationId, characterId }, query: { campaignId } },
       });
       if (error) throw error;
     },

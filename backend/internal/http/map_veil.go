@@ -159,7 +159,7 @@ func (v *mapViewer) mayRead(m mapRow) bool {
 
 // SetMapVisibility reveals or hides a map at one of three grains (DM only).
 func (s *Server) SetMapVisibility(ctx context.Context, request api.SetMapVisibilityRequestObject) (api.SetMapVisibilityResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.SetMapVisibility404JSONResponse{NotFoundJSONResponse: notFound()}, nil
@@ -184,8 +184,8 @@ func (s *Server) SetMapVisibility(ctx context.Context, request api.SetMapVisibil
 	}
 	switch {
 	case grain.table:
-		if _, err := s.queries.SetMapPartyVisibility(ctx, db.SetMapPartyVisibilityParams{
-			ID: meta.ID, VisibleToParty: request.Body.Visible,
+		if err := s.queries.SetMapPartyVisibility(ctx, db.SetMapPartyVisibilityParams{
+			MapID: meta.ID, CampaignID: meta.CampaignID, VisibleToParty: request.Body.Visible,
 		}); err != nil {
 			return nil, err
 		}
@@ -216,7 +216,7 @@ func (s *Server) SetMapVisibility(ctx context.Context, request api.SetMapVisibil
 
 // ClearMapVisibilityOverride drops one hero's exception (DM only).
 func (s *Server) ClearMapVisibilityOverride(ctx context.Context, request api.ClearMapVisibilityOverrideRequestObject) (api.ClearMapVisibilityOverrideResponseObject, error) {
-	meta, err := s.mapMeta(ctx, request.MapId)
+	meta, err := s.mapMeta(ctx, request.MapId, uuid.UUID(request.Params.CampaignId))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.ClearMapVisibilityOverride404JSONResponse{NotFoundJSONResponse: notFound()}, nil

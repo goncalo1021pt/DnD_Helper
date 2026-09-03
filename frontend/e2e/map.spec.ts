@@ -57,14 +57,15 @@ async function twoTonePng(page: Page): Promise<string> {
 async function samplePixel(
   page: Page,
   mapId: string,
+  campaignId: string,
   fx: number,
   fy: number,
   bust: string,
 ): Promise<[number, number, number]> {
   return page.evaluate(
-    async ([mapId, fx, fy, bust]) => {
+    async ([mapId, campaignId, fx, fy, bust]) => {
       const img = new Image();
-      img.src = `/api/maps/${mapId}/image?v=${bust}`;
+      img.src = `/api/maps/${mapId}/image?campaignId=${campaignId}&v=${bust}`;
       await img.decode();
       const canvas = document.createElement("canvas");
       canvas.width = img.naturalWidth;
@@ -76,7 +77,7 @@ async function samplePixel(
       const d = ctx.getImageData(x, y, 1, 1).data;
       return [d[0], d[1], d[2]] as [number, number, number];
     },
-    [mapId, fx, fy, bust] as [string, number, number, string],
+    [mapId, campaignId, fx, fy, bust] as [string, string, number, number, string],
   );
 }
 
@@ -106,15 +107,15 @@ test("the fog is composited server-side: a player never receives hidden pixels",
 
   // Fog is opt-in per map (fog_enabled defaults to false), so a fresh map is
   // open ground. Draw the fog before asserting anything about it.
-  const fogged = await dmPage.request.patch(`/api/maps/${mapId}`, {
+  const fogged = await dmPage.request.patch(`/api/maps/${mapId}?campaignId=${campaignId}`, {
     data: { name: "The Road East", fogEnabled: true },
   });
   expect(fogged.ok(), await fogged.text()).toBeTruthy();
 
   // --- the DM sees the whole map, fog or no fog ---------------------------
   await dmPage.goto(`/questboard/campaigns/${campaignId}/map`);
-  expect(isRed(await samplePixel(dmPage, mapId, 0.25, 0.5, "dm")), "DM should see the red half").toBe(true);
-  expect(isBlue(await samplePixel(dmPage, mapId, 0.75, 0.5, "dm")), "DM should see the blue half").toBe(true);
+  expect(isRed(await samplePixel(dmPage, mapId, campaignId, 0.25, 0.5, "dm")), "DM should see the red half").toBe(true);
+  expect(isBlue(await samplePixel(dmPage, mapId, campaignId, 0.75, 0.5, "dm")), "DM should see the blue half").toBe(true);
 
   // --- the player, before any reveal, sees nothing ------------------------
   const playerCtx = await browser.newContext();
@@ -124,11 +125,11 @@ test("the fog is composited server-side: a player never receives hidden pixels",
   await joinCampaign(playerPage.request, campaign.inviteCode);
 
   await playerPage.goto(`/questboard/campaigns/${campaignId}/map`);
-  expect(isDark(await samplePixel(playerPage, mapId, 0.25, 0.5, "0")), "left half must be fogged").toBe(true);
-  expect(isDark(await samplePixel(playerPage, mapId, 0.75, 0.5, "0")), "right half must be fogged").toBe(true);
+  expect(isDark(await samplePixel(playerPage, mapId, campaignId, 0.25, 0.5, "0")), "left half must be fogged").toBe(true);
+  expect(isDark(await samplePixel(playerPage, mapId, campaignId, 0.75, 0.5, "0")), "right half must be fogged").toBe(true);
 
   // --- the DM lifts the fog over the western half only --------------------
-  const submitted = await dmPage.request.post(`/api/maps/${mapId}/reveals`, {
+  const submitted = await dmPage.request.post(`/api/maps/${mapId}/reveals?campaignId=${campaignId}`, {
     data: { note: "session 1 — the western road", circles: [{ x: 0.25, y: 0.5, r: 0.3 }] },
   });
   expect(submitted.ok(), await submitted.text()).toBeTruthy();
@@ -136,13 +137,13 @@ test("the fog is composited server-side: a player never receives hidden pixels",
   // The player now receives the west, and STILL not the east. This is the
   // assertion the whole feature exists for.
   await expect
-    .poll(async () => isRed(await samplePixel(playerPage, mapId, 0.25, 0.5, "1")), {
+    .poll(async () => isRed(await samplePixel(playerPage, mapId, campaignId, 0.25, 0.5, "1")), {
       timeout: 15_000,
       message: "the revealed half should reach the player",
     })
     .toBe(true);
   expect(
-    isDark(await samplePixel(playerPage, mapId, 0.9, 0.5, "1")),
+    isDark(await samplePixel(playerPage, mapId, campaignId, 0.9, 0.5, "1")),
     "the unrevealed half must still be withheld",
   ).toBe(true);
 
@@ -168,10 +169,10 @@ test("players never receive DM-only pins", async ({ browser }) => {
     ).json()
   ).id as string;
 
-  await dmPage.request.post(`/api/maps/${mapId}/pins`, {
+  await dmPage.request.post(`/api/maps/${mapId}/pins?campaignId=${campaignId}`, {
     data: { label: "The Tavern", x: 0.2, y: 0.2, dmOnly: false },
   });
-  await dmPage.request.post(`/api/maps/${mapId}/pins`, {
+  await dmPage.request.post(`/api/maps/${mapId}/pins?campaignId=${campaignId}`, {
     data: { label: "Ambush Here", x: 0.8, y: 0.8, dmOnly: true, note: "three goblins" },
   });
 
@@ -181,8 +182,8 @@ test("players never receive DM-only pins", async ({ browser }) => {
   await registerViaAPI(playerPage.request, player);
   await joinCampaign(playerPage.request, campaign.inviteCode);
 
-  const asDM = await (await dmPage.request.get(`/api/maps/${mapId}`)).json();
-  const asPlayer = await (await playerPage.request.get(`/api/maps/${mapId}`)).json();
+  const asDM = await (await dmPage.request.get(`/api/maps/${mapId}?campaignId=${campaignId}`)).json();
+  const asPlayer = await (await playerPage.request.get(`/api/maps/${mapId}?campaignId=${campaignId}`)).json();
 
   const labels = (m: { pins?: Array<{ label: string }> }) => (m.pins ?? []).map((p) => p.label).sort();
   expect(labels(asDM)).toEqual(["Ambush Here", "The Tavern"]);
@@ -279,12 +280,12 @@ test("a stranger with the URL gets nothing", async ({ browser }) => {
   const outPage = await outCtx.newPage();
   await outPage.goto("/");
   await registerViaAPI(outPage.request, stranger);
-  expect((await outPage.request.get(`/api/maps/${mapId}/image`)).status()).toBe(403);
-  expect((await outPage.request.get(`/api/maps/${mapId}`)).status()).toBe(403);
+  expect((await outPage.request.get(`/api/maps/${mapId}/image?campaignId=${campaignId}`)).status()).toBe(403);
+  expect((await outPage.request.get(`/api/maps/${mapId}?campaignId=${campaignId}`)).status()).toBe(403);
 
   // Not signed in at all.
   const anonCtx = await browser.newContext();
-  expect((await anonCtx.request.get(`/api/maps/${mapId}/image`)).status()).toBe(401);
+  expect((await anonCtx.request.get(`/api/maps/${mapId}/image?campaignId=${campaignId}`)).status()).toBe(401);
 
   await dmCtx.close();
   await outCtx.close();
@@ -316,7 +317,7 @@ test("a DM stamps the fog back, takes one stamp off, and seals the rest", async 
   expect(res.ok(), await res.text()).toBeTruthy();
   const mapId = (await res.json()).id as string;
   // Fog is opt-in per map, and there is nothing to lift until it is on.
-  await page.request.patch(`/api/maps/${mapId}`, {
+  await page.request.patch(`/api/maps/${mapId}?campaignId=${campaign.id}`, {
     data: { name: "The Fogged Vale", fogEnabled: true },
   });
 
@@ -355,7 +356,7 @@ test("a DM stamps the fog back, takes one stamp off, and seals the rest", async 
   });
 
   // And the ledger holds exactly what was sealed — two circles, under its note.
-  const batches = await (await page.request.get(`/api/maps/${mapId}/reveals`)).json();
+  const batches = await (await page.request.get(`/api/maps/${mapId}/reveals?campaignId=${campaign.id}`)).json();
   expect(batches).toHaveLength(1);
   expect(batches[0].note).toBe("session 1 — the vale");
   // `circles` on a batch is a count, not the circles themselves.
@@ -398,7 +399,7 @@ test("a pin lands where it was dropped, in the map's own coordinates", async ({ 
   await expect(page.getByText("The Sleeping Giant Inn")).toBeVisible({ timeout: 20_000 });
 
   // The stored fractions are what the DM aimed at, not merely *a* pair.
-  const detail = await (await page.request.get(`/api/maps/${mapId}`)).json();
+  const detail = await (await page.request.get(`/api/maps/${mapId}?campaignId=${campaign.id}`)).json();
   expect(detail.pins).toHaveLength(1);
   expect(detail.pins[0].x).toBeGreaterThan(0.65);
   expect(detail.pins[0].x).toBeLessThan(0.85);
@@ -433,7 +434,7 @@ test("a reveal tied to a place lifts only for the heroes who know it", async ({ 
       })
     ).json()
   ).id as string;
-  await dmPage.request.patch(`/api/maps/${mapId}`, {
+  await dmPage.request.patch(`/api/maps/${mapId}?campaignId=${campaignId}`, {
     data: { name: "The Coast", fogEnabled: true },
   });
 
@@ -468,7 +469,7 @@ test("a reveal tied to a place lifts only for the heroes who know it", async ({ 
   const guest = await seat(stranger, unique("Kord "));
 
   // One batch, tied to the city.
-  const submitted = await dmPage.request.post(`/api/maps/${mapId}/reveals`, {
+  const submitted = await dmPage.request.post(`/api/maps/${mapId}/reveals?campaignId=${campaignId}`, {
     data: {
       note: "knowledge of the city",
       locationId: lisboa,
@@ -484,37 +485,37 @@ test("a reveal tied to a place lifts only for the heroes who know it", async ({ 
   ] as const) {
     await page.goto(`/questboard/campaigns/${campaignId}/map`);
     expect(
-      isDark(await samplePixel(page, mapId, 0.25, 0.5, "0")),
+      isDark(await samplePixel(page, mapId, campaignId, 0.25, 0.5, "0")),
       `${who} should see nothing before the place is given to anyone`,
     ).toBe(true);
   }
 
   // The DM gives the city to one hero — a background, not a party reveal.
-  const given = await dmPage.request.put(`/api/locations/${lisboa}/visibility`, {
+  const given = await dmPage.request.put(`/api/locations/${lisboa}/visibility?campaignId=${campaignId}`, {
     data: { scope: "character", characterId: born.heroId, visible: true },
   });
   expect(given.ok(), await given.text()).toBeTruthy();
 
   await expect
-    .poll(async () => isRed(await samplePixel(born.page, mapId, 0.25, 0.5, "1")), {
+    .poll(async () => isRed(await samplePixel(born.page, mapId, campaignId, 0.25, 0.5, "1")), {
       timeout: 15_000,
       message: "the hero who grew up there should receive the city",
     })
     .toBe(true);
   expect(
-    isDark(await samplePixel(guest.page, mapId, 0.25, 0.5, "1")),
+    isDark(await samplePixel(guest.page, mapId, campaignId, 0.25, 0.5, "1")),
     "a stranger to the city must still receive black",
   ).toBe(true);
 
   // The pixels are the disclosure, but the JSON must agree — a circle handed
   // to a player who cannot see the place would leak where the city is.
-  const asStranger = await (await guest.page.request.get(`/api/maps/${mapId}`)).json();
+  const asStranger = await (await guest.page.request.get(`/api/maps/${mapId}?campaignId=${campaignId}`)).json();
   expect(asStranger.revealed, "a stranger holds no circles for that place").toHaveLength(0);
 
   // The party rides in: the same batch now serves everyone, unstamped again.
-  await revealLocation(dmPage.request, lisboa);
+  await revealLocation(dmPage.request, lisboa, campaignId);
   await expect
-    .poll(async () => isRed(await samplePixel(guest.page, mapId, 0.25, 0.5, "2")), {
+    .poll(async () => isRed(await samplePixel(guest.page, mapId, campaignId, 0.25, 0.5, "2")), {
       timeout: 15_000,
       message: "revealing the place to the party lifts the same ground for all",
     })
@@ -522,7 +523,7 @@ test("a reveal tied to a place lifts only for the heroes who know it", async ({ 
 
   // And the east, which nobody stamped, stays fogged throughout.
   expect(
-    isDark(await samplePixel(born.page, mapId, 0.9, 0.5, "2")),
+    isDark(await samplePixel(born.page, mapId, campaignId, 0.9, 0.5, "2")),
     "unstamped ground stays fogged whoever you are",
   ).toBe(true);
 
@@ -558,19 +559,19 @@ test("a map hangs on a place, re-files, and survives a say-nothing rename", asyn
   expect((await listed()).locationName, "the atlas knows the place").toBe("Ars");
 
   // A rename that says nothing about the place must not unfile it.
-  const rename = await page.request.patch(`/api/maps/${mapId}`, {
+  const rename = await page.request.patch(`/api/maps/${mapId}?campaignId=${campaign.id}`, {
     data: { name: "Ars, the Old City" },
   });
   expect(rename.ok(), await rename.text()).toBeTruthy();
   expect((await listed()).locationName, "absent means unchanged").toBe("Ars");
 
   // Re-filing and unfiling are deliberate acts.
-  const refile = await page.request.patch(`/api/maps/${mapId}`, {
+  const refile = await page.request.patch(`/api/maps/${mapId}?campaignId=${campaign.id}`, {
     data: { name: "Ars, the Old City", locationId: porto },
   });
   expect(refile.ok(), await refile.text()).toBeTruthy();
   expect((await listed()).locationName).toBe("Porto");
-  const unfile = await page.request.patch(`/api/maps/${mapId}`, {
+  const unfile = await page.request.patch(`/api/maps/${mapId}?campaignId=${campaign.id}`, {
     data: { name: "Ars, the Old City", locationId: "00000000-0000-0000-0000-000000000000" },
   });
   expect(unfile.ok(), await unfile.text()).toBeTruthy();
@@ -579,7 +580,7 @@ test("a map hangs on a place, re-files, and survives a say-nothing rename", asyn
   // Another campaign's ground is refused at the door.
   const other = await createCampaign(page.request, unique("Elsewhere "));
   const foreign = await createLocation(page.request, other.id, "Foreign Soil");
-  const refused = await page.request.patch(`/api/maps/${mapId}`, {
+  const refused = await page.request.patch(`/api/maps/${mapId}?campaignId=${campaign.id}`, {
     data: { name: "Ars, the Old City", locationId: foreign },
   });
   expect(refused.status(), "a place from another campaign is unknown here").toBe(400);
