@@ -235,3 +235,46 @@ export function useSetProgression(campaignId: string) {
     },
   });
 }
+
+/*
+ * Ownership and the screen (#299). Only the owner may give a member the DM's
+ * screen, take it back, or hand the whole table over. Each changes what the
+ * roster shows AND what the campaign list says about who holds what, and a
+ * promoted member's own nav changes shape — so the members, campaigns and me
+ * caches all go stale at once.
+ */
+function invalidateAfterStanding(qc: ReturnType<typeof useQueryClient>, campaignId: string) {
+  qc.invalidateQueries({ queryKey: ["members", campaignId] });
+  qc.invalidateQueries({ queryKey: ["campaigns"] });
+  qc.invalidateQueries({ queryKey: ["me"] });
+}
+
+export function useSetMemberRole(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: "dm" | "player" }) => {
+      const { data, error } = await api.PUT("/campaigns/{campaignId}/members/{userId}/role", {
+        params: { path: { campaignId, userId } },
+        body: { role },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => invalidateAfterStanding(qc, campaignId),
+  });
+}
+
+export function useTransferCampaign(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/owner", {
+        params: { path: { campaignId } },
+        body: { userId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => invalidateAfterStanding(qc, campaignId),
+  });
+}

@@ -285,18 +285,17 @@ func (s *Server) RegenerateInvite(ctx context.Context, request api.RegenerateInv
 // chronicle, codex, maps, encounters, memberships, bans — is gone with it.
 func (s *Server) DeleteCampaign(ctx context.Context, request api.DeleteCampaignRequestObject) (api.DeleteCampaignResponseObject, error) {
 	campaignID := uuid.UUID(request.CampaignId)
-	if _, err := s.queries.GetCampaign(ctx, campaignID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.DeleteCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	if _, err := s.requireDM(ctx, campaignID); err != nil {
+	// Ending the table is the owner's act, not any DM's (#299).
+	if _, err := s.requireOwner(ctx, campaignID); err != nil {
 		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			return api.DeleteCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		case errors.Is(err, errNoAuth):
 			return api.DeleteCampaign401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 		case errors.Is(err, errForbidden):
-			return api.DeleteCampaign403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+			return api.DeleteCampaign403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{
+				Error: "only the owner may disband the table",
+			}}, nil
 		default:
 			return nil, err
 		}

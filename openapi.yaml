@@ -337,7 +337,7 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     delete:
       operationId: deleteCampaign
-      summary: Permanently delete a campaign (DM only)
+      summary: Permanently delete a campaign (owner only — a co-DM runs the table, they do not end it;
       description: |
         Strikes the campaign for good: quests, the chronicle, codex rulings, maps, encounters, memberships, and bans are all removed with it. Heroes seated there return to My Heroes rather than being deleted.
       responses:
@@ -396,10 +396,67 @@ paths:
     delete:
       operationId: kickMember
       summary: |
-        Remove a player from the table (DM only). Their heroes return to My Heroes, their claims on open quests are released, and they leave any knowledge pools. They may rejoin with the invite code unless banned.
+        Remove a member from the table. A DM may remove players; only the owner may remove a DM, and the owner is never removed (#299). Their heroes return to My Heroes, their claims on open quests are released, and they leave any knowledge pools. They may rejoin with the invite code unless banned.
       responses:
         "204":
           description: Removed from the campaign
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /campaigns/{campaignId}/members/{userId}/role:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/UserId"
+    put:
+      operationId: setMemberRole
+      summary: |
+        Give a member the screen, or take it back (owner only, #299). A DM runs the table; the owner appoints the DMs. The owner's own role cannot be changed here — hand the table over instead.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetMemberRoleRequest"
+      responses:
+        "200":
+          description: The member, as they now stand
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /campaigns/{campaignId}/owner:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: transferCampaign
+      summary: |
+        Hand the table to another member (owner only, #299). They become its owner and a DM; you stay seated as a DM and lose only the owner's doors. A campaign alone in its realm takes the realm with it, atlas and all; one sharing a realm with the owner's other campaigns steps onto fresh ground of the new owner's, since a world cannot be split.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferCampaignRequest"
+      responses:
+        "200":
+          description: The campaign under its new owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -432,7 +489,7 @@ paths:
     post:
       operationId: banMember
       summary: |
-        Bar a user from this campaign (DM only). If currently a member they are kicked first; the invite code no longer admits them until unbanned.
+        Bar a user from this campaign (DM only). If currently a member they are kicked first; the invite code no longer admits them until unbanned. A DM may bar players; only the owner may bar a DM, and the owner is never barred (#299).
       requestBody:
         required: true
         content:
@@ -472,7 +529,7 @@ paths:
     post:
       operationId: leaveCampaign
       summary: |
-        Walk away from the table (members only). Your heroes return to My Heroes, your claims on open quests are released, and you leave any knowledge pools. The DM cannot leave — they disband the table instead.
+        Walk away from the table (members only). Your heroes return to My Heroes, your claims on open quests are released, and you leave any knowledge pools. The owner cannot leave — they hand the table over or disband it; a co-DM may walk away like anyone else (#299).
       responses:
         "204":
           description: You have left the campaign
@@ -4557,10 +4614,14 @@ components:
         - name
         - role
         - joinedAt
+        - isOwner
       properties:
         userId:
           type: string
           format: uuid
+        isOwner:
+          type: boolean
+          description: True for the member who holds the table (#299) — the one who founded it or was handed it. The owner is always a DM; a DM is not always the owner.
         name:
           type: string
         image:
@@ -4571,6 +4632,22 @@ components:
         joinedAt:
           type: string
           format: date-time
+    SetMemberRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+    TransferCampaignRequest:
+      type: object
+      required:
+        - userId
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: The member who takes the table. They must already sit at it.
     Ban:
       type: object
       required:

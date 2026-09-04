@@ -15,7 +15,8 @@ import (
 // ListMembers returns everyone at the table (members only).
 func (s *Server) ListMembers(ctx context.Context, request api.ListMembersRequestObject) (api.ListMembersResponseObject, error) {
 	campaignID := uuid.UUID(request.CampaignId)
-	if _, err := s.queries.GetCampaign(ctx, campaignID); err != nil {
+	campaign, err := s.queries.GetCampaign(ctx, campaignID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.ListMembers404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
@@ -44,6 +45,9 @@ func (s *Server) ListMembers(ctx context.Context, request api.ListMembersRequest
 			Image:    r.Image,
 			Role:     toAPIRole(r.Role),
 			JoinedAt: r.CreatedAt.Time,
+			// Who holds the table (#299): the owner is one of the DMs, and
+			// the roster says which.
+			IsOwner: r.UserID == campaign.OwnerUserID,
 		})
 	}
 	return api.ListMembers200JSONResponse(members), nil
@@ -53,13 +57,15 @@ func (s *Server) ListMembers(ctx context.Context, request api.ListMembersRequest
 func (s *Server) KickMember(ctx context.Context, request api.KickMemberRequestObject) (api.KickMemberResponseObject, error) {
 	campaignID := uuid.UUID(request.CampaignId)
 	targetID := uuid.UUID(request.UserId)
-	if _, err := s.queries.GetCampaign(ctx, campaignID); err != nil {
+	campaign, err := s.queries.GetCampaign(ctx, campaignID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.KickMember404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
 		return nil, err
 	}
-	if _, err := s.requireDM(ctx, campaignID); err != nil {
+	caller, err := s.requireDM(ctx, campaignID)
+	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.KickMember401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -77,9 +83,15 @@ func (s *Server) KickMember(ctx context.Context, request api.KickMemberRequestOb
 		}
 		return nil, err
 	}
-	if target.Role == db.MembershipRoleDm {
+	// The owner is never removed, and a DM is removed only by the owner (#299).
+	if targetID == campaign.OwnerUserID {
 		return api.KickMember400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
-			Error: "the DM cannot be removed from their own table",
+			Error: "the owner cannot be removed from their own table — they hand it over or disband it",
+		}}, nil
+	}
+	if target.Role == db.MembershipRoleDm && caller.UserID != campaign.OwnerUserID {
+		return api.KickMember403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{
+			Error: "only the owner may remove a DM",
 		}}, nil
 	}
 
@@ -92,13 +104,15 @@ func (s *Server) KickMember(ctx context.Context, request api.KickMemberRequestOb
 // BanMember bars a user from the campaign (DM only), kicking them first if seated.
 func (s *Server) BanMember(ctx context.Context, request api.BanMemberRequestObject) (api.BanMemberResponseObject, error) {
 	campaignID := uuid.UUID(request.CampaignId)
-	if _, err := s.queries.GetCampaign(ctx, campaignID); err != nil {
+	campaign, err := s.queries.GetCampaign(ctx, campaignID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.BanMember404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
 		return nil, err
 	}
-	if _, err := s.requireDM(ctx, campaignID); err != nil {
+	caller, err := s.requireDM(ctx, campaignID)
+	if err != nil {
 		switch {
 		case errors.Is(err, errNoAuth):
 			return api.BanMember401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
@@ -115,12 +129,17 @@ func (s *Server) BanMember(ctx context.Context, request api.BanMemberRequestObje
 	}
 	targetID := uuid.UUID(request.Body.UserId)
 
-	// A DM can never be banned from their own table; non-members may be
-	// (e.g. banning someone kicked a moment ago).
-	target, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: targetID, CampaignID: campaignID})
-	if err == nil && target.Role == db.MembershipRoleDm {
+	// The owner is never barred, and a DM is barred only by the owner (#299);
+	// non-members may be (e.g. banning someone kicked a moment ago).
+	if targetID == campaign.OwnerUserID {
 		return api.BanMember400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
-			Error: "the DM cannot be banned from their own table",
+			Error: "the owner cannot be banned from their own table",
+		}}, nil
+	}
+	target, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: targetID, CampaignID: campaignID})
+	if err == nil && target.Role == db.MembershipRoleDm && caller.UserID != campaign.OwnerUserID {
+		return api.BanMember403JSONResponse{ForbiddenJSONResponse: api.ForbiddenJSONResponse{
+			Error: "only the owner may bar a DM",
 		}}, nil
 	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -209,22 +228,24 @@ func (s *Server) LeaveCampaign(ctx context.Context, request api.LeaveCampaignReq
 	if !ok {
 		return api.LeaveCampaign401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
-	if _, err := s.queries.GetCampaign(ctx, campaignID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return api.LeaveCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
-		}
-		return nil, err
-	}
-	membership, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: campaignID})
+	campaign, err := s.queries.GetCampaign(ctx, campaignID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.LeaveCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
 		return nil, err
 	}
-	if membership.Role == db.MembershipRoleDm {
+	if _, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: campaignID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.LeaveCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return nil, err
+	}
+	// The owner holds the table and cannot walk away from it; a co-DM may,
+	// like anyone else (#299).
+	if uid == campaign.OwnerUserID {
 		return api.LeaveCampaign400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
-			Error: "the DM cannot walk away from their own table — disband it instead",
+			Error: "the owner cannot walk away from their own table — hand it over or disband it",
 		}}, nil
 	}
 	if err := s.removeMemberTx(ctx, campaignID, uid, false); err != nil {

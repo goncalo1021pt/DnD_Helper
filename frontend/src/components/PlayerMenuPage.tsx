@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import {
   useCharacters,
+  useCurrentUser,
   useLeaveCampaign,
   useMyCharacters,
   useMySeatRequests,
@@ -25,13 +26,63 @@ export default function PlayerMenuPage() {
   const seat = useSeatCharacter();
   const leave = useLeaveCampaign(campaign.id);
   const [confirming, setConfirming] = useState(false);
+  const { data: me } = useCurrentUser();
+  const isOwner = me?.user.id === campaign.ownerUserId;
 
   if (role === "dm") {
     return (
-      <p className="font-accent text-base italic text-[#9c855e]">
-        The DM sits behind the screen, not at a player's seat — your tools
-        live in the DM Menu.
-      </p>
+      <div className="grid gap-7">
+        <p className="font-accent m-0 text-base italic text-[#9c855e]">
+          The DM sits behind the screen, not at a player's seat — your tools
+          live in the DM Menu.
+        </p>
+        {/* A co-DM may walk away like anyone else; the owner holds the table
+            and hands it over or disbands it instead (#299). */}
+        {!isOwner && (
+          <section className="panel-hall px-6 pb-6 pt-5" style={{ border: "1px solid rgba(139,37,32,.4)" }}>
+            <h2 className="font-display m-0 mb-2 text-[21px] font-black text-[#e8a493]">Leave the Table</h2>
+            <p className="font-body m-0 mb-4 text-[13.5px] leading-relaxed text-cream-soft">
+              Put the screen down and walk away from this campaign. The table stands; you may
+              return with the invite code, as a player.
+            </p>
+            <button
+              onClick={() => setConfirming(true)}
+              className="btn-base btn-ember clip-octagon h-10 px-5 text-[12px]"
+            >
+              Leave the table
+            </button>
+            {confirming && (
+              <ParchmentModal onClose={() => setConfirming(false)}>
+                <h3 className="font-display mb-2 mt-0 text-[20px] font-black text-ink">Leave {campaign.name}?</h3>
+                <p className="font-body mb-4 text-[13.5px] leading-relaxed text-ink-body">
+                  You put down the screen and leave the table. It stands under its owner.
+                </p>
+                {leave.isError && (
+                  <p className="font-body mb-3 text-sm italic text-[#8b2520]">
+                    {(leave.error as { error?: string } | null)?.error ?? "You are still at the table."}
+                  </p>
+                )}
+                <div className="flex items-center justify-end gap-4">
+                  <button
+                    onClick={() => setConfirming(false)}
+                    className="label-stamp cursor-pointer border-none bg-transparent px-2 text-[12px] text-ink-label transition hover:text-ink"
+                  >
+                    Stay
+                  </button>
+                  <button
+                    onClick={() => leave.mutate(undefined, { onSuccess: () => navigate("/questboard") })}
+                    disabled={leave.isPending}
+                    className="btn-base clip-octagon h-10 px-6 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ background: "#8b2520", color: "#f3e6c8" }}
+                  >
+                    {leave.isPending ? "Leaving…" : "Leave the table"}
+                  </button>
+                </div>
+              </ParchmentModal>
+            )}
+          </section>
+        )}
+      </div>
     );
   }
 

@@ -38,3 +38,9 @@ UPDATE campaigns SET realm_id = $2 WHERE id = $1 RETURNING *;
 -- ground (#234): a place renamed or a road drawn must refresh every atlas
 -- open on that realm, not only the one it was drawn from.
 SELECT id FROM campaigns WHERE realm_id = $1;
+
+-- name: TransferRealm :exec
+-- The ground goes with the table when the table is alone on it (#299): a
+-- campaign handed over takes its realm along, atlas and all, so a realm's
+-- campaigns keep sharing one owner.
+UPDATE realms SET owner_user_id = $2, updated_at = now() WHERE id = $1;
