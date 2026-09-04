@@ -67,3 +67,9 @@ DELETE FROM campaigns WHERE id = $1;
 -- name: SetCoinage :one
 -- The coins a table counts in (#195). NULL puts it back on the standard ladder.
 UPDATE campaigns SET coinage = $2 WHERE id = $1 RETURNING *;
+
+-- name: TransferCampaign :one
+-- Hand the table to another member (#299). Ownership is a separate fact from
+-- the DM role: the owner is one of the DMs, and holds the doors that reshape
+-- or end the table — disband, the realm, and this.
+UPDATE campaigns SET owner_user_id = $2 WHERE id = $1 RETURNING *;

@@ -42,6 +42,10 @@ paths:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1members"
   /campaigns/{campaignId}/members/{userId}:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1members~1{userId}"
+  /campaigns/{campaignId}/members/{userId}/role:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1members~1{userId}~1role"
+  /campaigns/{campaignId}/owner:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1owner"
   /campaigns/{campaignId}/bans:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1bans"
   /campaigns/{campaignId}/bans/{userId}:
@@ -453,6 +457,10 @@ components:
       $ref: "./components/campaigns.yaml#/CampaignMembership"
     Member:
       $ref: "./components/campaigns.yaml#/Member"
+    SetMemberRoleRequest:
+      $ref: "./components/campaigns.yaml#/SetMemberRoleRequest"
+    TransferCampaignRequest:
+      $ref: "./components/campaigns.yaml#/TransferCampaignRequest"
     Ban:
       $ref: "./components/campaigns.yaml#/Ban"
     BanRequest:

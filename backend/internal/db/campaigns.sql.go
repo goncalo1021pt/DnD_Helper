@@ -457,3 +457,36 @@ func (q *Queries) SetProgression(ctx context.Context, arg SetProgressionParams) 
 	)
 	return i, err
 }
+
+const transferCampaign = `-- name: TransferCampaign :one
+UPDATE campaigns SET owner_user_id = $2 WHERE id = $1 RETURNING id, name, owner_user_id, created_at, invite_code, next_session_at, progression, max_level, require_seating_approval, hidden_sheets, max_seated_per_player, realm_id, coinage
+`
+
+type TransferCampaignParams struct {
+	ID          uuid.UUID `json:"id"`
+	OwnerUserID uuid.UUID `json:"owner_user_id"`
+}
+
+// Hand the table to another member (#299). Ownership is a separate fact from
+// the DM role: the owner is one of the DMs, and holds the doors that reshape
+// or end the table — disband, the realm, and this.
+func (q *Queries) TransferCampaign(ctx context.Context, arg TransferCampaignParams) (Campaign, error) {
+	row := q.db.QueryRow(ctx, transferCampaign, arg.ID, arg.OwnerUserID)
+	var i Campaign
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerUserID,
+		&i.CreatedAt,
+		&i.InviteCode,
+		&i.NextSessionAt,
+		&i.Progression,
+		&i.MaxLevel,
+		&i.RequireSeatingApproval,
+		&i.HiddenSheets,
+		&i.MaxSeatedPerPlayer,
+		&i.RealmID,
+		&i.Coinage,
+	)
+	return i, err
+}

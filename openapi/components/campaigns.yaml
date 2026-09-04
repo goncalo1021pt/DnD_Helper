@@ -87,11 +87,17 @@ CampaignMembership:
 
 Member:
   type: object
-  required: [userId, name, role, joinedAt]
+  required: [userId, name, role, joinedAt, isOwner]
   properties:
     userId:
       type: string
       format: uuid
+    isOwner:
+      type: boolean
+      description: >-
+        True for the member who holds the table (#299) — the one who founded
+        it or was handed it. The owner is always a DM; a DM is not always the
+        owner.
     name:
       type: string
     image:
@@ -102,6 +108,22 @@ Member:
     joinedAt:
       type: string
       format: date-time
+
+SetMemberRoleRequest:
+  type: object
+  required: [role]
+  properties:
+    role:
+      $ref: "../openapi.yaml#/components/schemas/Role"
+
+TransferCampaignRequest:
+  type: object
+  required: [userId]
+  properties:
+    userId:
+      type: string
+      format: uuid
+      description: The member who takes the table. They must already sit at it.
 
 Ban:
   type: object

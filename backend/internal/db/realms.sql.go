@@ -211,3 +211,20 @@ func (q *Queries) SetCampaignRealm(ctx context.Context, arg SetCampaignRealmPara
 	)
 	return i, err
 }
+
+const transferRealm = `-- name: TransferRealm :exec
+UPDATE realms SET owner_user_id = $2, updated_at = now() WHERE id = $1
+`
+
+type TransferRealmParams struct {
+	ID          uuid.UUID `json:"id"`
+	OwnerUserID uuid.UUID `json:"owner_user_id"`
+}
+
+// The ground goes with the table when the table is alone on it (#299): a
+// campaign handed over takes its realm along, atlas and all, so a realm's
+// campaigns keep sharing one owner.
+func (q *Queries) TransferRealm(ctx context.Context, arg TransferRealmParams) error {
+	_, err := q.db.Exec(ctx, transferRealm, arg.ID, arg.OwnerUserID)
+	return err
+}

@@ -43,6 +43,7 @@ const (
 	// every table it sits at, so the room they travel in is the account itself.
 	TopicFriends  Topic = "friends"  // somebody asked, accepted, parted or blocked
 	TopicMessages Topic = "messages" // something was said to you
+	TopicTable    Topic = "table"    // your standing at a table changed: the screen given or taken, the table handed over (#299)
 )
 
 // buffer is how far behind a client may fall before it is cut loose. Small on

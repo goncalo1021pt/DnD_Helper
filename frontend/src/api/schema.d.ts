@@ -230,7 +230,7 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Permanently delete a campaign (DM only)
+         * Permanently delete a campaign (owner only — a co-DM runs the table, they do not end it;
          * @description Strikes the campaign for good: quests, the chronicle, codex rulings, maps, encounters, memberships, and bans are all removed with it. Heroes seated there return to My Heroes rather than being deleted.
          */
         delete: operations["deleteCampaign"];
@@ -290,8 +290,47 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove a player from the table (DM only). Their heroes return to My Heroes, their claims on open quests are released, and they leave any knowledge pools. They may rejoin with the invite code unless banned. */
+        /** Remove a member from the table. A DM may remove players; only the owner may remove a DM, and the owner is never removed (#299). Their heroes return to My Heroes, their claims on open quests are released, and they leave any knowledge pools. They may rejoin with the invite code unless banned. */
         delete: operations["kickMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/members/{userId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Give a member the screen, or take it back (owner only, #299). A DM runs the table; the owner appoints the DMs. The owner's own role cannot be changed here — hand the table over instead. */
+        put: operations["setMemberRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hand the table to another member (owner only, #299). They become its owner and a DM; you stay seated as a DM and lose only the owner's doors. A campaign alone in its realm takes the realm with it, atlas and all; one sharing a realm with the owner's other campaigns steps onto fresh ground of the new owner's, since a world cannot be split. */
+        post: operations["transferCampaign"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -309,7 +348,7 @@ export interface paths {
         /** Players barred from rejoining this campaign (DM only) */
         get: operations["listBans"];
         put?: never;
-        /** Bar a user from this campaign (DM only). If currently a member they are kicked first; the invite code no longer admits them until unbanned. */
+        /** Bar a user from this campaign (DM only). If currently a member they are kicked first; the invite code no longer admits them until unbanned. A DM may bar players; only the owner may bar a DM, and the owner is never barred (#299). */
         post: operations["banMember"];
         delete?: never;
         options?: never;
@@ -348,7 +387,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Walk away from the table (members only). Your heroes return to My Heroes, your claims on open quests are released, and you leave any knowledge pools. The DM cannot leave — they disband the table instead. */
+        /** Walk away from the table (members only). Your heroes return to My Heroes, your claims on open quests are released, and you leave any knowledge pools. The owner cannot leave — they hand the table over or disband it; a co-DM may walk away like anyone else (#299). */
         post: operations["leaveCampaign"];
         delete?: never;
         options?: never;
@@ -2698,11 +2737,23 @@ export interface components {
         Member: {
             /** Format: uuid */
             userId: string;
+            /** @description True for the member who holds the table (#299) — the one who founded it or was handed it. The owner is always a DM; a DM is not always the owner. */
+            isOwner: boolean;
             name: string;
             image?: string | null;
             role: components["schemas"]["Role"];
             /** Format: date-time */
             joinedAt: string;
+        };
+        SetMemberRoleRequest: {
+            role: components["schemas"]["Role"];
+        };
+        TransferCampaignRequest: {
+            /**
+             * Format: uuid
+             * @description The member who takes the table. They must already sit at it.
+             */
+            userId: string;
         };
         Ban: {
             /** Format: uuid */
@@ -4902,6 +4953,67 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMemberRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description The member, as they now stand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    transferCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferCampaignRequest"];
+            };
+        };
+        responses: {
+            /** @description The campaign under its new owner */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];

@@ -4,8 +4,10 @@ import type { Ban, Member } from "../api/client";
 import {
   useBanMember,
   useBans,
+  useCurrentUser,
   useKickMember,
   useMembers,
+  useSetMemberRole,
   useUnbanMember,
 } from "../hooks";
 import { formatWhen } from "../lib/dates";
@@ -14,6 +16,7 @@ import ParchmentModal from "./ui/ParchmentModal";
 import RoleBadge from "./ui/RoleBadge";
 import AtTheDoorSection from "./dm/AtTheDoorSection";
 import DisbandSection from "./dm/DisbandSection";
+import HandOverSection from "./dm/HandOverSection";
 import Face from "./dm/Face";
 import TableRulesSection from "./dm/TableRulesSection";
 import CoinageSection from "./dm/CoinageSection";
@@ -32,7 +35,11 @@ type Pending =
 export default function DMMenuPage() {
   const { campaign, role } = useOutletContext<CampaignContext>();
   const isDM = role === "dm";
+  const { data: me } = useCurrentUser();
+  // The owner holds the table (#299): appoints the DMs, hands it over, ends it.
+  const isOwner = me?.user.id === campaign.ownerUserId;
   const { data: members, isLoading } = useMembers(campaign.id);
+  const setRole = useSetMemberRole(campaign.id);
   const { data: bans } = useBans(campaign.id, isDM);
   const kick = useKickMember(campaign.id);
   const ban = useBanMember(campaign.id);
@@ -105,8 +112,30 @@ export default function DMMenuPage() {
                   </div>
                 </div>
                 <RoleBadge role={m.role} />
-                {m.role === "player" && (
+                {m.isOwner && (
+                  <span
+                    className="label-stamp rounded-[2px] px-2 py-1 text-[8.5px] tracking-[1.5px]"
+                    style={{ color: "#e0c68f", background: "rgba(201,162,39,.14)", border: "1px solid rgba(201,162,39,.35)" }}
+                    title="Holds the table — appoints the DMs, hands it over, ends it"
+                  >
+                    owner
+                  </span>
+                )}
+                {/* A DM runs players; the owner alone appoints DMs and removes
+                    them; nobody touches the owner or themself here (#299). */}
+                {!m.isOwner && m.userId !== me?.user.id && (m.role === "player" || isOwner) && (
                   <div className="flex flex-none items-center gap-2">
+                    {isOwner && (
+                      <button
+                        onClick={() => setRole.mutate({ userId: m.userId, role: m.role === "dm" ? "player" : "dm" })}
+                        disabled={setRole.isPending}
+                        title={m.role === "dm" ? "Take the screen back — they sit with the players" : "Give them the screen — every DM door opens for them"}
+                        className="label-stamp cursor-pointer rounded-[2px] px-2.5 py-1.5 text-[10px] tracking-[1px] text-cream-soft transition hover:brightness-125"
+                        style={{ background: "rgba(201,162,39,.14)", border: "1px solid rgba(201,162,39,.35)" }}
+                      >
+                        {m.role === "dm" ? "Make player" : "Make DM"}
+                      </button>
+                    )}
                     <button
                       onClick={() => setPending({ act: "kick", member: m })}
                       title="Remove them from the table — they may return with the invite code"
@@ -183,7 +212,9 @@ export default function DMMenuPage() {
         )}
       </section>
 
-      <DisbandSection campaign={campaign} />
+      {/* The owner's doors (#299): a co-DM runs the table, they do not end it. */}
+      {isOwner && <HandOverSection campaign={campaign} members={members ?? []} meId={me?.user.id ?? ""} />}
+      {isOwner && <DisbandSection campaign={campaign} />}
 
       {pending && (
         <ParchmentModal onClose={() => setPending(null)}>
