@@ -53,6 +53,27 @@ export function useAllRules() {
   });
 }
 
+/**
+ * One entry by id — the tracker's peek at what stands behind a combatant
+ * (#284). Its own key rather than a lookup in ["rules", kind]: the Den list
+ * is a quarter-megabyte a running fight never needs, and one goblin is not.
+ * Kept as long as the list is; a stat block does not change mid-fight.
+ */
+export function useRulesEntry(contentId: string | undefined) {
+  return useQuery({
+    queryKey: ["rules-entry", contentId],
+    enabled: !!contentId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/rules/content/{contentId}", {
+        params: { path: { contentId: contentId! } },
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useCharacterDetail(characterId: string | undefined) {
   return useQuery({
     queryKey: ["character-detail", characterId],

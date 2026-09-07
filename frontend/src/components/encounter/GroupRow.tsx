@@ -10,6 +10,7 @@ import {
 import { IconEye, IconEyeOff, IconTrash } from "../ui/icons";
 import { mobName } from "./entries";
 import { HpStatePill, RevealName } from "./rowParts";
+import { StatPeek } from "./StatPeek";
 import { GREEN_BTN, HP_STATE_TONE, HP_STEP, RED_BTN } from "./theme";
 
 /* A mob: monsters added together in one go. They share an initiative and act on
@@ -98,7 +99,11 @@ export function GroupRow({
           <div className="flex items-center gap-1.5">
             <button onClick={() => setOpen((v) => !v)} className="flex min-w-0 items-center gap-1.5 text-left">
               <span className="flex-none text-[10px] text-gold-muted" style={{ transform: open ? "rotate(90deg)" : "none" }}>▶</span>
-              <span className="font-heading truncate text-[13.5px] font-semibold text-cream">{mobName(lead.name)}</span>
+              {/* Hover reads the mob's block (#284); the press keeps folding
+                  the mob, so the dialog is on each member's name instead. */}
+              <StatPeek c={lead} campaignId={campaignId} enabled={editable} tap={false}>
+                <span className="font-heading truncate text-[13.5px] font-semibold text-cream">{mobName(lead.name)}</span>
+              </StatPeek>
               <span className="label-stamp flex-none text-[9px] tracking-[1px] text-ember-bright">×{members.length}</span>
             </button>
             {editable && (
@@ -179,7 +184,9 @@ export function GroupMemberRow({
       style={{ background: "rgba(0,0,0,.2)", opacity: downed ? 0.5 : 1 }}
     >
       <span className="font-heading min-w-[110px] flex-1 truncate text-[12px] text-cream">
-        {c.name}
+        <StatPeek c={c} campaignId={campaignId} enabled={editable}>
+          {c.name}
+        </StatPeek>
         {downed && <span className="label-stamp ml-1.5 text-[8px] tracking-[1px]" style={{ color: HP_STATE_TONE.down }}>down</span>}
       </span>
       {editable ? (

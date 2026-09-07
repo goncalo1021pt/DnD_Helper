@@ -16,9 +16,10 @@ import type {
   SetVisibilityInput,
 } from "../api/client";
 
-export function useNpcs(campaignId: string) {
+export function useNpcs(campaignId: string, enabled = true) {
   return useQuery({
     queryKey: ["npcs", campaignId],
+    enabled,
     queryFn: async () => {
       const { data, error } = await api.GET("/campaigns/{campaignId}/npcs", {
         params: { path: { campaignId } },

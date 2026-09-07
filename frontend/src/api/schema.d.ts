@@ -717,7 +717,11 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * One entry by id, under the list's rule (a monster stays behind the DM's screen)
+         * @description The tracker's peek at what stands behind a combatant (#284). Answers exactly what `GET /rules/{kind}` would list for the viewer, one entry at a time, so a DM reading one goblin mid-fight does not pull the whole Den. Refuses with 404 rather than 403: an entry you may not read is not tellable from one that never was.
+         */
+        get: operations["getRulesContent"];
         /** Edit a homebrew entry (author only; SRD is immutable) */
         put: operations["updateRulesContent"];
         post?: never;
@@ -5730,6 +5734,30 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getRulesContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                contentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesContent"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     updateRulesContent: {

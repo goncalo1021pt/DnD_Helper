@@ -172,6 +172,26 @@
       schema:
         type: string
         format: uuid
+  get:
+    operationId: getRulesContent
+    summary: One entry by id, under the list's rule (a monster stays behind the DM's screen)
+    description: >-
+      The tracker's peek at what stands behind a combatant (#284). Answers
+      exactly what `GET /rules/{kind}` would list for the viewer, one entry at
+      a time, so a DM reading one goblin mid-fight does not pull the whole
+      Den. Refuses with 404 rather than 403: an entry you may not read is not
+      tellable from one that never was.
+    responses:
+      "200":
+        description: The entry
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/RulesContent"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
   put:
     operationId: updateRulesContent
     summary: Edit a homebrew entry (author only; SRD is immutable)
