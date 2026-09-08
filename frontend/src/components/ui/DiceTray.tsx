@@ -169,9 +169,10 @@ export function DiceTowerPanel({
         )}
       </div>
 
-      {/* result face */}
+      {/* result face — a floor, not a fixed height: a hundred dice's faces
+          used to spill out of a 104px box onto the pool chips below (#301). */}
       <div
-        className="mb-3 flex h-[104px] flex-col items-center justify-center rounded-[2px] px-3"
+        className="mb-3 flex min-h-[104px] flex-col items-center justify-center rounded-[2px] px-3 py-2"
         style={{
           background: "rgba(120,86,42,.1)",
           boxShadow: "inset 0 0 0 1px rgba(120,80,30,.3)",
@@ -199,7 +200,9 @@ export function DiceTowerPanel({
                   : "Tails"
                 : result.total}
             </div>
-            <div className="font-accent mt-1 text-center text-[12.5px] italic text-ink-body">
+            {/* The faces wrap, and past four lines they scroll inside their
+                own box rather than push the tower about. */}
+            <div className="font-accent mt-1 max-h-[5.4em] w-full overflow-y-auto overscroll-contain text-center text-[12.5px] italic leading-snug text-ink-body">
               {result.crit
                 ? "Critical! Natural 20"
                 : result.fail
