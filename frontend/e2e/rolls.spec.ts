@@ -116,3 +116,37 @@ test("the server rolls a public roll, and refuses a pool the tower does not carr
   expect([403, 404]).toContain(barred.status());
   await strangerCtx.close();
 });
+
+/*
+A hundred dice stay inside the tower (#301).
+
+The result face was a fixed 104px box holding the total and one italic line
+of faces. A hundred d100s make that line ten lines long, and it spilled both
+ways: the total shoved up into the title, the faces painted over the pool
+chips. The face is a floor now and the faces clamp to a scrolling box, so
+the assertions are the boxes — the faces sit below the title and above the
+chips, and never grow past a few lines.
+*/
+test("a hundred dice stay inside the tower", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("hundred"));
+  const campaign = await createCampaign(page.request, unique("Tower "));
+  await page.goto(`/questboard/campaigns/${campaign.id}/board`);
+  await page.getByTitle("Open the dice tower").click();
+
+  for (let i = 0; i < 100; i++) await page.getByLabel("Add a d100").click();
+  await expect(page.getByText("A hundred dice is all the tower holds.")).toBeVisible();
+  await page.getByRole("button", { name: "Roll 100d100" }).click();
+
+  const faces = page.getByText(/100d100: /);
+  await expect(faces).toBeVisible({ timeout: 20_000 });
+  const title = page.getByText(/the dice tower/i).first();
+  const clear = page.getByLabel("Clear the pool");
+
+  const f = (await faces.boundingBox())!;
+  const t = (await title.boundingBox())!;
+  const c = (await clear.boundingBox())!;
+  expect(f.y, "the faces sit below the tower's title").toBeGreaterThan(t.y + t.height);
+  expect(f.y + f.height, "the faces end above the pool chips").toBeLessThanOrEqual(c.y);
+  expect(f.height, "a hundred faces clamp to a few lines").toBeLessThan(90);
+});
