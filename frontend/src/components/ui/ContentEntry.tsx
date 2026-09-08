@@ -77,22 +77,26 @@ function Facts({ rows }: { rows: Array<[string, ReactNode]> }) {
   );
 }
 
-function Description({ text }: { text?: string }) {
+// The entry text scrolls inside its own box by default, which is right for
+// a card unfolded inline in a list — a dragon's block should not push the rest
+// of the Den off the screen. A container that scrolls itself (the tracker's
+// peek, #284) turns that off, or the reader gets two scrollbars for one text.
+function Description({ text, scroll }: { text?: string; scroll: boolean }) {
   if (!text) return null;
   return (
-    <div className="mt-2.5 max-h-[52vh] overflow-y-auto pr-1 text-[13px] leading-relaxed text-ink-body">
+    <div className={`mt-2.5 text-[13px] leading-relaxed text-ink-body ${scroll ? "max-h-[52vh] overflow-y-auto pr-1" : ""}`}>
       <Blocks text={text} />
     </div>
   );
 }
 
-function FeatureList({ features, label }: { features: Feature[]; label: string }) {
+function FeatureList({ features, label, scroll }: { features: Feature[]; label: string; scroll: boolean }) {
   if (features.length === 0) return null;
   const sorted = [...features].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
   return (
     <div className="mt-2.5">
       <div className="label-stamp mb-1.5 text-[8.5px] tracking-[1px] text-ink-label">{label}</div>
-      <div className="flex max-h-[52vh] flex-col gap-2.5 overflow-y-auto pr-1 text-[12.5px] leading-relaxed text-ink-body">
+      <div className={`flex flex-col gap-2.5 text-[12.5px] leading-relaxed text-ink-body ${scroll ? "max-h-[52vh] overflow-y-auto pr-1" : ""}`}>
         {sorted.map((f, i) => (
           <div key={i}>
             <div>
@@ -195,7 +199,15 @@ function AbilityBlock({ abilities }: { abilities: Record<string, number> }) {
   );
 }
 
-export default function ContentEntry({ entry }: { entry: RulesContent }) {
+export default function ContentEntry({
+  entry,
+  scroll = true,
+}: {
+  entry: RulesContent;
+  /** Whether the entry text keeps its own scroll box — off inside a
+      container that already scrolls, or there are two bars for one text. */
+  scroll?: boolean;
+}) {
   const kind = entry.kind as RulesKind;
   if (kind === "spell") return <SpellEntry spell={entry} compact />;
 
@@ -227,8 +239,8 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
             ["Source", book],
           ]}
         />
-        <FeatureList features={feats("features")} label="Features" />
-        <Description text={str("description")} />
+        <FeatureList scroll={scroll} features={feats("features")} label="Features" />
+        <Description scroll={scroll} text={str("description")} />
       </div>
     );
   }
@@ -250,8 +262,8 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
       <div className="text-[13px]">
         <Header entry={entry} tagline={`${str("class") ?? "?"} subclass — ${entry.summary}`} />
         <Facts rows={[["Casting", castLine], ["Source", book]]} />
-        <FeatureList features={feats("features")} label="Features" />
-        <Description text={str("description")} />
+        <FeatureList scroll={scroll} features={feats("features")} label="Features" />
+        <Description scroll={scroll} text={str("description")} />
       </div>
     );
   }
@@ -269,8 +281,8 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
             ["Source", book],
           ]}
         />
-        <Description text={str("description")} />
-        <FeatureList features={feats("traits")} label="Traits" />
+        <Description scroll={scroll} text={str("description")} />
+        <FeatureList scroll={scroll} features={feats("traits")} label="Traits" />
         <SpeciesChoices choices={choices} />
       </div>
     );
@@ -290,7 +302,7 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
             ["Source", book],
           ]}
         />
-        <Description text={str("description")} />
+        <Description scroll={scroll} text={str("description")} />
       </div>
     );
   }
@@ -309,7 +321,7 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
             ["Source", book],
           ]}
         />
-        <Description text={str("description")} />
+        <Description scroll={scroll} text={str("description")} />
       </div>
     );
   }
@@ -331,7 +343,7 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
           ]}
         />
         <AbilityBlock abilities={(d.abilities as Record<string, number>) ?? {}} />
-        <Description text={str("description")} />
+        <Description scroll={scroll} text={str("description")} />
       </div>
     );
   }
@@ -347,7 +359,7 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
             ["Source", book],
           ]}
         />
-        <Description text={str("description")} />
+        <Description scroll={scroll} text={str("description")} />
       </div>
     );
   }
@@ -423,7 +435,7 @@ export default function ContentEntry({ entry }: { entry: RulesContent }) {
     <div className="text-[13px]">
       <Header entry={entry} tagline={entry.summary} />
       <Facts rows={[...typeRows, ...trappings, ["Source", book]]} />
-      <Description text={str("description")} />
+      <Description scroll={scroll} text={str("description")} />
     </div>
   );
 }

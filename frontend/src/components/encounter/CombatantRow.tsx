@@ -5,6 +5,7 @@ import { useDeleteCombatant, useRollCombatant, useUpdateCombatant } from "../../
 import { IconEye, IconEyeOff, IconTrash } from "../ui/icons";
 import { ConditionChips, ConditionEditor, DeathSavePips, shouldShowDeathSaves } from "./conditionParts";
 import { RevealName } from "./rowParts";
+import { StatPeek } from "./StatPeek";
 import { GREEN_BTN, HP_STATE_TONE, HP_STEP, RED_BTN } from "./theme";
 
 /* ═══ DM: the encounter tool ═══════════════════════════════════════════════ */
@@ -82,7 +83,12 @@ export function CombatantRow({
       {/* name + hidden + facts */}
       <div className="min-w-[130px] flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="font-heading truncate text-[13.5px] font-semibold text-cream">{c.name}</span>
+          {/* The name is the door to the stat block (#284) — hover for the
+              card, press for the dialog. A hero's or a custom foe's stays
+              plain, since nothing in the Den stands behind them. */}
+          <StatPeek c={c} campaignId={campaignId}>
+            <span className="font-heading truncate text-[13.5px] font-semibold text-cream">{c.name}</span>
+          </StatPeek>
           {c.kind !== "pc" && (
             <button
               onClick={() => update.mutate({ combatantId: c.id, body: { hidden: !c.hidden } })}

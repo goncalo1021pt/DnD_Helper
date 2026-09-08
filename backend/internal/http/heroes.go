@@ -298,3 +298,52 @@ func (s *Server) ListRules(ctx context.Context, request api.ListRulesRequestObje
 	}
 	return api.ListRules200JSONResponse(out), nil
 }
+
+// GetRulesContent returns one entry by id, under exactly the rule ListRules
+// applies to the whole kind: anyone signed in may read what the list would
+// show them, and a monster stays behind the DM's screen. It exists for the
+// tracker's peek (#284) — a DM resting the pointer on a goblin mid-fight
+// should read that goblin, not pull the whole Den to find it.
+//
+// Every refusal is the same 404. A 403 would tell a player that the id they
+// hold names a monster the DM has not shown them, and a Den entry you may not
+// read must not be tellable from one that never was.
+func (s *Server) GetRulesContent(ctx context.Context, request api.GetRulesContentRequestObject) (api.GetRulesContentResponseObject, error) {
+	uid, ok := auth.UserID(ctx)
+	if !ok {
+		return api.GetRulesContent401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	refuse := api.GetRulesContent404JSONResponse{NotFoundJSONResponse: notFound()}
+
+	row, err := s.queries.GetContent(ctx, uuid.UUID(request.ContentId))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return refuse, nil
+		}
+		return nil, err
+	}
+	visible, err := s.queries.ContentVisibleTo(ctx, db.ContentVisibleToParams{ID: row.ID, CreatedBy: pgUUID(uid)})
+	if err != nil {
+		return nil, err
+	}
+	if visible && row.Kind == db.ContentKindMonster {
+		if visible, err = s.isDMAnywhere(ctx, uid); err != nil {
+			return nil, err
+		}
+	}
+	if !visible {
+		return refuse, nil
+	}
+
+	// The list carries the author's name beside homebrew; one entry should
+	// read the same. An author who has since left leaves the stamp blank.
+	var creator *string
+	if row.CreatedBy.Valid {
+		if name, err := s.ownerName(ctx, uuid.UUID(row.CreatedBy.Bytes)); err == nil {
+			creator = &name
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+	}
+	return api.GetRulesContent200JSONResponse(toAPIRulesContent(row, creator, uid)), nil
+}
