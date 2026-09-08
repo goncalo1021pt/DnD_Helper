@@ -4,6 +4,7 @@ import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import Notices from "./components/ui/Notices";
+import Reader from "./components/ui/Reader";
 import { noticeFor, pushNotice } from "./lib/notices";
 import "./index.css";
 
@@ -50,6 +51,7 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <App />
         <Notices />
+        <Reader />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

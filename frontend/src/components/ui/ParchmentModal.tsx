@@ -23,7 +23,9 @@ export default function ParchmentModal({
   return createPortal(
     <div
       onClick={onClose}
-      className="fixed inset-0 z-[60] flex items-center justify-center p-6"
+      // Level with the hover cards (z-70), so what opens later paints
+      // above: a dialog opened from a card, a card opened inside a dialog.
+      className="fixed inset-0 z-[70] flex items-center justify-center p-6"
       style={{ background: "rgba(12,7,3,.72)", backdropFilter: "blur(2px)" }}
     >
       <div

@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import type { RulesContent } from "../../api/client";
 import { IconConcentration, IconRitual } from "./icons";
-import { useRuleIndex, RuleTerm } from "./RulePopover";
-import { ruleTermFor } from "../../lib/rulebook";
+import { useRuleIndex, useSpellIndex, RuleTerm, SpellTerm } from "./RulePopover";
+import { linkSpellNames, ruleTermFor, spellListOf } from "../../lib/rulebook";
 
 /**
  * A spell's full entry, rendered from rules content: the facts line and the
@@ -29,7 +29,7 @@ interface SpellData {
    property already does (#199, #250) — "Paralyzed" in Hold Person is a tap,
    not a trip to the rules tab. Only Capitalized tokens the rulebook actually
    knows become affordances; every other word stays prose. */
-function LinkedProse({ text }: { text: string }) {
+function RuleProse({ text }: { text: string }) {
   const rules = useRuleIndex();
   return (
     <>
@@ -44,7 +44,32 @@ function LinkedProse({ text }: { text: string }) {
   );
 }
 
-function inline(text: string): ReactNode[] {
+/* A spell named in the text opens its entry the same way (#285). Which words
+   are read as names is decided by where they stand, not by what they are: an
+   italic run, or a list after a spell-list header — never bare prose, or
+   "resistance", "fly" and "light" would light up in every second sentence.
+   Whatever is not a name is still prose, and keeps its rule links. */
+function LinkedProse({ text, spells = false }: { text: string; spells?: boolean }) {
+  const index = useSpellIndex();
+  if (!spells) return <RuleProse text={text} />;
+  return (
+    <>
+      {linkSpellNames(text, (name) => index.get(name)).map((piece, i) =>
+        typeof piece === "string" ? (
+          <RuleProse key={i} text={piece} />
+        ) : (
+          <SpellTerm key={i} entry={piece.entry}>
+            {piece.text}
+          </SpellTerm>
+        ),
+      )}
+    </>
+  );
+}
+
+// `list` says the text is a spell list, so its plain words are names too;
+// an italic run is read as names wherever it stands.
+function inline(text: string, list = false): ReactNode[] {
   // SRD source uses &emsp; as a literal HTML entity for indentation; this
   // renderer has no HTML-entity decoding step, so translate it directly.
   text = text.replace(/&emsp;/g, " ");
@@ -53,16 +78,16 @@ function inline(text: string): ReactNode[] {
     if (part.startsWith("**") && part.endsWith("**"))
       return (
         <strong key={i}>
-          <LinkedProse text={part.slice(2, -2)} />
+          <LinkedProse text={part.slice(2, -2)} spells={list} />
         </strong>
       );
     if (part.startsWith("_") && part.endsWith("_"))
       return (
         <em key={i}>
-          <LinkedProse text={part.slice(1, -1)} />
+          <LinkedProse text={part.slice(1, -1)} spells />
         </em>
       );
-    return <LinkedProse key={i} text={part} />;
+    return <LinkedProse key={i} text={part} spells={list} />;
   });
 }
 
@@ -123,9 +148,19 @@ export function Blocks({ text }: { text: string }) {
             </div>
           );
         }
+        // A paragraph that opens with a spell-list header ("At will:",
+        // "1/day each:") lists names after it, whatever case they come in.
+        const list = spellListOf(block);
         return (
           <p key={i} className="m-0 mt-2 first:mt-0">
-            {inline(block)}
+            {list ? (
+              <>
+                {inline(list.header)}
+                {inline(list.list, true)}
+              </>
+            ) : (
+              inline(block)
+            )}
           </p>
         );
       })}
