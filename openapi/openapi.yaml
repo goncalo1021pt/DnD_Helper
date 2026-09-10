@@ -298,13 +298,28 @@ paths:
     $ref: "./paths/npcs.yaml#/~1npcs~1{npcId}~1stats-visibility~1{characterId}"
 
 components:
+  # Two doors onto the same person. The session cookie is the browser's; the
+  # bearer token (#294) is a script's, and it carries scopes — every operation
+  # below declares the one it needs, and a caller holding a token without it
+  # is refused at the door (#313). A session holds every scope. The global
+  # `security` at the bottom is the fail-closed default: an operation that
+  # forgets to declare is session-only, and a test fails the build so it is
+  # noticed rather than lived with.
   securitySchemes:
     sessionCookie:
       type: apiKey
       in: cookie
       name: session
-  security:
-    - sessionCookie: []
+    bearerToken:
+      type: http
+      scheme: bearer
+      description: >-
+        An API token (`Authorization: Bearer qb_…`), acting as its owner within
+        the scopes it was minted with. Scopes are `rules:read`, `rules:write`,
+        `heroes:read`, `heroes:write`, `campaigns:read`, `campaigns:play`,
+        `campaigns:run`, `campaigns:own`, `account:read`, `account:write`;
+        `write` implies `read` within a domain, and the campaigns ladder runs
+        own > run > play > read.
 
   parameters:
     CampaignLens:

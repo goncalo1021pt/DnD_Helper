@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listLocations
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The campaign's place tree (members only). The DM sees every place; players see only what is unveiled to them.
     responses:
       "200":
@@ -19,6 +22,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createLocation
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Chart a new place (DM only)
     requestBody:
       required: true
@@ -46,6 +52,9 @@
     - $ref: "../openapi.yaml#/components/parameters/LocationId"
   patch:
     operationId: updateLocation
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Rename or redescribe a place (DM only). Moving it is a separate call — see PUT /locations/{locationId}/parent.
     requestBody:
       required: true
@@ -70,6 +79,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteLocation
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: Erase a place and everything nested inside it (DM only). Notices hanging there are unpinned, not deleted.
     responses:
       "204":
@@ -87,6 +99,9 @@
     - $ref: "../openapi.yaml#/components/parameters/LocationId"
   put:
     operationId: moveLocation
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Move a place under a new parent, or out to a root of its own (DM only)
     requestBody:
       required: true
@@ -116,6 +131,9 @@
     - $ref: "../openapi.yaml#/components/parameters/LocationId"
   put:
     operationId: setLocationVisibility
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Reveal or veil a place, for the whole party or for one hero (DM only)
     requestBody:
       required: true
@@ -146,6 +164,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   delete:
     operationId: clearLocationVisibilityOverride
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Drop one hero's exception so they follow the party again (DM only)
     responses:
       "200":

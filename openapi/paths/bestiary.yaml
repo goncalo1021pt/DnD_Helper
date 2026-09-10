@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listBestiary
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The party's field journal (members). DM sees full records; players see only unveiled sections.
     responses:
       "200":
@@ -19,6 +22,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createBestiaryEntry
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Log a new sighting (any member)
     requestBody:
       required: true
@@ -51,6 +57,9 @@
         format: uuid
   patch:
     operationId: updateBestiaryEntry
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Rename a sighting (creator/DM), or identify and unveil it (DM only)
     requestBody:
       required: true
@@ -75,6 +84,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteBestiaryEntry
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Remove a sighting and its notes (creator/DM)
     responses:
       "204":
@@ -97,6 +109,9 @@
         format: uuid
   post:
     operationId: addBestiaryNote
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Pen a field note on a sighting (any member)
     requestBody:
       required: true
@@ -143,6 +158,9 @@
         format: uuid
   delete:
     operationId: deleteBestiaryNote
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Erase a field note (its author, or the DM)
     responses:
       "204":

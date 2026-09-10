@@ -45,16 +45,18 @@ func NewRouter(deps Deps) http.Handler {
 
 		// Map and handout images stream outside the JSON contract (binary,
 		// cacheable), each re-checking its own veil before writing bytes.
-		ar.Get("/maps/{mapID}/image", srv.ServeMapImage)
-		ar.Get("/handouts/{handoutID}/image", srv.ServeHandoutImage)
+		// Being outside the contract, they declare their scope here — the
+		// generator never saw them (#313).
+		ar.With(withScope(auth.CampaignsRead)).Get("/maps/{mapID}/image", srv.ServeMapImage)
+		ar.With(withScope(auth.CampaignsRead)).Get("/handouts/{handoutID}/image", srv.ServeHandoutImage)
 
 		// The live nudge stream (#109). Outside the contract for the same
 		// reason: a strict handler returns a typed object and is done, and a
 		// stream is the opposite of done.
-		ar.Get("/campaigns/{campaignID}/events/stream", srv.ServeCampaignStream)
+		ar.With(withScope(auth.CampaignsRead)).Get("/campaigns/{campaignID}/events/stream", srv.ServeCampaignStream)
 		// The account's own stream: friendship and direct messages belong to a
 		// person rather than to a table, so they travel in a room of their own.
-		ar.Get("/me/events/stream", srv.ServeMeStream)
+		ar.With(withScope(auth.AccountRead)).Get("/me/events/stream", srv.ServeMeStream)
 
 		// Register the generated, type-checked operation handlers onto this
 		// subrouter (paths: /health, /me, /campaigns).
@@ -67,7 +69,11 @@ func NewRouter(deps Deps) http.Handler {
 	return r
 }
 
-// mountAPI registers the generated handlers onto an existing chi router.
+// mountAPI registers the generated handlers onto an existing chi router, with
+// the scope gate in front of every one of them (#313).
 func mountAPI(r chi.Router, si api.ServerInterface) {
-	api.HandlerFromMux(si, r)
+	api.HandlerWithOptions(si, api.ChiServerOptions{
+		BaseRouter:  r,
+		Middlewares: []api.MiddlewareFunc{scopeGate},
+	})
 }

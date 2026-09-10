@@ -1,6 +1,9 @@
 /rules/import:
   post:
     operationId: importContentPack
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:write]
     summary: Batch-import a content pack as your private homebrew (upserts by name)
     requestBody:
       required: true
@@ -38,6 +41,9 @@
 /rules/export:
   get:
     operationId: exportContentPack
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:read]
     summary: Your homebrew as a content pack (keep it out of public repos)
     responses:
       "200":
@@ -64,6 +70,9 @@
 /rules/homebrew/impact:
   get:
     operationId: getHomebrewImpact
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:read]
     summary: What a homebrew reset would touch — counts and in-use references
     responses:
       "200":
@@ -78,6 +87,9 @@
 /rules/homebrew/books:
   get:
     operationId: getHomebrewBooks
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:read]
     summary: Your homebrew grouped by source book — the imported-packs shelf
     responses:
       "200":
@@ -92,6 +104,8 @@
 /rules/homebrew:
   delete:
     operationId: resetHomebrew
+    security:
+      - sessionCookie: []
     summary: Delete your homebrew — all of it, one kind, or one book (author's own only)
     parameters:
       - name: kind
@@ -131,6 +145,9 @@
     - $ref: "../openapi.yaml#/components/parameters/ContentKind"
   get:
     operationId: listRules
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:read]
     summary: Rules content of one kind (SRD + this instance's homebrew)
     responses:
       "200":
@@ -145,6 +162,9 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
   post:
     operationId: createRulesContent
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:write]
     summary: Add a homebrew entry of this kind (any signed-in user)
     requestBody:
       required: true
@@ -174,6 +194,9 @@
         format: uuid
   get:
     operationId: getRulesContent
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:read]
     summary: One entry by id, under the list's rule (a monster stays behind the DM's screen)
     description: >-
       The tracker's peek at what stands behind a combatant (#284). Answers
@@ -194,6 +217,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   put:
     operationId: updateRulesContent
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:write]
     summary: Edit a homebrew entry (author only; SRD is immutable)
     requestBody:
       required: true
@@ -218,6 +244,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteRulesContent
+    security:
+      - sessionCookie: []
+      - bearerToken: [rules:write]
     summary: Remove a homebrew entry (author only)
     responses:
       "204":
@@ -234,6 +263,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: getCodex
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The campaign's codex — every explicit ruling plus proposals (members)
     responses:
       "200":
@@ -250,6 +282,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: proposeCodexContent
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Offer your homebrew to the table (members; DM decides)
     requestBody:
       required: true
@@ -280,6 +315,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: setCodexStatusBulk
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: One verdict over many entries (DM only — pack admissions)
     requestBody:
       required: true
@@ -320,6 +358,9 @@
         format: uuid
   put:
     operationId: setCodexStatus
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: The DM's verdict on an entry (enable homebrew, ban/unban SRD)
     requestBody:
       required: true
@@ -345,6 +386,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: clearCodexStatus
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Remove a ruling — back to defaults (DM only)
     responses:
       "204":

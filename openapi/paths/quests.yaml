@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listQuests
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: List quests on a campaign's board (members only)
     responses:
       "200":
@@ -19,6 +22,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createQuest
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Post a new quest (DM only)
     requestBody:
       required: true
@@ -45,6 +51,9 @@
     - $ref: "../openapi.yaml#/components/parameters/QuestId"
   patch:
     operationId: updateQuest
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Update a quest, including its status and rewards (DM only)
     requestBody:
       required: true
@@ -69,6 +78,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteQuest
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Remove a quest (DM only)
     responses:
       "204":
@@ -85,6 +97,9 @@
     - $ref: "../openapi.yaml#/components/parameters/QuestId"
   post:
     operationId: claimQuest
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Claim a quest (any campaign member)
     responses:
       "200":
@@ -101,6 +116,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: unclaimQuest
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Release a previously claimed quest
     responses:
       "200":
@@ -121,6 +139,9 @@
     - $ref: "../openapi.yaml#/components/parameters/QuestId"
   put:
     operationId: setQuestVisibility
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Reveal or veil a notice, for the whole party or for one hero (DM only)
     requestBody:
       required: true
@@ -150,6 +171,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   delete:
     operationId: clearQuestVisibilityOverride
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Drop one hero's exception so they follow the party again (DM only)
     responses:
       "200":

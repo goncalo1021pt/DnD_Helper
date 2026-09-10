@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listEvents
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The campaign chronicle, newest first (members)
     parameters:
       - name: limit
@@ -35,6 +38,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: addChronicleNote
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Write an entry into the chronicle (any member; players post to player chat)
     requestBody:
       required: true
@@ -73,6 +79,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: grantXP
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Grant (or dock) XP to seated heroes (DM only)
     requestBody:
       required: true
@@ -116,6 +125,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: declareMilestone
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: A milestone — seated heroes gain one pending level-up (DM only)
     requestBody:
       required: false
@@ -148,6 +160,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: revokeMilestone
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >
       Take back an unspent level-up (DM only) — from the chosen heroes, or
       one from everyone when none are named. Already-spent levels stay.
@@ -176,6 +191,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: rollInTheOpen
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Roll dice where the table can see them (any member)
     description: >
       The server rolls the pool and writes the result into the chronicle's

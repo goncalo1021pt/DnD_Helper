@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listTrees
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The campaign's skill trees (members only)
     responses:
       "200":
@@ -19,6 +22,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createTree
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Create a skill tree (DM only)
     requestBody:
       required: true
@@ -45,6 +51,9 @@
     - $ref: "../openapi.yaml#/components/parameters/TreeId"
   get:
     operationId: getTree
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: A skill tree with its full web (members only)
     responses:
       "200":
@@ -61,6 +70,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   patch:
     operationId: updateTree
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Update a skill tree (DM only)
     requestBody:
       required: true
@@ -85,6 +97,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteTree
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: Delete a skill tree and its web (DM only)
     responses:
       "204":
@@ -101,6 +116,9 @@
     - $ref: "../openapi.yaml#/components/parameters/TreeId"
   post:
     operationId: createNode
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Add a power node to a tree (DM only)
     requestBody:
       required: true
@@ -129,6 +147,9 @@
     - $ref: "../openapi.yaml#/components/parameters/TreeId"
   put:
     operationId: setEdges
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Replace the tree's web of connections (DM only)
     requestBody:
       required: true
@@ -157,6 +178,9 @@
     - $ref: "../openapi.yaml#/components/parameters/NodeId"
   patch:
     operationId: updateNode
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Update a power node (DM only)
     requestBody:
       required: true
@@ -181,6 +205,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteNode
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Remove a power node (DM only)
     responses:
       "204":
@@ -197,6 +224,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   get:
     operationId: getCharacterTree
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:read]
     summary: A character's pact and web progress (members only)
     responses:
       "200":
@@ -213,6 +243,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   put:
     operationId: setCharacterTree
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Bind a character to a tree — the pact (DM only)
     requestBody:
       required: true
@@ -241,6 +274,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: grantPicks
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Grant unspent picks at a story beat (DM only)
     requestBody:
       required: true
@@ -269,6 +305,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: spendPick
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Spend a granted pick on a reachable node (owner or DM)
     requestBody:
       required: true

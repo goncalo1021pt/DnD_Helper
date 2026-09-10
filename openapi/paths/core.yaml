@@ -20,6 +20,9 @@
 /me:
   get:
     operationId: getCurrentUser
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:read]
     summary: The currently authenticated user and their campaign memberships
     responses:
       "200":

@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listVendors
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: >-
       The shops of a campaign. The DM sees every one with all its shelves; a
       player sees only the shops that have been revealed, and within them only
@@ -22,6 +25,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createVendor
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Open a shop (DM only)
     requestBody:
       required: true
@@ -53,6 +59,9 @@
         format: uuid
   patch:
     operationId: updateVendor
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Rename a shop, move it, or reveal it to the party (DM only)
     requestBody:
       required: true
@@ -77,6 +86,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteVendor
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Close a shop and empty its shelves (DM only)
     responses:
       "204":
@@ -98,6 +110,9 @@
         format: uuid
   post:
     operationId: addStock
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Put something on the shelves (DM only)
     requestBody:
       required: true
@@ -131,6 +146,9 @@
         format: uuid
   patch:
     operationId: updateStock
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Reprice a line, restock it, or show it to the party (DM only)
     requestBody:
       required: true
@@ -155,6 +173,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteStock
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Take a line off the shelves (DM only)
     responses:
       "204":
@@ -176,6 +197,9 @@
         format: uuid
   post:
     operationId: buyStock
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: >-
       Buy one of a line (members). Gold only: the price parses to whole gp,
       rounding up in the shopkeeper's favor; the hero must be seated at this

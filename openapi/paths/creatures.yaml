@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: addCharacterCreature
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Give a hero a form, companion or summon (owner or DM)
     requestBody:
       required: true
@@ -37,6 +40,9 @@
         format: uuid
   patch:
     operationId: updateCharacterCreature
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Mold a creature's numbers, track its hit points, or take the form (owner or DM)
     requestBody:
       required: true
@@ -61,6 +67,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteCharacterCreature
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Release a creature (owner or DM)
     responses:
       "204":
@@ -77,6 +86,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   get:
     operationId: getCreatureOptions
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:read]
     summary: The forms and companions this hero's own features grant
     responses:
       "200":

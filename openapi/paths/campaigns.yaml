@@ -1,6 +1,9 @@
 /campaigns:
   get:
     operationId: listCampaigns
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: Campaigns the current user belongs to
     responses:
       "200":
@@ -15,6 +18,9 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
   post:
     operationId: createCampaign
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: Create a campaign (caller becomes its DM)
     requestBody:
       required: true
@@ -37,6 +43,9 @@
 /campaigns/join:
   post:
     operationId: joinCampaign
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Join a campaign as a player using its invite code
     requestBody:
       required: true
@@ -65,6 +74,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   delete:
     operationId: deleteCampaign
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: Permanently delete a campaign (owner only — a co-DM runs the table, they do not end it; #299)
     description: >
       Strikes the campaign for good: quests, the chronicle, codex rulings,
@@ -85,6 +97,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: regenerateInvite
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Generate a fresh invite code (DM only)
     responses:
       "200":
@@ -105,6 +120,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listMembers
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: Everyone seated at the table (members only)
     responses:
       "200":
@@ -128,6 +146,9 @@
     - $ref: "../openapi.yaml#/components/parameters/UserId"
   delete:
     operationId: kickMember
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >
       Remove a member from the table. A DM may remove players; only the owner
       may remove a DM, and the owner is never removed (#299). Their heroes
@@ -152,6 +173,9 @@
     - $ref: "../openapi.yaml#/components/parameters/UserId"
   put:
     operationId: setMemberRole
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: >
       Give a member the screen, or take it back (owner only, #299). A DM runs
       the table; the owner appoints the DMs. The owner's own role cannot be
@@ -183,6 +207,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listBans
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: Players barred from rejoining this campaign (DM only)
     responses:
       "200":
@@ -201,6 +228,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   post:
     operationId: banMember
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >
       Bar a user from this campaign (DM only). If currently a member they
       are kicked first; the invite code no longer admits them until unbanned.
@@ -230,6 +260,9 @@
     - $ref: "../openapi.yaml#/components/parameters/UserId"
   delete:
     operationId: unbanMember
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Lift a ban so the invite code admits them again (DM only)
     responses:
       "204":
@@ -246,6 +279,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   put:
     operationId: setNextSession
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Set or clear when the table gathers next (DM only)
     requestBody:
       required: true
@@ -274,6 +310,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   put:
     operationId: setProgression
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Switch the campaign between milestone and XP progression (DM only)
     requestBody:
       required: true
@@ -305,6 +344,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   put:
     operationId: setMaxLevel
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Set or clear the table's level ceiling (DM only)
     requestBody:
       required: true
@@ -338,6 +380,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   put:
     operationId: setMaxSeatedPerPlayer
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Set how many heroes one player may seat at this table at once (DM only)
     requestBody:
       required: true
@@ -373,6 +418,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: transferCampaign
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: >
       Hand the table to another member (owner only, #299). They become its
       owner and a DM; you stay seated as a DM and lose only the owner's doors.
@@ -406,6 +454,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: leaveCampaign
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: >
       Walk away from the table (members only). Your heroes return to My
       Heroes, your claims on open quests are released, and you leave any
@@ -426,6 +477,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   put:
     operationId: setSeatingApproval
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Bar or open the table's door — barred means new heroes wait for the DM's nod (DM only)
     requestBody:
       required: true
@@ -456,6 +510,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   put:
     operationId: setHiddenSheets
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Draw or lift the veil over the table's character sheets (DM only)
     requestBody:
       required: true
@@ -489,6 +546,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   put:
     operationId: setCoinage
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Set the coins this table counts in (DM only)
     description: >-
       A DM names their own money (#195) — glimmer, trade bars, faction scrip —
