@@ -71,6 +71,13 @@ procedure regardless of which machine or tool you run on.
   only when that is the intent.
 - Issue bodies say *what happens today / how it should work / what it depends
   on* — enough that someone (human or agent) can pick it up cold.
+- **Issues from other people** are feature requests: label `enhancement`
+  (the author field says who asked; `from-the-table` stays session feedback).
+  They run in a fixed order — **pull the issue and discuss it first** with
+  the maintainer, asking the author on the issue when the ask is too vague to
+  shape; **plan it on the issue** in the body shape above, with milestone and
+  assignee; only then start development. Never apply `claude` to one that has
+  not been planned. An unlabeled issue is the triage queue.
 
 ### Pull requests
 
