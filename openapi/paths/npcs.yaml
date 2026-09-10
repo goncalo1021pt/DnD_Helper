@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listNpcs
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: >-
       The people of a campaign. The DM sees everyone with both veils spelled
       out; a player sees only the NPCs their heroes' veil resolves visible,
@@ -22,6 +25,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createNpc
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Bring a person into the campaign (DM only)
     requestBody:
       required: true
@@ -53,6 +59,9 @@
         format: uuid
   patch:
     operationId: updateNpc
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Rename a person, move them, or change what stands behind them (DM only)
     requestBody:
       required: true
@@ -77,6 +86,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteNpc
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Strike a person from the campaign (DM only)
     responses:
       "204":
@@ -98,6 +110,9 @@
         format: uuid
   put:
     operationId: setNpcVisibility
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >-
       Reveal or hide a person, for the party or for one hero (DM only).
       Choosing the party clears every per-hero exception.
@@ -139,6 +154,9 @@
         format: uuid
   delete:
     operationId: clearNpcVisibilityOverride
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Drop one hero's exception so they follow the party again (DM only)
     responses:
       "200":
@@ -164,6 +182,9 @@
         format: uuid
   put:
     operationId: setNpcStatsVisibility
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >-
       Reveal or hide a person's stat block or sheet, for the party or for one
       hero (DM only). The stats only ever show where the person themselves is
@@ -206,6 +227,9 @@
         format: uuid
   delete:
     operationId: clearNpcStatsVisibilityOverride
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Drop one hero's stats exception so they follow the party again (DM only)
     responses:
       "200":
@@ -231,6 +255,9 @@
         format: uuid
   post:
     operationId: forgeNpcBody
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Forge a character sheet for this person (DM only)
     description: >-
       Creates a sheet that belongs to this person and attaches it in one act
@@ -271,6 +298,9 @@
         format: uuid
   put:
     operationId: setNpcTravel
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Mark a person as walking with the party, and hand them to a runner (DM only)
     requestBody:
       required: true
@@ -304,6 +334,9 @@
         format: uuid
   put:
     operationId: setNpcHp
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Move a traveling ally's hit points
     description: >-
       Open to the DM and to whoever holds the ally, and to nobody else — a

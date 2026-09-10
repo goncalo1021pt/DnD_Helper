@@ -1,6 +1,9 @@
 /me/seat-requests:
   get:
     operationId: listMySeatRequests
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:read]
     summary: The caller's heroes still waiting at a table's door
     responses:
       "200":
@@ -17,6 +20,9 @@
 /me/characters:
   get:
     operationId: listMyCharacters
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:read]
     summary: The caller's heroes across all campaigns, including unseated ones
     responses:
       "200":
@@ -31,6 +37,9 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
   post:
     operationId: createMyCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Forge a hero in My Heroes (not seated at any campaign)
     requestBody:
       required: true
@@ -53,6 +62,9 @@
 /me/characters/forge:
   post:
     operationId: forgeCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Create a hero through the builder — full sheet, derived HP
     parameters:
       - name: Idempotency-Key
@@ -89,6 +101,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   get:
     operationId: getCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:read]
     summary: A hero's full sheet — owner, or members of the seated campaign
     responses:
       "200":
@@ -105,6 +120,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   patch:
     operationId: updateCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Update a character (its owner or the DM)
     requestBody:
       required: true
@@ -129,6 +147,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Remove a character (its owner or the DM)
     responses:
       "204":
@@ -145,6 +166,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   put:
     operationId: seatCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: >
       Seat a hero at a campaign, or null to return them to My Heroes. Seating
       is the owner's act alone; unseating is the owner's — or, for a seated
@@ -188,6 +212,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   put:
     operationId: setSpellSlots
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Set spell slots spent (owner or DM; casters only)
     requestBody:
       required: true
@@ -216,6 +243,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   put:
     operationId: setPools
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Set resource-pool uses spent (owner or DM)
     requestBody:
       required: true
@@ -244,6 +274,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: addInventoryItem
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Add an item to a hero's inventory (owner or DM)
     requestBody:
       required: true
@@ -278,6 +311,9 @@
         format: uuid
   patch:
     operationId: updateInventoryItem
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Change quantity or equip state (owner or DM)
     requestBody:
       required: true
@@ -302,6 +338,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteInventoryItem
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Remove an inventory row (owner or DM)
     responses:
       "204":
@@ -318,6 +357,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: levelUpCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: Advance a forged hero one level (owner only)
     requestBody:
       required: true
@@ -346,6 +388,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: restCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: >-
       Take a long or short rest (owner or DM). A long rest restores HP to full,
       returns every spell slot and hands back half the hero's hit dice; a short
@@ -378,6 +423,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: swapCharacterSpells
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: >-
       Change prepared spells on a Long Rest (owner only). Allowed only for
       classes whose spellChanges rule says long-rest, and only as far as that
@@ -410,6 +458,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   put:
     operationId: revealCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Lift or drop the veil on one seated hero's sheet (DM only)
     requestBody:
       required: true
@@ -443,6 +494,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listCharacters
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The campaign's party roster (members only)
     responses:
       "200":
@@ -459,6 +513,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createCharacter
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >
       Quick-add a table-born character to the roster (DM only) — players
       bring account heroes through the seat flow, where the door applies
@@ -487,6 +544,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listPregens
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: >
       The pool of pre-made heroes waiting to be claimed at this table (#180).
       Any member sees it; a DM offers into it and a player claims from it.
@@ -505,6 +565,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: offerPregen
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >
       Offer one of the DM's own unseated heroes into this campaign's pregen
       pool (DM only). It is seated here and held until a member claims it.
@@ -536,6 +599,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   delete:
     operationId: withdrawPregen
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >
       Pull an unclaimed pregen back out of the pool to the DM's shelf (DM
       only). A claimed one belongs to its player and cannot be withdrawn.
@@ -556,6 +622,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: claimPregen
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: >
       Claim an unclaimed pregen (any member of its table). Ownership passes to
       the claimer; it is already seated, so it joins their roster at once. The
@@ -581,6 +650,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: releasePregen
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
     summary: >
       Release a claimed pregen back to the pool (its player, or the DM).
       Ownership returns to the author who offered it; it stays seated for the
@@ -606,6 +678,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listSeatRequests
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The heroes waiting at the door, oldest first (DM only)
     responses:
       "200":
@@ -629,6 +704,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   delete:
     operationId: denySeatRequest
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Turn a waiting hero away from the door (DM only)
     responses:
       "204":
@@ -646,6 +724,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   post:
     operationId: approveSeatRequest
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >
       Let a waiting hero take their seat (DM only); re-checks the codex and
       the table's seats-per-player cap first

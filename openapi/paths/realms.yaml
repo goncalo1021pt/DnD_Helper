@@ -1,6 +1,9 @@
 /realms:
   get:
     operationId: listRealms
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The caller's own realms
     description: >-
       Realms belong to whoever made them and are listed to nobody else (#233).
@@ -29,6 +32,9 @@
         format: uuid
   patch:
     operationId: renameRealm
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: Rename a realm (owner only)
     description: >-
       A backfilled realm is named after its one campaign, which is rarely what
@@ -55,6 +61,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteRealm
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: Strike an empty realm (owner only)
     description: >-
       Refused while any campaign stands in it — a realm holds years of play and
@@ -75,6 +84,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   put:
     operationId: setCampaignRealm
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:own]
     summary: Move a campaign into another of your realms (owner only)
     description: >-
       Nothing is shared between campaigns in stage one, so moving costs a table

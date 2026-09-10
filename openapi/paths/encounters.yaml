@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listEncounters
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The DM's encounter library — every prepared fight, running or not (DM only)
     responses:
       "200":
@@ -19,6 +22,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createEncounter
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Prepare a new (inactive) encounter (DM only)
     requestBody:
       required: true
@@ -45,6 +51,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: getActiveEncounter
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: >-
       The running encounter this member is in — the fight their hero stands in
       for a player, the most recently triggered one for the DM. Redacted for
@@ -68,6 +77,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   post:
     operationId: standDownEncounters
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: >-
       Stand down every running encounter at once, releasing every summoned
       hero (DM only). The way out when several fights are open and a player is
@@ -91,6 +103,9 @@
     - $ref: "../openapi.yaml#/components/parameters/EncounterId"
   get:
     operationId: getEncounter
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: One encounter with its combatants — full detail (DM only)
     responses:
       "200":
@@ -107,6 +122,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   patch:
     operationId: updateEncounter
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Rename, trigger/end, or advance the tracker (DM only)
     requestBody:
       required: true
@@ -131,6 +149,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteEncounter
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Discard an encounter and its combatants (DM only)
     responses:
       "204":
@@ -147,6 +168,9 @@
     - $ref: "../openapi.yaml#/components/parameters/EncounterId"
   put:
     operationId: fileEncounter
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: File an encounter under a session tag and/or a place (DM only)
     description: >-
       Replaces the encounter's filing wholesale, so one call can move it,
@@ -178,6 +202,9 @@
     - $ref: "../openapi.yaml#/components/parameters/EncounterId"
   post:
     operationId: addCombatant
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Add a Den monster, a seated PC, a traveling ally, or a custom line (DM only)
     requestBody:
       required: true
@@ -210,6 +237,9 @@
     - $ref: "../openapi.yaml#/components/parameters/EncounterId"
   post:
     operationId: rollInitiative
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Roll initiative (d20 + modifier) for every combatant at once (DM only)
     responses:
       "200":
@@ -230,6 +260,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CombatantId"
   patch:
     operationId: updateCombatant
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Edit a combatant — HP, initiative, reveal, rename (DM only)
     requestBody:
       required: true
@@ -254,6 +287,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteCombatant
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Remove a combatant (DM only)
     responses:
       "204":
@@ -276,6 +312,9 @@
         format: uuid
   delete:
     operationId: deleteCombatantGroup
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Remove a whole mob at once (DM only)
     description: >-
       Deletes every combatant sharing this groupId. Removing one dead skeleton
@@ -295,6 +334,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CombatantId"
   post:
     operationId: rollCombatantInitiative
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Roll this combatant's initiative (DM, or the owner of a PC combatant)
     responses:
       "200":

@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listParties
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The parties at this table
     responses:
       "200":
@@ -19,6 +22,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createParty
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Form a new party (DM only)
     requestBody:
       required: true
@@ -50,6 +56,9 @@
         format: uuid
   patch:
     operationId: renameParty
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Rename a party (DM only)
     requestBody:
       required: true
@@ -74,6 +83,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteParty
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Disband a party (DM only)
     description: >-
       The heroes stay, and so does everything they were ever shown — a party is
@@ -98,6 +110,9 @@
         format: uuid
   put:
     operationId: setCharacterParty
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Move a hero to a party, or out of all of them (DM only)
     requestBody:
       required: true

@@ -3,6 +3,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"
   get:
     operationId: listHandouts
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: The campaign's handouts, newest first (members see only what is theirs to see)
     description: >
       The DM receives every handout with its veil state; a player receives
@@ -23,6 +26,9 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
   post:
     operationId: createHandout
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Bring something to the table (DM only)
     requestBody:
       required: true
@@ -49,6 +55,9 @@
     - $ref: "../openapi.yaml#/components/parameters/HandoutId"
   patch:
     operationId: updateHandout
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Retitle or recaption a handout (DM only)
     requestBody:
       required: true
@@ -73,6 +82,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: deleteHandout
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Take it back off the table (DM only) — its chronicle line goes with it
     responses:
       "204":
@@ -89,6 +101,9 @@
     - $ref: "../openapi.yaml#/components/parameters/HandoutId"
   put:
     operationId: setHandoutVisibility
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Hand it over, or take it back — party-wide or one hero (DM only)
     description: >
       The first reveal writes the chronicle line that hands it to the table.
@@ -122,6 +137,9 @@
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"
   delete:
     operationId: clearHandoutVisibilityOverride
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
     summary: Drop one hero's exception so they follow the party again (DM only)
     responses:
       "200":

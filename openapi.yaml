@@ -31,6 +31,10 @@ paths:
   /me:
     get:
       operationId: getCurrentUser
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:read
       summary: The currently authenticated user and their campaign memberships
       responses:
         "200":
@@ -44,6 +48,10 @@ paths:
   /me/friends:
     get:
       operationId: listFriends
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:read
       summary: Your friends, the requests either way, and who you have blocked
       responses:
         "200":
@@ -56,6 +64,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
     post:
       operationId: askFriend
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
       summary: Ask somebody to be your friend, by their code
       description: Answers 404 for a code nobody holds, and the same 404 for a code held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes.
       requestBody:
@@ -80,6 +92,10 @@ paths:
   /me/friends/code:
     post:
       operationId: reforgeFriendCode
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
       summary: Draw a fresh friend code, retiring the old one
       responses:
         "200":
@@ -100,6 +116,10 @@ paths:
           format: uuid
     put:
       operationId: acceptFriend
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
       summary: Accept a request somebody made of you
       responses:
         "200":
@@ -114,6 +134,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: dropFriend
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
       summary: Withdraw a request, decline one, or part ways
       description: "One door for all three, because they are one act: the row between you goes. What was said is not deleted with it — a conversation you both had is not the friendship's to erase."
       responses:
@@ -135,6 +159,10 @@ paths:
           format: uuid
     put:
       operationId: blockUser
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
       summary: Block somebody — parts you if you were friends, and stops both directions
       responses:
         "200":
@@ -147,6 +175,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
     delete:
       operationId: unblockUser
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
       summary: Lift a block. It does not restore the friendship.
       responses:
         "200":
@@ -160,6 +192,10 @@ paths:
   /me/messages:
     get:
       operationId: listThreads
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:read
       summary: The inbox — everyone you have spoken with, newest first
       responses:
         "200":
@@ -182,6 +218,10 @@ paths:
           format: uuid
     get:
       operationId: readThread
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:read
       summary: One conversation, oldest first, and marks it read
       responses:
         "200":
@@ -200,6 +240,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     post:
       operationId: sendDirectMessage
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
       summary: Say something to one person
       description: Open to a friend, or to anybody you already share a table with — the social graph of this app is mostly the campaigns you sit at, and needing to befriend the player beside you first would be ceremony. A block closes it in both directions.
       requestBody:
@@ -233,6 +277,10 @@ paths:
           format: uuid
     get:
       operationId: listPartyMessages
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: A party's own room, for a table that has split
       responses:
         "200":
@@ -251,6 +299,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     post:
       operationId: sendPartyMessage
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Say something to your party
       description: Open to the DM and to whoever rides with that party right now. A player whose heroes ride elsewhere is answered 404 rather than 403, exactly as the rest of the app answers a room you are not in.
       requestBody:
@@ -275,6 +327,10 @@ paths:
   /campaigns:
     get:
       operationId: listCampaigns
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: Campaigns the current user belongs to
       responses:
         "200":
@@ -289,6 +345,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
     post:
       operationId: createCampaign
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: Create a campaign (caller becomes its DM)
       requestBody:
         required: true
@@ -310,6 +370,10 @@ paths:
   /campaigns/join:
     post:
       operationId: joinCampaign
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Join a campaign as a player using its invite code
       requestBody:
         required: true
@@ -337,6 +401,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     delete:
       operationId: deleteCampaign
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: Permanently delete a campaign (owner only — a co-DM runs the table, they do not end it;
       description: |
         Strikes the campaign for good: quests, the chronicle, codex rulings, maps, encounters, memberships, and bans are all removed with it. Heroes seated there return to My Heroes rather than being deleted.
@@ -354,6 +422,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: regenerateInvite
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Generate a fresh invite code (DM only)
       responses:
         "200":
@@ -373,6 +445,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listMembers
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: Everyone seated at the table (members only)
       responses:
         "200":
@@ -395,6 +471,10 @@ paths:
       - $ref: "#/components/parameters/UserId"
     delete:
       operationId: kickMember
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: |
         Remove a member from the table. A DM may remove players; only the owner may remove a DM, and the owner is never removed (#299). Their heroes return to My Heroes, their claims on open quests are released, and they leave any knowledge pools. They may rejoin with the invite code unless banned.
       responses:
@@ -414,6 +494,10 @@ paths:
       - $ref: "#/components/parameters/UserId"
     put:
       operationId: setMemberRole
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: |
         Give a member the screen, or take it back (owner only, #299). A DM runs the table; the owner appoints the DMs. The owner's own role cannot be changed here — hand the table over instead.
       requestBody:
@@ -442,6 +526,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: transferCampaign
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: |
         Hand the table to another member (owner only, #299). They become its owner and a DM; you stay seated as a DM and lose only the owner's doors. A campaign alone in its realm takes the realm with it, atlas and all; one sharing a realm with the owner's other campaigns steps onto fresh ground of the new owner's, since a world cannot be split.
       requestBody:
@@ -470,6 +558,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listBans
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: Players barred from rejoining this campaign (DM only)
       responses:
         "200":
@@ -488,6 +580,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     post:
       operationId: banMember
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: |
         Bar a user from this campaign (DM only). If currently a member they are kicked first; the invite code no longer admits them until unbanned. A DM may bar players; only the owner may bar a DM, and the owner is never barred (#299).
       requestBody:
@@ -513,6 +609,10 @@ paths:
       - $ref: "#/components/parameters/UserId"
     delete:
       operationId: unbanMember
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Lift a ban so the invite code admits them again (DM only)
       responses:
         "204":
@@ -528,6 +628,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: leaveCampaign
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: |
         Walk away from the table (members only). Your heroes return to My Heroes, your claims on open quests are released, and you leave any knowledge pools. The owner cannot leave — they hand the table over or disband it; a co-DM may walk away like anyone else (#299).
       responses:
@@ -544,6 +648,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     put:
       operationId: setNextSession
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Set or clear when the table gathers next (DM only)
       requestBody:
         required: true
@@ -571,6 +679,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listQuests
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: List quests on a campaign's board (members only)
       responses:
         "200":
@@ -587,6 +699,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createQuest
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Post a new quest (DM only)
       requestBody:
         required: true
@@ -612,6 +728,10 @@ paths:
       - $ref: "#/components/parameters/QuestId"
     patch:
       operationId: updateQuest
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Update a quest, including its status and rewards (DM only)
       requestBody:
         required: true
@@ -636,6 +756,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteQuest
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Remove a quest (DM only)
       responses:
         "204":
@@ -649,6 +773,10 @@ paths:
   /me/seat-requests:
     get:
       operationId: listMySeatRequests
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:read
       summary: The caller's heroes still waiting at a table's door
       responses:
         "200":
@@ -664,6 +792,10 @@ paths:
   /me/characters:
     get:
       operationId: listMyCharacters
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:read
       summary: The caller's heroes across all campaigns, including unseated ones
       responses:
         "200":
@@ -678,6 +810,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
     post:
       operationId: createMyCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Forge a hero in My Heroes (not seated at any campaign)
       requestBody:
         required: true
@@ -699,6 +835,10 @@ paths:
   /me/characters/forge:
     post:
       operationId: forgeCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Create a hero through the builder — full sheet, derived HP
       parameters:
         - name: Idempotency-Key
@@ -730,6 +870,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     put:
       operationId: seatCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: |
         Seat a hero at a campaign, or null to return them to My Heroes. Seating is the owner's act alone; unseating is the owner's — or, for a seated hero, the table's DM benching them back to the owner's shelf.
       requestBody:
@@ -770,6 +914,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     put:
       operationId: setSpellSlots
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Set spell slots spent (owner or DM; casters only)
       requestBody:
         required: true
@@ -797,6 +945,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     put:
       operationId: setPools
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Set resource-pool uses spent (owner or DM)
       requestBody:
         required: true
@@ -824,6 +976,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: addInventoryItem
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Add an item to a hero's inventory (owner or DM)
       requestBody:
         required: true
@@ -857,6 +1013,10 @@ paths:
           format: uuid
     patch:
       operationId: updateInventoryItem
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Change quantity or equip state (owner or DM)
       requestBody:
         required: true
@@ -881,6 +1041,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteInventoryItem
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Remove an inventory row (owner or DM)
       responses:
         "204":
@@ -894,6 +1058,10 @@ paths:
   /rules/import:
     post:
       operationId: importContentPack
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:write
       summary: Batch-import a content pack as your private homebrew (upserts by name)
       requestBody:
         required: true
@@ -931,6 +1099,10 @@ paths:
   /rules/export:
     get:
       operationId: exportContentPack
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:read
       summary: Your homebrew as a content pack (keep it out of public repos)
       responses:
         "200":
@@ -957,6 +1129,10 @@ paths:
   /rules/homebrew/impact:
     get:
       operationId: getHomebrewImpact
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:read
       summary: What a homebrew reset would touch — counts and in-use references
       responses:
         "200":
@@ -970,6 +1146,10 @@ paths:
   /rules/homebrew/books:
     get:
       operationId: getHomebrewBooks
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:read
       summary: Your homebrew grouped by source book — the imported-packs shelf
       responses:
         "200":
@@ -983,6 +1163,8 @@ paths:
   /rules/homebrew:
     delete:
       operationId: resetHomebrew
+      security:
+        - sessionCookie: []
       summary: Delete your homebrew — all of it, one kind, or one book (author's own only)
       parameters:
         - name: kind
@@ -1018,6 +1200,10 @@ paths:
       - $ref: "#/components/parameters/ContentKind"
     get:
       operationId: listRules
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:read
       summary: Rules content of one kind (SRD + this instance's homebrew)
       responses:
         "200":
@@ -1032,6 +1218,10 @@ paths:
           $ref: "#/components/responses/Unauthorized"
     post:
       operationId: createRulesContent
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:write
       summary: Add a homebrew entry of this kind (any signed-in user)
       requestBody:
         required: true
@@ -1060,6 +1250,10 @@ paths:
           format: uuid
     get:
       operationId: getRulesContent
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:read
       summary: One entry by id, under the list's rule (a monster stays behind the DM's screen)
       description: "The tracker's peek at what stands behind a combatant (#284). Answers exactly what `GET /rules/{kind}` would list for the viewer, one entry at a time, so a DM reading one goblin mid-fight does not pull the whole Den. Refuses with 404 rather than 403: an entry you may not read is not tellable from one that never was."
       responses:
@@ -1075,6 +1269,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     put:
       operationId: updateRulesContent
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:write
       summary: Edit a homebrew entry (author only; SRD is immutable)
       requestBody:
         required: true
@@ -1099,6 +1297,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteRulesContent
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - rules:write
       summary: Remove a homebrew entry (author only)
       responses:
         "204":
@@ -1114,6 +1316,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: addCharacterCreature
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Give a hero a form, companion or summon (owner or DM)
       requestBody:
         required: true
@@ -1147,6 +1353,10 @@ paths:
           format: uuid
     patch:
       operationId: updateCharacterCreature
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Mold a creature's numbers, track its hit points, or take the form (owner or DM)
       requestBody:
         required: true
@@ -1171,6 +1381,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteCharacterCreature
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Release a creature (owner or DM)
       responses:
         "204":
@@ -1186,6 +1400,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     get:
       operationId: getCreatureOptions
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:read
       summary: The forms and companions this hero's own features grant
       responses:
         "200":
@@ -1205,6 +1423,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: levelUpCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Advance a forged hero one level (owner only)
       requestBody:
         required: true
@@ -1232,6 +1454,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: restCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Take a long or short rest (owner or DM). A long rest restores HP to full, returns every spell slot and hands back half the hero's hit dice; a short rest spends hit dice to heal and returns a pact caster's slots. The report says what actually moved, including what each die rolled.
       requestBody:
         required: true
@@ -1259,6 +1485,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: swapCharacterSpells
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Change prepared spells on a Long Rest (owner only). Allowed only for classes whose spellChanges rule says long-rest, and only as far as that rule permits — a Cleric re-prepares freely, a Paladin swaps one, a Bard cannot do it at all (its swap comes at level-up).
       requestBody:
         required: true
@@ -1286,6 +1516,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listEvents
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The campaign chronicle, newest first (members)
       parameters:
         - name: limit
@@ -1317,6 +1551,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: addChronicleNote
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Write an entry into the chronicle (any member; players post to player chat)
       requestBody:
         required: true
@@ -1353,6 +1591,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: rollInTheOpen
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Roll dice where the table can see them (any member)
       description: |
         The server rolls the pool and writes the result into the chronicle's rolls channel. Public rolls are rolled here rather than posted from the browser: a shared log that takes the roller's word for the number is not a record of anything.
@@ -1382,6 +1624,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: grantXP
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Grant (or dock) XP to seated heroes (DM only)
       requestBody:
         required: true
@@ -1425,6 +1671,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: declareMilestone
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: A milestone — seated heroes gain one pending level-up (DM only)
       requestBody:
         required: false
@@ -1456,6 +1706,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: revokeMilestone
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: |
         Take back an unspent level-up (DM only) — from the chosen heroes, or one from everyone when none are named. Already-spent levels stay.
       requestBody:
@@ -1482,6 +1736,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     put:
       operationId: setProgression
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Switch the campaign between milestone and XP progression (DM only)
       requestBody:
         required: true
@@ -1515,6 +1773,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     put:
       operationId: setMaxLevel
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Set or clear the table's level ceiling (DM only)
       requestBody:
         required: true
@@ -1547,6 +1809,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     put:
       operationId: setMaxSeatedPerPlayer
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Set how many heroes one player may seat at this table at once (DM only)
       requestBody:
         required: true
@@ -1581,6 +1847,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     put:
       operationId: setSeatingApproval
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Bar or open the table's door — barred means new heroes wait for the DM's nod (DM only)
       requestBody:
         required: true
@@ -1611,6 +1881,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     put:
       operationId: setCoinage
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Set the coins this table counts in (DM only)
       description: |-
         A DM names their own money (#195) — glimmer, trade bars, faction scrip — and the Bazaar prices and charges in it. Sending an empty list puts the table back on the standard cp/sp/ep/gp/pp.
@@ -1640,6 +1914,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     put:
       operationId: setHiddenSheets
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Draw or lift the veil over the table's character sheets (DM only)
       requestBody:
         required: true
@@ -1672,6 +1950,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     put:
       operationId: revealCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Lift or drop the veil on one seated hero's sheet (DM only)
       requestBody:
         required: true
@@ -1705,6 +1987,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listSeatRequests
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The heroes waiting at the door, oldest first (DM only)
       responses:
         "200":
@@ -1727,6 +2013,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: approveSeatRequest
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: |
         Let a waiting hero take their seat (DM only); re-checks the codex and the table's seats-per-player cap first
       responses:
@@ -1752,6 +2042,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     delete:
       operationId: denySeatRequest
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Turn a waiting hero away from the door (DM only)
       responses:
         "204":
@@ -1767,6 +2061,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: getCodex
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The campaign's codex — every explicit ruling plus proposals (members)
       responses:
         "200":
@@ -1783,6 +2081,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: proposeCodexContent
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Offer your homebrew to the table (members; DM decides)
       requestBody:
         required: true
@@ -1813,6 +2115,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: setCodexStatusBulk
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: One verdict over many entries (DM only — pack admissions)
       requestBody:
         required: true
@@ -1856,6 +2162,10 @@ paths:
           format: uuid
     put:
       operationId: setCodexStatus
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: The DM's verdict on an entry (enable homebrew, ban/unban SRD)
       requestBody:
         required: true
@@ -1884,6 +2194,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: clearCodexStatus
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Remove a ruling — back to defaults (DM only)
       responses:
         "204":
@@ -1897,6 +2211,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listCharacters
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The campaign's party roster (members only)
       responses:
         "200":
@@ -1913,6 +2231,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: |
         Quick-add a table-born character to the roster (DM only) — players bring account heroes through the seat flow, where the door applies
       requestBody:
@@ -1939,6 +2261,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     get:
       operationId: getCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:read
       summary: A hero's full sheet — owner, or members of the seated campaign
       responses:
         "200":
@@ -1955,6 +2281,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     patch:
       operationId: updateCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Update a character (its owner or the DM)
       requestBody:
         required: true
@@ -1979,6 +2309,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteCharacter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Remove a character (its owner or the DM)
       responses:
         "204":
@@ -1994,6 +2328,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listPregens
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: |
         The pool of pre-made heroes waiting to be claimed at this table (#180). Any member sees it; a DM offers into it and a player claims from it.
       responses:
@@ -2011,6 +2349,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: offerPregen
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: |
         Offer one of the DM's own unseated heroes into this campaign's pregen pool (DM only). It is seated here and held until a member claims it.
       requestBody:
@@ -2040,6 +2382,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     delete:
       operationId: withdrawPregen
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: |
         Pull an unclaimed pregen back out of the pool to the DM's shelf (DM only). A claimed one belongs to its player and cannot be withdrawn.
       responses:
@@ -2058,6 +2404,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: claimPregen
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: |
         Claim an unclaimed pregen (any member of its table). Ownership passes to the claimer; it is already seated, so it joins their roster at once. The table's seats-per-player cap still applies.
       responses:
@@ -2080,6 +2430,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: releasePregen
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: |
         Release a claimed pregen back to the pool (its player, or the DM). Ownership returns to the author who offered it; it stays seated for the next taker.
       responses:
@@ -2102,6 +2456,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listTrees
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The campaign's skill trees (members only)
       responses:
         "200":
@@ -2118,6 +2476,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createTree
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Create a skill tree (DM only)
       requestBody:
         required: true
@@ -2143,6 +2505,10 @@ paths:
       - $ref: "#/components/parameters/TreeId"
     get:
       operationId: getTree
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: A skill tree with its full web (members only)
       responses:
         "200":
@@ -2159,6 +2525,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     patch:
       operationId: updateTree
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Update a skill tree (DM only)
       requestBody:
         required: true
@@ -2183,6 +2553,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteTree
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: Delete a skill tree and its web (DM only)
       responses:
         "204":
@@ -2198,6 +2572,10 @@ paths:
       - $ref: "#/components/parameters/TreeId"
     post:
       operationId: createNode
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Add a power node to a tree (DM only)
       requestBody:
         required: true
@@ -2225,6 +2603,10 @@ paths:
       - $ref: "#/components/parameters/TreeId"
     put:
       operationId: setEdges
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Replace the tree's web of connections (DM only)
       requestBody:
         required: true
@@ -2252,6 +2634,10 @@ paths:
       - $ref: "#/components/parameters/NodeId"
     patch:
       operationId: updateNode
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Update a power node (DM only)
       requestBody:
         required: true
@@ -2276,6 +2662,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteNode
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Remove a power node (DM only)
       responses:
         "204":
@@ -2291,6 +2681,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     get:
       operationId: getCharacterTree
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:read
       summary: A character's pact and web progress (members only)
       responses:
         "200":
@@ -2307,6 +2701,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     put:
       operationId: setCharacterTree
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Bind a character to a tree — the pact (DM only)
       requestBody:
         required: true
@@ -2334,6 +2732,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: grantPicks
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Grant unspent picks at a story beat (DM only)
       requestBody:
         required: true
@@ -2361,6 +2763,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     post:
       operationId: spendPick
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - heroes:write
       summary: Spend a granted pick on a reachable node (owner or DM)
       requestBody:
         required: true
@@ -2388,6 +2794,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listLocations
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The campaign's place tree (members only). The DM sees every place; players see only what is unveiled to them.
       responses:
         "200":
@@ -2404,6 +2814,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createLocation
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Chart a new place (DM only)
       requestBody:
         required: true
@@ -2430,6 +2844,10 @@ paths:
       - $ref: "#/components/parameters/LocationId"
     patch:
       operationId: updateLocation
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Rename or redescribe a place (DM only). Moving it is a separate call — see PUT /locations/{locationId}/parent.
       requestBody:
         required: true
@@ -2454,6 +2872,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteLocation
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: Erase a place and everything nested inside it (DM only). Notices hanging there are unpinned, not deleted.
       responses:
         "204":
@@ -2470,6 +2892,10 @@ paths:
       - $ref: "#/components/parameters/LocationId"
     put:
       operationId: moveLocation
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Move a place under a new parent, or out to a root of its own (DM only)
       requestBody:
         required: true
@@ -2498,6 +2924,10 @@ paths:
       - $ref: "#/components/parameters/LocationId"
     put:
       operationId: setLocationVisibility
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Reveal or veil a place, for the whole party or for one hero (DM only)
       requestBody:
         required: true
@@ -2527,6 +2957,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     delete:
       operationId: clearLocationVisibilityOverride
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Drop one hero's exception so they follow the party again (DM only)
       responses:
         "200":
@@ -2547,6 +2981,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     delete:
       operationId: clearQuestVisibilityOverride
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Drop one hero's exception so they follow the party again (DM only)
       responses:
         "200":
@@ -2566,6 +3004,10 @@ paths:
       - $ref: "#/components/parameters/QuestId"
     put:
       operationId: setQuestVisibility
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Reveal or veil a notice, for the whole party or for one hero (DM only)
       requestBody:
         required: true
@@ -2593,6 +3035,10 @@ paths:
       - $ref: "#/components/parameters/QuestId"
     post:
       operationId: claimQuest
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Claim a quest (any campaign member)
       responses:
         "200":
@@ -2609,6 +3055,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: unclaimQuest
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Release a previously claimed quest
       responses:
         "200":
@@ -2628,6 +3078,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listVendors
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The shops of a campaign. The DM sees every one with all its shelves; a player sees only the shops that have been revealed, and within them only the lines that have.
       responses:
         "200":
@@ -2644,6 +3098,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createVendor
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Open a shop (DM only)
       requestBody:
         required: true
@@ -2674,6 +3132,10 @@ paths:
           format: uuid
     patch:
       operationId: updateVendor
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Rename a shop, move it, or reveal it to the party (DM only)
       requestBody:
         required: true
@@ -2698,6 +3160,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteVendor
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Close a shop and empty its shelves (DM only)
       responses:
         "204":
@@ -2718,6 +3184,10 @@ paths:
           format: uuid
     post:
       operationId: addStock
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Put something on the shelves (DM only)
       requestBody:
         required: true
@@ -2750,6 +3220,10 @@ paths:
           format: uuid
     patch:
       operationId: updateStock
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Reprice a line, restock it, or show it to the party (DM only)
       requestBody:
         required: true
@@ -2774,6 +3248,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteStock
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Take a line off the shelves (DM only)
       responses:
         "204":
@@ -2794,6 +3272,10 @@ paths:
           format: uuid
     post:
       operationId: buyStock
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: "Buy one of a line (members). Gold only: the price parses to whole gp, rounding up in the shopkeeper's favor; the hero must be seated at this campaign, and the coin and the goods move together or not at all."
       requestBody:
         required: true
@@ -2827,6 +3309,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listBestiary
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The party's field journal (members). DM sees full records; players see only unveiled sections.
       responses:
         "200":
@@ -2843,6 +3329,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createBestiaryEntry
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Log a new sighting (any member)
       requestBody:
         required: true
@@ -2874,6 +3364,10 @@ paths:
           format: uuid
     patch:
       operationId: updateBestiaryEntry
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Rename a sighting (creator/DM), or identify and unveil it (DM only)
       requestBody:
         required: true
@@ -2898,6 +3392,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteBestiaryEntry
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Remove a sighting and its notes (creator/DM)
       responses:
         "204":
@@ -2919,6 +3417,10 @@ paths:
           format: uuid
     post:
       operationId: addBestiaryNote
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Pen a field note on a sighting (any member)
       requestBody:
         required: true
@@ -2965,6 +3467,10 @@ paths:
           format: uuid
     delete:
       operationId: deleteBestiaryNote
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Erase a field note (its author, or the DM)
       responses:
         "204":
@@ -2980,6 +3486,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listMaps
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The campaign atlas — every map, no image bytes (members)
       responses:
         "200":
@@ -2996,6 +3506,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createMap
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Hang a new map in the atlas (DM only)
       requestBody:
         required: true
@@ -3022,6 +3536,10 @@ paths:
       - $ref: "#/components/parameters/MapId"
     get:
       operationId: getMap
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: One map with its pins (members; players never receive DM-only pins)
       responses:
         "200":
@@ -3038,6 +3556,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     patch:
       operationId: updateMap
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Rename a map or re-hang it under a parent (DM only)
       requestBody:
         required: true
@@ -3062,6 +3584,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteMap
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: Strike a map and all its pins (DM only)
       responses:
         "204":
@@ -3078,6 +3604,10 @@ paths:
       - $ref: "#/components/parameters/MapId"
     post:
       operationId: createMapPin
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Drop a pin on the map (DM only)
       requestBody:
         required: true
@@ -3111,6 +3641,10 @@ paths:
           format: uuid
     put:
       operationId: setMapVisibility
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Reveal or hide a map, for the table, a party or one hero (DM only). Choosing the table clears every per-hero exception.
       requestBody:
         required: true
@@ -3150,6 +3684,10 @@ paths:
           format: uuid
     delete:
       operationId: clearMapVisibilityOverride
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Drop one hero's exception so they follow the table again (DM only)
       responses:
         "200":
@@ -3175,6 +3713,10 @@ paths:
           format: uuid
     post:
       operationId: createMapShape
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Draw a road or a region on a map (DM only)
       requestBody:
         required: true
@@ -3208,6 +3750,10 @@ paths:
           format: uuid
     patch:
       operationId: updateMapShape
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Redraw or restyle a shape (DM only)
       requestBody:
         required: true
@@ -3232,6 +3778,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteMapShape
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Rub a shape off the map (DM only)
       responses:
         "204":
@@ -3248,6 +3798,10 @@ paths:
       - $ref: "#/components/parameters/MapId"
     get:
       operationId: listReveals
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The reveal ledger — every submitted batch on this map (DM only)
       responses:
         "200":
@@ -3266,6 +3820,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     post:
       operationId: submitReveals
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Lift the fog — commit a draft of stamped circles as one batch (DM only)
       requestBody:
         required: true
@@ -3299,6 +3857,10 @@ paths:
           format: uuid
     patch:
       operationId: setRevealLocation
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Tie a reveal batch to a place, or cut it loose (DM only)
       requestBody:
         required: true
@@ -3323,6 +3885,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteReveals
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Tear a batch out of the ledger — its area fogs over again (DM only)
       responses:
         "204":
@@ -3339,6 +3905,10 @@ paths:
       - $ref: "#/components/parameters/PinId"
     patch:
       operationId: updateMapPin
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Move or reword a pin (DM only)
       requestBody:
         required: true
@@ -3363,6 +3933,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteMapPin
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Pull a pin off the map (DM only)
       responses:
         "204":
@@ -3378,6 +3952,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listHandouts
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The campaign's handouts, newest first (members see only what is theirs to see)
       description: |
         The DM receives every handout with its veil state; a player receives only the handouts revealed to the party or to one of their seated heroes. Image bytes are not included — see the image route.
@@ -3396,6 +3974,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createHandout
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Bring something to the table (DM only)
       requestBody:
         required: true
@@ -3421,6 +4003,10 @@ paths:
       - $ref: "#/components/parameters/HandoutId"
     patch:
       operationId: updateHandout
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Retitle or recaption a handout (DM only)
       requestBody:
         required: true
@@ -3445,6 +4031,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteHandout
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Take it back off the table (DM only) — its chronicle line goes with it
       responses:
         "204":
@@ -3460,6 +4050,10 @@ paths:
       - $ref: "#/components/parameters/HandoutId"
     put:
       operationId: setHandoutVisibility
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Hand it over, or take it back — party-wide or one hero (DM only)
       description: |
         The first reveal writes the chronicle line that hands it to the table. Revealing to a further hero afterwards lights up that same line for them rather than writing a second one.
@@ -3490,6 +4084,10 @@ paths:
       - $ref: "#/components/parameters/CharacterId"
     delete:
       operationId: clearHandoutVisibilityOverride
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Drop one hero's exception so they follow the party again (DM only)
       responses:
         "200":
@@ -3509,6 +4107,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listEncounters
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The DM's encounter library — every prepared fight, running or not (DM only)
       responses:
         "200":
@@ -3525,6 +4127,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createEncounter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Prepare a new (inactive) encounter (DM only)
       requestBody:
         required: true
@@ -3550,6 +4156,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: getActiveEncounter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The running encounter this member is in — the fight their hero stands in for a player, the most recently triggered one for the DM. Redacted for players. 204 when none applies.
       responses:
         "200":
@@ -3569,6 +4179,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     post:
       operationId: standDownEncounters
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Stand down every running encounter at once, releasing every summoned hero (DM only). The way out when several fights are open and a player is stuck in one of them.
       responses:
         "200":
@@ -3588,6 +4202,10 @@ paths:
       - $ref: "#/components/parameters/EncounterId"
     get:
       operationId: getEncounter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: One encounter with its combatants — full detail (DM only)
       responses:
         "200":
@@ -3604,6 +4222,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     patch:
       operationId: updateEncounter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Rename, trigger/end, or advance the tracker (DM only)
       requestBody:
         required: true
@@ -3628,6 +4250,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteEncounter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Discard an encounter and its combatants (DM only)
       responses:
         "204":
@@ -3643,6 +4269,10 @@ paths:
       - $ref: "#/components/parameters/EncounterId"
     put:
       operationId: fileEncounter
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: File an encounter under a session tag and/or a place (DM only)
       description: Replaces the encounter's filing wholesale, so one call can move it, unpin it, or clear its tag. The library groups on these two fields.
       requestBody:
@@ -3671,6 +4301,10 @@ paths:
       - $ref: "#/components/parameters/EncounterId"
     post:
       operationId: addCombatant
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Add a Den monster, a seated PC, a traveling ally, or a custom line (DM only)
       requestBody:
         required: true
@@ -3700,6 +4334,10 @@ paths:
       - $ref: "#/components/parameters/EncounterId"
     post:
       operationId: rollInitiative
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Roll initiative (d20 + modifier) for every combatant at once (DM only)
       responses:
         "200":
@@ -3719,6 +4357,10 @@ paths:
       - $ref: "#/components/parameters/CombatantId"
     patch:
       operationId: updateCombatant
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Edit a combatant — HP, initiative, reveal, rename (DM only)
       requestBody:
         required: true
@@ -3743,6 +4385,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteCombatant
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Remove a combatant (DM only)
       responses:
         "204":
@@ -3764,6 +4410,10 @@ paths:
           format: uuid
     delete:
       operationId: deleteCombatantGroup
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Remove a whole mob at once (DM only)
       description: Deletes every combatant sharing this groupId. Removing one dead skeleton is still a plain combatant delete; this is for clearing the entire unit.
       responses:
@@ -3780,6 +4430,10 @@ paths:
       - $ref: "#/components/parameters/CombatantId"
     post:
       operationId: rollCombatantInitiative
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Roll this combatant's initiative (DM, or the owner of a PC combatant)
       responses:
         "200":
@@ -3799,6 +4453,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listNpcs
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The people of a campaign. The DM sees everyone with both veils spelled out; a player sees only the NPCs their heroes' veil resolves visible, and reads stats only where the second veil allows.
       responses:
         "200":
@@ -3815,6 +4473,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createNpc
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Bring a person into the campaign (DM only)
       requestBody:
         required: true
@@ -3845,6 +4507,10 @@ paths:
           format: uuid
     patch:
       operationId: updateNpc
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Rename a person, move them, or change what stands behind them (DM only)
       requestBody:
         required: true
@@ -3869,6 +4535,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteNpc
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Strike a person from the campaign (DM only)
       responses:
         "204":
@@ -3882,6 +4552,10 @@ paths:
   /realms:
     get:
       operationId: listRealms
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The caller's own realms
       description: Realms belong to whoever made them and are listed to nobody else (#233). A player reads their campaign's realm NAME off the campaign itself; the list, which is what feeds the "found a campaign here" picker, is the owner's alone. Empty realms are included.
       responses:
@@ -3905,6 +4579,10 @@ paths:
           format: uuid
     patch:
       operationId: renameRealm
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: Rename a realm (owner only)
       description: A backfilled realm is named after its one campaign, which is rarely what the setting is actually called — renaming is how it stops being a private container and starts being a place.
       requestBody:
@@ -3928,6 +4606,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteRealm
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: Strike an empty realm (owner only)
       description: Refused while any campaign stands in it — a realm holds years of play and is never a way to delete them sideways. Empty it first, by moving or striking the campaigns themselves.
       responses:
@@ -3944,6 +4626,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     put:
       operationId: setCampaignRealm
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:own
       summary: Move a campaign into another of your realms (owner only)
       description: "Nothing is shared between campaigns in stage one, so moving costs a table nothing and takes nothing from it. It exists because backfill gave every campaign that already existed a realm of its own: without a way to move one, the container would do nothing at all for the tables running today."
       requestBody:
@@ -3972,6 +4658,10 @@ paths:
       - $ref: "#/components/parameters/CampaignId"
     get:
       operationId: listParties
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
       summary: The parties at this table
       responses:
         "200":
@@ -3988,6 +4678,10 @@ paths:
           $ref: "#/components/responses/Forbidden"
     post:
       operationId: createParty
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Form a new party (DM only)
       requestBody:
         required: true
@@ -4018,6 +4712,10 @@ paths:
           format: uuid
     patch:
       operationId: renameParty
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Rename a party (DM only)
       requestBody:
         required: true
@@ -4042,6 +4740,10 @@ paths:
           $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteParty
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Disband a party (DM only)
       description: The heroes stay, and so does everything they were ever shown — a party is a brush, and nothing hangs on it (#232).
       responses:
@@ -4063,6 +4765,10 @@ paths:
           format: uuid
     put:
       operationId: setCharacterParty
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Move a hero to a party, or out of all of them (DM only)
       requestBody:
         required: true
@@ -4095,6 +4801,10 @@ paths:
           format: uuid
     put:
       operationId: setNpcTravel
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Mark a person as walking with the party, and hand them to a runner (DM only)
       requestBody:
         required: true
@@ -4127,6 +4837,10 @@ paths:
           format: uuid
     put:
       operationId: setNpcHp
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
       summary: Move a traveling ally's hit points
       description: "Open to the DM and to whoever holds the ally, and to nobody else — a player who is not their runner is refused exactly as a stranger is. The value lands wherever that ally's points live: on the sheet for a forged body, on the person's own row for one carried by a stat block. Refused for a person who is not traveling, or who has nothing behind them."
       requestBody:
@@ -4160,6 +4874,10 @@ paths:
           format: uuid
     post:
       operationId: forgeNpcBody
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Forge a character sheet for this person (DM only)
       description: "Creates a sheet that belongs to this person and attaches it in one act (#227). The body is the DM's, campaign-scoped, and never a seat: it is absent from the party roster, the adventurer count and every veil resolved through heroes. A person carries a stat block or a sheet and never both, so forging one clears any Den monster standing behind them. Refused when this person already has a sheet."
       requestBody:
@@ -4193,6 +4911,10 @@ paths:
           format: uuid
     put:
       operationId: setNpcVisibility
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Reveal or hide a person, for the party or for one hero (DM only). Choosing the party clears every per-hero exception.
       requestBody:
         required: true
@@ -4231,6 +4953,10 @@ paths:
           format: uuid
     delete:
       operationId: clearNpcVisibilityOverride
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Drop one hero's exception so they follow the party again (DM only)
       responses:
         "200":
@@ -4255,6 +4981,10 @@ paths:
           format: uuid
     put:
       operationId: setNpcStatsVisibility
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Reveal or hide a person's stat block or sheet, for the party or for one hero (DM only). The stats only ever show where the person themselves is visible.
       requestBody:
         required: true
@@ -4293,6 +5023,10 @@ paths:
           format: uuid
     delete:
       operationId: clearNpcStatsVisibilityOverride
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
       summary: Drop one hero's stats exception so they follow the party again (DM only)
       responses:
         "200":
@@ -4313,8 +5047,10 @@ components:
       type: apiKey
       in: cookie
       name: session
-  security:
-    - sessionCookie: []
+    bearerToken:
+      type: http
+      scheme: bearer
+      description: "An API token (`Authorization: Bearer qb_…`), acting as its owner within the scopes it was minted with. Scopes are `rules:read`, `rules:write`, `heroes:read`, `heroes:write`, `campaigns:read`, `campaigns:play`, `campaigns:run`, `campaigns:own`, `account:read`, `account:write`; `write` implies `read` within a domain, and the campaigns ladder runs own > run > play > read."
   parameters:
     CampaignLens:
       name: campaignId

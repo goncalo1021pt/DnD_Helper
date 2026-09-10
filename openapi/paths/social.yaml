@@ -1,6 +1,9 @@
 /me/friends:
   get:
     operationId: listFriends
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:read]
     summary: Your friends, the requests either way, and who you have blocked
     responses:
       "200":
@@ -13,6 +16,9 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
   post:
     operationId: askFriend
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
     summary: Ask somebody to be your friend, by their code
     description: >-
       Answers 404 for a code nobody holds, and the same 404 for a code held by
@@ -42,6 +48,9 @@
 /me/friends/code:
   post:
     operationId: reforgeFriendCode
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
     summary: Draw a fresh friend code, retiring the old one
     responses:
       "200":
@@ -63,6 +72,9 @@
         format: uuid
   put:
     operationId: acceptFriend
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
     summary: Accept a request somebody made of you
     responses:
       "200":
@@ -77,6 +89,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   delete:
     operationId: dropFriend
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
     summary: Withdraw a request, decline one, or part ways
     description: >-
       One door for all three, because they are one act: the row between you
@@ -102,6 +117,9 @@
         format: uuid
   put:
     operationId: blockUser
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
     summary: Block somebody — parts you if you were friends, and stops both directions
     responses:
       "200":
@@ -114,6 +132,9 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
   delete:
     operationId: unblockUser
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
     summary: Lift a block. It does not restore the friendship.
     responses:
       "200":
@@ -128,6 +149,9 @@
 /me/messages:
   get:
     operationId: listThreads
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:read]
     summary: The inbox — everyone you have spoken with, newest first
     responses:
       "200":
@@ -151,6 +175,9 @@
         format: uuid
   get:
     operationId: readThread
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:read]
     summary: One conversation, oldest first, and marks it read
     responses:
       "200":
@@ -169,6 +196,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   post:
     operationId: sendDirectMessage
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
     summary: Say something to one person
     description: >-
       Open to a friend, or to anybody you already share a table with — the
@@ -207,6 +237,9 @@
         format: uuid
   get:
     operationId: listPartyMessages
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
     summary: A party's own room, for a table that has split
     responses:
       "200":
@@ -225,6 +258,9 @@
         $ref: "../openapi.yaml#/components/responses/NotFound"
   post:
     operationId: sendPartyMessage
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
     summary: Say something to your party
     description: >-
       Open to the DM and to whoever rides with that party right now. A player
