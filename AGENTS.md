@@ -61,12 +61,19 @@ procedure regardless of which machine or tool you run on.
 
 ### Issues
 
-- Every issue gets **labels, an assignee, and a milestone**. Milestones are
-  waves named `vX.Y — a name` (see the existing list); the number is ordering,
-  the name is the theme.
+- Every issue gets **labels, an assignee, and a milestone**. **A milestone is
+  a release**: named for the tag it will be cut as plus its theme (`v2.2.0 —
+  doors for machines`), closed by cutting that tag and never before. One minor
+  in flight, the next queued behind it; a patch cut in between renames nothing.
+  The last issue in every milestone is `Release vX.Y.Z` (label `Release`), a
+  checklist — batch test on staging, cut, deploy, verify — and when it is the
+  only issue still open, it is time to batch test. An issue with labels and no
+  milestone is accepted but not scheduled. The milestones from before this rule
+  (v1.6 – v2.4) kept their wave names and say in their description which
+  release they shipped in.
 - Label meanings beyond the GitHub defaults: `from-the-table` = feedback or
   asks from a real session; `ops` = deployment/backups/monitoring;
-  `tech-debt` = no user-visible change; `Release` = the PR cuts a release.
+  `tech-debt` = no user-visible change; `Release` = the issue that closes a milestone by cutting its release.
   The `claude` label **hands the issue to the hosted Claude agent** — apply it
   only when that is the intent.
 - Issue bodies say *what happens today / how it should work / what it depends
