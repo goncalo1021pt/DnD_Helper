@@ -9,6 +9,26 @@ Cutting a release and putting it in front of players are two separate taps, on
 purpose: you can cut a release for the record and deploy it after a session
 rather than mid-game.
 
+## When to cut
+
+A milestone is a release (`v2.2.0 — doors for machines`), and its last issue is
+`Release v2.2.0`, labelled `Release`. When that is the only issue still open,
+it is time to batch test; its checklist is the procedure below in tick-box
+form, so the tracker shows how far along a release is.
+
+1. **Batch test.** Every other issue closed and merged; migration numbers
+   unique after the last rebase; `main` deployed to staging (**Actions → Deploy
+   to staging**); `make test && make e2e` green against a server with no
+   `RESEND_API_KEY`; a manual pass of the milestone's features on staging, on
+   a phone.
+2. **Cut** (step 1 below) — dry run first, then the part the milestone's name
+   promises.
+3. **Deploy and verify** (steps 2 and 3 below), after a session rather than
+   mid-game; bump the README status line; close the milestone.
+
+A fix that cannot wait for the minor is cut as a patch (`v2.1.1`) from a
+milestone of its own, and the minor in flight keeps its name.
+
 ## 1. Cut the release
 
 > GitHub → this repo → **Actions** → **Cut a release** → **Run workflow** →

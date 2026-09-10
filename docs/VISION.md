@@ -848,6 +848,18 @@ the table that landed nowhere. The split from here:
   make out loud during a session, captured the moment they are said rather than
   remembered later.
 
+Amended 2026-09-10, after the first audit of milestones against tags: the wave
+numbers had drifted from the releases at once (the *v2.0 — the world layer*
+milestone shipped in v1.6.0; v2.0.0 carried six milestones). From here **a
+milestone is a release**, named for the tag it will be cut as (`v2.2.0 — doors
+for machines`) and closed by cutting it; its last issue is `Release vX.Y.Z`, a
+checklist that says when to batch test. The closed milestones keep their names
+and record in their description which release they shipped in. The same day
+settled how an issue from somebody else is handled — `enhancement`, then
+discuss whether it is worth building, then plan it on the issue, then build —
+after the first two outside asks (#294, #295) sat ten days unanswered; the
+procedure is in AGENTS.md.
+
 ## Open questions
 
 Genuinely still open:
