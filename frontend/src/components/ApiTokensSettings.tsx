@@ -66,6 +66,8 @@ const EXPIRY = [
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+const fmtWhen = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 type ApiError = { data?: { error?: string } };
 const errText = (e: unknown, fallback: string) => (e as ApiError)?.data?.error ?? fallback;
@@ -104,6 +106,9 @@ export default function ApiTokensSettings({ campaigns }: { campaigns: CampaignMe
 
 function TokenRow({ token, onRevoke }: { token: ApiToken; onRevoke: () => void }) {
   const expired = !!token.expiresAt && new Date(token.expiresAt).getTime() < Date.now();
+  // Refused for going over its ceiling within the last day (#314): the script
+  // holding it is looping, and this is where its owner finds out.
+  const throttled = !!token.throttledAt && Date.now() - new Date(token.throttledAt).getTime() < 24 * 60 * 60 * 1000;
   return (
     <li
       className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5"
@@ -116,6 +121,11 @@ function TokenRow({ token, onRevoke }: { token: ApiToken; onRevoke: () => void }
           <span className="font-mono text-[11.5px] tracking-[.5px] text-[#9c855e]">{token.prefix}…</span>
           {expired && (
             <span className="label-stamp text-[9px] tracking-[1.5px] text-[#d68a72]">EXPIRED</span>
+          )}
+          {throttled && (
+            <span className="label-stamp text-[9px] tracking-[1.5px] text-[#e0a458]" title="Refused for going over its rate limit — the script holding it is looping">
+              HIT ITS CEILING
+            </span>
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -138,6 +148,7 @@ function TokenRow({ token, onRevoke }: { token: ApiToken; onRevoke: () => void }
           {token.lastUsedAt ? `last used ${fmtDate(token.lastUsedAt)}` : "never used"}
           {" · "}
           {token.expiresAt ? `${expired ? "expired" : "expires"} ${fmtDate(token.expiresAt)}` : "never expires"}
+          {token.throttledAt ? ` · hit its ceiling ${fmtWhen(token.throttledAt)}` : ""}
         </div>
       </div>
       <button

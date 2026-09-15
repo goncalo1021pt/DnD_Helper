@@ -46,7 +46,7 @@ func (s *Server) ListApiTokens(ctx context.Context, _ api.ListApiTokensRequestOb
 	for _, r := range rows {
 		out = append(out, toAPIToken(db.ApiToken{
 			ID: r.ID, UserID: r.UserID, Name: r.Name, Prefix: r.Prefix, Scopes: r.Scopes,
-			CampaignID: r.CampaignID, CreatedAt: r.CreatedAt, LastUsedAt: r.LastUsedAt, ExpiresAt: r.ExpiresAt,
+			CampaignID: r.CampaignID, CreatedAt: r.CreatedAt, LastUsedAt: r.LastUsedAt, ExpiresAt: r.ExpiresAt, ThrottledAt: r.ThrottledAt,
 		}, r.CampaignName))
 	}
 	return api.ListApiTokens200JSONResponse(out), nil
@@ -183,6 +183,10 @@ func toAPIToken(row db.ApiToken, campaignName *string) api.ApiToken {
 	if row.LastUsedAt.Valid {
 		t := row.LastUsedAt.Time
 		out.LastUsedAt = &t
+	}
+	if row.ThrottledAt.Valid {
+		t := row.ThrottledAt.Time
+		out.ThrottledAt = &t
 	}
 	if row.ExpiresAt.Valid {
 		t := row.ExpiresAt.Time

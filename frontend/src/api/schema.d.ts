@@ -4454,6 +4454,11 @@ export interface components {
              * @description Absent means the token never expires.
              */
             expiresAt?: string | null;
+            /**
+             * Format: date-time
+             * @description When the token was last refused for going over its ceiling (#314) — a script that is looping. Written at most once a minute; absent means never.
+             */
+            throttledAt?: string;
         };
         ApiTokenInput: {
             /** @description What this token is for — "the Discord bot", "my backup script". */

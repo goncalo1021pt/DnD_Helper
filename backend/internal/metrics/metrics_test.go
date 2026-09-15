@@ -26,6 +26,19 @@ func TestHandlerExposesGameCounter(t *testing.T) {
 	}
 }
 
+// TestHandlerExposesRateLimitCounter: a 429 is its own series, by ceiling (#314).
+func TestHandlerExposesRateLimitCounter(t *testing.T) {
+	RateLimited("token")
+
+	rr := httptest.NewRecorder()
+	Handler().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+
+	body, _ := io.ReadAll(rr.Result().Body)
+	if !strings.Contains(string(body), `questboard_ratelimit_refusals_total{ceiling="token"}`) {
+		t.Fatalf("expected the token ceiling counter in /metrics output, got:\n%s", body)
+	}
+}
+
 // TestMiddlewareRecordsRoutePattern checks that requests are labelled by the
 // chi route template, not the concrete path — the whole point of routePattern.
 func TestMiddlewareRecordsRoutePattern(t *testing.T) {
