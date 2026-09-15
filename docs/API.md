@@ -94,10 +94,40 @@ bearer.
 
 ## Limits
 
+Every request draws from a bucket. The bucket refills at a steady rate and
+holds a burst of twice that, so a script can open with a flurry and then
+settle. When it is empty the answer is **429** with a `Retry-After` header in
+whole seconds and the usual `{"error": ...}` body. Wait that long and carry
+on — nothing was lost.
+
+| Ceiling | Sustained | Burst |
+|---|---|---|
+| per token | 60 requests a minute | 120 |
+| per IP, for bearer and anonymous requests | 300 a minute | 600 |
+| per signed-in browser | 600 a minute | 1,200 |
+
+A token draws from its own bucket and from its IP's, so many keys on one host
+still share a ceiling. A browser session draws from the person's alone, so a
+table on one Wi-Fi never shares one.
+
+Heavy doors cost more than one request's worth: the codex lists
+(`GET /rules/{kind}`) and a map image draw **5**, a pack import or export and
+a map upload draw **10**. Walking every shelf of the codex is about 50 — well
+inside one burst — and after that a dozen shelves a minute.
+
+A token that hits a ceiling is marked on the profile (*hit its ceiling*, with
+the time), so the person who minted it learns their script is looping without
+reading a log.
+
+The numbers above are the defaults. A self-hosted stack tunes them with
+`RATE_LIMIT_TOKEN_PER_MINUTE`, `RATE_LIMIT_IP_PER_MINUTE` and
+`RATE_LIMIT_SESSION_PER_MINUTE`; 0 turns a ceiling off.
+
+Also:
+
 - 25 live tokens per account; revoke one to mint another
 - `lastUsedAt` is written at most once a minute per token — a busy script costs
   one write, not one per request
-- rate limits per token are #314, in the same release
 
 ## Reading it as an assistant
 

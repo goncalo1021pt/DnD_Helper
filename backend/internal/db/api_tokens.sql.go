@@ -28,7 +28,7 @@ const createAPIToken = `-- name: CreateAPIToken :one
 
 INSERT INTO api_tokens (user_id, name, prefix, token_hash, scopes, campaign_id, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, user_id, name, prefix, token_hash, scopes, campaign_id, created_at, last_used_at, expires_at, revoked_at
+RETURNING id, user_id, name, prefix, token_hash, scopes, campaign_id, created_at, last_used_at, expires_at, revoked_at, throttled_at
 `
 
 type CreateAPITokenParams struct {
@@ -66,12 +66,13 @@ func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) 
 		&i.LastUsedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
+		&i.ThrottledAt,
 	)
 	return i, err
 }
 
 const getLiveAPITokenByHash = `-- name: GetLiveAPITokenByHash :one
-SELECT id, user_id, name, prefix, token_hash, scopes, campaign_id, created_at, last_used_at, expires_at, revoked_at FROM api_tokens
+SELECT id, user_id, name, prefix, token_hash, scopes, campaign_id, created_at, last_used_at, expires_at, revoked_at, throttled_at FROM api_tokens
 WHERE token_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > now())
 `
 
@@ -91,12 +92,13 @@ func (q *Queries) GetLiveAPITokenByHash(ctx context.Context, tokenHash string) (
 		&i.LastUsedAt,
 		&i.ExpiresAt,
 		&i.RevokedAt,
+		&i.ThrottledAt,
 	)
 	return i, err
 }
 
 const listAPITokensByUser = `-- name: ListAPITokensByUser :many
-SELECT t.id, t.user_id, t.name, t.prefix, t.token_hash, t.scopes, t.campaign_id, t.created_at, t.last_used_at, t.expires_at, t.revoked_at, c.name AS campaign_name
+SELECT t.id, t.user_id, t.name, t.prefix, t.token_hash, t.scopes, t.campaign_id, t.created_at, t.last_used_at, t.expires_at, t.revoked_at, t.throttled_at, c.name AS campaign_name
 FROM api_tokens t
 LEFT JOIN campaigns c ON c.id = t.campaign_id
 WHERE t.user_id = $1 AND t.revoked_at IS NULL
@@ -115,6 +117,7 @@ type ListAPITokensByUserRow struct {
 	LastUsedAt   pgtype.Timestamptz `json:"last_used_at"`
 	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
 	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+	ThrottledAt  pgtype.Timestamptz `json:"throttled_at"`
 	CampaignName *string            `json:"campaign_name"`
 }
 
@@ -139,6 +142,7 @@ func (q *Queries) ListAPITokensByUser(ctx context.Context, userID uuid.UUID) ([]
 			&i.LastUsedAt,
 			&i.ExpiresAt,
 			&i.RevokedAt,
+			&i.ThrottledAt,
 			&i.CampaignName,
 		); err != nil {
 			return nil, err
@@ -167,6 +171,17 @@ func (q *Queries) RevokeAPIToken(ctx context.Context, arg RevokeAPITokenParams) 
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const throttleAPIToken = `-- name: ThrottleAPIToken :exec
+UPDATE api_tokens SET throttled_at = now()
+WHERE id = $1 AND (throttled_at IS NULL OR throttled_at < now() - interval '1 minute')
+`
+
+// The ceiling badge (#314): written at most once a minute, like last_used_at.
+func (q *Queries) ThrottleAPIToken(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, throttleAPIToken, id)
+	return err
 }
 
 const touchAPIToken = `-- name: TouchAPIToken :exec

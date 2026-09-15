@@ -47,7 +47,7 @@ func BearerLoader(q *db.Queries) func(http.Handler) http.Handler {
 			// Best effort, throttled in SQL to one write a minute per token.
 			_ = q.TouchAPIToken(r.Context(), row.ID)
 
-			grant := Grant{Kind: GrantToken}
+			grant := Grant{Kind: GrantToken, TokenID: row.ID}
 			for _, s := range row.Scopes {
 				if sc, ok := ParseScope(s); ok {
 					grant.Scopes = append(grant.Scopes, sc)

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -21,6 +22,12 @@ type Config struct {
 
 	ResendAPIKey string // Resend API key; empty ⇒ emails are logged, not sent
 	MailFrom     string // "From" header for transactional email
+
+	// Rate limits (#314): sustained requests per minute for each ceiling; a
+	// burst of twice that is allowed before it bites. 0 turns a ceiling off.
+	RateLimitToken   int // per API token
+	RateLimitIP      int // per client IP, for bearer and anonymous requests
+	RateLimitSession int // per signed-in person; generous, a browser bursts on page load
 
 	Discord OAuthProvider
 	Google  OAuthProvider
@@ -70,6 +77,22 @@ func Load() (*Config, error) {
 		},
 	}
 
+	for _, v := range []struct {
+		key string
+		dst *int
+		def int
+	}{
+		{"RATE_LIMIT_TOKEN_PER_MINUTE", &cfg.RateLimitToken, 60},
+		{"RATE_LIMIT_IP_PER_MINUTE", &cfg.RateLimitIP, 300},
+		{"RATE_LIMIT_SESSION_PER_MINUTE", &cfg.RateLimitSession, 600},
+	} {
+		n, err := getenvInt(v.key, v.def)
+		if err != nil {
+			return nil, err
+		}
+		*v.dst = n
+	}
+
 	var missing []string
 	if cfg.DatabaseURL == "" {
 		missing = append(missing, "DATABASE_URL")
@@ -85,6 +108,21 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) IsProduction() bool { return c.Env == "production" }
+
+// getenvInt reads a whole, non-negative number, or the fallback when the
+// variable is unset. A value that is not one is a startup error rather than a
+// silent default: a ceiling nobody meant is worse than none.
+func getenvInt(key string, fallback int) (int, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0, fmt.Errorf("%s: %q is not a whole number", key, raw)
+	}
+	return n, nil
+}
 
 func getenv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {

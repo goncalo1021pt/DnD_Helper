@@ -28,6 +28,11 @@ WHERE token_hash = $1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_
 UPDATE api_tokens SET last_used_at = now()
 WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute');
 
+-- The ceiling badge (#314): written at most once a minute, like last_used_at.
+-- name: ThrottleAPIToken :exec
+UPDATE api_tokens SET throttled_at = now()
+WHERE id = $1 AND (throttled_at IS NULL OR throttled_at < now() - interval '1 minute');
+
 -- name: RevokeAPIToken :one
 UPDATE api_tokens SET revoked_at = now()
 WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL

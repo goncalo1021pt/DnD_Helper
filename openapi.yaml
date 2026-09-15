@@ -8805,6 +8805,10 @@ components:
           format: date-time
           nullable: true
           description: Absent means the token never expires.
+        throttledAt:
+          type: string
+          format: date-time
+          description: When the token was last refused for going over its ceiling (#314) — a script that is looping. Written at most once a minute; absent means never.
     ApiTokenInput:
       type: object
       required:

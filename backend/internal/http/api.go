@@ -32,6 +32,8 @@ type Server struct {
 	// created-token tripwire (#294). nil mailer = no email, as in tests.
 	mailer  mail.Mailer
 	baseURL string
+	// limiter is the ceilings (#314); nil means none, as in tests.
+	limiter *limiter
 }
 
 func NewServer(pool *pgxpool.Pool) *Server {

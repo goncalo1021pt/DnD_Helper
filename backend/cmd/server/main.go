@@ -74,6 +74,7 @@ func run() error {
 	router := apphttp.NewRouter(apphttp.Deps{
 		Mailer:         mailer,
 		BaseURL:        cfg.BaseURL,
+		RateLimits:     apphttp.RateLimits{Token: cfg.RateLimitToken, IP: cfg.RateLimitIP, Session: cfg.RateLimitSession},
 		Pool:           pool,
 		SessionManager: sessions,
 		OAuth:          oauth,

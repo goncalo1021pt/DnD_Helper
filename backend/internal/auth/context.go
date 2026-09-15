@@ -59,6 +59,10 @@ type Grant struct {
 	// read it — the campaign guards do, once they know the table a row belongs
 	// to — but it travels with the grant because it was decided at the same door.
 	Campaign *uuid.UUID
+	// TokenID names the token a GrantToken came from: what the rate limiter
+	// keys on and what the profile's ceiling badge is written to (#314).
+	// Zero for a session.
+	TokenID uuid.UUID
 }
 
 // Holds reports whether this grant satisfies a door asking for need.

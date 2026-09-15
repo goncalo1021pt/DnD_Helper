@@ -46,6 +46,7 @@ producing a screenful of timeouts.
 | `encounter.spec.ts` | prepare from the Den → trigger → initiative tracker | `EncounterPage.tsx`, `DenPage.tsx` |
 | `auth.spec.ts` | register → unverified nudge; the emailed link; 2FA enrolled then demanded at the door | the front door |
 | `map.spec.ts` | the fog holds pixel-for-pixel; DM-only pins never reach a player; sub-maps; a stranger gets 403/401 | `MapPage.tsx`, the fog compositor, the hand-rolled image route |
+| `ratelimit.spec.ts` | a token hammering the codex meets its ceiling → 429 with `Retry-After` → the profile row says *hit its ceiling*; a session's page-load burst never meets one | `rateLimit`, `routeCost`, the badge in `ApiTokensSettings.tsx` |
 | `tokens.spec.ts` | mint on the profile → the bearer opens the doors it names and no other → revoke shuts it; a token tied to one table sees that seat alone | `ApiTokensSettings.tsx`, `auth.BearerLoader`, the scope gate, `tableAllowed` |
 
 Not covered yet: the DM Menu, skill trees, the codex, and the character-sheet
