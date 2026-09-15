@@ -454,6 +454,43 @@ export interface paths {
         patch: operations["updateQuest"];
         trace?: never;
     };
+    "/me/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's live API tokens, newest first (session only) */
+        get: operations["listApiTokens"];
+        put?: never;
+        /** Mint an API token (session only). The secret comes back once; an email goes to a verified address. */
+        post: operations["createApiToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/tokens/{tokenId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a token — it stops working at once (session only) */
+        delete: operations["revokeApiToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/seat-requests": {
         parameters: {
             query?: never;
@@ -4387,6 +4424,59 @@ export interface components {
         NpcHpInput: {
             hpCurrent: number;
         };
+        /**
+         * @description What kind of thing a token may touch — a domain and a verb (#313). `write` implies `read` within a domain; `campaigns` runs own > run > play > read. A scope says what may be reached; who the caller is to it is still decided at the door exactly as for a browser.
+         * @enum {string}
+         */
+        TokenScope: "rules:read" | "rules:write" | "heroes:read" | "heroes:write" | "campaigns:read" | "campaigns:play" | "campaigns:run" | "campaigns:own" | "account:read" | "account:write";
+        ApiToken: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description The first characters of the secret (`qb_ab12cd34`), so a token found in the wild can be matched to its row. Nowhere near enough to use. */
+            prefix: string;
+            scopes: components["schemas"]["TokenScope"][];
+            /**
+             * Format: uuid
+             * @description The one table this token may reach. Absent means every table its owner sits at.
+             */
+            campaignId?: string | null;
+            campaignName?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Written at most once a minute, so a busy script costs one write rather than one per request.
+             */
+            lastUsedAt?: string | null;
+            /**
+             * Format: date-time
+             * @description Absent means the token never expires.
+             */
+            expiresAt?: string | null;
+            /**
+             * Format: date-time
+             * @description When the token was last refused for going over its ceiling (#314) — a script that is looping. Written at most once a minute; absent means never.
+             */
+            throttledAt?: string;
+        };
+        ApiTokenInput: {
+            /** @description What this token is for — "the Discord bot", "my backup script". */
+            name: string;
+            scopes: components["schemas"]["TokenScope"][];
+            /**
+             * Format: uuid
+             * @description Restrict the token to one table you sit at. A table you do not sit at answers 404.
+             */
+            campaignId?: string | null;
+            /** @description Days until the token expires; 0 means never. The profile offers 30, 90 (its default) and 365. */
+            expiresInDays: number;
+        };
+        ApiTokenCreated: {
+            token: components["schemas"]["ApiToken"];
+            /** @description The whole token, shown this once and never again. Send it as `Authorization: Bearer <secret>`. */
+            secret: string;
+        };
     };
     responses: {
         /** @description Not authenticated */
@@ -4836,6 +4926,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     joinCampaign: {
@@ -5258,6 +5349,84 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listApiTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tokens */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiToken"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiTokenInput"];
+            };
+        };
+        responses: {
+            /** @description The token, with its secret */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The campaign to restrict to is not one you sit at */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
     };

@@ -72,6 +72,9 @@ func run() error {
 	oauth := auth.NewOAuth(sessions, db.New(pool), devEnabled, cfg.LocalAuth, mailer, cfg.BaseURL, cfg.SessionKey)
 
 	router := apphttp.NewRouter(apphttp.Deps{
+		Mailer:         mailer,
+		BaseURL:        cfg.BaseURL,
+		RateLimits:     apphttp.RateLimits{Token: cfg.RateLimitToken, IP: cfg.RateLimitIP, Session: cfg.RateLimitSession},
 		Pool:           pool,
 		SessionManager: sessions,
 		OAuth:          oauth,

@@ -21,10 +21,15 @@ func (s *Server) requireCharacterViewer(ctx context.Context, character db.Charac
 	if !ok {
 		return errNoAuth
 	}
+	campaignID, seated := seatedCampaign(character)
 	if uid == character.OwnerUserID {
+		// Their own hero — except through a token minted for another table,
+		// which reaches heroes on its shelf and at its table only (#294).
+		if seated && !tableAllowed(ctx, campaignID) {
+			return errForbidden
+		}
 		return nil
 	}
-	campaignID, seated := seatedCampaign(character)
 	if !seated {
 		// A hero waiting at a barred door may be previewed by that
 		// table's DM before the seat is granted.

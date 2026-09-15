@@ -29,6 +29,10 @@ func (s *Server) requireMember(ctx context.Context, campaignID uuid.UUID) (db.Me
 	if !ok {
 		return db.Membership{}, errNoAuth
 	}
+	// A token minted for one table is a stranger at every other (#294).
+	if !tableAllowed(ctx, campaignID) {
+		return db.Membership{}, errForbidden
+	}
 	m, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: campaignID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

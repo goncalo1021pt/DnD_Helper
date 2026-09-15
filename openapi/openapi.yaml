@@ -60,6 +60,11 @@ paths:
   /quests/{questId}:
     $ref: "./paths/quests.yaml#/~1quests~1{questId}"
 
+  /me/tokens:
+    $ref: "./paths/tokens.yaml#/~1me~1tokens"
+  /me/tokens/{tokenId}:
+    $ref: "./paths/tokens.yaml#/~1me~1tokens~1{tokenId}"
+
   /me/seat-requests:
     $ref: "./paths/characters.yaml#/~1me~1seat-requests"
   /me/characters:
@@ -765,6 +770,15 @@ components:
       $ref: "./components/npcs.yaml#/NpcTravelInput"
     NpcHpInput:
       $ref: "./components/npcs.yaml#/NpcHpInput"
+
+    TokenScope:
+      $ref: "./components/tokens.yaml#/TokenScope"
+    ApiToken:
+      $ref: "./components/tokens.yaml#/ApiToken"
+    ApiTokenInput:
+      $ref: "./components/tokens.yaml#/ApiTokenInput"
+    ApiTokenCreated:
+      $ref: "./components/tokens.yaml#/ApiTokenCreated"
 
 security:
   - sessionCookie: []

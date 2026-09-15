@@ -47,6 +47,9 @@ func (s *Server) requireOwner(ctx context.Context, campaignID uuid.UUID) (db.Cam
 	if !ok {
 		return db.Campaign{}, errNoAuth
 	}
+	if !tableAllowed(ctx, campaignID) {
+		return db.Campaign{}, errForbidden
+	}
 	campaign, err := s.queries.GetCampaign(ctx, campaignID)
 	if err != nil {
 		return db.Campaign{}, err

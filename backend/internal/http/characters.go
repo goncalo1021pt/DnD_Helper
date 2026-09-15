@@ -238,6 +238,9 @@ func (s *Server) DeleteCharacter(ctx context.Context, request api.DeleteCharacte
 	if !ok {
 		return api.DeleteCharacter401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
+	if campaignID, seated := seatedCampaign(character); seated && !tableAllowed(ctx, campaignID) {
+		return api.DeleteCharacter403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil
+	}
 	if uid != character.OwnerUserID {
 		allowed := false
 		if campaignID, seated := seatedCampaign(character); seated && character.TableBorn {

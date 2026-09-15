@@ -542,6 +542,21 @@ type AdminAction struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type ApiToken struct {
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	Name        string             `json:"name"`
+	Prefix      string             `json:"prefix"`
+	TokenHash   string             `json:"token_hash"`
+	Scopes      []string           `json:"scopes"`
+	CampaignID  pgtype.UUID        `json:"campaign_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt  pgtype.Timestamptz `json:"last_used_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
+	ThrottledAt pgtype.Timestamptz `json:"throttled_at"`
+}
+
 type BestiaryEntry struct {
 	ID         uuid.UUID          `json:"id"`
 	CampaignID uuid.UUID          `json:"campaign_id"`
