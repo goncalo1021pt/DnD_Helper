@@ -905,6 +905,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What the catalogue emitted at this table, newest first, with who was told (DM)
+         * @description The outbox (#315) read as a feed: every event emitted at this table, its payload, and the audience the emitter decided. DM only — the audience of a hidden quest's event is itself a spoiler. The scope is a read because every GET is one; the handler's DM guard says who.
+         */
+        get: operations["listCampaignFeed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/rolls": {
         parameters: {
             query?: never;
@@ -4477,6 +4499,107 @@ export interface components {
             /** @description The whole token, shown this once and never again. Send it as `Authorization: Bearer <secret>`. */
             secret: string;
         };
+        /**
+         * @description What happened (#315). The catalogue in one place: a webhook subscriber picks from this list, and each name's payload is the matching *EventPayload schema. Mirrored by `events.All` in the server, and a test holds the two together.
+         * @enum {string}
+         */
+        EventName: "quest.posted" | "quest.claimed" | "quest.completed" | "handout.given" | "session.scheduled" | "session.moved" | "hero.levelled" | "hero.xp_awarded" | "encounter.started" | "encounter.ended" | "chronicle.written" | "member.joined" | "seat.requested";
+        EventActor: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        /** @description One thing that happened at one table. The envelope is the same whether it is read off the DM's feed or delivered to a webhook; `audience` rides only on the feed, because a receiver must not learn who else was told. */
+        CatalogueEvent: {
+            /** Format: uuid */
+            id: string;
+            name: components["schemas"]["EventName"];
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            campaignId: string;
+            actor?: components["schemas"]["EventActor"];
+            /** @description The user ids the emitter decided may hear it. Present on the DM's feed, never on a delivery. */
+            audience?: string[];
+            /** @description Ids plus the names a reader needs, never a whole row — the *EventPayload schema matching `name`. */
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description The payload of quest.posted, quest.claimed and quest.completed. */
+        QuestEventPayload: {
+            /** Format: uuid */
+            questId: string;
+            title: string;
+            difficulty: string;
+            status: string;
+            claimedBy?: components["schemas"]["EventActor"];
+        };
+        /** @description The payload of handout.given. */
+        HandoutEventPayload: {
+            /** Format: uuid */
+            handoutId: string;
+            title: string;
+            caption?: string;
+        };
+        /** @description The payload of session.scheduled and session.moved; `previousAt` only on a move. */
+        SessionEventPayload: {
+            /** Format: date-time */
+            at: string;
+            /** Format: date-time */
+            previousAt?: string;
+        };
+        /** @description The payload of hero.levelled. */
+        HeroLevelEventPayload: {
+            /** Format: uuid */
+            heroId: string;
+            heroName: string;
+            /** @description The hero's total level after rising. */
+            level: number;
+            /** @description The class they rose in. */
+            className: string;
+        };
+        /** @description The payload of hero.xp_awarded — one event per hero, so its audience is that hero's owner and the DMs. */
+        HeroXpEventPayload: {
+            /** Format: uuid */
+            heroId: string;
+            heroName: string;
+            /** @description Negative when docked. */
+            amount: number;
+            total: number;
+            reason?: string;
+        };
+        /** @description The payload of encounter.started and encounter.ended. */
+        EncounterEventPayload: {
+            /** Format: uuid */
+            encounterId: string;
+            name: string;
+        };
+        /** @description The payload of chronicle.written. The excerpt is the first 140 characters; the audience is already who may read the whole line. */
+        ChronicleEventPayload: {
+            /** Format: uuid */
+            noteId: string;
+            /** @description note | ruling | player_note */
+            kind: string;
+            author?: string;
+            excerpt: string;
+        };
+        /** @description The payload of member.joined. */
+        MemberEventPayload: {
+            /** Format: uuid */
+            userId: string;
+            name: string;
+            role: string;
+        };
+        /** @description The payload of seat.requested. */
+        SeatEventPayload: {
+            /** Format: uuid */
+            heroId: string;
+            heroName: string;
+            /** Format: uuid */
+            userId: string;
+            userName: string;
+        };
     };
     responses: {
         /** @description Not authenticated */
@@ -6239,6 +6362,32 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listCampaignFeed: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueEvent"][];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };

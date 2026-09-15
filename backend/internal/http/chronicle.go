@@ -9,8 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
@@ -162,6 +165,10 @@ func (s *Server) AddChronicleNote(ctx context.Context, request api.AddChronicleN
 		return nil, err
 	}
 	name, _ := s.ownerName(ctx, member.UserID)
+	aud, audErr := s.everyoneAt(ctx, campaignID)
+	s.emit(ctx, campaignID, events.ChronicleWritten, aud, audErr, api.ChronicleEventPayload{
+		NoteId: openapi_types.UUID(row.ID), Kind: row.Kind, Author: &name, Excerpt: excerpt(row.Message, 140),
+	})
 	return api.AddChronicleNote201JSONResponse(api.ChronicleEvent{
 		Id:        row.ID,
 		Kind:      row.Kind,
@@ -252,6 +259,19 @@ func (s *Server) GrantXP(ctx context.Context, request api.GrantXPRequestObject) 
 		line += " — " + strings.TrimSpace(*request.Body.Reason)
 	}
 	s.logEvent(ctx, campaignID, member.UserID, "xp", line)
+	// One event per hero (#315): its audience is that hero's owner and the
+	// DMs, so a player is told about their own hero and nobody else's.
+	var reason *string
+	if request.Body.Reason != nil && strings.TrimSpace(*request.Body.Reason) != "" {
+		r := strings.TrimSpace(*request.Body.Reason)
+		reason = &r
+	}
+	for _, c := range updated {
+		aud, audErr := s.ownerAndDMs(ctx, campaignID, c.OwnerUserID)
+		s.emit(ctx, campaignID, events.HeroXPAwarded, aud, audErr, api.HeroXpEventPayload{
+			HeroId: openapi_types.UUID(c.ID), HeroName: c.Name, Amount: amount, Total: int(c.Xp), Reason: reason,
+		})
+	}
 
 	out := make([]api.Character, 0, len(updated))
 	for _, c := range updated {

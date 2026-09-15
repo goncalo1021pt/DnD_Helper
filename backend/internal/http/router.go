@@ -10,6 +10,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 	"github.com/goncalo1021pt/questboard/backend/internal/static"
@@ -23,6 +24,7 @@ type Deps struct {
 	Mailer         mail.Mailer // the created-token tripwire (#294); nil sends nothing
 	BaseURL        string      // where that email's link points
 	RateLimits     RateLimits  // the ceilings (#314); all zero = none
+	Events         *events.Bus // the catalogue (#315); nil emits into silence
 }
 
 // NewRouter builds the application router: API routes under /api (session-aware)
@@ -40,6 +42,7 @@ func NewRouter(deps Deps) http.Handler {
 	srv := NewServer(deps.Pool)
 	srv.mailer, srv.baseURL = deps.Mailer, deps.BaseURL
 	srv.limiter = newLimiter(deps.RateLimits)
+	srv.events = deps.Events
 	strict := api.NewStrictHandler(srv, nil)
 
 	r.Route("/api", func(ar chi.Router) {
