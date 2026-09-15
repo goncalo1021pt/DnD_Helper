@@ -65,6 +65,7 @@ type content struct {
 	CTALabel  string // button text
 	Link      string // the action URL
 	Note      string // small print under the button (e.g. expiry)
+	Footer    string // the closing line; empty = "you can safely ignore this"
 }
 
 // renderEmail lays the content into an email-safe, table-based document —
@@ -104,7 +105,7 @@ func renderEmail(c content) string {
     <tr><td style="padding:12px 44px 0;font-family:Georgia,'Times New Roman',serif;color:#9c855e;font-size:12.5px;">` + html.EscapeString(c.Note) + `</td></tr>
     <tr><td style="padding:24px 44px 32px;">
       <div style="height:1px;line-height:1px;font-size:0;background:#e5d8be;margin:0 0 14px;">&nbsp;</div>
-      <div style="font-family:Georgia,'Times New Roman',serif;color:#9c855e;font-size:12px;line-height:1.55;">If you didn't request this, you can safely ignore this email — no action is needed and nothing changes.</div>
+      <div style="font-family:Georgia,'Times New Roman',serif;color:#9c855e;font-size:12px;line-height:1.55;">` + html.EscapeString(footerOr(c.Footer)) + `</div>
     </td></tr>
   </table>
   <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;"><tr>
@@ -114,6 +115,31 @@ func renderEmail(c content) string {
 </table>
 </body>
 </html>`
+}
+
+func footerOr(s string) string {
+	if s != "" {
+		return s
+	}
+	return "If you didn't request this, you can safely ignore this email — no action is needed and nothing changes."
+}
+
+// TokenCreated tells the account that an API token was just minted on it
+// (#294). It is the one tripwire an account signed in through a provider has,
+// since re-authentication before minting cannot ask for a password it never
+// set. tokenName is the user's own text and is escaped here.
+func TokenCreated(tokenName, link string) (subject, htmlBody, textBody string) {
+	subject = "A new API token was created on your Quest Board account"
+	htmlBody = renderEmail(content{
+		Preheader: "An API token was just created on your account.",
+		Intro:     "An API token named <b>" + html.EscapeString(tokenName) + "</b> was just created on your account. It can act as you, within the scopes it was given, until it expires or you revoke it.",
+		CTALabel:  "Review my tokens",
+		Link:      link,
+		Note:      "Tokens are listed under Settings on your profile, with when each was last used.",
+		Footer:    "If this wasn't you, revoke the token from your profile and change your password.",
+	})
+	textBody = fmt.Sprintf("An API token named %q was just created on your Quest Board account. It can act as you, within the scopes it was given, until it expires or you revoke it.\n\nReview or revoke it here:\n\n%s\n\nIf this wasn't you, revoke the token and change your password.", tokenName, link)
+	return
 }
 
 // VerifyEmail builds the address-confirmation message pointing at link.

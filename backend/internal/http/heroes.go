@@ -39,6 +39,11 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 	classesOf := byCharacter(classesFromOwner(classRows))
 	out := make([]api.Character, 0, len(rows))
 	for _, row := range rows {
+		// A token minted for one table reads the shelf and that table's
+		// heroes; one seated elsewhere is not listed (#294).
+		if row.CampaignID.Valid && !tableAllowed(ctx, uuid.UUID(row.CampaignID.Bytes)) {
+			continue
+		}
 		c := toAPICharacterWithClass(db.Character{
 			ID: row.ID, CampaignID: row.CampaignID, OwnerUserID: row.OwnerUserID,
 			Name: row.Name, Class: row.Class, Level: row.Level,

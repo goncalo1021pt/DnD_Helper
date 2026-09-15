@@ -20,6 +20,10 @@ login.
   the spell slots, hit dice and resource pools each class actually grants; two
   custom skill-tree systems; a hero sheet page. Your imported content is a
   per-account library.
+- **An API for your own scripts** — mint a token on your profile with only
+  the doors it needs (read the codex, read your heroes, run one table) and
+  point a script or an assistant at the same API the app uses. See
+  [docs/API.md](docs/API.md).
 - **Print to the real sheet** — one button on a hero's page prints them onto the
   **official 2024 character sheet**, which ships with the app, at coordinates
   measured off it. Assembled entirely in the browser. See
