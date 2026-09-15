@@ -289,6 +289,9 @@ func (s *Server) ListMySeatRequests(ctx context.Context, _ api.ListMySeatRequest
 	}
 	out := make([]api.MySeatRequest, 0, len(rows))
 	for _, r := range rows {
+		if !tableAllowed(ctx, r.CampaignID) {
+			continue
+		}
 		out = append(out, api.MySeatRequest{
 			CharacterId:  r.CharacterID,
 			CampaignId:   r.CampaignID,

@@ -228,6 +228,9 @@ func (s *Server) LeaveCampaign(ctx context.Context, request api.LeaveCampaignReq
 	if !ok {
 		return api.LeaveCampaign401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
+	if !tableAllowed(ctx, campaignID) {
+		return api.LeaveCampaign404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+	}
 	campaign, err := s.queries.GetCampaign(ctx, campaignID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -367,6 +367,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /campaigns/join:
     post:
       operationId: joinCampaign
@@ -768,6 +770,71 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /me/tokens:
+    get:
+      operationId: listApiTokens
+      security:
+        - sessionCookie: []
+      summary: The caller's live API tokens, newest first (session only)
+      responses:
+        "200":
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiToken"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createApiToken
+      security:
+        - sessionCookie: []
+      summary: Mint an API token (session only). The secret comes back once; an email goes to a verified address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiTokenInput"
+      responses:
+        "201":
+          description: The token, with its secret
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiTokenCreated"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The campaign to restrict to is not one you sit at
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /me/tokens/{tokenId}:
+    parameters:
+      - name: tokenId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      operationId: revokeApiToken
+      security:
+        - sessionCookie: []
+      summary: Revoke a token — it stops working at once (session only)
+      responses:
+        "204":
+          description: Revoked
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
   /me/seat-requests:
@@ -8682,5 +8749,99 @@ components:
         hpCurrent:
           type: integer
           minimum: 0
+    TokenScope:
+      type: string
+      description: What kind of thing a token may touch — a domain and a verb (#313). `write` implies `read` within a domain; `campaigns` runs own > run > play > read. A scope says what may be reached; who the caller is to it is still decided at the door exactly as for a browser.
+      enum:
+        - rules:read
+        - rules:write
+        - heroes:read
+        - heroes:write
+        - campaigns:read
+        - campaigns:play
+        - campaigns:run
+        - campaigns:own
+        - account:read
+        - account:write
+    ApiToken:
+      type: object
+      required:
+        - id
+        - name
+        - prefix
+        - scopes
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        prefix:
+          type: string
+          description: The first characters of the secret (`qb_ab12cd34`), so a token found in the wild can be matched to its row. Nowhere near enough to use.
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        campaignId:
+          type: string
+          format: uuid
+          nullable: true
+          description: The one table this token may reach. Absent means every table its owner sits at.
+        campaignName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        lastUsedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Written at most once a minute, so a busy script costs one write rather than one per request.
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Absent means the token never expires.
+    ApiTokenInput:
+      type: object
+      required:
+        - name
+        - scopes
+        - expiresInDays
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: What this token is for — "the Discord bot", "my backup script".
+        scopes:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TokenScope"
+        campaignId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Restrict the token to one table you sit at. A table you do not sit at answers 404.
+        expiresInDays:
+          type: integer
+          minimum: 0
+          maximum: 365
+          description: Days until the token expires; 0 means never. The profile offers 30, 90 (its default) and 365.
+    ApiTokenCreated:
+      type: object
+      required:
+        - token
+        - secret
+      properties:
+        token:
+          $ref: "#/components/schemas/ApiToken"
+        secret:
+          type: string
+          description: "The whole token, shown this once and never again. Send it as `Authorization: Bearer <secret>`."
 security:
   - sessionCookie: []

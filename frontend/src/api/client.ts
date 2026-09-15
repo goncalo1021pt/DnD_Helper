@@ -188,3 +188,9 @@ export type BestiaryEntry =
   paths["/campaigns/{campaignId}/bestiary"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type BestiaryNote = BestiaryEntry["notes"][number];
 export type BestiarySection = BestiaryEntry["revealed"][number];
+export type ApiToken =
+  paths["/me/tokens"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type ApiTokenInput = paths["/me/tokens"]["post"]["requestBody"]["content"]["application/json"];
+export type ApiTokenCreated =
+  paths["/me/tokens"]["post"]["responses"]["201"]["content"]["application/json"];
+export type TokenScope = ApiTokenInput["scopes"][number];

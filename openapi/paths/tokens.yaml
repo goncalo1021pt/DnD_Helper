@@ -1,0 +1,70 @@
+# API tokens (#294). Every operation here is session-only: a token may not list,
+# mint or revoke tokens, so a leaked one can neither make itself permanent nor
+# lock its owner out.
+
+/me/tokens:
+  get:
+    operationId: listApiTokens
+    security:
+      - sessionCookie: []
+    summary: The caller's live API tokens, newest first (session only)
+    responses:
+      "200":
+        description: Tokens
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/ApiToken"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  post:
+    operationId: createApiToken
+    security:
+      - sessionCookie: []
+    summary: Mint an API token (session only). The secret comes back once; an email goes to a verified address.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/ApiTokenInput"
+    responses:
+      "201":
+        description: The token, with its secret
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/ApiTokenCreated"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        description: The campaign to restrict to is not one you sit at
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Error"
+
+/me/tokens/{tokenId}:
+  parameters:
+    - name: tokenId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  delete:
+    operationId: revokeApiToken
+    security:
+      - sessionCookie: []
+    summary: Revoke a token — it stops working at once (session only)
+    responses:
+      "204":
+        description: Revoked
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

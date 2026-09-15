@@ -16,6 +16,9 @@ import (
 
 func forbidden() api.ForbiddenJSONResponse { return api.ForbiddenJSONResponse{Error: "not allowed"} }
 func notFound() api.NotFoundJSONResponse   { return api.NotFoundJSONResponse{Error: "not found"} }
+func badRequest(msg string) api.BadRequestJSONResponse {
+	return api.BadRequestJSONResponse{Error: msg}
+}
 
 func optStr(p *string) string {
 	if p == nil {
