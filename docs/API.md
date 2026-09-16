@@ -129,6 +129,44 @@ Also:
 - `lastUsedAt` is written at most once a minute per token — a busy script costs
   one write, not one per request
 
+## Events
+
+Everything that happens at a table is also an **event** (#315): a name, a
+payload of ids plus the names a reader needs, and an audience — the people who
+may hear it, decided when it is emitted by the same veil the thing itself has.
+A quest's audience is who can see the quest; a handout's is who it was handed
+to; a level-up's is the hero's owner and the DMs. Nothing is delivered yet —
+webhooks (#295) and notifications (#316) are the subscribers — but every event
+is recorded, and a DM reads the record:
+
+```
+GET /campaigns/{campaignId}/feed?limit=50      campaigns:read, DMs only
+```
+
+Each entry is a `CatalogueEvent`: `id`, `name`, `at`, `campaignId`, `actor`
+(who did it), `audience` (user ids — on the feed only, never on a delivery),
+and `payload`. The catalogue:
+
+| Event | When | Audience | Payload |
+|---|---|---|---|
+| `quest.posted` | a notice reaches the board for someone — posted visible, or revealed later | who can now see it | `QuestEventPayload` |
+| `quest.claimed` | a member takes it up | who can see it | `QuestEventPayload` with `claimedBy` |
+| `quest.completed` | the DM marks it done | who can see it | `QuestEventPayload` |
+| `handout.given` | a prop reaches someone for the first time | who it reached | `HandoutEventPayload` |
+| `session.scheduled` | the next gathering is set where there was none | everyone | `SessionEventPayload` |
+| `session.moved` | the next gathering changes date | everyone | `SessionEventPayload` with `previousAt` |
+| `hero.levelled` | a seated hero rises a level | the owner and the DMs | `HeroLevelEventPayload` |
+| `hero.xp_awarded` | the DM grants or docks XP — one event per hero | the owner and the DMs | `HeroXpEventPayload` |
+| `encounter.started` | a fight goes live | everyone | `EncounterEventPayload` |
+| `encounter.ended` | a fight stands down | everyone | `EncounterEventPayload` |
+| `chronicle.written` | somebody writes in the chronicle | everyone | `ChronicleEventPayload` (a 140-character excerpt) |
+| `member.joined` | somebody walks in with the invite code | everyone | `MemberEventPayload` |
+| `seat.requested` | a player asks the DM for a seat | the DMs | `SeatEventPayload` |
+
+A reveal announces only to the people it reaches for the first time: revealing
+a quest to a second hero does not tell the first again. The payload schemas
+are in `openapi.yaml` under `components`, one per row above.
+
 ## Reading it as an assistant
 
 The bundled contract is the whole vocabulary. A workable first prompt:

@@ -1,0 +1,35 @@
+/campaigns/{campaignId}/feed:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listCampaignFeed
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
+    summary: What the catalogue emitted at this table, newest first, with who was told (DM)
+    description: >
+      The outbox (#315) read as a feed: every event emitted at this table, its
+      payload, and the audience the emitter decided. DM only — the audience of
+      a hidden quest's event is itself a spoiler. The scope is a read because
+      every GET is one; the handler's DM guard says who.
+    parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+          default: 50
+    responses:
+      "200":
+        description: Events
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/CatalogueEvent"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"

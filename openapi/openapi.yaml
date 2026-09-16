@@ -113,6 +113,8 @@ paths:
 
   /campaigns/{campaignId}/events:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1events"
+  /campaigns/{campaignId}/feed:
+    $ref: "./paths/feed.yaml#/~1campaigns~1{campaignId}~1feed"
   /campaigns/{campaignId}/rolls:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1rolls"
   /campaigns/{campaignId}/xp:
@@ -779,6 +781,30 @@ components:
       $ref: "./components/tokens.yaml#/ApiTokenInput"
     ApiTokenCreated:
       $ref: "./components/tokens.yaml#/ApiTokenCreated"
+    EventName:
+      $ref: "./components/events.yaml#/EventName"
+    EventActor:
+      $ref: "./components/events.yaml#/EventActor"
+    CatalogueEvent:
+      $ref: "./components/events.yaml#/CatalogueEvent"
+    QuestEventPayload:
+      $ref: "./components/events.yaml#/QuestEventPayload"
+    HandoutEventPayload:
+      $ref: "./components/events.yaml#/HandoutEventPayload"
+    SessionEventPayload:
+      $ref: "./components/events.yaml#/SessionEventPayload"
+    HeroLevelEventPayload:
+      $ref: "./components/events.yaml#/HeroLevelEventPayload"
+    HeroXpEventPayload:
+      $ref: "./components/events.yaml#/HeroXpEventPayload"
+    EncounterEventPayload:
+      $ref: "./components/events.yaml#/EncounterEventPayload"
+    ChronicleEventPayload:
+      $ref: "./components/events.yaml#/ChronicleEventPayload"
+    MemberEventPayload:
+      $ref: "./components/events.yaml#/MemberEventPayload"
+    SeatEventPayload:
+      $ref: "./components/events.yaml#/SeatEventPayload"
 
 security:
   - sessionCookie: []

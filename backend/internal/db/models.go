@@ -773,6 +773,16 @@ type EncounterCombatant struct {
 	NpcID              pgtype.UUID        `json:"npc_id"`
 }
 
+type EventOutbox struct {
+	ID          uuid.UUID          `json:"id"`
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	Name        string             `json:"name"`
+	ActorUserID pgtype.UUID        `json:"actor_user_id"`
+	Audience    []uuid.UUID        `json:"audience"`
+	Payload     []byte             `json:"payload"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type Friendship struct {
 	RequesterID uuid.UUID          `json:"requester_id"`
 	AddresseeID uuid.UUID          `json:"addressee_id"`

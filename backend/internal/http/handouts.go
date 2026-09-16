@@ -12,9 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
@@ -186,10 +189,21 @@ func (s *Server) CreateHandout(ctx context.Context, request api.CreateHandoutReq
 	}
 	if visible {
 		s.handOver(ctx, campaignID, member.UserID, row.ID, title, caption)
+		aud, audErr := s.handoutAudience(ctx, campaignID, row.ID, true)
+		s.emit(ctx, campaignID, events.HandoutGiven, aud, audErr, handoutPayload(row.ID, title, caption))
 	}
 	return api.CreateHandout201JSONResponse(
 		toAPIHandout(handoutRow(row), true, []api.VisibilityOverride{}),
 	), nil
+}
+
+// handoutPayload is what handout.given carries (#315): never the image.
+func handoutPayload(id uuid.UUID, title, caption string) api.HandoutEventPayload {
+	p := api.HandoutEventPayload{HandoutId: openapi_types.UUID(id), Title: title}
+	if caption != "" {
+		p.Caption = &caption
+	}
+	return p
 }
 
 // handOver writes the chronicle line that puts a prop in the party's hands —
@@ -307,6 +321,9 @@ func (s *Server) SetHandoutVisibility(ctx context.Context, request api.SetHandou
 		}
 	}
 
+	// Who held it before — a reveal announces only to the people it reaches
+	// for the first time (#315).
+	before, _ := s.handoutAudience(ctx, meta.CampaignID, handoutID, meta.VisibleToParty)
 	grain, badReq, err := s.visibilityTarget(ctx, meta.CampaignID, request.Body)
 	if err != nil {
 		return nil, err
@@ -350,6 +367,13 @@ func (s *Server) SetHandoutVisibility(ctx context.Context, request api.SetHandou
 		return nil, err
 	}
 	s.publish(meta.CampaignID, live.TopicChronicle)
+	if request.Body.Visible {
+		partyFlag := meta.VisibleToParty || grain.table
+		after, audErr := s.handoutAudience(ctx, meta.CampaignID, handoutID, partyFlag)
+		if reached := newly(before, after); len(reached) > 0 || audErr != nil {
+			s.emit(ctx, meta.CampaignID, events.HandoutGiven, reached, audErr, handoutPayload(handoutID, meta.Title, meta.Caption))
+		}
+	}
 	return api.SetHandoutVisibility200JSONResponse(out), nil
 }
 

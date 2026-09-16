@@ -11,9 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
@@ -34,6 +37,8 @@ type Server struct {
 	baseURL string
 	// limiter is the ceilings (#314); nil means none, as in tests.
 	limiter *limiter
+	// events is the catalogue (#315); nil emits into silence, as in tests.
+	events *events.Bus
 }
 
 func NewServer(pool *pgxpool.Pool) *Server {
@@ -245,6 +250,11 @@ func (s *Server) JoinCampaign(ctx context.Context, request api.JoinCampaignReque
 	if err != nil {
 		return nil, err
 	}
+	name, _ := s.ownerName(ctx, uid)
+	aud, audErr := s.everyoneAt(ctx, campaign.ID)
+	s.emit(ctx, campaign.ID, events.MemberJoined, aud, audErr, api.MemberEventPayload{
+		UserId: openapi_types.UUID(uid), Name: name, Role: string(m.Role),
+	})
 	// A player walks in holding the code; that is not a reason to hand them a
 	// copy of it to keep and pass on.
 	return api.JoinCampaign200JSONResponse{

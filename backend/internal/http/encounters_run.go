@@ -7,9 +7,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
@@ -111,16 +114,23 @@ func (s *Server) UpdateEncounter(ctx context.Context, request api.UpdateEncounte
 			// encounters at once — so triggering one no longer stands the
 			// others down. Count a run only on the inactive → active
 			// transition, not on idempotent re-sets of a running encounter.
-			if enc.Status != "active" {
+			started := enc.Status != "active"
+			if started {
 				metrics.EncounterRun()
 			}
 			if enc, err = s.queries.SetEncounterStatus(ctx, db.SetEncounterStatusParams{ID: enc.ID, Status: *b.Status}); err != nil {
 				return nil, err
 			}
+			if started {
+				aud, audErr := s.everyoneAt(ctx, enc.CampaignID)
+				s.emit(ctx, enc.CampaignID, events.EncounterStarted, aud, audErr, encounterPayload(enc))
+			}
 		case enc.Status == "active":
 			if enc, err = s.standDown(ctx, enc); err != nil {
 				return nil, err
 			}
+			aud, audErr := s.everyoneAt(ctx, enc.CampaignID)
+			s.emit(ctx, enc.CampaignID, events.EncounterEnded, aud, audErr, encounterPayload(enc))
 		default:
 			// Already inactive — nothing to release, but keep the write so the
 			// response reflects the requested state.
@@ -189,6 +199,11 @@ func (s *Server) standDown(ctx context.Context, enc db.Encounter) (db.Encounter,
 	return out, nil
 }
 
+// encounterPayload is what encounter.started and encounter.ended carry (#315).
+func encounterPayload(enc db.Encounter) api.EncounterEventPayload {
+	return api.EncounterEventPayload{EncounterId: openapi_types.UUID(enc.ID), Name: enc.Name}
+}
+
 // StandDownEncounters ends every running fight in a campaign at once.
 //
 // With several encounters open — and encounter grouping not built yet — a DM
@@ -214,6 +229,8 @@ func (s *Server) StandDownEncounters(ctx context.Context, request api.StandDownE
 		if err != nil {
 			return nil, err
 		}
+		aud, audErr := s.everyoneAt(ctx, stood.CampaignID)
+		s.emit(ctx, stood.CampaignID, events.EncounterEnded, aud, audErr, encounterPayload(stood))
 		count, err := s.queries.ListCombatants(ctx, stood.ID)
 		if err != nil {
 			return nil, err

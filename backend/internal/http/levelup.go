@@ -11,9 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
@@ -517,7 +520,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 			CharacterID: updated.ID,
 			Column2:     newSpells,
 			// Spells gained with this level belong to the class that took it.
-			ClassID:     pgUUID(class.ID),
+			ClassID: pgUUID(class.ID),
 		}); err != nil {
 			return nil, err
 		}
@@ -528,6 +531,10 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		}
 		s.logEvent(ctx, campaignID, uid, "level_up",
 			fmt.Sprintf("%s rises to level %d", character.Name, newLevel))
+		aud, audErr := s.ownerAndDMs(ctx, campaignID, character.OwnerUserID)
+		s.emit(ctx, campaignID, events.HeroLevelled, aud, audErr, api.HeroLevelEventPayload{
+			HeroId: openapi_types.UUID(character.ID), HeroName: character.Name, Level: newLevel, ClassName: class.Name,
+		})
 		if fresh, err := s.queries.GetCharacter(ctx, updated.ID); err == nil {
 			updated = fresh
 		}

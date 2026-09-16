@@ -194,3 +194,6 @@ export type ApiTokenInput = paths["/me/tokens"]["post"]["requestBody"]["content"
 export type ApiTokenCreated =
   paths["/me/tokens"]["post"]["responses"]["201"]["content"]["application/json"];
 export type TokenScope = ApiTokenInput["scopes"][number];
+export type CatalogueEvent =
+  paths["/campaigns/{campaignId}/feed"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type EventName = CatalogueEvent["name"];
