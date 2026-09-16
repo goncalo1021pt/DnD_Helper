@@ -1,0 +1,196 @@
+EventName:
+  type: string
+  description: >
+    What happened (#315). The catalogue in one place: a webhook subscriber
+    picks from this list, and each name's payload is the matching
+    *EventPayload schema. Mirrored by `events.All` in the server, and a test
+    holds the two together.
+  enum:
+    - quest.posted
+    - quest.claimed
+    - quest.completed
+    - handout.given
+    - session.scheduled
+    - session.moved
+    - hero.levelled
+    - hero.xp_awarded
+    - encounter.started
+    - encounter.ended
+    - chronicle.written
+    - member.joined
+    - seat.requested
+
+EventActor:
+  type: object
+  required: [id, name]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+
+CatalogueEvent:
+  type: object
+  description: >
+    One thing that happened at one table. The envelope is the same whether it
+    is read off the DM's feed or delivered to a webhook; `audience` rides only
+    on the feed, because a receiver must not learn who else was told.
+  required: [id, name, at, campaignId, payload]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      $ref: "../openapi.yaml#/components/schemas/EventName"
+    at:
+      type: string
+      format: date-time
+    campaignId:
+      type: string
+      format: uuid
+    actor:
+      $ref: "../openapi.yaml#/components/schemas/EventActor"
+    audience:
+      type: array
+      description: The user ids the emitter decided may hear it. Present on the DM's feed, never on a delivery.
+      items:
+        type: string
+        format: uuid
+    payload:
+      type: object
+      description: Ids plus the names a reader needs, never a whole row — the *EventPayload schema matching `name`.
+      additionalProperties: true
+
+QuestEventPayload:
+  type: object
+  description: The payload of quest.posted, quest.claimed and quest.completed.
+  required: [questId, title, difficulty, status]
+  properties:
+    questId:
+      type: string
+      format: uuid
+    title:
+      type: string
+    difficulty:
+      type: string
+    status:
+      type: string
+    claimedBy:
+      $ref: "../openapi.yaml#/components/schemas/EventActor"
+
+HandoutEventPayload:
+  type: object
+  description: The payload of handout.given.
+  required: [handoutId, title]
+  properties:
+    handoutId:
+      type: string
+      format: uuid
+    title:
+      type: string
+    caption:
+      type: string
+
+SessionEventPayload:
+  type: object
+  description: The payload of session.scheduled and session.moved; `previousAt` only on a move.
+  required: [at]
+  properties:
+    at:
+      type: string
+      format: date-time
+    previousAt:
+      type: string
+      format: date-time
+
+HeroLevelEventPayload:
+  type: object
+  description: The payload of hero.levelled.
+  required: [heroId, heroName, level, className]
+  properties:
+    heroId:
+      type: string
+      format: uuid
+    heroName:
+      type: string
+    level:
+      type: integer
+      description: The hero's total level after rising.
+    className:
+      type: string
+      description: The class they rose in.
+
+HeroXpEventPayload:
+  type: object
+  description: The payload of hero.xp_awarded — one event per hero, so its audience is that hero's owner and the DMs.
+  required: [heroId, heroName, amount, total]
+  properties:
+    heroId:
+      type: string
+      format: uuid
+    heroName:
+      type: string
+    amount:
+      type: integer
+      description: Negative when docked.
+    total:
+      type: integer
+    reason:
+      type: string
+
+EncounterEventPayload:
+  type: object
+  description: The payload of encounter.started and encounter.ended.
+  required: [encounterId, name]
+  properties:
+    encounterId:
+      type: string
+      format: uuid
+    name:
+      type: string
+
+ChronicleEventPayload:
+  type: object
+  description: The payload of chronicle.written. The excerpt is the first 140 characters; the audience is already who may read the whole line.
+  required: [noteId, kind, excerpt]
+  properties:
+    noteId:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      description: note | ruling | player_note
+    author:
+      type: string
+    excerpt:
+      type: string
+
+MemberEventPayload:
+  type: object
+  description: The payload of member.joined.
+  required: [userId, name, role]
+  properties:
+    userId:
+      type: string
+      format: uuid
+    name:
+      type: string
+    role:
+      type: string
+
+SeatEventPayload:
+  type: object
+  description: The payload of seat.requested.
+  required: [heroId, heroName, userId, userName]
+  properties:
+    heroId:
+      type: string
+      format: uuid
+    heroName:
+      type: string
+    userId:
+      type: string
+      format: uuid
+    userName:
+      type: string

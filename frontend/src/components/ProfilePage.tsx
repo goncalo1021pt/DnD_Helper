@@ -14,9 +14,10 @@ import { exportHomebrewPack, parsePackFile } from "../lib/pack";
 import MyHeroesPage from "./MyHeroesPage";
 import ResetHomebrewModal from "./ResetHomebrewModal";
 import TwoFactorSettings from "./TwoFactorSettings";
+import ApiTokensSettings from "./ApiTokensSettings";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconBook, IconGear, IconLogOut, IconShield, IconTrash } from "./ui/icons";
+import { IconBook, IconGear, IconKey, IconLogOut, IconShield, IconTrash } from "./ui/icons";
 
 const PROVIDER_LABEL: Record<string, string> = {
   discord: "Discord",
@@ -331,6 +332,10 @@ export default function ProfilePage() {
             <IconShield size={14} /> Two-factor authentication
           </div>
           {user && <TwoFactorSettings user={user} />}
+          <div className="label-stamp mb-2 mt-6 flex items-center gap-2 text-[11px] tracking-[2px] text-[#9c855e]">
+            <IconKey size={14} /> API tokens
+          </div>
+          {me && <ApiTokensSettings campaigns={me.campaigns} />}
         </div>
       </div>
 

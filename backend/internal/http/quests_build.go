@@ -9,6 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
@@ -16,6 +18,9 @@ import (
 
 func forbidden() api.ForbiddenJSONResponse { return api.ForbiddenJSONResponse{Error: "not allowed"} }
 func notFound() api.NotFoundJSONResponse   { return api.NotFoundJSONResponse{Error: "not found"} }
+func badRequest(msg string) api.BadRequestJSONResponse {
+	return api.BadRequestJSONResponse{Error: msg}
+}
 
 func optStr(p *string) string {
 	if p == nil {
@@ -54,6 +59,18 @@ func (s *Server) resolveCampaignLocation(ctx context.Context, campaignID uuid.UU
 	}
 	name := loc.Name
 	return pgUUID(loc.ID), &name, nil
+}
+
+// questPayload is what a quest event carries (#315): the ids and the words a
+// reader needs, never the rewards or the description.
+func questPayload(q db.Quest, claimedBy *api.EventActor) api.QuestEventPayload {
+	return api.QuestEventPayload{
+		QuestId:    openapi_types.UUID(q.ID),
+		Title:      q.Title,
+		Difficulty: string(q.Difficulty),
+		Status:     string(q.Status),
+		ClaimedBy:  claimedBy,
+	}
 }
 
 // questVisibleToMember reports whether any hero this member has seated at the

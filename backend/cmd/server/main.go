@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/config"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	apphttp "github.com/goncalo1021pt/questboard/backend/internal/http"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
@@ -71,7 +72,16 @@ func run() error {
 	mailer := mail.New(cfg.ResendAPIKey, cfg.MailFrom)
 	oauth := auth.NewOAuth(sessions, db.New(pool), devEnabled, cfg.LocalAuth, mailer, cfg.BaseURL, cfg.SessionKey)
 
+	// The event catalogue (#315): the outbox is its one subscriber for now;
+	// the webhooks of #295 and the notifications of #316 register here too.
+	bus := events.New()
+	bus.Subscribe(events.Store(db.New(pool)))
+
 	router := apphttp.NewRouter(apphttp.Deps{
+		Mailer:         mailer,
+		BaseURL:        cfg.BaseURL,
+		Events:         bus,
+		RateLimits:     apphttp.RateLimits{Token: cfg.RateLimitToken, IP: cfg.RateLimitIP, Session: cfg.RateLimitSession},
 		Pool:           pool,
 		SessionManager: sessions,
 		OAuth:          oauth,

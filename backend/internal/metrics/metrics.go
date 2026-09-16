@@ -79,6 +79,19 @@ var (
 		},
 		[]string{"event"},
 	)
+
+	// rateLimitRefusals counts requests answered 429 (#314), by which ceiling
+	// fired. Its own metric rather than a label on the request counter, since
+	// the dashboards key on that one's labels.
+	rateLimitRefusals = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: "ratelimit",
+			Name:      "refusals_total",
+			Help:      "Requests refused with 429, by the ceiling that fired (token, ip, session).",
+		},
+		[]string{"ceiling"},
+	)
 )
 
 func init() {
@@ -91,6 +104,7 @@ func init() {
 		httpRequestDuration,
 		httpRequestsInFlight,
 		gameEvents,
+		rateLimitRefusals,
 	)
 }
 
@@ -137,3 +151,6 @@ func QuestClaimed()    { gameEvents.WithLabelValues("quest_claimed").Inc() }
 func CampaignCreated() { gameEvents.WithLabelValues("campaign_created").Inc() }
 func HeroForged()      { gameEvents.WithLabelValues("hero_forged").Inc() }
 func EncounterRun()    { gameEvents.WithLabelValues("encounter_run").Inc() }
+
+// RateLimited records one 429, by the ceiling that fired (#314).
+func RateLimited(ceiling string) { rateLimitRefusals.WithLabelValues(ceiling).Inc() }

@@ -542,6 +542,21 @@ type AdminAction struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type ApiToken struct {
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	Name        string             `json:"name"`
+	Prefix      string             `json:"prefix"`
+	TokenHash   string             `json:"token_hash"`
+	Scopes      []string           `json:"scopes"`
+	CampaignID  pgtype.UUID        `json:"campaign_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt  pgtype.Timestamptz `json:"last_used_at"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
+	ThrottledAt pgtype.Timestamptz `json:"throttled_at"`
+}
+
 type BestiaryEntry struct {
 	ID         uuid.UUID          `json:"id"`
 	CampaignID uuid.UUID          `json:"campaign_id"`
@@ -756,6 +771,16 @@ type EncounterCombatant struct {
 	DeathSaveSuccesses int16              `json:"death_save_successes"`
 	DeathSaveFailures  int16              `json:"death_save_failures"`
 	NpcID              pgtype.UUID        `json:"npc_id"`
+}
+
+type EventOutbox struct {
+	ID          uuid.UUID          `json:"id"`
+	CampaignID  uuid.UUID          `json:"campaign_id"`
+	Name        string             `json:"name"`
+	ActorUserID pgtype.UUID        `json:"actor_user_id"`
+	Audience    []uuid.UUID        `json:"audience"`
+	Payload     []byte             `json:"payload"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Friendship struct {

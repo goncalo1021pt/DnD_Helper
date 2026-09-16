@@ -10,9 +10,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
@@ -39,6 +42,11 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 	classesOf := byCharacter(classesFromOwner(classRows))
 	out := make([]api.Character, 0, len(rows))
 	for _, row := range rows {
+		// A token minted for one table reads the shelf and that table's
+		// heroes; one seated elsewhere is not listed (#294).
+		if row.CampaignID.Valid && !tableAllowed(ctx, uuid.UUID(row.CampaignID.Bytes)) {
+			continue
+		}
 		c := toAPICharacterWithClass(db.Character{
 			ID: row.ID, CampaignID: row.CampaignID, OwnerUserID: row.OwnerUserID,
 			Name: row.Name, Class: row.Class, Level: row.Level,
@@ -196,6 +204,13 @@ func (s *Server) SeatCharacter(ctx context.Context, request api.SeatCharacterReq
 				fmt.Sprintf("%s waits at the door for the DM's nod", character.Name))
 			// The DM's open door page hears the knock without a refresh (#247).
 			s.publish(campaignID, live.TopicParty)
+			// And the DMs who are not looking hear it too (#315).
+			userName, _ := s.ownerName(ctx, uid)
+			aud, audErr := s.dmsAt(ctx, campaignID)
+			s.emit(ctx, campaignID, events.SeatRequested, aud, audErr, api.SeatEventPayload{
+				HeroId: openapi_types.UUID(character.ID), HeroName: character.Name,
+				UserId: openapi_types.UUID(uid), UserName: userName,
+			})
 			return api.SeatCharacter202JSONResponse(api.SeatPending{
 				CampaignId: campaignID, CampaignName: campaign.Name,
 			}), nil

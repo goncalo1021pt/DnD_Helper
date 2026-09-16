@@ -12,6 +12,7 @@ import (
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 )
 
@@ -675,6 +676,9 @@ func (s *Server) SetQuestVisibility(ctx context.Context, request api.SetQuestVis
 		}
 	}
 
+	// Who could see it before the change — a reveal announces only to the
+	// people it reaches for the first time (#315).
+	before, _ := s.questAudience(ctx, quest)
 	grain, badReq, err := s.visibilityTarget(ctx, quest.CampaignID, request.Body)
 	if err != nil {
 		return nil, err
@@ -710,6 +714,14 @@ func (s *Server) SetQuestVisibility(ctx context.Context, request api.SetQuestVis
 	out, err := s.buildOneQuest(ctx, questID)
 	if err != nil {
 		return nil, err
+	}
+	if request.Body.Visible {
+		if now, err := s.queries.GetQuest(ctx, questID); err == nil {
+			after, audErr := s.questAudience(ctx, now)
+			if reached := newly(before, after); len(reached) > 0 || audErr != nil {
+				s.emit(ctx, quest.CampaignID, events.QuestPosted, reached, audErr, questPayload(now, nil))
+			}
+		}
 	}
 	return api.SetQuestVisibility200JSONResponse(out), nil
 }

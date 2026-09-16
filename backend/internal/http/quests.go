@@ -9,9 +9,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
@@ -28,6 +31,10 @@ func (s *Server) requireMember(ctx context.Context, campaignID uuid.UUID) (db.Me
 	uid, ok := auth.UserID(ctx)
 	if !ok {
 		return db.Membership{}, errNoAuth
+	}
+	// A token minted for one table is a stranger at every other (#294).
+	if !tableAllowed(ctx, campaignID) {
+		return db.Membership{}, errForbidden
 	}
 	m, err := s.queries.GetMembership(ctx, db.GetMembershipParams{UserID: uid, CampaignID: campaignID})
 	if err != nil {
@@ -164,6 +171,8 @@ func (s *Server) CreateQuest(ctx context.Context, request api.CreateQuestRequest
 	if visible {
 		s.logEvent(ctx, campaignID, dm.UserID, "quest_posted",
 			fmt.Sprintf("A notice is nailed to the board: %q", quest.Title))
+		aud, audErr := s.questAudience(ctx, quest)
+		s.emit(ctx, campaignID, events.QuestPosted, aud, audErr, questPayload(quest, nil))
 	}
 	metrics.QuestCreated()
 	return api.CreateQuest201JSONResponse(out), nil
@@ -249,6 +258,10 @@ func (s *Server) UpdateQuest(ctx context.Context, request api.UpdateQuestRequest
 	if quest.Status != db.QuestStatusCompleted && string(body.Status) == "completed" {
 		s.logEvent(ctx, quest.CampaignID, dm.UserID, "quest_completed",
 			fmt.Sprintf("The notice %q is marked complete", title))
+		if done, err := s.queries.GetQuest(ctx, questID); err == nil {
+			aud, audErr := s.questAudience(ctx, done)
+			s.emit(ctx, quest.CampaignID, events.QuestCompleted, aud, audErr, questPayload(done, nil))
+		}
 	}
 
 	out, err := s.buildOneQuest(ctx, questID)
@@ -320,6 +333,11 @@ func (s *Server) ClaimQuest(ctx context.Context, request api.ClaimQuestRequestOb
 	claimerName, _ := s.ownerName(ctx, member.UserID)
 	s.logEvent(ctx, quest.CampaignID, member.UserID, "quest_claimed",
 		fmt.Sprintf("%s claims the notice %q", claimerName, quest.Title))
+	if claimed, err := s.queries.GetQuest(ctx, questID); err == nil {
+		aud, audErr := s.questAudience(ctx, claimed)
+		s.emit(ctx, quest.CampaignID, events.QuestClaimed, aud, audErr,
+			questPayload(claimed, &api.EventActor{Id: openapi_types.UUID(member.UserID), Name: claimerName}))
+	}
 	out, err := s.buildOneQuest(ctx, questID)
 	if err != nil {
 		return nil, err

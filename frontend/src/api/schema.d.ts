@@ -454,6 +454,43 @@ export interface paths {
         patch: operations["updateQuest"];
         trace?: never;
     };
+    "/me/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The caller's live API tokens, newest first (session only) */
+        get: operations["listApiTokens"];
+        put?: never;
+        /** Mint an API token (session only). The secret comes back once; an email goes to a verified address. */
+        post: operations["createApiToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/tokens/{tokenId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a token — it stops working at once (session only) */
+        delete: operations["revokeApiToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/seat-requests": {
         parameters: {
             query?: never;
@@ -862,6 +899,28 @@ export interface paths {
         put?: never;
         /** Write an entry into the chronicle (any member; players post to player chat) */
         post: operations["addChronicleNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What the catalogue emitted at this table, newest first, with who was told (DM)
+         * @description The outbox (#315) read as a feed: every event emitted at this table, its payload, and the audience the emitter decided. DM only — the audience of a hidden quest's event is itself a spoiler. The scope is a read because every GET is one; the handler's DM guard says who.
+         */
+        get: operations["listCampaignFeed"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4387,6 +4446,160 @@ export interface components {
         NpcHpInput: {
             hpCurrent: number;
         };
+        /**
+         * @description What kind of thing a token may touch — a domain and a verb (#313). `write` implies `read` within a domain; `campaigns` runs own > run > play > read. A scope says what may be reached; who the caller is to it is still decided at the door exactly as for a browser.
+         * @enum {string}
+         */
+        TokenScope: "rules:read" | "rules:write" | "heroes:read" | "heroes:write" | "campaigns:read" | "campaigns:play" | "campaigns:run" | "campaigns:own" | "account:read" | "account:write";
+        ApiToken: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description The first characters of the secret (`qb_ab12cd34`), so a token found in the wild can be matched to its row. Nowhere near enough to use. */
+            prefix: string;
+            scopes: components["schemas"]["TokenScope"][];
+            /**
+             * Format: uuid
+             * @description The one table this token may reach. Absent means every table its owner sits at.
+             */
+            campaignId?: string | null;
+            campaignName?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Written at most once a minute, so a busy script costs one write rather than one per request.
+             */
+            lastUsedAt?: string | null;
+            /**
+             * Format: date-time
+             * @description Absent means the token never expires.
+             */
+            expiresAt?: string | null;
+            /**
+             * Format: date-time
+             * @description When the token was last refused for going over its ceiling (#314) — a script that is looping. Written at most once a minute; absent means never.
+             */
+            throttledAt?: string;
+        };
+        ApiTokenInput: {
+            /** @description What this token is for — "the Discord bot", "my backup script". */
+            name: string;
+            scopes: components["schemas"]["TokenScope"][];
+            /**
+             * Format: uuid
+             * @description Restrict the token to one table you sit at. A table you do not sit at answers 404.
+             */
+            campaignId?: string | null;
+            /** @description Days until the token expires; 0 means never. The profile offers 30, 90 (its default) and 365. */
+            expiresInDays: number;
+        };
+        ApiTokenCreated: {
+            token: components["schemas"]["ApiToken"];
+            /** @description The whole token, shown this once and never again. Send it as `Authorization: Bearer <secret>`. */
+            secret: string;
+        };
+        /**
+         * @description What happened (#315). The catalogue in one place: a webhook subscriber picks from this list, and each name's payload is the matching *EventPayload schema. Mirrored by `events.All` in the server, and a test holds the two together.
+         * @enum {string}
+         */
+        EventName: "quest.posted" | "quest.claimed" | "quest.completed" | "handout.given" | "session.scheduled" | "session.moved" | "hero.levelled" | "hero.xp_awarded" | "encounter.started" | "encounter.ended" | "chronicle.written" | "member.joined" | "seat.requested";
+        EventActor: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        /** @description One thing that happened at one table. The envelope is the same whether it is read off the DM's feed or delivered to a webhook; `audience` rides only on the feed, because a receiver must not learn who else was told. */
+        CatalogueEvent: {
+            /** Format: uuid */
+            id: string;
+            name: components["schemas"]["EventName"];
+            /** Format: date-time */
+            at: string;
+            /** Format: uuid */
+            campaignId: string;
+            actor?: components["schemas"]["EventActor"];
+            /** @description The user ids the emitter decided may hear it. Present on the DM's feed, never on a delivery. */
+            audience?: string[];
+            /** @description Ids plus the names a reader needs, never a whole row — the *EventPayload schema matching `name`. */
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description The payload of quest.posted, quest.claimed and quest.completed. */
+        QuestEventPayload: {
+            /** Format: uuid */
+            questId: string;
+            title: string;
+            difficulty: string;
+            status: string;
+            claimedBy?: components["schemas"]["EventActor"];
+        };
+        /** @description The payload of handout.given. */
+        HandoutEventPayload: {
+            /** Format: uuid */
+            handoutId: string;
+            title: string;
+            caption?: string;
+        };
+        /** @description The payload of session.scheduled and session.moved; `previousAt` only on a move. */
+        SessionEventPayload: {
+            /** Format: date-time */
+            at: string;
+            /** Format: date-time */
+            previousAt?: string;
+        };
+        /** @description The payload of hero.levelled. */
+        HeroLevelEventPayload: {
+            /** Format: uuid */
+            heroId: string;
+            heroName: string;
+            /** @description The hero's total level after rising. */
+            level: number;
+            /** @description The class they rose in. */
+            className: string;
+        };
+        /** @description The payload of hero.xp_awarded — one event per hero, so its audience is that hero's owner and the DMs. */
+        HeroXpEventPayload: {
+            /** Format: uuid */
+            heroId: string;
+            heroName: string;
+            /** @description Negative when docked. */
+            amount: number;
+            total: number;
+            reason?: string;
+        };
+        /** @description The payload of encounter.started and encounter.ended. */
+        EncounterEventPayload: {
+            /** Format: uuid */
+            encounterId: string;
+            name: string;
+        };
+        /** @description The payload of chronicle.written. The excerpt is the first 140 characters; the audience is already who may read the whole line. */
+        ChronicleEventPayload: {
+            /** Format: uuid */
+            noteId: string;
+            /** @description note | ruling | player_note */
+            kind: string;
+            author?: string;
+            excerpt: string;
+        };
+        /** @description The payload of member.joined. */
+        MemberEventPayload: {
+            /** Format: uuid */
+            userId: string;
+            name: string;
+            role: string;
+        };
+        /** @description The payload of seat.requested. */
+        SeatEventPayload: {
+            /** Format: uuid */
+            heroId: string;
+            heroName: string;
+            /** Format: uuid */
+            userId: string;
+            userName: string;
+        };
     };
     responses: {
         /** @description Not authenticated */
@@ -4836,6 +5049,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     joinCampaign: {
@@ -5258,6 +5472,84 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listApiTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tokens */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiToken"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiTokenInput"];
+            };
+        };
+        responses: {
+            /** @description The token, with its secret */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description The campaign to restrict to is not one you sit at */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
     };
@@ -6070,6 +6362,32 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listCampaignFeed: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueEvent"][];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };

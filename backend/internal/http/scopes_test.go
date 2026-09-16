@@ -73,16 +73,23 @@ func TestEveryOperationDeclaresItsScope(t *testing.T) {
 			}
 		}
 	}
-	if total != 185 {
+	if total != 189 {
 		t.Errorf("walked %d operations; if you added one, update this count so the walk is known to be complete", total)
 	}
 	if !public["GET /health"] || len(public) != 1 {
 		t.Errorf("only /health is public, got %v", public)
 	}
 	// The homebrew reset deletes everything a person authored in one call; a
-	// leaked token must not be able to. Token management (#294) joins this set.
-	if !sessionOnly["DELETE /rules/homebrew"] || len(sessionOnly) != 1 {
-		t.Errorf("session-only operations should be exactly the homebrew reset, got %v", sessionOnly)
+	// leaked token must not be able to. Token management (#294) sits beside
+	// it: a token that could mint tokens would never really be revoked.
+	want := []string{"DELETE /rules/homebrew", "GET /me/tokens", "POST /me/tokens", "DELETE /me/tokens/{tokenId}"}
+	for _, key := range want {
+		if !sessionOnly[key] {
+			t.Errorf("%s should be session-only", key)
+		}
+	}
+	if len(sessionOnly) != len(want) {
+		t.Errorf("session-only operations should be exactly the homebrew reset and token management, got %v", sessionOnly)
 	}
 }
 

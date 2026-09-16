@@ -11,10 +11,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
+
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
+	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
@@ -27,6 +31,14 @@ type Server struct {
 	// server; a nil hub simply means nobody is listening, which is what the
 	// unit tests construct.
 	hub *live.Hub
+	// mailer and baseURL serve the one email a handler sends itself — the
+	// created-token tripwire (#294). nil mailer = no email, as in tests.
+	mailer  mail.Mailer
+	baseURL string
+	// limiter is the ceilings (#314); nil means none, as in tests.
+	limiter *limiter
+	// events is the catalogue (#315); nil emits into silence, as in tests.
+	events *events.Bus
 }
 
 func NewServer(pool *pgxpool.Pool) *Server {
@@ -98,6 +110,9 @@ func (s *Server) CreateCampaign(ctx context.Context, request api.CreateCampaignR
 	uid, ok := auth.UserID(ctx)
 	if !ok {
 		return api.CreateCampaign401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	if _, restricted := restrictedTable(ctx); restricted {
+		return api.CreateCampaign403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil // one table means one table (#294)
 	}
 
 	name := ""
@@ -195,6 +210,9 @@ func (s *Server) JoinCampaign(ctx context.Context, request api.JoinCampaignReque
 	if !ok {
 		return api.JoinCampaign401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
+	if _, restricted := restrictedTable(ctx); restricted {
+		return api.JoinCampaign403JSONResponse{ForbiddenJSONResponse: forbidden()}, nil // one table means one table (#294)
+	}
 	code := ""
 	if request.Body != nil {
 		code = normalizeInviteCode(request.Body.Code)
@@ -232,6 +250,11 @@ func (s *Server) JoinCampaign(ctx context.Context, request api.JoinCampaignReque
 	if err != nil {
 		return nil, err
 	}
+	name, _ := s.ownerName(ctx, uid)
+	aud, audErr := s.everyoneAt(ctx, campaign.ID)
+	s.emit(ctx, campaign.ID, events.MemberJoined, aud, audErr, api.MemberEventPayload{
+		UserId: openapi_types.UUID(uid), Name: name, Role: string(m.Role),
+	})
 	// A player walks in holding the code; that is not a reason to hand them a
 	// copy of it to keep and pass on.
 	return api.JoinCampaign200JSONResponse{
@@ -357,6 +380,9 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 	}
 	out := make([]api.CampaignMembership, 0, len(rows))
 	for _, row := range rows {
+		if !tableAllowed(ctx, row.ID) {
+			continue // a token minted for one table lists that table alone (#294)
+		}
 		// The call this issue was about: one listing serving both roles, per
 		// row. A player's row carries no code — which is what makes a ban
 		// mean something, since a banned member cannot hand on what they were
