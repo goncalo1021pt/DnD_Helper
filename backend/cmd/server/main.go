@@ -18,6 +18,8 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 	"github.com/goncalo1021pt/questboard/backend/internal/rules"
+	"github.com/goncalo1021pt/questboard/backend/internal/version"
+	"github.com/goncalo1021pt/questboard/backend/internal/webhooks"
 )
 
 func main() {
@@ -76,11 +78,24 @@ func run() error {
 	// the webhooks of #295 and the notifications of #316 register here too.
 	bus := events.New()
 	bus.Subscribe(events.Store(db.New(pool)))
+	// Webhooks (#295): the fan-out subscribes beside the outbox, and the
+	// worker posts what it queued. The URL guard is strict in production —
+	// this box sits on a LAN — and permissive in development, where the e2e
+	// receiver is a test server on the docker host.
+	hooks := webhooks.New(pool, webhooks.Options{
+		Guard:     webhooks.Guard{Permissive: !cfg.IsProduction()},
+		Mailer:    mailer,
+		BaseURL:   cfg.BaseURL,
+		UserAgent: "QuestBoard-Hookshot/" + version.Current,
+	})
+	bus.Subscribe(hooks.Fanout())
+	go hooks.Run(ctx)
 
 	router := apphttp.NewRouter(apphttp.Deps{
 		Mailer:         mailer,
 		BaseURL:        cfg.BaseURL,
 		Events:         bus,
+		Webhooks:       hooks,
 		RateLimits:     apphttp.RateLimits{Token: cfg.RateLimitToken, IP: cfg.RateLimitIP, Session: cfg.RateLimitSession},
 		Pool:           pool,
 		SessionManager: sessions,

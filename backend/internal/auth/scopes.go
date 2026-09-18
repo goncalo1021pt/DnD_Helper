@@ -27,6 +27,8 @@ const (
 	CampaignsOwn  Scope = "campaigns:own"  // reshape or end the table: disband, hand over, realms, the cascading strikes
 	AccountRead   Scope = "account:read"   // the person's own things: /me, friends, inbox
 	AccountWrite  Scope = "account:write"  // friends, blocks, messages
+	WebhooksRead  Scope = "webhooks:read"  // the person's subscriptions and their delivery logs (#295)
+	WebhooksWrite Scope = "webhooks:write" // register, ping, re-enable and remove them — a hook born of a token hears no more than the token could read
 )
 
 // AllScopes lists the vocabulary in the order a picker shows it.
@@ -35,6 +37,7 @@ var AllScopes = []Scope{
 	HeroesRead, HeroesWrite,
 	CampaignsRead, CampaignsPlay, CampaignsRun, CampaignsOwn,
 	AccountRead, AccountWrite,
+	WebhooksRead, WebhooksWrite,
 }
 
 // rung orders the verbs within a domain: a higher rung implies every lower one.
@@ -45,6 +48,7 @@ var rung = map[Scope]int{
 	HeroesRead: 0, HeroesWrite: 1,
 	CampaignsRead: 0, CampaignsPlay: 1, CampaignsRun: 2, CampaignsOwn: 3,
 	AccountRead: 0, AccountWrite: 1,
+	WebhooksRead: 0, WebhooksWrite: 1,
 }
 
 // ParseScope reads a scope off the wire, refusing anything outside the vocabulary.

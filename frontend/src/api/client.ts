@@ -197,3 +197,10 @@ export type TokenScope = ApiTokenInput["scopes"][number];
 export type CatalogueEvent =
   paths["/campaigns/{campaignId}/feed"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type EventName = CatalogueEvent["name"];
+export type Webhook =
+  paths["/me/webhooks"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type WebhookInput = paths["/me/webhooks"]["post"]["requestBody"]["content"]["application/json"];
+export type WebhookCreated =
+  paths["/me/webhooks"]["post"]["responses"]["201"]["content"]["application/json"];
+export type WebhookDelivery =
+  paths["/me/webhooks/{webhookId}/deliveries"]["get"]["responses"]["200"]["content"]["application/json"][number];

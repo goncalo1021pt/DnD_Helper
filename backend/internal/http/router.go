@@ -14,6 +14,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 	"github.com/goncalo1021pt/questboard/backend/internal/static"
+	"github.com/goncalo1021pt/questboard/backend/internal/webhooks"
 )
 
 // Deps holds the dependencies the HTTP layer needs.
@@ -21,10 +22,11 @@ type Deps struct {
 	Pool           *pgxpool.Pool
 	SessionManager *scs.SessionManager
 	OAuth          *auth.OAuth
-	Mailer         mail.Mailer // the created-token tripwire (#294); nil sends nothing
-	BaseURL        string      // where that email's link points
-	RateLimits     RateLimits  // the ceilings (#314); all zero = none
-	Events         *events.Bus // the catalogue (#315); nil emits into silence
+	Mailer         mail.Mailer       // the created-token tripwire (#294); nil sends nothing
+	BaseURL        string            // where that email's link points
+	RateLimits     RateLimits        // the ceilings (#314); all zero = none
+	Events         *events.Bus       // the catalogue (#315); nil emits into silence
+	Webhooks       *webhooks.Service // subscriptions (#295); nil refuses to register any
 }
 
 // NewRouter builds the application router: API routes under /api (session-aware)
@@ -43,6 +45,7 @@ func NewRouter(deps Deps) http.Handler {
 	srv.mailer, srv.baseURL = deps.Mailer, deps.BaseURL
 	srv.limiter = newLimiter(deps.RateLimits)
 	srv.events = deps.Events
+	srv.webhooks = deps.Webhooks
 	strict := api.NewStrictHandler(srv, nil)
 
 	r.Route("/api", func(ar chi.Router) {

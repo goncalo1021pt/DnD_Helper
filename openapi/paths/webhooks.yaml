@@ -1,0 +1,152 @@
+/me/webhooks:
+  get:
+    operationId: listWebhooks
+    security:
+      - sessionCookie: []
+      - bearerToken: [webhooks:read]
+    summary: My webhooks (#295)
+    responses:
+      "200":
+        description: Webhooks
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Webhook"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  post:
+    operationId: createWebhook
+    security:
+      - sessionCookie: []
+      - bearerToken: [webhooks:write]
+    summary: Register a webhook; the secret is shown once
+    description: >
+      Through a token, the hook records the token's scopes and its table
+      restriction and may never hear past them: an event it names must belong
+      to a read scope the token holds (campaigns:read for the table's events,
+      heroes:read for a hero's), or the answer is 403 naming the scope.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/WebhookInput"
+    responses:
+      "201":
+        description: Registered
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/WebhookCreated"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        description: The table is not one you sit at
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Error"
+/me/webhooks/{webhookId}:
+  parameters:
+    - name: webhookId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  delete:
+    operationId: deleteWebhook
+    security:
+      - sessionCookie: []
+      - bearerToken: [webhooks:write]
+    summary: Remove a webhook and its delivery log
+    responses:
+      "204":
+        description: Removed
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+/me/webhooks/{webhookId}/enable:
+  parameters:
+    - name: webhookId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: enableWebhook
+    security:
+      - sessionCookie: []
+      - bearerToken: [webhooks:write]
+    summary: Re-enable a webhook that was disabled for failing, with its failure count cleared
+    responses:
+      "200":
+        description: Enabled
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Webhook"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+/me/webhooks/{webhookId}/ping:
+  parameters:
+    - name: webhookId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: pingWebhook
+    security:
+      - sessionCookie: []
+      - bearerToken: [webhooks:write]
+    summary: Queue a test delivery, because nobody gets a webhook right the first time
+    responses:
+      "202":
+        description: Queued
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/WebhookPing"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+/me/webhooks/{webhookId}/deliveries:
+  parameters:
+    - name: webhookId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  get:
+    operationId: listWebhookDeliveries
+    security:
+      - sessionCookie: []
+      - bearerToken: [webhooks:read]
+    summary: The last twenty deliveries, newest first — why you did or did not get it
+    responses:
+      "200":
+        description: Deliveries
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/WebhookDelivery"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

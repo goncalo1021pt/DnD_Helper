@@ -142,6 +142,23 @@ func TokenCreated(tokenName, link string) (subject, htmlBody, textBody string) {
 	return
 }
 
+// WebhookDisabled tells the account that a webhook of theirs stopped (#295):
+// eight deliveries in a row died, so the URL is not listening, and a dead URL
+// must not be retried forever. url is the person's own text and is escaped.
+func WebhookDisabled(url, link string) (subject, htmlBody, textBody string) {
+	subject = "A webhook on your Quest Board account was disabled"
+	htmlBody = renderEmail(content{
+		Preheader: "A webhook of yours stopped answering and was switched off.",
+		Intro:     "Your webhook at <b>" + html.EscapeString(url) + "</b> could not be reached eight deliveries in a row, so it has been switched off. Nothing is lost on our side — the events are still recorded — but nothing more will be sent there until you turn it back on.",
+		CTALabel:  "Review my webhooks",
+		Link:      link,
+		Note:      "Webhooks are listed under Settings on your profile, with the last twenty deliveries and what each one answered.",
+		Footer:    "If this wasn't you, remove the webhook from your profile and change your password.",
+	})
+	textBody = fmt.Sprintf("Your webhook at %s could not be reached eight deliveries in a row, so it has been switched off. Nothing more will be sent there until you turn it back on.\n\nReview or re-enable it here:\n\n%s\n\nIf this wasn't you, remove the webhook and change your password.", url, link)
+	return
+}
+
 // VerifyEmail builds the address-confirmation message pointing at link.
 func VerifyEmail(link string) (subject, htmlBody, textBody string) {
 	subject = "Confirm your Quest Board email"

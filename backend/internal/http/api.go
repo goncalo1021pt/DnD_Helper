@@ -20,6 +20,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
+	"github.com/goncalo1021pt/questboard/backend/internal/webhooks"
 )
 
 // Server implements the generated api.StrictServerInterface.
@@ -39,6 +40,8 @@ type Server struct {
 	limiter *limiter
 	// events is the catalogue (#315); nil emits into silence, as in tests.
 	events *events.Bus
+	// webhooks registers and pings subscriptions (#295); nil in tests.
+	webhooks *webhooks.Service
 }
 
 func NewServer(pool *pgxpool.Pool) *Server {

@@ -18,6 +18,9 @@ func TestScopeLadder(t *testing.T) {
 		{HeroesRead, HeroesWrite, false},
 		{RulesWrite, RulesRead, true},
 		{AccountWrite, AccountRead, true},
+		{WebhooksWrite, WebhooksRead, true},
+		{WebhooksRead, WebhooksWrite, false},
+		{WebhooksWrite, CampaignsRead, false},
 		// never across domains, however high the rung
 		{CampaignsOwn, HeroesRead, false},
 		{CampaignsOwn, RulesRead, false},

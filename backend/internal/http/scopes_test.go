@@ -73,7 +73,7 @@ func TestEveryOperationDeclaresItsScope(t *testing.T) {
 			}
 		}
 	}
-	if total != 189 {
+	if total != 195 {
 		t.Errorf("walked %d operations; if you added one, update this count so the walk is known to be complete", total)
 	}
 	if !public["GET /health"] || len(public) != 1 {

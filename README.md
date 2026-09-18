@@ -22,7 +22,9 @@ login.
   per-account library.
 - **An API for your own scripts** — mint a token on your profile with only
   the doors it needs (read the codex, read your heroes, run one table) and
-  point a script or an assistant at the same API the app uses. See
+  point a script or an assistant at the same API the app uses; or register a
+  **webhook** and have a URL of yours told, signed, when a quest is posted or
+  the session moves — it only ever hears what you could see. See
   [docs/API.md](docs/API.md).
 - **Print to the real sheet** — one button on a hero's page prints them onto the
   **official 2024 character sheet**, which ships with the app, at coordinates

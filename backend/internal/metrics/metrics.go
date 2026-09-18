@@ -92,6 +92,18 @@ var (
 		},
 		[]string{"ceiling"},
 	)
+
+	// webhookDeliveries counts delivery attempts (#295) by outcome:
+	// delivered, retry (failed, will try again), dead (gave up).
+	webhookDeliveries = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: "webhook",
+			Name:      "deliveries_total",
+			Help:      "Webhook delivery attempts, by outcome (delivered, retry, dead).",
+		},
+		[]string{"result"},
+	)
 )
 
 func init() {
@@ -105,6 +117,7 @@ func init() {
 		httpRequestsInFlight,
 		gameEvents,
 		rateLimitRefusals,
+		webhookDeliveries,
 	)
 }
 
@@ -151,6 +164,9 @@ func QuestClaimed()    { gameEvents.WithLabelValues("quest_claimed").Inc() }
 func CampaignCreated() { gameEvents.WithLabelValues("campaign_created").Inc() }
 func HeroForged()      { gameEvents.WithLabelValues("hero_forged").Inc() }
 func EncounterRun()    { gameEvents.WithLabelValues("encounter_run").Inc() }
+
+// WebhookDelivery records one delivery attempt by outcome (#295).
+func WebhookDelivery(result string) { webhookDeliveries.WithLabelValues(result).Inc() }
 
 // RateLimited records one 429, by the ceiling that fired (#314).
 func RateLimited(ceiling string) { rateLimitRefusals.WithLabelValues(ceiling).Inc() }
