@@ -1,0 +1,155 @@
+Webhook:
+  type: object
+  description: >
+    A standing order (#295): tell this URL when these events happen. It belongs
+    to a person and hears only what that person could see in the app — the
+    audience the emitter decided is the only gate.
+  required: [id, url, events, createdAt, failures]
+  properties:
+    id:
+      type: string
+      format: uuid
+    url:
+      type: string
+    events:
+      type: array
+      description: The catalogue names it wants; empty means every one.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/EventName"
+    campaignId:
+      type: string
+      format: uuid
+      description: The one table it hears; absent means every table its owner sits at.
+    campaignName:
+      type: string
+    scopes:
+      type: array
+      description: >
+        Present on a hook born of an API token: the token's scopes, which the
+        hook may never hear past. Absent on one made in a browser.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/TokenScope"
+    createdAt:
+      type: string
+      format: date-time
+    lastDeliveredAt:
+      type: string
+      format: date-time
+    failures:
+      type: integer
+      description: Deliveries that died in a row; at eight the hook is disabled.
+    disabledAt:
+      type: string
+      format: date-time
+    disabledReason:
+      type: string
+
+WebhookInput:
+  type: object
+  required: [url, events]
+  properties:
+    url:
+      type: string
+      description: >
+        Where to POST. In production it must be https and must not resolve to
+        a private, loopback or link-local address — this server sits on a LAN
+        and must not be turned into a probe of it.
+    events:
+      type: array
+      description: The catalogue names to hear; empty means every one.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/EventName"
+    campaignId:
+      type: string
+      format: uuid
+      nullable: true
+      description: Confine it to one table you sit at. A table you do not answers 404.
+
+WebhookCreated:
+  type: object
+  required: [webhook, secret]
+  properties:
+    webhook:
+      $ref: "../openapi.yaml#/components/schemas/Webhook"
+    secret:
+      type: string
+      description: "The signing secret, shown this once and never again. Verify `X-QuestBoard-Signature` with it."
+
+WebhookDelivery:
+  type: object
+  description: One attempt to reach the URL, and where it stands.
+  required: [id, name, attempts, createdAt, body]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+      description: The event name, or `ping`.
+    attempts:
+      type: integer
+    createdAt:
+      type: string
+      format: date-time
+    deliveredAt:
+      type: string
+      format: date-time
+    deadAt:
+      type: string
+      format: date-time
+      description: Set when the last retry failed; five attempts, then dead.
+    nextAttemptAt:
+      type: string
+      format: date-time
+      description: When the next try is due, while it is still being tried.
+    lastStatus:
+      type: integer
+      description: The HTTP status of the last attempt, when one answered.
+    lastError:
+      type: string
+    body:
+      type: object
+      description: The envelope exactly as sent.
+      additionalProperties: true
+
+WebhookEnvelope:
+  type: object
+  description: >
+    What a receiver gets — the catalogue envelope without the audience, plus
+    the table's name. A ping carries `name: ping` and no campaign. Signed:
+    `X-QuestBoard-Signature: sha256=<hex HMAC-SHA256(secret, timestamp + "." + body)>`,
+    with `X-QuestBoard-Timestamp` (unix seconds), `X-QuestBoard-Event` and
+    `X-QuestBoard-Delivery` beside it.
+  required: [id, name, at, payload]
+  properties:
+    id:
+      type: string
+      format: uuid
+      description: The event's id — the same across every hook it reached, so a receiver can de-duplicate.
+    name:
+      type: string
+    at:
+      type: string
+      format: date-time
+    campaign:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    actor:
+      $ref: "../openapi.yaml#/components/schemas/EventActor"
+    payload:
+      type: object
+      additionalProperties: true
+
+WebhookPing:
+  type: object
+  required: [deliveryId]
+  properties:
+    deliveryId:
+      type: string
+      format: uuid

@@ -1137,3 +1137,32 @@ type VendorStock struct {
 	SortOrder int32              `json:"sort_order"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
+
+type Webhook struct {
+	ID             uuid.UUID          `json:"id"`
+	UserID         uuid.UUID          `json:"user_id"`
+	Url            string             `json:"url"`
+	Secret         string             `json:"secret"`
+	Events         []string           `json:"events"`
+	CampaignID     pgtype.UUID        `json:"campaign_id"`
+	Scopes         []string           `json:"scopes"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Failures       int32              `json:"failures"`
+	DisabledAt     pgtype.Timestamptz `json:"disabled_at"`
+	DisabledReason *string            `json:"disabled_reason"`
+}
+
+type WebhookDelivery struct {
+	ID            uuid.UUID          `json:"id"`
+	WebhookID     uuid.UUID          `json:"webhook_id"`
+	EventID       pgtype.UUID        `json:"event_id"`
+	Name          string             `json:"name"`
+	Body          []byte             `json:"body"`
+	Attempts      int32              `json:"attempts"`
+	NextAttemptAt pgtype.Timestamptz `json:"next_attempt_at"`
+	DeliveredAt   pgtype.Timestamptz `json:"delivered_at"`
+	DeadAt        pgtype.Timestamptz `json:"dead_at"`
+	LastStatus    *int32             `json:"last_status"`
+	LastError     *string            `json:"last_error"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}

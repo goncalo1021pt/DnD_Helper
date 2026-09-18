@@ -15,9 +15,10 @@ import MyHeroesPage from "./MyHeroesPage";
 import ResetHomebrewModal from "./ResetHomebrewModal";
 import TwoFactorSettings from "./TwoFactorSettings";
 import ApiTokensSettings from "./ApiTokensSettings";
+import WebhooksSettings from "./WebhooksSettings";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconBook, IconGear, IconKey, IconLogOut, IconShield, IconTrash } from "./ui/icons";
+import { IconBell, IconBook, IconGear, IconKey, IconLogOut, IconShield, IconTrash } from "./ui/icons";
 
 const PROVIDER_LABEL: Record<string, string> = {
   discord: "Discord",
@@ -336,6 +337,10 @@ export default function ProfilePage() {
             <IconKey size={14} /> API tokens
           </div>
           {me && <ApiTokensSettings campaigns={me.campaigns} />}
+          <div className="label-stamp mb-2 mt-6 flex items-center gap-2 text-[11px] tracking-[2px] text-[#9c855e]">
+            <IconBell size={14} /> Webhooks
+          </div>
+          {me && <WebhooksSettings campaigns={me.campaigns} />}
         </div>
       </div>
 

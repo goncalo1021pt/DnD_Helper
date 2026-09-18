@@ -56,6 +56,8 @@ tables **you** DM. A scope never grants what your account could not do itself.
 | `campaigns:own` | the cascading strikes — disband, strike a map or place, delete a tree, hand a table over |
 | `account:read` | who you are, your friends, your messages |
 | `account:write` | profile, friendships, messages |
+| `webhooks:read` | your webhooks and their delivery logs |
+| `webhooks:write` | register, ping, re-enable and remove them — a hook born of a token hears no more than the token could read (see Webhooks) |
 
 Within a domain a higher rung implies the lower — `campaigns:run` reads and
 plays; `heroes:write` reads. Across domains nothing implies anything.
@@ -166,6 +168,87 @@ and `payload`. The catalogue:
 A reveal announces only to the people it reaches for the first time: revealing
 a quest to a second hero does not tell the first again. The payload schemas
 are in `openapi.yaml` under `components`, one per row above.
+
+## Webhooks
+
+A webhook (#295) is your standing order: tell this URL when these events
+happen. It belongs to you, and it hears only what you could see in the app —
+the audience the emitter decided (see Events) is the only gate, so a player's
+hook never learns of a quest their DM keeps veiled.
+
+Register one on your profile under **Settings → Webhooks**, or through the
+API:
+
+```
+GET    /me/webhooks                        webhooks:read
+POST   /me/webhooks                        webhooks:write   {url, events[], campaignId?}
+DELETE /me/webhooks/{id}                   webhooks:write
+POST   /me/webhooks/{id}/enable            webhooks:write   after it was disabled for failing
+POST   /me/webhooks/{id}/ping              webhooks:write   a test delivery
+GET    /me/webhooks/{id}/deliveries        webhooks:read    the last twenty, with status
+```
+
+`events` is a list of catalogue names, or empty for all of them; `campaignId`
+confines it to one table you sit at. The answer to `POST` carries the signing
+**secret once**, and never again. Ten webhooks per account.
+
+**A hook born of a token hears no more than the token could read.** Every
+event belongs to a read scope — `heroes:read` for `hero.levelled` and
+`hero.xp_awarded`, `campaigns:read` for everything else — and a hook
+registered through a token records that token's scopes and its table
+restriction. Naming an event the token could not read is refused with 403
+naming the scope, and an unfiltered hook simply never hears it. So
+`webhooks:write` on its own reaches nothing: mint the read scopes the hook
+should hear beside it. A hook made in a browser has no such cap.
+
+### What you receive
+
+A `POST` of JSON — the catalogue envelope without the audience, plus the
+table's name:
+
+```json
+{
+  "id": "…",                          the event's id, the same at every hook it reached
+  "name": "quest.posted",
+  "at": "2026-09-18T20:15:00Z",
+  "campaign": {"id": "…", "name": "The Sunless Citadel"},
+  "actor": {"id": "…", "name": "Gonçalo"},
+  "payload": {"questId": "…", "title": "Rats in the cellar", "difficulty": "medium", "status": "available"}
+}
+```
+
+With headers:
+
+| Header | |
+|---|---|
+| `X-QuestBoard-Event` | the event name, or `ping` |
+| `X-QuestBoard-Delivery` | this delivery's id — a retry carries the same one |
+| `X-QuestBoard-Timestamp` | unix seconds when it was sent |
+| `X-QuestBoard-Signature` | `sha256=` + hex HMAC-SHA256 over `timestamp + "." + body`, under your secret |
+| `User-Agent` | `QuestBoard-Hookshot/<version>` |
+
+Answer with any 2xx within ten seconds. Verify the signature before trusting
+a body — the timestamp is inside the signed text, so a captured delivery
+cannot be replayed with a fresh header; refuse one older than a few minutes:
+
+```python
+import hmac, hashlib
+expected = "sha256=" + hmac.new(secret.encode(), f"{ts}.".encode() + body, hashlib.sha256).hexdigest()
+ok = hmac.compare_digest(expected, signature)
+```
+
+### Retries, and a URL that is gone
+
+A delivery that gets no 2xx is tried again after about a minute, then five,
+thirty, and two hours — five attempts, then it is **dead**. Eight dead
+deliveries in a row and the hook is **disabled**: you get an email if your
+address is confirmed, the profile says why, and a button re-enables it with
+the count cleared. Nothing is lost on this side — the events stay recorded —
+but nothing more is sent there until you do.
+
+Redirects are never followed. In production the URL must be `https` and must
+not resolve to a private, loopback or link-local address, checked at the dial:
+this server sits on a LAN and will not be turned into a probe of it.
 
 ## Reading it as an assistant
 

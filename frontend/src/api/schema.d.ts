@@ -491,6 +491,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My webhooks (#295) */
+        get: operations["listWebhooks"];
+        put?: never;
+        /**
+         * Register a webhook; the secret is shown once
+         * @description Through a token, the hook records the token's scopes and its table restriction and may never hear past them: an event it names must belong to a read scope the token holds (campaigns:read for the table's events, heroes:read for a hero's), or the answer is 403 naming the scope.
+         */
+        post: operations["createWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/webhooks/{webhookId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a webhook and its delivery log */
+        delete: operations["deleteWebhook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/webhooks/{webhookId}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Re-enable a webhook that was disabled for failing, with its failure count cleared */
+        post: operations["enableWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/webhooks/{webhookId}/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a test delivery, because nobody gets a webhook right the first time */
+        post: operations["pingWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/webhooks/{webhookId}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        /** The last twenty deliveries, newest first — why you did or did not get it */
+        get: operations["listWebhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/seat-requests": {
         parameters: {
             query?: never;
@@ -4450,7 +4547,7 @@ export interface components {
          * @description What kind of thing a token may touch — a domain and a verb (#313). `write` implies `read` within a domain; `campaigns` runs own > run > play > read. A scope says what may be reached; who the caller is to it is still decided at the door exactly as for a browser.
          * @enum {string}
          */
-        TokenScope: "rules:read" | "rules:write" | "heroes:read" | "heroes:write" | "campaigns:read" | "campaigns:play" | "campaigns:run" | "campaigns:own" | "account:read" | "account:write";
+        TokenScope: "rules:read" | "rules:write" | "heroes:read" | "heroes:write" | "campaigns:read" | "campaigns:play" | "campaigns:run" | "campaigns:own" | "account:read" | "account:write" | "webhooks:read" | "webhooks:write";
         ApiToken: {
             /** Format: uuid */
             id: string;
@@ -4599,6 +4696,100 @@ export interface components {
             /** Format: uuid */
             userId: string;
             userName: string;
+        };
+        /** @description A standing order (#295): tell this URL when these events happen. It belongs to a person and hears only what that person could see in the app — the audience the emitter decided is the only gate. */
+        Webhook: {
+            /** Format: uuid */
+            id: string;
+            url: string;
+            /** @description The catalogue names it wants; empty means every one. */
+            events: components["schemas"]["EventName"][];
+            /**
+             * Format: uuid
+             * @description The one table it hears; absent means every table its owner sits at.
+             */
+            campaignId?: string;
+            campaignName?: string;
+            /** @description Present on a hook born of an API token: the token's scopes, which the hook may never hear past. Absent on one made in a browser. */
+            scopes?: components["schemas"]["TokenScope"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastDeliveredAt?: string;
+            /** @description Deliveries that died in a row; at eight the hook is disabled. */
+            failures: number;
+            /** Format: date-time */
+            disabledAt?: string;
+            disabledReason?: string;
+        };
+        WebhookInput: {
+            /** @description Where to POST. In production it must be https and must not resolve to a private, loopback or link-local address — this server sits on a LAN and must not be turned into a probe of it. */
+            url: string;
+            /** @description The catalogue names to hear; empty means every one. */
+            events: components["schemas"]["EventName"][];
+            /**
+             * Format: uuid
+             * @description Confine it to one table you sit at. A table you do not answers 404.
+             */
+            campaignId?: string | null;
+        };
+        WebhookCreated: {
+            webhook: components["schemas"]["Webhook"];
+            /** @description The signing secret, shown this once and never again. Verify `X-QuestBoard-Signature` with it. */
+            secret: string;
+        };
+        /** @description One attempt to reach the URL, and where it stands. */
+        WebhookDelivery: {
+            /** Format: uuid */
+            id: string;
+            /** @description The event name, or `ping`. */
+            name: string;
+            attempts: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            deliveredAt?: string;
+            /**
+             * Format: date-time
+             * @description Set when the last retry failed; five attempts, then dead.
+             */
+            deadAt?: string;
+            /**
+             * Format: date-time
+             * @description When the next try is due, while it is still being tried.
+             */
+            nextAttemptAt?: string;
+            /** @description The HTTP status of the last attempt, when one answered. */
+            lastStatus?: number;
+            lastError?: string;
+            /** @description The envelope exactly as sent. */
+            body: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description What a receiver gets — the catalogue envelope without the audience, plus the table's name. A ping carries `name: ping` and no campaign. Signed: `X-QuestBoard-Signature: sha256=<hex HMAC-SHA256(secret, timestamp + "." + body)>`, with `X-QuestBoard-Timestamp` (unix seconds), `X-QuestBoard-Event` and `X-QuestBoard-Delivery` beside it. */
+        WebhookEnvelope: {
+            /**
+             * Format: uuid
+             * @description The event's id — the same across every hook it reached, so a receiver can de-duplicate.
+             */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            at: string;
+            campaign?: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            };
+            actor?: components["schemas"]["EventActor"];
+            payload: {
+                [key: string]: unknown;
+            };
+        };
+        WebhookPing: {
+            /** Format: uuid */
+            deliveryId: string;
         };
     };
     responses: {
@@ -5548,6 +5739,157 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhooks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookInput"];
+            };
+        };
+        responses: {
+            /** @description Registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description The table is not one you sit at */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    enableWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pingWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookPing"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listWebhookDeliveries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deliveries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDelivery"][];
+                };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];

@@ -14,7 +14,7 @@ import ParchmentModal from "./ui/ParchmentModal";
  */
 
 type Rung = { scope: TokenScope | null; label: string; hint: string };
-type Domain = { key: "rules" | "heroes" | "campaigns" | "account"; label: string; rungs: Rung[] };
+type Domain = { key: "rules" | "heroes" | "campaigns" | "account" | "webhooks"; label: string; rungs: Rung[] };
 
 const DOMAINS: Domain[] = [
   {
@@ -53,6 +53,15 @@ const DOMAINS: Domain[] = [
       { scope: null, label: "None", hint: "" },
       { scope: "account:read", label: "Read", hint: "who you are, your friends and messages" },
       { scope: "account:write", label: "Write", hint: "your profile, friendships and messages" },
+    ],
+  },
+  {
+    key: "webhooks",
+    label: "Webhooks",
+    rungs: [
+      { scope: null, label: "None", hint: "" },
+      { scope: "webhooks:read", label: "Read", hint: "your webhooks and their delivery logs" },
+      { scope: "webhooks:write", label: "Write", hint: "register, ping and remove webhooks — a hook made by this token hears only what its other scopes can read" },
     ],
   },
 ];
@@ -170,6 +179,7 @@ function MintModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; on
     heroes: "heroes:read",
     campaigns: null,
     account: null,
+    webhooks: null,
   });
   const [campaignId, setCampaignId] = useState("");
   const [expiresInDays, setExpiresInDays] = useState(90);

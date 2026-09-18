@@ -18,6 +18,8 @@ TokenScope:
     - campaigns:own
     - account:read
     - account:write
+    - webhooks:read
+    - webhooks:write
 
 ApiToken:
   type: object

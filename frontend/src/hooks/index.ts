@@ -35,3 +35,4 @@ export * from "./bestiary";
 export * from "./creatures";
 export * from "./tokens";
 export * from "./events";
+export * from "./webhooks";

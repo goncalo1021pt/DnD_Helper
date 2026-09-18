@@ -34,6 +34,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # The docker host by name, for a webhook receiver on it in development
+    # (the e2e's). Harmless in production, where the URL guard refuses it.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       APP_ENV: ${APP_ENV:-production}
       APP_ADDR: ":8080"

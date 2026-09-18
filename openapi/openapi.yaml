@@ -64,6 +64,16 @@ paths:
     $ref: "./paths/tokens.yaml#/~1me~1tokens"
   /me/tokens/{tokenId}:
     $ref: "./paths/tokens.yaml#/~1me~1tokens~1{tokenId}"
+  /me/webhooks:
+    $ref: "./paths/webhooks.yaml#/~1me~1webhooks"
+  /me/webhooks/{webhookId}:
+    $ref: "./paths/webhooks.yaml#/~1me~1webhooks~1{webhookId}"
+  /me/webhooks/{webhookId}/enable:
+    $ref: "./paths/webhooks.yaml#/~1me~1webhooks~1{webhookId}~1enable"
+  /me/webhooks/{webhookId}/ping:
+    $ref: "./paths/webhooks.yaml#/~1me~1webhooks~1{webhookId}~1ping"
+  /me/webhooks/{webhookId}/deliveries:
+    $ref: "./paths/webhooks.yaml#/~1me~1webhooks~1{webhookId}~1deliveries"
 
   /me/seat-requests:
     $ref: "./paths/characters.yaml#/~1me~1seat-requests"
@@ -805,6 +815,18 @@ components:
       $ref: "./components/events.yaml#/MemberEventPayload"
     SeatEventPayload:
       $ref: "./components/events.yaml#/SeatEventPayload"
+    Webhook:
+      $ref: "./components/webhooks.yaml#/Webhook"
+    WebhookInput:
+      $ref: "./components/webhooks.yaml#/WebhookInput"
+    WebhookCreated:
+      $ref: "./components/webhooks.yaml#/WebhookCreated"
+    WebhookDelivery:
+      $ref: "./components/webhooks.yaml#/WebhookDelivery"
+    WebhookEnvelope:
+      $ref: "./components/webhooks.yaml#/WebhookEnvelope"
+    WebhookPing:
+      $ref: "./components/webhooks.yaml#/WebhookPing"
 
 security:
   - sessionCookie: []
