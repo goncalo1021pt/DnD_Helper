@@ -94,6 +94,7 @@ e2e: ## Run the Playwright smoke suite against a running app (start it with 'mak
 	docker run --rm --network host \
 		-v "$(CURDIR)/frontend":/app -w /app \
 		-e E2E_BASE_URL=$(E2E_BASE_URL) \
+		-e E2E_RECEIVER_HOST=host.docker.internal \
 		mcr.microsoft.com/playwright:$(PLAYWRIGHT_VERSION)-noble \
 		npm run e2e -- $(ARGS)
 

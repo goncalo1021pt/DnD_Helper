@@ -6,10 +6,12 @@ import { createCampaign, joinCampaign, newAccount, postQuest, registerViaAPI, un
 /*
 Webhooks (#295): a person's standing order, told at a URL of their choosing.
 
-The receiver is a tiny HTTP server inside this test process. Playwright runs
-on the host network, and the app container reaches the host as
-host.docker.internal (aliased in compose), which the URL guard lets through
-outside production. What is worth pinning: a delivery arrives signed and
+The receiver is a tiny HTTP server inside this test process. Where the app
+reaches it depends on how the app runs: the containerized stack (make test)
+reaches the host as host.docker.internal, aliased in compose and passed in by
+the Makefile as E2E_RECEIVER_HOST; CI runs the binary natively beside the
+suite, so the default, loopback, is right there. The URL guard lets either
+through outside production. What is worth pinning: a delivery arrives signed and
 verifies, a drafted quest reaches no hook because the emitter left the player
 out, a token-born hook is refused a name past its scopes and never hears one,
 and a URL that is gone shows a failed attempt with its next try.
@@ -34,7 +36,8 @@ async function receiver(): Promise<{ server: Server; port: number; got: Received
   return { server, port, got, answer };
 }
 
-const hookUrl = (port: number, path: string) => `http://host.docker.internal:${port}${path}`;
+const RECEIVER_HOST = process.env.E2E_RECEIVER_HOST ?? "127.0.0.1";
+const hookUrl = (port: number, path: string) => `http://${RECEIVER_HOST}:${port}${path}`;
 
 function verify(secret: string, r: Received): boolean {
   const expected = "sha256=" + createHmac("sha256", secret).update(`${r.headers["x-questboard-timestamp"]}.${r.body}`).digest("hex");
