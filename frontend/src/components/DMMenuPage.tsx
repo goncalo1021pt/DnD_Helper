@@ -21,6 +21,7 @@ import Face from "./dm/Face";
 import TableRulesSection from "./dm/TableRulesSection";
 import CoinageSection from "./dm/CoinageSection";
 import TheVeilSection from "./dm/TheVeilSection";
+import HeraldSection from "./dm/HeraldSection";
 
 /* What the DM is about to do to a member, held until they confirm it. */
 type Pending =
@@ -70,6 +71,8 @@ export default function DMMenuPage() {
       <CoinageSection campaign={campaign} />
 
       <TheVeilSection campaign={campaign} />
+
+      <HeraldSection campaign={campaign} />
 
       <AtTheDoorSection campaign={campaign} />
 

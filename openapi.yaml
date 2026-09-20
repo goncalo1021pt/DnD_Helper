@@ -992,6 +992,47 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /me/notifications:
+    get:
+      operationId: getNotificationSettings
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:read
+      summary: What reaches me outside the app (#316)
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: setNotificationSettings
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
+      summary: Choose which events are emailed to me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationSettingsInput"
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationSettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /me/seat-requests:
     get:
       operationId: listMySeatRequests
@@ -2200,6 +2241,110 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /campaigns/{campaignId}/mute:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setCampaignMute
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
+      summary: Mute or unmute this table for me — no email about it while muted (#316)
+      description: |
+        A fact about my membership, not the table: it silences email alone. Webhooks of mine and the table's own channel are unaffected, since a webhook is an integration rather than a notice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - muted
+              properties:
+                muted:
+                  type: boolean
+      responses:
+        "204":
+          description: Set
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /campaigns/{campaignId}/channel:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    put:
+      operationId: setTableChannel
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
+      summary: Hang the table's Discord channel — a webhook with no owner that posts what the whole table may hear (DM only)
+      description: |
+        Setting it again replaces the URL and the names and re-enables a channel that was disabled for failing. The channel rides the Campaign payload for DMs alone, like the invite code: whoever holds the URL can post to the channel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TableChannelInput"
+      responses:
+        "200":
+          description: The campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    delete:
+      operationId: deleteTableChannel
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
+      summary: Take the table's channel down, delivery log and all (DM only)
+      responses:
+        "200":
+          description: The campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /campaigns/{campaignId}/channel/ping:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: pingTableChannel
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
+      summary: Queue a test message to the table's channel (DM only)
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookPing"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /characters/{characterId}/reveal:
     parameters:
       - $ref: "#/components/parameters/CharacterId"
@@ -5571,6 +5716,10 @@ components:
           type: boolean
           description: |
             When true the veil is drawn over the table's character sheets: a player sees only the names of the other heroes. Owners and the DM always read their own sheets in full, and the DM may lift the veil on individual heroes.
+        channel:
+          $ref: "#/components/schemas/Webhook"
+          description: |
+            DM-only (#316). The table's own Discord channel — a webhook with no owner, `format: discord`, that posts only what the whole table may hear. Absent for players, and absent when none is hung.
     Coin:
       type: object
       required:
@@ -5608,11 +5757,15 @@ components:
       required:
         - campaign
         - role
+        - muted
       properties:
         campaign:
           $ref: "#/components/schemas/Campaign"
         role:
           $ref: "#/components/schemas/Role"
+        muted:
+          type: boolean
+          description: Whether I muted this table — no email about it (#316).
     Member:
       type: object
       required:
@@ -9258,6 +9411,7 @@ components:
       required:
         - id
         - url
+        - format
         - events
         - createdAt
         - failures
@@ -9267,6 +9421,8 @@ components:
           format: uuid
         url:
           type: string
+        format:
+          $ref: "#/components/schemas/WebhookFormat"
         events:
           type: array
           description: The catalogue names it wants; empty means every one.
@@ -9308,6 +9464,9 @@ components:
           type: string
           description: |
             Where to POST. In production it must be https and must not resolve to a private, loopback or link-local address — this server sits on a LAN and must not be turned into a probe of it.
+        format:
+          $ref: "#/components/schemas/WebhookFormat"
+          description: Absent means `questboard`.
         events:
           type: array
           description: The catalogue names to hear; empty means every one.
@@ -9328,7 +9487,8 @@ components:
           $ref: "#/components/schemas/Webhook"
         secret:
           type: string
-          description: The signing secret, shown this once and never again. Verify `X-QuestBoard-Signature` with it.
+          description: |
+            The signing secret, shown this once and never again. Verify `X-QuestBoard-Signature` with it. A `discord` hook is unsigned and gets none: empty.
     WebhookDelivery:
       type: object
       description: One attempt to reach the URL, and where it stands.
@@ -9413,5 +9573,65 @@ components:
         deliveryId:
           type: string
           format: uuid
+    WebhookFormat:
+      type: string
+      description: |
+        What a hook receives (#316): `questboard` is the signed catalogue envelope; `discord` is a message shaped for a Discord incoming webhook, unsigned, with no secret to keep.
+      enum:
+        - questboard
+        - discord
+    NotificationSettings:
+      type: object
+      description: |
+        What reaches a person outside the app (#316). Email goes to the account's confirmed address; a Discord channel of their own is a webhook with `format: discord`. A new account is told about the next gathering and a handout to them, and nothing else, until it says otherwise.
+      required:
+        - emailEvents
+        - emailVerified
+        - mutedCampaignIds
+      properties:
+        emailEvents:
+          type: array
+          description: The catalogue names that reach the inbox; empty means none.
+          items:
+            $ref: "#/components/schemas/EventName"
+        emailAddress:
+          type: string
+          description: Where they go. Absent when the account has no address.
+        emailVerified:
+          type: boolean
+          description: |
+            Nothing is sent to an address that has not been confirmed, whatever emailEvents says — the preferences are kept for when it is.
+        mutedCampaignIds:
+          type: array
+          description: Tables muted with `PUT /campaigns/{id}/mute` — no email about them.
+          items:
+            type: string
+            format: uuid
+    NotificationSettingsInput:
+      type: object
+      required:
+        - emailEvents
+      properties:
+        emailEvents:
+          type: array
+          description: |
+            The catalogue names to be emailed about; empty for none. `chronicle.written` is not offered by email — a line per line is a flood — and is refused with 400.
+          items:
+            $ref: "#/components/schemas/EventName"
+    TableChannelInput:
+      type: object
+      required:
+        - url
+        - events
+      properties:
+        url:
+          type: string
+          description: A Discord incoming-webhook URL, or any URL that accepts a Discord-shaped message.
+        events:
+          type: array
+          description: |
+            The catalogue names to post; empty means every one the whole table may hear. Whatever is named, the channel only ever receives an event whose audience is the entire table.
+          items:
+            $ref: "#/components/schemas/EventName"
 security:
   - sessionCookie: []

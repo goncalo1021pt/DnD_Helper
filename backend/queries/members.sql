@@ -51,3 +51,7 @@ ORDER BY b.banned_at DESC;
 SELECT EXISTS (
     SELECT 1 FROM campaign_bans WHERE campaign_id = $1 AND user_id = $2
 ) AS banned;
+
+-- Notifications (#316): a person mutes one table — no email about it.
+-- name: SetMembershipMuted :one
+UPDATE memberships SET muted = $3 WHERE user_id = $1 AND campaign_id = $2 RETURNING *;

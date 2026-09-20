@@ -897,6 +897,7 @@ type Membership struct {
 	CampaignID uuid.UUID          `json:"campaign_id"`
 	Role       MembershipRole     `json:"role"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Muted      bool               `json:"muted"`
 }
 
 type Npc struct {
@@ -1098,6 +1099,7 @@ type User struct {
 	TotpSecret    *string            `json:"totp_secret"`
 	TotpEnabled   bool               `json:"totp_enabled"`
 	FriendCode    string             `json:"friend_code"`
+	EmailEvents   []string           `json:"email_events"`
 }
 
 type UserBlock struct {
@@ -1140,7 +1142,7 @@ type VendorStock struct {
 
 type Webhook struct {
 	ID             uuid.UUID          `json:"id"`
-	UserID         uuid.UUID          `json:"user_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
 	Url            string             `json:"url"`
 	Secret         string             `json:"secret"`
 	Events         []string           `json:"events"`
@@ -1150,6 +1152,7 @@ type Webhook struct {
 	Failures       int32              `json:"failures"`
 	DisabledAt     pgtype.Timestamptz `json:"disabled_at"`
 	DisabledReason *string            `json:"disabled_reason"`
+	Format         string             `json:"format"`
 }
 
 type WebhookDelivery struct {

@@ -142,9 +142,20 @@ func (s *Server) CreateWebhook(ctx context.Context, request api.CreateWebhookReq
 		return api.CreateWebhook400JSONResponse{BadRequestJSONResponse: badRequest("too many webhooks — remove one first")}, nil
 	}
 
+	// The format (#316): the signed envelope, or a Discord message. A Discord
+	// hook is unsigned, so its secret is never shown — there is nothing to
+	// check it against on the other side.
+	format := webhooks.FormatQuestboard
+	if in.Format != nil {
+		if !in.Format.Valid() {
+			return api.CreateWebhook400JSONResponse{BadRequestJSONResponse: badRequest("unknown format " + string(*in.Format))}, nil
+		}
+		format = string(*in.Format)
+	}
+
 	secret := webhooks.NewSecret()
 	row, err := s.queries.CreateWebhook(ctx, db.CreateWebhookParams{
-		UserID: uid, Url: rawURL, Secret: secret, Events: names, CampaignID: campaign, Scopes: capScopes,
+		UserID: pgtype.UUID{Bytes: uid, Valid: true}, Url: rawURL, Secret: secret, Events: names, CampaignID: campaign, Scopes: capScopes, Format: format,
 	})
 	if err != nil {
 		return nil, err
@@ -152,9 +163,13 @@ func (s *Server) CreateWebhook(ctx context.Context, request api.CreateWebhookReq
 	full := db.GetWebhookForUserRow{
 		ID: row.ID, UserID: row.UserID, Url: row.Url, Secret: row.Secret, Events: row.Events,
 		CampaignID: row.CampaignID, Scopes: row.Scopes, CreatedAt: row.CreatedAt, Failures: row.Failures,
-		DisabledAt: row.DisabledAt, DisabledReason: row.DisabledReason, CampaignName: campaignName,
+		DisabledAt: row.DisabledAt, DisabledReason: row.DisabledReason, CampaignName: campaignName, Format: row.Format,
 	}
-	return api.CreateWebhook201JSONResponse{Webhook: toAPIWebhook(full), Secret: secret}, nil
+	shown := secret
+	if format == webhooks.FormatDiscord {
+		shown = ""
+	}
+	return api.CreateWebhook201JSONResponse{Webhook: toAPIWebhook(full), Secret: shown}, nil
 }
 
 func (s *Server) DeleteWebhook(ctx context.Context, request api.DeleteWebhookRequestObject) (api.DeleteWebhookResponseObject, error) {
@@ -199,7 +214,8 @@ func (s *Server) PingWebhook(ctx context.Context, request api.PingWebhookRequest
 		return api.PingWebhook401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
 	id := uuid.UUID(request.WebhookId)
-	if _, err := s.queries.GetWebhookForUser(ctx, db.GetWebhookForUserParams{ID: id, UserID: uid}); err != nil {
+	hook, err := s.queries.GetWebhookForUser(ctx, db.GetWebhookForUserParams{ID: id, UserID: uid})
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return api.PingWebhook404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
@@ -208,7 +224,7 @@ func (s *Server) PingWebhook(ctx context.Context, request api.PingWebhookRequest
 	if s.webhooks == nil {
 		return api.PingWebhook404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 	}
-	deliveryID, err := s.webhooks.Ping(ctx, id)
+	deliveryID, err := s.webhooks.Ping(ctx, id, hook.Format)
 	if err != nil {
 		return nil, err
 	}
@@ -246,6 +262,7 @@ func toAPIWebhook(r db.GetWebhookForUserRow) api.Webhook {
 	out := api.Webhook{
 		Id:        openapi_types.UUID(r.ID),
 		Url:       r.Url,
+		Format:    api.WebhookFormat(r.Format),
 		Events:    names,
 		CreatedAt: r.CreatedAt.Time,
 		Failures:  int(r.Failures),

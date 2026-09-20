@@ -255,3 +255,64 @@ export function ResetPasswordPage() {
     </AuthShell>
   );
 }
+
+/**
+ * The way out at the bottom of every notice (#316). The link in an email
+ * lands here rather than acting on the GET, because a link scanner follows
+ * what it finds and must not unsubscribe anyone by looking; one press does
+ * it. A mail client's one-click unsubscribe POSTs to the API directly.
+ */
+export function UnsubscribePage() {
+  const [params] = useSearchParams();
+  const token = params.get("token") ?? "";
+  const [state, setState] = useState<"ask" | "working" | "ok" | "fail">(token ? "ask" : "fail");
+
+  async function stop() {
+    setState("working");
+    let ok = false;
+    try {
+      const res = await apiFetch("/api/notifications/unsubscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      ok = res.status === 204;
+    } catch {
+      ok = false;
+    }
+    setState(ok ? "ok" : "fail");
+  }
+
+  return (
+    <AuthShell title="Stop these emails?">
+      {(state === "ask" || state === "working") && (
+        <>
+          <p className="font-body m-0 text-center text-[14px] text-ink-body">
+            Quest Board will stop emailing you about your tables — the next gathering, handouts, everything.
+            You can choose what reaches you again under Settings on your profile.
+          </p>
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={stop}
+              disabled={state === "working"}
+              className="btn-base btn-ghost-red clip-octagon h-11 px-6 text-[13px] disabled:opacity-50"
+            >
+              {state === "working" ? "Stopping…" : "Stop the emails"}
+            </button>
+          </div>
+        </>
+      )}
+      {state === "ok" && (
+        <p className="font-body m-0 text-center text-[14px] text-ink-body">
+          Done — no more emails from Quest Board. Your profile's Settings can turn them back on, one event at a time.
+        </p>
+      )}
+      {state === "fail" && (
+        <p className="font-body m-0 text-center text-[14px] text-ink-body">
+          This link is not one of ours. The way out is also under Settings on your profile, once you are signed in.
+        </p>
+      )}
+      {backToTavern}
+    </AuthShell>
+  );
+}

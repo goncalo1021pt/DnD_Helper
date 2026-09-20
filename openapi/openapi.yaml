@@ -74,6 +74,8 @@ paths:
     $ref: "./paths/webhooks.yaml#/~1me~1webhooks~1{webhookId}~1ping"
   /me/webhooks/{webhookId}/deliveries:
     $ref: "./paths/webhooks.yaml#/~1me~1webhooks~1{webhookId}~1deliveries"
+  /me/notifications:
+    $ref: "./paths/notifications.yaml#/~1me~1notifications"
 
   /me/seat-requests:
     $ref: "./paths/characters.yaml#/~1me~1seat-requests"
@@ -146,6 +148,12 @@ paths:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1coinage"
   /campaigns/{campaignId}/hidden-sheets:
     $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1hidden-sheets"
+  /campaigns/{campaignId}/mute:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1mute"
+  /campaigns/{campaignId}/channel:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1channel"
+  /campaigns/{campaignId}/channel/ping:
+    $ref: "./paths/campaigns.yaml#/~1campaigns~1{campaignId}~1channel~1ping"
 
   /characters/{characterId}/reveal:
     $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1reveal"
@@ -827,6 +835,14 @@ components:
       $ref: "./components/webhooks.yaml#/WebhookEnvelope"
     WebhookPing:
       $ref: "./components/webhooks.yaml#/WebhookPing"
+    WebhookFormat:
+      $ref: "./components/webhooks.yaml#/WebhookFormat"
+    NotificationSettings:
+      $ref: "./components/notifications.yaml#/NotificationSettings"
+    NotificationSettingsInput:
+      $ref: "./components/notifications.yaml#/NotificationSettingsInput"
+    TableChannelInput:
+      $ref: "./components/notifications.yaml#/TableChannelInput"
 
 security:
   - sessionCookie: []

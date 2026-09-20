@@ -13,7 +13,7 @@ import (
 )
 
 const claimDueWebhookDeliveries = `-- name: ClaimDueWebhookDeliveries :many
-SELECT d.id, d.webhook_id, d.event_id, d.name, d.body, d.attempts, d.next_attempt_at, d.delivered_at, d.dead_at, d.last_status, d.last_error, d.created_at, w.url, w.secret, w.user_id
+SELECT d.id, d.webhook_id, d.event_id, d.name, d.body, d.attempts, d.next_attempt_at, d.delivered_at, d.dead_at, d.last_status, d.last_error, d.created_at, w.url, w.secret, w.user_id, w.campaign_id, w.format
 FROM webhook_deliveries d
 JOIN webhooks w ON w.id = d.webhook_id
 WHERE d.delivered_at IS NULL AND d.dead_at IS NULL AND d.next_attempt_at <= now()
@@ -38,7 +38,9 @@ type ClaimDueWebhookDeliveriesRow struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	Url           string             `json:"url"`
 	Secret        string             `json:"secret"`
-	UserID        uuid.UUID          `json:"user_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	CampaignID    pgtype.UUID        `json:"campaign_id"`
+	Format        string             `json:"format"`
 }
 
 // The worker's claim: due, not done, on a live hook, locked so a second
@@ -68,6 +70,8 @@ func (q *Queries) ClaimDueWebhookDeliveries(ctx context.Context, limit int32) ([
 			&i.Url,
 			&i.Secret,
 			&i.UserID,
+			&i.CampaignID,
+			&i.Format,
 		); err != nil {
 			return nil, err
 		}
@@ -80,7 +84,7 @@ func (q *Queries) ClaimDueWebhookDeliveries(ctx context.Context, limit int32) ([
 }
 
 const countWebhooksByUser = `-- name: CountWebhooksByUser :one
-SELECT count(*) FROM webhooks WHERE user_id = $1
+SELECT count(*) FROM webhooks WHERE user_id = $1::uuid
 `
 
 func (q *Queries) CountWebhooksByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
@@ -92,18 +96,19 @@ func (q *Queries) CountWebhooksByUser(ctx context.Context, userID uuid.UUID) (in
 
 const createWebhook = `-- name: CreateWebhook :one
 
-INSERT INTO webhooks (user_id, url, secret, events, campaign_id, scopes)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, url, secret, events, campaign_id, scopes, created_at, failures, disabled_at, disabled_reason
+INSERT INTO webhooks (user_id, url, secret, events, campaign_id, scopes, format)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, user_id, url, secret, events, campaign_id, scopes, created_at, failures, disabled_at, disabled_reason, format
 `
 
 type CreateWebhookParams struct {
-	UserID     uuid.UUID   `json:"user_id"`
+	UserID     pgtype.UUID `json:"user_id"`
 	Url        string      `json:"url"`
 	Secret     string      `json:"secret"`
 	Events     []string    `json:"events"`
 	CampaignID pgtype.UUID `json:"campaign_id"`
 	Scopes     []string    `json:"scopes"`
+	Format     string      `json:"format"`
 }
 
 // Webhooks (#295): subscriptions and their deliveries.
@@ -115,6 +120,7 @@ func (q *Queries) CreateWebhook(ctx context.Context, arg CreateWebhookParams) (W
 		arg.Events,
 		arg.CampaignID,
 		arg.Scopes,
+		arg.Format,
 	)
 	var i Webhook
 	err := row.Scan(
@@ -129,12 +135,25 @@ func (q *Queries) CreateWebhook(ctx context.Context, arg CreateWebhookParams) (W
 		&i.Failures,
 		&i.DisabledAt,
 		&i.DisabledReason,
+		&i.Format,
 	)
 	return i, err
 }
 
+const deleteTableChannel = `-- name: DeleteTableChannel :execrows
+DELETE FROM webhooks WHERE campaign_id = $1 AND user_id IS NULL
+`
+
+func (q *Queries) DeleteTableChannel(ctx context.Context, campaignID pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTableChannel, campaignID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteWebhook = `-- name: DeleteWebhook :one
-DELETE FROM webhooks WHERE id = $1 AND user_id = $2 RETURNING id
+DELETE FROM webhooks WHERE id = $1 AND user_id = $2::uuid RETURNING id
 `
 
 type DeleteWebhookParams struct {
@@ -166,7 +185,7 @@ func (q *Queries) DisableWebhook(ctx context.Context, arg DisableWebhookParams) 
 
 const enableWebhook = `-- name: EnableWebhook :exec
 UPDATE webhooks SET disabled_at = NULL, disabled_reason = NULL, failures = 0
-WHERE id = $1 AND user_id = $2
+WHERE id = $1 AND user_id = $2::uuid
 `
 
 type EnableWebhookParams struct {
@@ -179,22 +198,17 @@ func (q *Queries) EnableWebhook(ctx context.Context, arg EnableWebhookParams) er
 	return err
 }
 
-const getWebhookForUser = `-- name: GetWebhookForUser :one
-SELECT w.id, w.user_id, w.url, w.secret, w.events, w.campaign_id, w.scopes, w.created_at, w.failures, w.disabled_at, w.disabled_reason, c.name AS campaign_name,
+const getTableChannel = `-- name: GetTableChannel :one
+SELECT w.id, w.user_id, w.url, w.secret, w.events, w.campaign_id, w.scopes, w.created_at, w.failures, w.disabled_at, w.disabled_reason, w.format, c.name AS campaign_name,
     (SELECT max(d.delivered_at) FROM webhook_deliveries d WHERE d.webhook_id = w.id)::timestamptz AS last_delivered_at
 FROM webhooks w
 LEFT JOIN campaigns c ON c.id = w.campaign_id
-WHERE w.id = $1 AND w.user_id = $2
+WHERE w.campaign_id = $1 AND w.user_id IS NULL
 `
 
-type GetWebhookForUserParams struct {
-	ID     uuid.UUID `json:"id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-type GetWebhookForUserRow struct {
+type GetTableChannelRow struct {
 	ID              uuid.UUID          `json:"id"`
-	UserID          uuid.UUID          `json:"user_id"`
+	UserID          pgtype.UUID        `json:"user_id"`
 	Url             string             `json:"url"`
 	Secret          string             `json:"secret"`
 	Events          []string           `json:"events"`
@@ -204,6 +218,59 @@ type GetWebhookForUserRow struct {
 	Failures        int32              `json:"failures"`
 	DisabledAt      pgtype.Timestamptz `json:"disabled_at"`
 	DisabledReason  *string            `json:"disabled_reason"`
+	Format          string             `json:"format"`
+	CampaignName    *string            `json:"campaign_name"`
+	LastDeliveredAt pgtype.Timestamptz `json:"last_delivered_at"`
+}
+
+func (q *Queries) GetTableChannel(ctx context.Context, campaignID pgtype.UUID) (GetTableChannelRow, error) {
+	row := q.db.QueryRow(ctx, getTableChannel, campaignID)
+	var i GetTableChannelRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Url,
+		&i.Secret,
+		&i.Events,
+		&i.CampaignID,
+		&i.Scopes,
+		&i.CreatedAt,
+		&i.Failures,
+		&i.DisabledAt,
+		&i.DisabledReason,
+		&i.Format,
+		&i.CampaignName,
+		&i.LastDeliveredAt,
+	)
+	return i, err
+}
+
+const getWebhookForUser = `-- name: GetWebhookForUser :one
+SELECT w.id, w.user_id, w.url, w.secret, w.events, w.campaign_id, w.scopes, w.created_at, w.failures, w.disabled_at, w.disabled_reason, w.format, c.name AS campaign_name,
+    (SELECT max(d.delivered_at) FROM webhook_deliveries d WHERE d.webhook_id = w.id)::timestamptz AS last_delivered_at
+FROM webhooks w
+LEFT JOIN campaigns c ON c.id = w.campaign_id
+WHERE w.id = $1 AND w.user_id = $2::uuid
+`
+
+type GetWebhookForUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+type GetWebhookForUserRow struct {
+	ID              uuid.UUID          `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	Url             string             `json:"url"`
+	Secret          string             `json:"secret"`
+	Events          []string           `json:"events"`
+	CampaignID      pgtype.UUID        `json:"campaign_id"`
+	Scopes          []string           `json:"scopes"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Failures        int32              `json:"failures"`
+	DisabledAt      pgtype.Timestamptz `json:"disabled_at"`
+	DisabledReason  *string            `json:"disabled_reason"`
+	Format          string             `json:"format"`
 	CampaignName    *string            `json:"campaign_name"`
 	LastDeliveredAt pgtype.Timestamptz `json:"last_delivered_at"`
 }
@@ -223,6 +290,7 @@ func (q *Queries) GetWebhookForUser(ctx context.Context, arg GetWebhookForUserPa
 		&i.Failures,
 		&i.DisabledAt,
 		&i.DisabledReason,
+		&i.Format,
 		&i.CampaignName,
 		&i.LastDeliveredAt,
 	)
@@ -267,12 +335,53 @@ func (q *Queries) InsertWebhookDelivery(ctx context.Context, arg InsertWebhookDe
 	return i, err
 }
 
+const listLiveTableChannels = `-- name: ListLiveTableChannels :many
+SELECT id, user_id, url, secret, events, campaign_id, scopes, created_at, failures, disabled_at, disabled_reason, format FROM webhooks
+WHERE campaign_id = $1 AND user_id IS NULL AND disabled_at IS NULL
+`
+
+// The table's own channel (#316): a hook with no owner, selected by the
+// table it hangs on rather than by the audience.
+func (q *Queries) ListLiveTableChannels(ctx context.Context, campaignID pgtype.UUID) ([]Webhook, error) {
+	rows, err := q.db.Query(ctx, listLiveTableChannels, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Webhook
+	for rows.Next() {
+		var i Webhook
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Url,
+			&i.Secret,
+			&i.Events,
+			&i.CampaignID,
+			&i.Scopes,
+			&i.CreatedAt,
+			&i.Failures,
+			&i.DisabledAt,
+			&i.DisabledReason,
+			&i.Format,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLiveWebhooksForUsers = `-- name: ListLiveWebhooksForUsers :many
-SELECT id, user_id, url, secret, events, campaign_id, scopes, created_at, failures, disabled_at, disabled_reason FROM webhooks
+SELECT id, user_id, url, secret, events, campaign_id, scopes, created_at, failures, disabled_at, disabled_reason, format FROM webhooks
 WHERE user_id = ANY($1::uuid[]) AND disabled_at IS NULL
 `
 
 // The fan-out (#315 → #295): every live hook of anyone in the audience.
+// A table's own channel has no owner and is never selected here.
 func (q *Queries) ListLiveWebhooksForUsers(ctx context.Context, dollar_1 []uuid.UUID) ([]Webhook, error) {
 	rows, err := q.db.Query(ctx, listLiveWebhooksForUsers, dollar_1)
 	if err != nil {
@@ -294,6 +403,7 @@ func (q *Queries) ListLiveWebhooksForUsers(ctx context.Context, dollar_1 []uuid.
 			&i.Failures,
 			&i.DisabledAt,
 			&i.DisabledReason,
+			&i.Format,
 		); err != nil {
 			return nil, err
 		}
@@ -351,17 +461,17 @@ func (q *Queries) ListWebhookDeliveries(ctx context.Context, arg ListWebhookDeli
 }
 
 const listWebhooksByUser = `-- name: ListWebhooksByUser :many
-SELECT w.id, w.user_id, w.url, w.secret, w.events, w.campaign_id, w.scopes, w.created_at, w.failures, w.disabled_at, w.disabled_reason, c.name AS campaign_name,
+SELECT w.id, w.user_id, w.url, w.secret, w.events, w.campaign_id, w.scopes, w.created_at, w.failures, w.disabled_at, w.disabled_reason, w.format, c.name AS campaign_name,
     (SELECT max(d.delivered_at) FROM webhook_deliveries d WHERE d.webhook_id = w.id)::timestamptz AS last_delivered_at
 FROM webhooks w
 LEFT JOIN campaigns c ON c.id = w.campaign_id
-WHERE w.user_id = $1
+WHERE w.user_id = $1::uuid
 ORDER BY w.created_at DESC
 `
 
 type ListWebhooksByUserRow struct {
 	ID              uuid.UUID          `json:"id"`
-	UserID          uuid.UUID          `json:"user_id"`
+	UserID          pgtype.UUID        `json:"user_id"`
 	Url             string             `json:"url"`
 	Secret          string             `json:"secret"`
 	Events          []string           `json:"events"`
@@ -371,6 +481,7 @@ type ListWebhooksByUserRow struct {
 	Failures        int32              `json:"failures"`
 	DisabledAt      pgtype.Timestamptz `json:"disabled_at"`
 	DisabledReason  *string            `json:"disabled_reason"`
+	Format          string             `json:"format"`
 	CampaignName    *string            `json:"campaign_name"`
 	LastDeliveredAt pgtype.Timestamptz `json:"last_delivered_at"`
 }
@@ -396,6 +507,7 @@ func (q *Queries) ListWebhooksByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.Failures,
 			&i.DisabledAt,
 			&i.DisabledReason,
+			&i.Format,
 			&i.CampaignName,
 			&i.LastDeliveredAt,
 		); err != nil {
@@ -483,4 +595,47 @@ UPDATE webhooks SET failures = 0 WHERE id = $1
 func (q *Queries) RecordWebhookSuccess(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, recordWebhookSuccess, id)
 	return err
+}
+
+const upsertTableChannel = `-- name: UpsertTableChannel :one
+INSERT INTO webhooks (user_id, url, secret, events, campaign_id, format)
+VALUES (NULL, $1, $2, $3, $4, 'discord')
+ON CONFLICT (campaign_id) WHERE user_id IS NULL DO UPDATE
+SET url = EXCLUDED.url, events = EXCLUDED.events,
+    disabled_at = NULL, disabled_reason = NULL, failures = 0
+RETURNING id, user_id, url, secret, events, campaign_id, scopes, created_at, failures, disabled_at, disabled_reason, format
+`
+
+type UpsertTableChannelParams struct {
+	Url        string      `json:"url"`
+	Secret     string      `json:"secret"`
+	Events     []string    `json:"events"`
+	CampaignID pgtype.UUID `json:"campaign_id"`
+}
+
+// Setting the channel again replaces the URL and the names and gives a
+// disabled one another chance, since a DM pasting a fresh URL means it.
+func (q *Queries) UpsertTableChannel(ctx context.Context, arg UpsertTableChannelParams) (Webhook, error) {
+	row := q.db.QueryRow(ctx, upsertTableChannel,
+		arg.Url,
+		arg.Secret,
+		arg.Events,
+		arg.CampaignID,
+	)
+	var i Webhook
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Url,
+		&i.Secret,
+		&i.Events,
+		&i.CampaignID,
+		&i.Scopes,
+		&i.CreatedAt,
+		&i.Failures,
+		&i.DisabledAt,
+		&i.DisabledReason,
+		&i.Format,
+	)
+	return i, err
 }

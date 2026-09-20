@@ -75,15 +75,24 @@ Campaign:
         player sees only the names of the other heroes. Owners and the DM
         always read their own sheets in full, and the DM may lift the veil
         on individual heroes.
+    channel:
+      $ref: "../openapi.yaml#/components/schemas/Webhook"
+      description: >
+        DM-only (#316). The table's own Discord channel — a webhook with no
+        owner, `format: discord`, that posts only what the whole table may
+        hear. Absent for players, and absent when none is hung.
 
 CampaignMembership:
   type: object
-  required: [campaign, role]
+  required: [campaign, role, muted]
   properties:
     campaign:
       $ref: "../openapi.yaml#/components/schemas/Campaign"
     role:
       $ref: "../openapi.yaml#/components/schemas/Role"
+    muted:
+      type: boolean
+      description: Whether I muted this table — no email about it (#316).
 
 Member:
   type: object

@@ -1,0 +1,39 @@
+/me/notifications:
+  get:
+    operationId: getNotificationSettings
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:read]
+    summary: What reaches me outside the app (#316)
+    responses:
+      "200":
+        description: Settings
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/NotificationSettings"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  put:
+    operationId: setNotificationSettings
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
+    summary: Choose which events are emailed to me
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/NotificationSettingsInput"
+    responses:
+      "200":
+        description: Settings
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/NotificationSettings"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"

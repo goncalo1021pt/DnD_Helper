@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"strings"
 	"testing"
@@ -142,5 +143,61 @@ func TestReadScopeOf(t *testing.T) {
 		if got != "campaigns:read" && got != "heroes:read" {
 			t.Fatalf("%s maps to %s, which is not a read scope", n, got)
 		}
+	}
+}
+
+// The table's own channel posts only what the whole table hears (#316).
+func TestWholeTable(t *testing.T) {
+	a, b, c := uuid.New(), uuid.New(), uuid.New()
+	if !WholeTable([]uuid.UUID{a, b, c}, []uuid.UUID{a, b, c}) {
+		t.Error("everyone in: whole table")
+	}
+	if !WholeTable([]uuid.UUID{c, a, b, uuid.New()}, []uuid.UUID{a, b, c}) {
+		t.Error("order and extras do not matter")
+	}
+	if WholeTable([]uuid.UUID{a, b}, []uuid.UUID{a, b, c}) {
+		t.Error("one member left out: not the whole table")
+	}
+	if WholeTable([]uuid.UUID{a}, nil) {
+		t.Error("an empty table hears nothing")
+	}
+}
+
+// A Discord body is a content line with mentions switched off, and a
+// ping says so in words Discord will render.
+func TestDiscordBody(t *testing.T) {
+	cid := uuid.New()
+	env := Envelope{
+		ID: uuid.New(), Name: "quest.posted", Campaign: &EnvelopeCampaign{ID: cid, Name: "Sunless"},
+		Payload: map[string]any{"title": "Rats @everyone", "difficulty": "easy"},
+	}
+	body, err := discordBody(env, "https://dnd.example/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(body, &m); err != nil {
+		t.Fatal(err)
+	}
+	content, _ := m["content"].(string)
+	if !strings.Contains(content, "Rats @everyone") || !strings.Contains(content, "Sunless") {
+		t.Errorf("content: %q", content)
+	}
+	if !strings.Contains(content, "<https://dnd.example/questboard/campaigns/"+cid.String()+">") {
+		t.Errorf("the link is wrapped so it does not unfurl: %q", content)
+	}
+	am, _ := m["allowed_mentions"].(map[string]any)
+	if parse, _ := am["parse"].([]any); parse == nil || len(parse) != 0 {
+		t.Errorf("mentions must be off: %v", m["allowed_mentions"])
+	}
+	// A time renders as Discord's own tag, in the reader's zone.
+	env.Name, env.Payload = "session.scheduled", map[string]any{"at": "2026-10-03T19:00:00Z"}
+	body, _ = discordBody(env, "")
+	if !strings.Contains(string(body), "<t:1791054000:F>") {
+		t.Errorf("session time should be a Discord timestamp tag: %s", body)
+	}
+	ping, _ := discordPing()
+	if !strings.Contains(string(ping), `"content":"Quest Board can reach this channel."`) {
+		t.Errorf("ping: %s", ping)
 	}
 }

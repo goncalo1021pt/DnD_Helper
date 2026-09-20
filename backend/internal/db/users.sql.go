@@ -29,7 +29,7 @@ func (q *Queries) AddRecoveryCode(ctx context.Context, arg AddRecoveryCodeParams
 const adoptEmail = `-- name: AdoptEmail :one
 UPDATE users SET email = $2, email_verified = true
 WHERE id = $1 AND nullif(trim(email), '') IS NULL
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events
 `
 
 type AdoptEmailParams struct {
@@ -57,6 +57,7 @@ func (q *Queries) AdoptEmail(ctx context.Context, arg AdoptEmailParams) (User, e
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
@@ -113,12 +114,12 @@ const createLocalUser = `-- name: CreateLocalUser :one
 WITH new_user AS (
     INSERT INTO users (name, username, email, password_hash, provider, provider_id)
     VALUES ($1, $2, $3, $4, 'local', lower($2))
-    RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code
+    RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events
 ), door AS (
     INSERT INTO user_identities (user_id, provider, provider_id)
     SELECT id, 'local', lower($2) FROM new_user
 )
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code FROM new_user
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events FROM new_user
 `
 
 type CreateLocalUserParams struct {
@@ -142,6 +143,7 @@ type CreateLocalUserRow struct {
 	TotpSecret    *string            `json:"totp_secret"`
 	TotpEnabled   bool               `json:"totp_enabled"`
 	FriendCode    string             `json:"friend_code"`
+	EmailEvents   []string           `json:"email_events"`
 }
 
 // Register a username+password account. Display name defaults to the username;
@@ -171,6 +173,7 @@ func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
@@ -178,7 +181,7 @@ func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams
 const createOAuthUser = `-- name: CreateOAuthUser :one
 INSERT INTO users (name, email, image, provider, provider_id, email_verified)
 VALUES ($1, $2, $3, $4, $5, true)
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events
 `
 
 type CreateOAuthUserParams struct {
@@ -214,6 +217,7 @@ func (q *Queries) CreateOAuthUser(ctx context.Context, arg CreateOAuthUserParams
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
@@ -246,7 +250,7 @@ func (q *Queries) EnableTOTP(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAnyUserByEmail = `-- name: GetAnyUserByEmail :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events FROM users
 WHERE lower(nullif(trim(email), '')) = lower(trim($1))
 `
 
@@ -269,7 +273,25 @@ func (q *Queries) GetAnyUserByEmail(ctx context.Context, btrim string) (User, er
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
+	return i, err
+}
+
+const getEmailEvents = `-- name: GetEmailEvents :one
+SELECT email_events, (email_events IS NULL)::boolean AS use_defaults
+FROM users WHERE id = $1
+`
+
+type GetEmailEventsRow struct {
+	EmailEvents []string `json:"email_events"`
+	UseDefaults bool     `json:"use_defaults"`
+}
+
+func (q *Queries) GetEmailEvents(ctx context.Context, id uuid.UUID) (GetEmailEventsRow, error) {
+	row := q.db.QueryRow(ctx, getEmailEvents, id)
+	var i GetEmailEventsRow
+	err := row.Scan(&i.EmailEvents, &i.UseDefaults)
 	return i, err
 }
 
@@ -295,7 +317,7 @@ func (q *Queries) GetEmailToken(ctx context.Context, tokenHash string) (EmailTok
 }
 
 const getLocalUserByEmail = `-- name: GetLocalUserByEmail :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events FROM users
 WHERE provider = 'local' AND lower(email) = lower($1)
 `
 
@@ -319,12 +341,13 @@ func (q *Queries) GetLocalUserByEmail(ctx context.Context, lower string) (User, 
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
 
 const getLocalUserByLogin = `-- name: GetLocalUserByLogin :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events FROM users
 WHERE provider = 'local'
   AND password_hash IS NOT NULL
   AND (lower(username) = lower($1) OR lower(email) = lower($1))
@@ -349,6 +372,7 @@ func (q *Queries) GetLocalUserByLogin(ctx context.Context, lower string) (User, 
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
@@ -399,7 +423,7 @@ func (q *Queries) GetSpentEmailToken(ctx context.Context, tokenHash string) (Ema
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code FROM users WHERE id = $1
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -419,12 +443,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
 
 const getUserByIdentity = `-- name: GetUserByIdentity :one
-SELECT u.id, u.name, u.email, u.image, u.provider, u.provider_id, u.created_at, u.username, u.password_hash, u.email_verified, u.totp_secret, u.totp_enabled, u.friend_code FROM users u
+SELECT u.id, u.name, u.email, u.image, u.provider, u.provider_id, u.created_at, u.username, u.password_hash, u.email_verified, u.totp_secret, u.totp_enabled, u.friend_code, u.email_events FROM users u
 JOIN user_identities i ON i.user_id = u.id
 WHERE i.provider = $1 AND i.provider_id = $2
 `
@@ -453,12 +478,13 @@ func (q *Queries) GetUserByIdentity(ctx context.Context, arg GetUserByIdentityPa
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
 
 const getVerifiedUserByEmail = `-- name: GetVerifiedUserByEmail :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events FROM users
 WHERE email_verified
   AND lower(nullif(trim(email), '')) = lower(trim($1))
 `
@@ -483,6 +509,7 @@ func (q *Queries) GetVerifiedUserByEmail(ctx context.Context, btrim string) (Use
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
@@ -532,6 +559,81 @@ func (q *Queries) LinkIdentity(ctx context.Context, arg LinkIdentityParams) (Use
 	return i, err
 }
 
+const listEmailRecipients = `-- name: ListEmailRecipients :many
+SELECT u.id, u.name, u.email, u.email_events, (u.email_events IS NULL)::boolean AS use_defaults
+FROM users u
+JOIN memberships m ON m.user_id = u.id AND m.campaign_id = $2
+WHERE u.id = ANY($1::uuid[])
+  AND u.email IS NOT NULL AND u.email <> '' AND u.email_verified
+  AND NOT m.muted
+`
+
+type ListEmailRecipientsParams struct {
+	Column1    []uuid.UUID `json:"column_1"`
+	CampaignID uuid.UUID   `json:"campaign_id"`
+}
+
+type ListEmailRecipientsRow struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Email       *string   `json:"email"`
+	EmailEvents []string  `json:"email_events"`
+	UseDefaults bool      `json:"use_defaults"`
+}
+
+// Who in an audience can be emailed about a table: a confirmed address, and
+// the table not muted. Which events they want is read off email_events by
+// the caller, since NULL there means the defaults.
+func (q *Queries) ListEmailRecipients(ctx context.Context, arg ListEmailRecipientsParams) ([]ListEmailRecipientsRow, error) {
+	rows, err := q.db.Query(ctx, listEmailRecipients, arg.Column1, arg.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEmailRecipientsRow
+	for rows.Next() {
+		var i ListEmailRecipientsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.EmailEvents,
+			&i.UseDefaults,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMutedCampaigns = `-- name: ListMutedCampaigns :many
+SELECT campaign_id FROM memberships WHERE user_id = $1 AND muted ORDER BY campaign_id
+`
+
+func (q *Queries) ListMutedCampaigns(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listMutedCampaigns, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var campaign_id uuid.UUID
+		if err := rows.Scan(&campaign_id); err != nil {
+			return nil, err
+		}
+		items = append(items, campaign_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordAdminAction = `-- name: RecordAdminAction :exec
 INSERT INTO admin_actions (action, target_user_id, target_label, note)
 VALUES ($1, $2, $3, $4)
@@ -556,7 +658,7 @@ func (q *Queries) RecordAdminAction(ctx context.Context, arg RecordAdminActionPa
 }
 
 const refreshOAuthProfile = `-- name: RefreshOAuthProfile :one
-UPDATE users SET name = $2, image = $3 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code
+UPDATE users SET name = $2, image = $3 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events
 `
 
 type RefreshOAuthProfileParams struct {
@@ -586,8 +688,25 @@ func (q *Queries) RefreshOAuthProfile(ctx context.Context, arg RefreshOAuthProfi
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
+}
+
+const setEmailEvents = `-- name: SetEmailEvents :exec
+UPDATE users SET email_events = $2 WHERE id = $1
+`
+
+type SetEmailEventsParams struct {
+	ID          uuid.UUID `json:"id"`
+	EmailEvents []string  `json:"email_events"`
+}
+
+// Notifications (#316): which events reach the inbox. NULL is the defaults,
+// an empty array is none.
+func (q *Queries) SetEmailEvents(ctx context.Context, arg SetEmailEventsParams) error {
+	_, err := q.db.Exec(ctx, setEmailEvents, arg.ID, arg.EmailEvents)
+	return err
 }
 
 const setEmailVerified = `-- name: SetEmailVerified :exec

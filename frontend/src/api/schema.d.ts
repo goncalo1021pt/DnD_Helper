@@ -588,6 +588,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What reaches me outside the app (#316) */
+        get: operations["getNotificationSettings"];
+        /** Choose which events are emailed to me */
+        put: operations["setNotificationSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/seat-requests": {
         parameters: {
             query?: never;
@@ -1216,6 +1234,70 @@ export interface paths {
         /** Draw or lift the veil over the table's character sheets (DM only) */
         put: operations["setHiddenSheets"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Mute or unmute this table for me — no email about it while muted (#316)
+         * @description A fact about my membership, not the table: it silences email alone. Webhooks of mine and the table's own channel are unaffected, since a webhook is an integration rather than a notice.
+         */
+        put: operations["setCampaignMute"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Hang the table's Discord channel — a webhook with no owner that posts what the whole table may hear (DM only)
+         * @description Setting it again replaces the URL and the names and re-enables a channel that was disabled for failing. The channel rides the Campaign payload for DMs alone, like the invite code: whoever holds the URL can post to the channel.
+         */
+        put: operations["setTableChannel"];
+        post?: never;
+        /** Take the table's channel down, delivery log and all (DM only) */
+        delete: operations["deleteTableChannel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/channel/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a test message to the table's channel (DM only) */
+        post: operations["pingTableChannel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2877,6 +2959,8 @@ export interface components {
             coinage?: components["schemas"]["Coin"][] | null;
             /** @description When true the veil is drawn over the table's character sheets: a player sees only the names of the other heroes. Owners and the DM always read their own sheets in full, and the DM may lift the veil on individual heroes. */
             hiddenSheets?: boolean;
+            /** @description DM-only (#316). The table's own Discord channel — a webhook with no owner, `format: discord`, that posts only what the whole table may hear. Absent for players, and absent when none is hung. */
+            channel?: components["schemas"]["Webhook"];
         };
         Coin: {
             /** @description What the coin is called — "Glimmer", "Trade Bar", "Gold Pieces". */
@@ -2893,6 +2977,8 @@ export interface components {
         CampaignMembership: {
             campaign: components["schemas"]["Campaign"];
             role: components["schemas"]["Role"];
+            /** @description Whether I muted this table — no email about it (#316). */
+            muted: boolean;
         };
         Member: {
             /** Format: uuid */
@@ -4702,6 +4788,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             url: string;
+            format: components["schemas"]["WebhookFormat"];
             /** @description The catalogue names it wants; empty means every one. */
             events: components["schemas"]["EventName"][];
             /**
@@ -4725,6 +4812,8 @@ export interface components {
         WebhookInput: {
             /** @description Where to POST. In production it must be https and must not resolve to a private, loopback or link-local address — this server sits on a LAN and must not be turned into a probe of it. */
             url: string;
+            /** @description Absent means `questboard`. */
+            format?: components["schemas"]["WebhookFormat"];
             /** @description The catalogue names to hear; empty means every one. */
             events: components["schemas"]["EventName"][];
             /**
@@ -4735,7 +4824,7 @@ export interface components {
         };
         WebhookCreated: {
             webhook: components["schemas"]["Webhook"];
-            /** @description The signing secret, shown this once and never again. Verify `X-QuestBoard-Signature` with it. */
+            /** @description The signing secret, shown this once and never again. Verify `X-QuestBoard-Signature` with it. A `discord` hook is unsigned and gets none: empty. */
             secret: string;
         };
         /** @description One attempt to reach the URL, and where it stands. */
@@ -4790,6 +4879,32 @@ export interface components {
         WebhookPing: {
             /** Format: uuid */
             deliveryId: string;
+        };
+        /**
+         * @description What a hook receives (#316): `questboard` is the signed catalogue envelope; `discord` is a message shaped for a Discord incoming webhook, unsigned, with no secret to keep.
+         * @enum {string}
+         */
+        WebhookFormat: "questboard" | "discord";
+        /** @description What reaches a person outside the app (#316). Email goes to the account's confirmed address; a Discord channel of their own is a webhook with `format: discord`. A new account is told about the next gathering and a handout to them, and nothing else, until it says otherwise. */
+        NotificationSettings: {
+            /** @description The catalogue names that reach the inbox; empty means none. */
+            emailEvents: components["schemas"]["EventName"][];
+            /** @description Where they go. Absent when the account has no address. */
+            emailAddress?: string;
+            /** @description Nothing is sent to an address that has not been confirmed, whatever emailEvents says — the preferences are kept for when it is. */
+            emailVerified: boolean;
+            /** @description Tables muted with `PUT /campaigns/{id}/mute` — no email about them. */
+            mutedCampaignIds: string[];
+        };
+        NotificationSettingsInput: {
+            /** @description The catalogue names to be emailed about; empty for none. `chronicle.written` is not offered by email — a line per line is a flood — and is refused with 400. */
+            emailEvents: components["schemas"]["EventName"][];
+        };
+        TableChannelInput: {
+            /** @description A Discord incoming-webhook URL, or any URL that accepts a Discord-shaped message. */
+            url: string;
+            /** @description The catalogue names to post; empty means every one the whole table may hear. Whatever is named, the channel only ever receives an event whose audience is the entire table. */
+            events: components["schemas"]["EventName"][];
         };
     };
     responses: {
@@ -5893,6 +6008,53 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getNotificationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    setNotificationSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     listMySeatRequests: {
@@ -7043,6 +7205,113 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    setCampaignMute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    muted: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    setTableChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TableChannelInput"];
+            };
+        };
+        responses: {
+            /** @description The campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteTableChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The campaign */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pingTableChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookPing"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     revealCharacter: {

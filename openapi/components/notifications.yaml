@@ -1,0 +1,57 @@
+NotificationSettings:
+  type: object
+  description: >
+    What reaches a person outside the app (#316). Email goes to the account's
+    confirmed address; a Discord channel of their own is a webhook with
+    `format: discord`. A new account is told about the next gathering and a
+    handout to them, and nothing else, until it says otherwise.
+  required: [emailEvents, emailVerified, mutedCampaignIds]
+  properties:
+    emailEvents:
+      type: array
+      description: The catalogue names that reach the inbox; empty means none.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/EventName"
+    emailAddress:
+      type: string
+      description: Where they go. Absent when the account has no address.
+    emailVerified:
+      type: boolean
+      description: >
+        Nothing is sent to an address that has not been confirmed, whatever
+        emailEvents says — the preferences are kept for when it is.
+    mutedCampaignIds:
+      type: array
+      description: Tables muted with `PUT /campaigns/{id}/mute` — no email about them.
+      items:
+        type: string
+        format: uuid
+
+NotificationSettingsInput:
+  type: object
+  required: [emailEvents]
+  properties:
+    emailEvents:
+      type: array
+      description: >
+        The catalogue names to be emailed about; empty for none.
+        `chronicle.written` is not offered by email — a line per line is a
+        flood — and is refused with 400.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/EventName"
+
+TableChannelInput:
+  type: object
+  required: [url, events]
+  properties:
+    url:
+      type: string
+      description: A Discord incoming-webhook URL, or any URL that accepts a Discord-shaped message.
+    events:
+      type: array
+      description: >
+        The catalogue names to post; empty means every one the whole table
+        may hear. Whatever is named, the channel only ever receives an event
+        whose audience is the entire table.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/EventName"

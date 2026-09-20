@@ -204,3 +204,7 @@ export type WebhookCreated =
   paths["/me/webhooks"]["post"]["responses"]["201"]["content"]["application/json"];
 export type WebhookDelivery =
   paths["/me/webhooks/{webhookId}/deliveries"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type WebhookFormat = Webhook["format"];
+export type NotificationSettings = paths["/me/notifications"]["get"]["responses"]["200"]["content"]["application/json"];
+export type NotificationSettingsInput = paths["/me/notifications"]["put"]["requestBody"]["content"]["application/json"];
+export type TableChannelInput = paths["/campaigns/{campaignId}/channel"]["put"]["requestBody"]["content"]["application/json"];

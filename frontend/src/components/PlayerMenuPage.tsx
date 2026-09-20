@@ -7,6 +7,7 @@ import {
   useMyCharacters,
   useMySeatRequests,
   useSeatCharacter,
+  useSetCampaignMute,
 } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 import { classLine } from "../lib/classes";
@@ -28,6 +29,7 @@ export default function PlayerMenuPage() {
   const [confirming, setConfirming] = useState(false);
   const { data: me } = useCurrentUser();
   const isOwner = me?.user.id === campaign.ownerUserId;
+  const muted = me?.campaigns.find((m) => m.campaign.id === campaign.id)?.muted ?? false;
 
   if (role === "dm") {
     return (
@@ -36,6 +38,7 @@ export default function PlayerMenuPage() {
           The DM sits behind the screen, not at a player's seat — your tools
           live in the DM Menu.
         </p>
+        <MuteSection campaignId={campaign.id} muted={muted} />
         {/* A co-DM may walk away like anyone else; the owner holds the table
             and hands it over or disbands it instead (#299). */}
         {!isOwner && (
@@ -174,6 +177,8 @@ export default function PlayerMenuPage() {
         )}
       </section>
 
+      <MuteSection campaignId={campaign.id} muted={muted} />
+
       {/* leave the table */}
       <section
         className="panel-hall px-6 pb-6 pt-5"
@@ -244,5 +249,46 @@ export default function PlayerMenuPage() {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * Word from the table (#316): mute this one table — no email about it while
+ * muted, whatever the profile says reaches you. A fact about your seat, so
+ * leaving the table drops it. Webhooks and the table's channel are
+ * untouched: a webhook is an integration, not a notice.
+ */
+function MuteSection({ campaignId, muted }: { campaignId: string; muted: boolean }) {
+  const setMute = useSetCampaignMute(campaignId);
+  return (
+    <section className="panel-hall px-6 pb-6 pt-5" data-testid="mute-section">
+      <div
+        className="mb-3 flex flex-wrap items-baseline justify-between gap-3 pb-3"
+        style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
+      >
+        <h2
+          className="font-display m-0 text-[21px] font-black text-[#e7d3a6]"
+          style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
+        >
+          Word from the Table
+        </h2>
+        <span className="label-stamp text-[11px] text-gold-muted">{muted ? "muted" : "reaching you"}</span>
+      </div>
+      <p className="font-body m-0 mb-4 text-[13.5px] leading-relaxed text-cream-muted">
+        {muted
+          ? "This table is muted: no email about it reaches you, whatever you chose on your profile. Your webhooks are unaffected."
+          : "What you asked to be emailed about — the next gathering, a handout to you — reaches you from this table. Mute it to hear nothing by email from here, without changing what reaches you from your other tables."}
+      </p>
+      <button
+        onClick={() => setMute.mutate(!muted)}
+        disabled={setMute.isPending}
+        className="btn-base h-9 px-4 text-[11px] disabled:opacity-50"
+        style={muted
+          ? { color: "#cdb582", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }
+          : { color: "#d68a72", boxShadow: "inset 0 0 0 1px rgba(139,37,32,.5)" }}
+      >
+        {muted ? "Unmute this table" : "Mute this table"}
+      </button>
+    </section>
   );
 }
