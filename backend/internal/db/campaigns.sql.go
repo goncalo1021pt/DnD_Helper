@@ -16,7 +16,7 @@ const addMembership = `-- name: AddMembership :one
 INSERT INTO memberships (user_id, campaign_id, role)
 VALUES ($1, $2, $3)
 ON CONFLICT (user_id, campaign_id) DO UPDATE SET role = EXCLUDED.role
-RETURNING user_id, campaign_id, role, created_at
+RETURNING user_id, campaign_id, role, created_at, muted
 `
 
 type AddMembershipParams struct {
@@ -33,6 +33,7 @@ func (q *Queries) AddMembership(ctx context.Context, arg AddMembershipParams) (M
 		&i.CampaignID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.Muted,
 	)
 	return i, err
 }
@@ -140,7 +141,7 @@ func (q *Queries) GetCampaignByInviteCode(ctx context.Context, inviteCode string
 }
 
 const getMembership = `-- name: GetMembership :one
-SELECT user_id, campaign_id, role, created_at FROM memberships WHERE user_id = $1 AND campaign_id = $2
+SELECT user_id, campaign_id, role, created_at, muted FROM memberships WHERE user_id = $1 AND campaign_id = $2
 `
 
 type GetMembershipParams struct {
@@ -157,6 +158,7 @@ func (q *Queries) GetMembership(ctx context.Context, arg GetMembershipParams) (M
 		&i.CampaignID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.Muted,
 	)
 	return i, err
 }
@@ -179,7 +181,7 @@ func (q *Queries) JoinCampaign(ctx context.Context, arg JoinCampaignParams) erro
 }
 
 const listCampaignsForUser = `-- name: ListCampaignsForUser :many
-SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, c.next_session_at, c.progression, c.max_level, c.require_seating_approval, c.hidden_sheets, c.max_seated_per_player, c.realm_id, c.coinage, m.role, r.name AS realm_name
+SELECT c.id, c.name, c.owner_user_id, c.created_at, c.invite_code, c.next_session_at, c.progression, c.max_level, c.require_seating_approval, c.hidden_sheets, c.max_seated_per_player, c.realm_id, c.coinage, m.role, m.muted, r.name AS realm_name
 FROM campaigns c
 JOIN memberships m ON m.campaign_id = c.id
 JOIN realms r ON r.id = c.realm_id
@@ -202,6 +204,7 @@ type ListCampaignsForUserRow struct {
 	RealmID                uuid.UUID          `json:"realm_id"`
 	Coinage                []byte             `json:"coinage"`
 	Role                   MembershipRole     `json:"role"`
+	Muted                  bool               `json:"muted"`
 	RealmName              string             `json:"realm_name"`
 }
 
@@ -234,6 +237,7 @@ func (q *Queries) ListCampaignsForUser(ctx context.Context, userID uuid.UUID) ([
 			&i.RealmID,
 			&i.Coinage,
 			&i.Role,
+			&i.Muted,
 			&i.RealmName,
 		); err != nil {
 			return nil, err

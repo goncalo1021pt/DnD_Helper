@@ -168,7 +168,7 @@ func (q *Queries) GetFriendship(ctx context.Context, arg GetFriendshipParams) (F
 }
 
 const getUserByFriendCode = `-- name: GetUserByFriendCode :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code FROM users WHERE upper(friend_code) = upper($1)
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events FROM users WHERE upper(friend_code) = upper($1)
 `
 
 func (q *Queries) GetUserByFriendCode(ctx context.Context, upper interface{}) (User, error) {
@@ -188,6 +188,7 @@ func (q *Queries) GetUserByFriendCode(ctx context.Context, upper interface{}) (U
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }
@@ -515,7 +516,7 @@ func (q *Queries) SendPartyMessage(ctx context.Context, arg SendPartyMessagePara
 }
 
 const setFriendCode = `-- name: SetFriendCode :one
-UPDATE users SET friend_code = $2 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code
+UPDATE users SET friend_code = $2 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events
 `
 
 type SetFriendCodeParams struct {
@@ -540,6 +541,7 @@ func (q *Queries) SetFriendCode(ctx context.Context, arg SetFriendCodeParams) (U
 		&i.TotpSecret,
 		&i.TotpEnabled,
 		&i.FriendCode,
+		&i.EmailEvents,
 	)
 	return i, err
 }

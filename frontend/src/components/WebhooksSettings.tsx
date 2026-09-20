@@ -1,29 +1,16 @@
 import { useState } from "react";
-import type { CampaignMembership, EventName, Webhook, WebhookCreated, WebhookDelivery } from "../api/client";
+import type { CampaignMembership, EventName, Webhook, WebhookCreated, WebhookDelivery, WebhookFormat } from "../api/client";
 import { useCreateWebhook, useDeleteWebhook, useEnableWebhook, usePingWebhook, useWebhookDeliveries, useWebhooks } from "../hooks";
+import { EVENTS, isDiscordUrl } from "../lib/events";
 import ParchmentModal from "./ui/ParchmentModal";
 
 /*
  * Webhooks (#295) — the section of the profile's Settings where a person
  * registers a URL to be told at when chosen events happen. It hears only
- * what they could see in the app; the secret is shown once.
+ * what they could see in the app; the secret is shown once. A Discord
+ * channel of their own (#316) is the same thing in a different format: a
+ * message Discord renders, unsigned, with no secret to keep.
  */
-
-const EVENTS: { name: EventName; hint: string }[] = [
-  { name: "quest.posted", hint: "a notice reaches the board for you" },
-  { name: "quest.claimed", hint: "somebody takes one up" },
-  { name: "quest.completed", hint: "the DM marks one done" },
-  { name: "handout.given", hint: "a prop is handed to you" },
-  { name: "session.scheduled", hint: "the next gathering is set" },
-  { name: "session.moved", hint: "the next gathering changes date" },
-  { name: "hero.levelled", hint: "a hero rises a level" },
-  { name: "hero.xp_awarded", hint: "XP is granted or docked" },
-  { name: "encounter.started", hint: "a fight goes live" },
-  { name: "encounter.ended", hint: "a fight stands down" },
-  { name: "chronicle.written", hint: "somebody writes in the chronicle" },
-  { name: "member.joined", hint: "somebody walks in with the invite code" },
-  { name: "seat.requested", hint: "a player asks you, the DM, for a seat" },
-];
 
 const fmtWhen = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -78,6 +65,7 @@ function WebhookRow({ hook, onRemove }: { hook: Webhook; onRemove: () => void })
         <div className="min-w-0 flex-1 basis-[240px]">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="break-all font-mono text-[12.5px] text-[#e6d5af]">{hook.url}</span>
+            {hook.format === "discord" && <span className="label-stamp text-[9px] tracking-[1.5px] text-[#9c855e]">DISCORD</span>}
             {disabled && <span className="label-stamp text-[9px] tracking-[1.5px] text-[#d68a72]">DISABLED</span>}
             {!disabled && hook.failures > 0 && (
               <span className="label-stamp text-[9px] tracking-[1.5px] text-[#e0a458]">FAILING</span>
@@ -174,12 +162,21 @@ function DeliveryLine({ d }: { d: WebhookDelivery }) {
 
 function AddModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; onClose: () => void }) {
   const create = useCreateWebhook();
-  const [url, setUrl] = useState("");
+  const [url, setUrlState] = useState("");
   const [picked, setPicked] = useState<Set<EventName>>(new Set());
   const [campaignId, setCampaignId] = useState("");
+  const [format, setFormat] = useState<WebhookFormat>("questboard");
+  const [formatTouched, setFormatTouched] = useState(false);
   const [created, setCreated] = useState<WebhookCreated | null>(null);
   const [copied, setCopied] = useState(false);
   const ready = url.trim().length > 0 && !create.isPending;
+
+  // A Discord URL is recognisable by its shape; the format follows it until
+  // the person picks one themselves.
+  function setUrl(next: string) {
+    setUrlState(next);
+    if (!formatTouched) setFormat(isDiscordUrl(next) ? "discord" : "questboard");
+  }
 
   function toggle(name: EventName) {
     setPicked((prev) => {
@@ -193,8 +190,10 @@ function AddModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; onC
   function submit() {
     if (!ready) return;
     create.mutate(
-      { url: url.trim(), events: [...picked], campaignId: campaignId || null },
-      { onSuccess: setCreated },
+      { url: url.trim(), events: [...picked], campaignId: campaignId || null, format },
+      // A Discord hook is unsigned: there is no secret to show, so the door
+      // closes on success.
+      { onSuccess: (made) => (made.secret ? setCreated(made) : onClose()) },
     );
   }
 
@@ -247,6 +246,28 @@ function AddModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; onC
               onKeyDown={(e) => e.key === "Enter" && submit()}
             />
           </label>
+
+          <span className="field-label">Send as</span>
+          <div className="mb-3 mt-1 flex flex-wrap gap-x-5 gap-y-1" role="radiogroup" aria-label="Format">
+            {(
+              [
+                ["questboard", "Quest Board event", "signed JSON for a script of yours"],
+                ["discord", "Discord message", "a line Discord renders, for an incoming webhook"],
+              ] as [WebhookFormat, string, string][]
+            ).map(([value, label, hint]) => (
+              <label key={value} className="flex cursor-pointer items-baseline gap-2 font-body text-[12.5px] text-ink">
+                <input
+                  type="radio"
+                  name="webhook-format"
+                  value={value}
+                  checked={format === value}
+                  onChange={() => { setFormat(value); setFormatTouched(true); }}
+                />
+                <span>{label}</span>
+                <span className="text-[11px] italic text-ink-body">{hint}</span>
+              </label>
+            ))}
+          </div>
 
           <span className="field-label">Which events</span>
           <p className="font-body m-0 mb-1.5 mt-0.5 text-[11.5px] italic text-ink-body">Pick none to hear every one. You only ever hear what you could see here.</p>

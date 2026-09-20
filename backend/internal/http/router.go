@@ -13,6 +13,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/events"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
+	"github.com/goncalo1021pt/questboard/backend/internal/notify"
 	"github.com/goncalo1021pt/questboard/backend/internal/static"
 	"github.com/goncalo1021pt/questboard/backend/internal/webhooks"
 )
@@ -27,6 +28,7 @@ type Deps struct {
 	RateLimits     RateLimits        // the ceilings (#314); all zero = none
 	Events         *events.Bus       // the catalogue (#315); nil emits into silence
 	Webhooks       *webhooks.Service // subscriptions (#295); nil refuses to register any
+	Notify         *notify.Service   // notices by email (#316); nil closes the unsubscribe door
 }
 
 // NewRouter builds the application router: API routes under /api (session-aware)
@@ -46,6 +48,7 @@ func NewRouter(deps Deps) http.Handler {
 	srv.limiter = newLimiter(deps.RateLimits)
 	srv.events = deps.Events
 	srv.webhooks = deps.Webhooks
+	srv.notify = deps.Notify
 	strict := api.NewStrictHandler(srv, nil)
 
 	r.Route("/api", func(ar chi.Router) {
@@ -57,6 +60,12 @@ func NewRouter(deps Deps) http.Handler {
 		// bearer loader is not mounted here, so a token holds no identity at
 		// these doors whatever it was minted with (#294).
 		ar.Route("/auth", deps.OAuth.Routes)
+
+		// The unsubscribe door (#316) needs no session and takes no bearer:
+		// the token in the link is the proof, and a mail client's one-click
+		// POST carries nothing else.
+		ar.Get("/notifications/unsubscribe", srv.Unsubscribe)
+		ar.Post("/notifications/unsubscribe", srv.Unsubscribe)
 
 		ar.Group(func(g chi.Router) {
 			// The token door (#294): an Authorization header decides the

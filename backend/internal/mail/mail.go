@@ -1,7 +1,8 @@
-// Package mail sends the transactional emails for local accounts — address
-// verification and password recovery — through Resend. When no API key is
-// configured (local development) it falls back to logging the message and its
-// link, so the flows are fully testable without a real mail provider.
+// Package mail sends the transactional emails — address verification,
+// password recovery, the account tripwires, and the notices of #316 —
+// through Resend. When no API key is configured (local development) it falls
+// back to logging the message and its link, so the flows are fully testable
+// without a real mail provider.
 package mail
 
 import (
@@ -9,14 +10,25 @@ import (
 	"fmt"
 	"html"
 	"log"
+	"sort"
+	"strings"
 
 	"github.com/resend/resend-go/v3"
 )
 
-// Mailer sends one transactional email. Implementations must be safe for
-// concurrent use.
+// Message is one email: who, what, and the headers a notice carries
+// (List-Unsubscribe), which the transactional ones do not.
+type Message struct {
+	To      string
+	Subject string
+	HTML    string
+	Text    string
+	Headers map[string]string
+}
+
+// Mailer sends one email. Implementations must be safe for concurrent use.
 type Mailer interface {
-	Send(ctx context.Context, to, subject, htmlBody, textBody string) error
+	Send(ctx context.Context, m Message) error
 }
 
 // New returns a Resend-backed mailer when apiKey is set, or a logging mailer
@@ -35,13 +47,14 @@ type resendMailer struct {
 	from   string
 }
 
-func (m *resendMailer) Send(ctx context.Context, to, subject, htmlBody, textBody string) error {
+func (m *resendMailer) Send(ctx context.Context, msg Message) error {
 	_, err := m.client.Emails.SendWithContext(ctx, &resend.SendEmailRequest{
 		From:    m.from,
-		To:      []string{to},
-		Subject: subject,
-		Html:    htmlBody,
-		Text:    textBody,
+		To:      []string{msg.To},
+		Subject: msg.Subject,
+		Html:    msg.HTML,
+		Text:    msg.Text,
+		Headers: msg.Headers,
 	})
 	return err
 }
@@ -50,8 +63,17 @@ func (m *resendMailer) Send(ctx context.Context, to, subject, htmlBody, textBody
 // local development.
 type logMailer struct{}
 
-func (m *logMailer) Send(_ context.Context, to, subject, _, textBody string) error {
-	log.Printf("mail (dev, not sent) → %s\n  subject: %s\n  %s", to, subject, textBody)
+func (m *logMailer) Send(_ context.Context, msg Message) error {
+	var hdr strings.Builder
+	keys := make([]string, 0, len(msg.Headers))
+	for k := range msg.Headers {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		hdr.WriteString("\n  " + k + ": " + msg.Headers[k])
+	}
+	log.Printf("mail (dev, not sent) → %s\n  subject: %s%s\n  %s", msg.To, msg.Subject, hdr.String(), msg.Text)
 	return nil
 }
 
@@ -66,6 +88,7 @@ type content struct {
 	Link      string // the action URL
 	Note      string // small print under the button (e.g. expiry)
 	Footer    string // the closing line; empty = "you can safely ignore this"
+	Unsub     string // a notice's way out: the unsubscribe page; empty on a transactional email
 }
 
 // renderEmail lays the content into an email-safe, table-based document —
@@ -105,7 +128,7 @@ func renderEmail(c content) string {
     <tr><td style="padding:12px 44px 0;font-family:Georgia,'Times New Roman',serif;color:#9c855e;font-size:12.5px;">` + html.EscapeString(c.Note) + `</td></tr>
     <tr><td style="padding:24px 44px 32px;">
       <div style="height:1px;line-height:1px;font-size:0;background:#e5d8be;margin:0 0 14px;">&nbsp;</div>
-      <div style="font-family:Georgia,'Times New Roman',serif;color:#9c855e;font-size:12px;line-height:1.55;">` + html.EscapeString(footerOr(c.Footer)) + `</div>
+      <div style="font-family:Georgia,'Times New Roman',serif;color:#9c855e;font-size:12px;line-height:1.55;">` + html.EscapeString(footerOr(c.Footer)) + unsubRow(c.Unsub) + `</div>
     </td></tr>
   </table>
   <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;"><tr>
@@ -122,6 +145,59 @@ func footerOr(s string) string {
 		return s
 	}
 	return "If you didn't request this, you can safely ignore this email — no action is needed and nothing changes."
+}
+
+// unsubRow is the way out of a notice, on its own line under the footer.
+func unsubRow(link string) string {
+	if link == "" {
+		return ""
+	}
+	return `<br><a href="` + html.EscapeString(link) + `" style="color:#8b2520;">Stop these emails</a> · or choose which ones reach you under Settings on your profile.`
+}
+
+// Notice is one notification (#316): what happened, in a line, and where it
+// leads. Unsub is the page that asks before it acts; OneClick is the
+// List-Unsubscribe URL a mail client may POST to without asking.
+type Notice struct {
+	Line     string
+	Campaign string
+	Link     string
+	Unsub    string
+	OneClick string
+}
+
+// Notification builds the email for a notice. The line is the subject and
+// the lead alike, since a person skimming an inbox reads the one and not the
+// other. The unsubscribe link rides both the body and the headers, because
+// Resend expects it and so do people.
+func Notification(n Notice) Message {
+	subject := strings.TrimSuffix(n.Line, ".")
+	if r := []rune(subject); len(r) > 110 {
+		subject = string(r[:109]) + "…"
+	}
+	table := n.Campaign
+	if table == "" {
+		table = "your table"
+	}
+	htmlBody := renderEmail(content{
+		Preheader: n.Line,
+		Intro:     html.EscapeString(n.Line),
+		CTALabel:  "Open " + table,
+		Link:      n.Link,
+		Note:      "You asked to be told when this happens at your tables.",
+		Footer:    "Sent by Quest Board on behalf of " + table + ".",
+		Unsub:     n.Unsub,
+	})
+	text := fmt.Sprintf("%s\n\nOpen the table:\n%s\n\nStop these emails: %s\nOr choose which ones reach you under Settings on your profile.", n.Line, n.Link, n.Unsub)
+	return Message{
+		Subject: subject,
+		HTML:    htmlBody,
+		Text:    text,
+		Headers: map[string]string{
+			"List-Unsubscribe":      "<" + n.OneClick + ">",
+			"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+		},
+	}
 }
 
 // TokenCreated tells the account that an API token was just minted on it

@@ -5,6 +5,7 @@ import {
   ForgotPasswordPage,
   ResetPasswordPage,
   VerifyEmailPage,
+  UnsubscribePage,
 } from "./components/EmailFlowPages";
 import AppShell from "./components/AppShell";
 import CampaignsPage from "./components/CampaignsPage";
@@ -58,6 +59,7 @@ export default function App() {
       <Route path="verify-email" element={<VerifyEmailPage />} />
       <Route path="forgot-password" element={<ForgotPasswordPage />} />
       <Route path="reset-password" element={<ResetPasswordPage />} />
+      <Route path="unsubscribe" element={<UnsubscribePage />} />
 
       {/* The tavern proper lives under /questboard and needs a seat at the table. */}
       <Route

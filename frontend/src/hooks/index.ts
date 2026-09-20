@@ -36,3 +36,4 @@ export * from "./creatures";
 export * from "./tokens";
 export * from "./events";
 export * from "./webhooks";
+export * from "./notifications";

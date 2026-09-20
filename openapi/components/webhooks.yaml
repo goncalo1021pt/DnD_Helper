@@ -1,16 +1,26 @@
+WebhookFormat:
+  type: string
+  description: >
+    What a hook receives (#316): `questboard` is the signed catalogue envelope;
+    `discord` is a message shaped for a Discord incoming webhook, unsigned,
+    with no secret to keep.
+  enum: [questboard, discord]
+
 Webhook:
   type: object
   description: >
     A standing order (#295): tell this URL when these events happen. It belongs
     to a person and hears only what that person could see in the app — the
     audience the emitter decided is the only gate.
-  required: [id, url, events, createdAt, failures]
+  required: [id, url, format, events, createdAt, failures]
   properties:
     id:
       type: string
       format: uuid
     url:
       type: string
+    format:
+      $ref: "../openapi.yaml#/components/schemas/WebhookFormat"
     events:
       type: array
       description: The catalogue names it wants; empty means every one.
@@ -54,6 +64,9 @@ WebhookInput:
         Where to POST. In production it must be https and must not resolve to
         a private, loopback or link-local address — this server sits on a LAN
         and must not be turned into a probe of it.
+    format:
+      $ref: "../openapi.yaml#/components/schemas/WebhookFormat"
+      description: Absent means `questboard`.
     events:
       type: array
       description: The catalogue names to hear; empty means every one.
@@ -73,7 +86,10 @@ WebhookCreated:
       $ref: "../openapi.yaml#/components/schemas/Webhook"
     secret:
       type: string
-      description: "The signing secret, shown this once and never again. Verify `X-QuestBoard-Signature` with it."
+      description: >
+        The signing secret, shown this once and never again. Verify
+        `X-QuestBoard-Signature` with it. A `discord` hook is unsigned and
+        gets none: empty.
 
 WebhookDelivery:
   type: object

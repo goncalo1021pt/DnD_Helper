@@ -148,3 +148,26 @@ WHERE user_id = $1 AND used_at IS NULL;
 -- The trail for something done to an account from a shell (#111).
 INSERT INTO admin_actions (action, target_user_id, target_label, note)
 VALUES ($1, $2, $3, $4);
+
+-- Notifications (#316): which events reach the inbox. NULL is the defaults,
+-- an empty array is none.
+-- name: SetEmailEvents :exec
+UPDATE users SET email_events = $2 WHERE id = $1;
+
+-- Who in an audience can be emailed about a table: a confirmed address, and
+-- the table not muted. Which events they want is read off email_events by
+-- the caller, since NULL there means the defaults.
+-- name: ListEmailRecipients :many
+SELECT u.id, u.name, u.email, u.email_events, (u.email_events IS NULL)::boolean AS use_defaults
+FROM users u
+JOIN memberships m ON m.user_id = u.id AND m.campaign_id = $2
+WHERE u.id = ANY($1::uuid[])
+  AND u.email IS NOT NULL AND u.email <> '' AND u.email_verified
+  AND NOT m.muted;
+
+-- name: GetEmailEvents :one
+SELECT email_events, (email_events IS NULL)::boolean AS use_defaults
+FROM users WHERE id = $1;
+
+-- name: ListMutedCampaigns :many
+SELECT campaign_id FROM memberships WHERE user_id = $1 AND muted ORDER BY campaign_id;

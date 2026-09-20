@@ -186,6 +186,30 @@ func (q *Queries) ReleaseQuestClaimsOfUser(ctx context.Context, arg ReleaseQuest
 	return err
 }
 
+const setMembershipMuted = `-- name: SetMembershipMuted :one
+UPDATE memberships SET muted = $3 WHERE user_id = $1 AND campaign_id = $2 RETURNING user_id, campaign_id, role, created_at, muted
+`
+
+type SetMembershipMutedParams struct {
+	UserID     uuid.UUID `json:"user_id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+	Muted      bool      `json:"muted"`
+}
+
+// Notifications (#316): a person mutes one table — no email about it.
+func (q *Queries) SetMembershipMuted(ctx context.Context, arg SetMembershipMutedParams) (Membership, error) {
+	row := q.db.QueryRow(ctx, setMembershipMuted, arg.UserID, arg.CampaignID, arg.Muted)
+	var i Membership
+	err := row.Scan(
+		&i.UserID,
+		&i.CampaignID,
+		&i.Role,
+		&i.CreatedAt,
+		&i.Muted,
+	)
+	return i, err
+}
+
 const unbanUser = `-- name: UnbanUser :execrows
 DELETE FROM campaign_bans WHERE campaign_id = $1 AND user_id = $2
 `

@@ -20,6 +20,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
+	"github.com/goncalo1021pt/questboard/backend/internal/notify"
 	"github.com/goncalo1021pt/questboard/backend/internal/webhooks"
 )
 
@@ -35,6 +36,7 @@ type Server struct {
 	// mailer and baseURL serve the one email a handler sends itself — the
 	// created-token tripwire (#294). nil mailer = no email, as in tests.
 	mailer  mail.Mailer
+	notify  *notify.Service
 	baseURL string
 	// limiter is the ceilings (#314); nil means none, as in tests.
 	limiter *limiter
@@ -406,9 +408,15 @@ func (s *Server) listMemberships(ctx context.Context, uid uuid.UUID) ([]api.Camp
 			Coinage:                row.Coinage,
 		}, row.Role == db.MembershipRoleDm)
 		campaign.RealmName = row.RealmName
+		if row.Role == db.MembershipRoleDm {
+			if err := s.attachChannel(ctx, &campaign); err != nil {
+				return nil, err
+			}
+		}
 		out = append(out, api.CampaignMembership{
 			Campaign: campaign,
 			Role:     toAPIRole(row.Role),
+			Muted:    row.Muted,
 		})
 	}
 	return out, nil
@@ -488,7 +496,28 @@ func (s *Server) campaignOut(ctx context.Context, c db.Campaign, forDM bool) (ap
 		return api.Campaign{}, err
 	}
 	out.RealmName = realm.Name
+	if forDM {
+		if err := s.attachChannel(ctx, &out); err != nil {
+			return api.Campaign{}, err
+		}
+	}
 	return out, nil
+}
+
+// attachChannel hangs the table's own Discord channel (#316) on a DM's
+// payload. It is the invite code's rule again: whoever holds the URL can
+// post to the channel, so a player's payload never carries it.
+func (s *Server) attachChannel(ctx context.Context, c *api.Campaign) error {
+	row, err := s.queries.GetTableChannel(ctx, pgtype.UUID{Bytes: c.Id, Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	hook := toAPIWebhook(db.GetWebhookForUserRow(row))
+	c.Channel = &hook
+	return nil
 }
 
 // campaignCeiling is the highest level heroes may reach at this table.

@@ -58,7 +58,7 @@ func (o *OAuth) sendVerification(ctx context.Context, userID uuid.UUID, email st
 	}
 	link := o.baseURL + "/verify-email?token=" + url.QueryEscape(raw)
 	subject, htmlBody, textBody := mail.VerifyEmail(link)
-	if err := o.mailer.Send(ctx, email, subject, htmlBody, textBody); err != nil {
+	if err := o.mailer.Send(ctx, mail.Message{To: email, Subject: subject, HTML: htmlBody, Text: textBody}); err != nil {
 		log.Printf("email: send verify to %s: %v", email, err)
 	}
 }
@@ -148,7 +148,7 @@ func (o *OAuth) forgotPassword(w http.ResponseWriter, r *http.Request) {
 		}); err == nil {
 			link := o.baseURL + "/reset-password?token=" + url.QueryEscape(raw)
 			subject, htmlBody, textBody := mail.ResetPassword(link)
-			if err := o.mailer.Send(r.Context(), *user.Email, subject, htmlBody, textBody); err != nil {
+			if err := o.mailer.Send(r.Context(), mail.Message{To: *user.Email, Subject: subject, HTML: htmlBody, Text: textBody}); err != nil {
 				log.Printf("email: send reset to %s: %v", *user.Email, err)
 			}
 		}

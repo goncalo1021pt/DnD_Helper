@@ -581,3 +581,110 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
       "403":
         $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/mute:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setCampaignMute
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Mute or unmute this table for me — no email about it while muted (#316)
+    description: >
+      A fact about my membership, not the table: it silences email alone.
+      Webhooks of mine and the table's own channel are unaffected, since a
+      webhook is an integration rather than a notice.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [muted]
+            properties:
+              muted:
+                type: boolean
+    responses:
+      "204":
+        description: Set
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/channel:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  put:
+    operationId: setTableChannel
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Hang the table's Discord channel — a webhook with no owner that posts what the whole table may hear (DM only)
+    description: >
+      Setting it again replaces the URL and the names and re-enables a channel
+      that was disabled for failing. The channel rides the Campaign payload for
+      DMs alone, like the invite code: whoever holds the URL can post to the
+      channel.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/TableChannelInput"
+    responses:
+      "200":
+        description: The campaign
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  delete:
+    operationId: deleteTableChannel
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Take the table's channel down, delivery log and all (DM only)
+    responses:
+      "200":
+        description: The campaign
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Campaign"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/campaigns/{campaignId}/channel/ping:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: pingTableChannel
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Queue a test message to the table's channel (DM only)
+    responses:
+      "202":
+        description: Queued
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/WebhookPing"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

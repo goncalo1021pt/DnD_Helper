@@ -17,6 +17,7 @@ import (
 	apphttp "github.com/goncalo1021pt/questboard/backend/internal/http"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
+	"github.com/goncalo1021pt/questboard/backend/internal/notify"
 	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 	"github.com/goncalo1021pt/questboard/backend/internal/version"
 	"github.com/goncalo1021pt/questboard/backend/internal/webhooks"
@@ -90,12 +91,17 @@ func run() error {
 	})
 	bus.Subscribe(hooks.Fanout())
 	go hooks.Run(ctx)
+	// Notifications (#316): the email subscriber, beside the webhooks. A
+	// Discord channel is a webhook in a different format and lives above.
+	notices := notify.New(pool, notify.Options{Mailer: mailer, BaseURL: cfg.BaseURL, Key: cfg.SessionKey})
+	bus.Subscribe(notices.Subscriber())
 
 	router := apphttp.NewRouter(apphttp.Deps{
 		Mailer:         mailer,
 		BaseURL:        cfg.BaseURL,
 		Events:         bus,
 		Webhooks:       hooks,
+		Notify:         notices,
 		RateLimits:     apphttp.RateLimits{Token: cfg.RateLimitToken, IP: cfg.RateLimitIP, Session: cfg.RateLimitSession},
 		Pool:           pool,
 		SessionManager: sessions,

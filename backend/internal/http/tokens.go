@@ -159,7 +159,7 @@ func (s *Server) notifyTokenCreated(ctx context.Context, uid uuid.UUID, tokenNam
 		return
 	}
 	subject, htmlBody, textBody := mail.TokenCreated(tokenName, strings.TrimRight(s.baseURL, "/")+"/questboard/profile")
-	if err := s.mailer.Send(ctx, *user.Email, subject, htmlBody, textBody); err != nil {
+	if err := s.mailer.Send(ctx, mail.Message{To: *user.Email, Subject: subject, HTML: htmlBody, Text: textBody}); err != nil {
 		log.Printf("api token: could not send the created-token email to user %s: %v", uid, err)
 	}
 }

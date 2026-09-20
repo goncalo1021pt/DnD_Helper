@@ -137,9 +137,9 @@ Everything that happens at a table is also an **event** (#315): a name, a
 payload of ids plus the names a reader needs, and an audience — the people who
 may hear it, decided when it is emitted by the same veil the thing itself has.
 A quest's audience is who can see the quest; a handout's is who it was handed
-to; a level-up's is the hero's owner and the DMs. Nothing is delivered yet —
-webhooks (#295) and notifications (#316) are the subscribers — but every event
-is recorded, and a DM reads the record:
+to; a level-up's is the hero's owner and the DMs. Webhooks (#295) and
+notifications (#316) deliver from it, and every event is recorded, so a DM
+reads the record:
 
 ```
 GET /campaigns/{campaignId}/feed?limit=50      campaigns:read, DMs only
@@ -249,6 +249,66 @@ but nothing more is sent there until you do.
 Redirects are never followed. In production the URL must be `https` and must
 not resolve to a private, loopback or link-local address, checked at the dial:
 this server sits on a LAN and will not be turned into a probe of it.
+
+### A Discord channel
+
+A Discord incoming webhook is a webhook wearing a different body (#316):
+register it with `format: discord` and it receives a message Discord renders —
+one line saying what happened, the time as Discord's own timestamp tag so it
+reads in each viewer's zone, and a link to the table — instead of the signed
+envelope. It is unsigned, so the answer to `POST` carries no secret. The
+profile form picks the format by the URL's shape; through the API, say so:
+
+```
+POST /me/webhooks   {url, events[], campaignId?, format: "discord"}
+```
+
+Mentions are switched off in what is posted (`allowed_mentions: {parse: []}`):
+a quest title is somebody's own text and must not ping a channel.
+
+## Notifications
+
+What reaches you *outside* the app (#316): email to your confirmed address,
+and — through the webhooks above — a Discord channel of your own. A new
+account is told about the next gathering and a handout to it, and nothing
+else, until it says otherwise.
+
+```
+GET /me/notifications                          account:read
+PUT /me/notifications                          account:write   {emailEvents[]}
+PUT /campaigns/{campaignId}/mute               campaigns:play  {muted}
+```
+
+`emailEvents` is the list of catalogue names that reach your inbox; empty is
+none. `chronicle.written` is not offered by email — a line per line is a
+flood — and is refused with 400. Nothing is sent to an address that has not
+been confirmed; the choices are kept for when it is. A **mute** is a fact
+about your seat at one table: no email about that table while it holds,
+whatever the list says, and leaving the table drops it. Webhooks are
+untouched by a mute, since a webhook is an integration rather than a notice.
+
+Every notice carries a link that stops them all — the same page as the
+`List-Unsubscribe` header a mail client shows as a button — and the profile
+turns them back on one event at a time.
+
+### The table's own channel
+
+A DM may hang a Discord channel on the table itself:
+
+```
+PUT    /campaigns/{campaignId}/channel         campaigns:run   {url, events[]}
+DELETE /campaigns/{campaignId}/channel         campaigns:run
+POST   /campaigns/{campaignId}/channel/ping    campaigns:run
+```
+
+It is a webhook with no owner, and having no owner it is not selected by
+the audience the way a person's hook is: it hears an event only when the
+audience is **the whole table**. A notice for the party, the next
+gathering, a handout to everyone reach it; a handout to one hero, a seat
+request, a veiled notice never do, whatever `events` names. It rides the
+`Campaign` payload as `channel` for DMs alone — whoever holds the URL can
+post to the channel — and when it dies of a URL that is gone, every DM with
+a confirmed address is told. Setting it again re-enables it.
 
 ## Reading it as an assistant
 

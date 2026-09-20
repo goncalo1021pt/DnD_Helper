@@ -143,7 +143,11 @@ func Hears(h db.Webhook, campaign uuid.UUID, name events.Name) bool {
 }
 
 // Fanout is the bus subscriber: one delivery row per hook that hears the
-// event, written beside the outbox and off the request's cancellation.
+// event, written beside the outbox and off the request's cancellation. The
+// people's hooks are selected by the audience; the table's own channel
+// (#316) has no owner and is selected by the table — and only when the
+// audience is the whole table, since a shared channel must never learn what
+// one member was told alone.
 func (s *Service) Fanout() events.Subscriber {
 	return func(ctx context.Context, e events.Event) {
 		if len(e.Audience) == 0 {
@@ -156,18 +160,31 @@ func (s *Service) Fanout() events.Subscriber {
 			log.Printf("webhooks: fan-out %s: %v", e.Name, err)
 			return
 		}
-		var body []byte
+		channels, err := s.q.ListLiveTableChannels(ctx, pgtype.UUID{Bytes: e.Campaign, Valid: true})
+		if err != nil {
+			log.Printf("webhooks: table channel %s: %v", e.Name, err)
+			channels = nil
+		}
+		if len(channels) > 0 {
+			members, err := s.q.ListMembers(ctx, e.Campaign)
+			if err != nil || !WholeTable(e.Audience, memberIDs(members)) {
+				channels = nil
+			}
+		}
+		hooks = append(hooks, channels...)
+		bodies := map[string][]byte{}
 		for _, h := range hooks {
 			if !Hears(h, e.Campaign, e.Name) {
 				continue
 			}
-			if body == nil {
-				env, err := s.envelope(ctx, e)
+			body, ok := bodies[h.Format]
+			if !ok {
+				body, err = s.body(ctx, e, h.Format)
 				if err != nil {
-					log.Printf("webhooks: envelope %s: %v", e.Name, err)
+					log.Printf("webhooks: body %s: %v", e.Name, err)
 					return
 				}
-				body = env
+				bodies[h.Format] = body
 			}
 			if _, err := s.q.InsertWebhookDelivery(ctx, db.InsertWebhookDeliveryParams{
 				WebhookID: h.ID,
@@ -181,7 +198,43 @@ func (s *Service) Fanout() events.Subscriber {
 	}
 }
 
-func (s *Service) envelope(ctx context.Context, e events.Event) ([]byte, error) {
+func memberIDs(members []db.ListMembersRow) []uuid.UUID {
+	out := make([]uuid.UUID, 0, len(members))
+	for _, m := range members {
+		out = append(out, m.UserID)
+	}
+	return out
+}
+
+// WholeTable reports whether an audience covers every member: what the
+// table's own channel may post. A DM-only event, a handout to one hero and
+// a veiled notice all fall short, however the channel was configured.
+func WholeTable(audience, members []uuid.UUID) bool {
+	if len(members) == 0 {
+		return false
+	}
+	in := make(map[uuid.UUID]bool, len(audience))
+	for _, id := range audience {
+		in[id] = true
+	}
+	for _, id := range members {
+		if !in[id] {
+			return false
+		}
+	}
+	return true
+}
+
+// body is what one format receives for one event.
+func (s *Service) body(ctx context.Context, e events.Event, format string) ([]byte, error) {
+	env := s.envelope(ctx, e)
+	if format == FormatDiscord {
+		return discordBody(env, s.opts.BaseURL)
+	}
+	return json.Marshal(env)
+}
+
+func (s *Service) envelope(ctx context.Context, e events.Event) Envelope {
 	env := Envelope{ID: e.ID, Name: string(e.Name), At: e.At, Payload: e.Payload}
 	if e.Payload == nil {
 		env.Payload = map[string]any{}
@@ -194,15 +247,22 @@ func (s *Service) envelope(ctx context.Context, e events.Event) ([]byte, error) 
 			env.Actor = &EnvelopeActor{ID: u.ID, Name: u.Name}
 		}
 	}
-	return json.Marshal(env)
+	return env
 }
 
-// Ping queues a test delivery for one hook and returns the delivery's id.
-func (s *Service) Ping(ctx context.Context, hookID uuid.UUID) (uuid.UUID, error) {
-	body, err := json.Marshal(Envelope{
-		ID: uuid.New(), Name: "ping", At: s.now(),
-		Payload: map[string]any{"webhookId": hookID, "message": "Quest Board can reach you."},
-	})
+// Ping queues a test delivery for one hook, in its format, and returns the
+// delivery's id.
+func (s *Service) Ping(ctx context.Context, hookID uuid.UUID, format string) (uuid.UUID, error) {
+	var body []byte
+	var err error
+	if format == FormatDiscord {
+		body, err = discordPing()
+	} else {
+		body, err = json.Marshal(Envelope{
+			ID: uuid.New(), Name: "ping", At: s.now(),
+			Payload: map[string]any{"webhookId": hookID, "message": "Quest Board can reach you."},
+		})
+	}
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -268,7 +328,7 @@ func (s *Service) deliverDue(ctx context.Context) error {
 				if err := qtx.DisableWebhook(ctx, db.DisableWebhookParams{ID: d.WebhookID, DisabledReason: &reason}); err != nil {
 					return err
 				}
-				s.notifyDisabled(ctx, d.UserID, d.Url)
+				s.notifyDisabled(ctx, d)
 			}
 		default:
 			metrics.WebhookDelivery("retry")
@@ -301,10 +361,14 @@ func (s *Service) post(ctx context.Context, d db.ClaimDueWebhookDeliveriesRow) (
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", s.opts.UserAgent)
-	req.Header.Set("X-QuestBoard-Event", d.Name)
-	req.Header.Set("X-QuestBoard-Delivery", d.ID.String())
-	req.Header.Set("X-QuestBoard-Timestamp", strconv.FormatInt(ts, 10))
-	req.Header.Set("X-QuestBoard-Signature", Sign(d.Secret, ts, d.Body))
+	// A Discord message is unsigned: there is no secret on the other side to
+	// check it with, and the headers would only be noise in Discord's log.
+	if d.Format != FormatDiscord {
+		req.Header.Set("X-QuestBoard-Event", d.Name)
+		req.Header.Set("X-QuestBoard-Delivery", d.ID.String())
+		req.Header.Set("X-QuestBoard-Timestamp", strconv.FormatInt(ts, 10))
+		req.Header.Set("X-QuestBoard-Signature", Sign(d.Secret, ts, d.Body))
+	}
 	res, err := s.client.Do(req)
 	if err != nil {
 		return 0, err
@@ -317,17 +381,38 @@ func (s *Service) post(ctx context.Context, d db.ClaimDueWebhookDeliveriesRow) (
 	return int32(res.StatusCode), nil
 }
 
-// notifyDisabled tells the owner, when they have a confirmed address.
-func (s *Service) notifyDisabled(ctx context.Context, userID uuid.UUID, url string) {
+// notifyDisabled tells whoever can turn it back on, when they have a
+// confirmed address: the owner of a person's hook, and every DM of the
+// table for the table's own channel (#316), which has no owner.
+func (s *Service) notifyDisabled(ctx context.Context, d db.ClaimDueWebhookDeliveriesRow) {
 	if s.opts.Mailer == nil {
 		return
 	}
-	u, err := s.q.GetUserByID(ctx, userID)
-	if err != nil || u.Email == nil || !u.EmailVerified {
-		return
+	var to []uuid.UUID
+	link := s.opts.BaseURL + "/questboard/profile"
+	switch {
+	case d.UserID.Valid:
+		to = []uuid.UUID{d.UserID.Bytes}
+	case d.CampaignID.Valid:
+		members, err := s.q.ListMembers(ctx, d.CampaignID.Bytes)
+		if err != nil {
+			return
+		}
+		for _, m := range members {
+			if m.Role == db.MembershipRoleDm {
+				to = append(to, m.UserID)
+			}
+		}
+		link = s.opts.BaseURL + "/questboard/campaigns/" + uuid.UUID(d.CampaignID.Bytes).String() + "/dm"
 	}
-	subject, html, text := mail.WebhookDisabled(url, s.opts.BaseURL+"/questboard/profile")
-	if err := s.opts.Mailer.Send(ctx, *u.Email, subject, html, text); err != nil {
-		log.Printf("webhooks: disabled email to %s: %v", userID, err)
+	for _, id := range to {
+		u, err := s.q.GetUserByID(ctx, id)
+		if err != nil || u.Email == nil || !u.EmailVerified {
+			continue
+		}
+		subject, html, text := mail.WebhookDisabled(d.Url, link)
+		if err := s.opts.Mailer.Send(ctx, mail.Message{To: *u.Email, Subject: subject, HTML: html, Text: text}); err != nil {
+			log.Printf("webhooks: disabled email to %s: %v", id, err)
+		}
 	}
 }
