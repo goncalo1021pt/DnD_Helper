@@ -63,6 +63,13 @@ type Event struct {
 	// Audience is who may hear it — user ids, because an email or a webhook
 	// reaches a person, resolved by the emitter through the thing's own veil.
 	Audience []uuid.UUID
+	// Public is whether every player at the table may know this — decided by
+	// the emitter, like the audience, because only it knows the veil. It is
+	// not the same as "everyone is in the audience": a reveal announces only
+	// to the newly told, and a level-up is told to the owner and the DMs
+	// though the roster shows it to all. The table's shared channel (#316)
+	// posts only what is public.
+	Public bool
 	// Payload is ids plus the names a reader needs, never the whole row; one
 	// of the *EventPayload shapes in the spec, by Name.
 	Payload any

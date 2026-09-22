@@ -145,9 +145,11 @@ func Hears(h db.Webhook, campaign uuid.UUID, name events.Name) bool {
 // Fanout is the bus subscriber: one delivery row per hook that hears the
 // event, written beside the outbox and off the request's cancellation. The
 // people's hooks are selected by the audience; the table's own channel
-// (#316) has no owner and is selected by the table — and only when the
-// audience is the whole table, since a shared channel must never learn what
-// one member was told alone.
+// (#316) has no owner and is selected by the table — and only for a public
+// event, which is the emitter's word (Event.Public, #344): an audience is
+// who is told, not who may know, so a reveal to the whole table tells only
+// the newly reached and a hero's XP is told to its owner, while both stand
+// in the open for every player.
 func (s *Service) Fanout() events.Subscriber {
 	return func(ctx context.Context, e events.Event) {
 		if len(e.Audience) == 0 {
@@ -165,11 +167,8 @@ func (s *Service) Fanout() events.Subscriber {
 			log.Printf("webhooks: table channel %s: %v", e.Name, err)
 			channels = nil
 		}
-		if len(channels) > 0 {
-			members, err := s.q.ListMembers(ctx, e.Campaign)
-			if err != nil || !WholeTable(e.Audience, memberIDs(members)) {
-				channels = nil
-			}
+		if !e.Public {
+			channels = nil
 		}
 		hooks = append(hooks, channels...)
 		bodies := map[string][]byte{}
@@ -196,33 +195,6 @@ func (s *Service) Fanout() events.Subscriber {
 			}
 		}
 	}
-}
-
-func memberIDs(members []db.ListMembersRow) []uuid.UUID {
-	out := make([]uuid.UUID, 0, len(members))
-	for _, m := range members {
-		out = append(out, m.UserID)
-	}
-	return out
-}
-
-// WholeTable reports whether an audience covers every member: what the
-// table's own channel may post. A DM-only event, a handout to one hero and
-// a veiled notice all fall short, however the channel was configured.
-func WholeTable(audience, members []uuid.UUID) bool {
-	if len(members) == 0 {
-		return false
-	}
-	in := make(map[uuid.UUID]bool, len(audience))
-	for _, id := range audience {
-		in[id] = true
-	}
-	for _, id := range members {
-		if !in[id] {
-			return false
-		}
-	}
-	return true
 }
 
 // body is what one format receives for one event.

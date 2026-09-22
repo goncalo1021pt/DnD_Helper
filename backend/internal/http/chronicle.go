@@ -268,7 +268,7 @@ func (s *Server) GrantXP(ctx context.Context, request api.GrantXPRequestObject) 
 	}
 	for _, c := range updated {
 		aud, audErr := s.ownerAndDMs(ctx, campaignID, c.OwnerUserID)
-		s.emit(ctx, campaignID, events.HeroXPAwarded, aud, audErr, api.HeroXpEventPayload{
+		s.emitPublic(ctx, campaignID, events.HeroXPAwarded, aud, audErr, true, api.HeroXpEventPayload{
 			HeroId: openapi_types.UUID(c.ID), HeroName: c.Name, Amount: amount, Total: int(c.Xp), Reason: reason,
 		})
 	}

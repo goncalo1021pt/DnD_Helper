@@ -532,7 +532,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 		s.logEvent(ctx, campaignID, uid, "level_up",
 			fmt.Sprintf("%s rises to level %d", character.Name, newLevel))
 		aud, audErr := s.ownerAndDMs(ctx, campaignID, character.OwnerUserID)
-		s.emit(ctx, campaignID, events.HeroLevelled, aud, audErr, api.HeroLevelEventPayload{
+		s.emitPublic(ctx, campaignID, events.HeroLevelled, aud, audErr, true, api.HeroLevelEventPayload{
 			HeroId: openapi_types.UUID(character.ID), HeroName: character.Name, Level: newLevel, ClassName: class.Name,
 		})
 		if fresh, err := s.queries.GetCharacter(ctx, updated.ID); err == nil {

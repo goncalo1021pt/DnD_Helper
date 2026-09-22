@@ -719,7 +719,9 @@ func (s *Server) SetQuestVisibility(ctx context.Context, request api.SetQuestVis
 		if now, err := s.queries.GetQuest(ctx, questID); err == nil {
 			after, audErr := s.questAudience(ctx, now)
 			if reached := newly(before, after); len(reached) > 0 || audErr != nil {
-				s.emit(ctx, quest.CampaignID, events.QuestPosted, reached, audErr, questPayload(now, nil))
+				// Told to the newly reached; public if everyone may see it now.
+				public, _ := s.coversPlayers(ctx, quest.CampaignID, after)
+				s.emitPublic(ctx, quest.CampaignID, events.QuestPosted, reached, audErr, public, questPayload(now, nil))
 			}
 		}
 	}

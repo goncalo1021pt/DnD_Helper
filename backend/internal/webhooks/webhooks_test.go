@@ -146,23 +146,6 @@ func TestReadScopeOf(t *testing.T) {
 	}
 }
 
-// The table's own channel posts only what the whole table hears (#316).
-func TestWholeTable(t *testing.T) {
-	a, b, c := uuid.New(), uuid.New(), uuid.New()
-	if !WholeTable([]uuid.UUID{a, b, c}, []uuid.UUID{a, b, c}) {
-		t.Error("everyone in: whole table")
-	}
-	if !WholeTable([]uuid.UUID{c, a, b, uuid.New()}, []uuid.UUID{a, b, c}) {
-		t.Error("order and extras do not matter")
-	}
-	if WholeTable([]uuid.UUID{a, b}, []uuid.UUID{a, b, c}) {
-		t.Error("one member left out: not the whole table")
-	}
-	if WholeTable([]uuid.UUID{a}, nil) {
-		t.Error("an empty table hears nothing")
-	}
-}
-
 // A Discord body is a content line with mentions switched off, and a
 // ping says so in words Discord will render.
 func TestDiscordBody(t *testing.T) {
