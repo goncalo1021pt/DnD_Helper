@@ -91,6 +91,26 @@ func (s *Server) handoutAudience(ctx context.Context, campaignID, handoutID uuid
 	})
 }
 
+// coversPlayers reports whether an audience holds every player at the table
+// — what makes an event public (#316). DMs are not counted: the screen
+// always knows.
+func (s *Server) coversPlayers(ctx context.Context, campaignID uuid.UUID, audience []uuid.UUID) (bool, error) {
+	members, err := s.queries.ListMembers(ctx, campaignID)
+	if err != nil {
+		return false, err
+	}
+	in := make(map[uuid.UUID]bool, len(audience))
+	for _, id := range audience {
+		in[id] = true
+	}
+	for _, m := range members {
+		if m.Role != db.MembershipRoleDm && !in[m.UserID] {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // newly is after minus before: the people a reveal reached for the first
 // time, so revealing to a second hero does not announce to the first again.
 func newly(before, after []uuid.UUID) []uuid.UUID {

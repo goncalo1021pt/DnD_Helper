@@ -1,7 +1,7 @@
 import { test, expect, request as playwrightRequest, type APIRequestContext } from "@playwright/test";
 import { createServer, type Server } from "node:http";
 import { readFileSync } from "node:fs";
-import { createCampaign, joinCampaign, newAccount, postQuest, registerViaAPI, unique } from "./helpers";
+import { createCampaign, forgeHero, joinCampaign, newAccount, postQuest, registerViaAPI, seatHero, unique } from "./helpers";
 
 /*
 Notifications that reach you outside the app (#316).
@@ -123,6 +123,12 @@ test("the table's channel receives a Discord-shaped message for what the whole t
     const player = await playwrightRequest.newContext();
     await registerViaAPI(player, newAccount("pl"));
     await joinCampaign(player, campaign.inviteCode);
+    // A second player, so a reveal to one hero of two can be seen not to
+    // be public (#344); joining is itself an event, so it happens before
+    // the channel is hung.
+    const other = await playwrightRequest.newContext();
+    await registerViaAPI(other, newAccount("other"));
+    await joinCampaign(other, campaign.inviteCode);
 
     // Hung from the DM menu.
     await page.goto(`/questboard/campaigns/${campaign.id}/dm`);
@@ -152,8 +158,42 @@ test("the table's channel receives a Discord-shaped message for what the whole t
     // channel is not told, whatever it was set to hear.
     const draft = await page.request.post(`/api/campaigns/${campaign.id}/quests`, { data: { title: "The dragon", locationId: null, visibleToParty: false } });
     expect(draft.status(), await draft.text()).toBe(201);
+    const draftId = (await draft.json()).id as string;
     await new Promise((r) => setTimeout(r, 5000));
     expect(rx.got.length).toBe(2);
+
+    // Publicness is the emitter's word, not the audience's (#344). Two
+    // heroes at the table: revealing the draft to one of them tells one
+    // player and posts nothing; revealing it to the table tells only the
+    // player newly reached, yet every player may see it now — posted.
+    const aHero = (name: string) => ({
+      name,
+      className: "Barbarian",
+      speciesName: "Dwarf",
+      backgroundName: "Acolyte",
+      abilities: { str: 15, dex: 14, con: 16, int: 10, wis: 12, cha: 8 },
+      skills: ["Athletics", "Survival"],
+    });
+    const first = await forgeHero(player, aHero(unique("First ")));
+    await seatHero(player, first, campaign.id);
+    const second = await forgeHero(other, aHero(unique("Second ")));
+    await seatHero(other, second, campaign.id);
+    const toOne = await page.request.put(`/api/quests/${draftId}/visibility`, { data: { scope: "character", visible: true, characterId: first } });
+    expect(toOne.status(), await toOne.text()).toBe(200);
+    await new Promise((r) => setTimeout(r, 4000));
+    expect(rx.got.length, "revealed to one hero of two: not public").toBe(2);
+    const toTable = await page.request.put(`/api/quests/${draftId}/visibility`, { data: { scope: "table", visible: true } });
+    expect(toTable.status(), await toTable.text()).toBe(200);
+    await waitFor(() => rx.got.length >= 3);
+    expect((JSON.parse(rx.got[2].body) as { content: string }).content).toContain("The dragon");
+
+    // XP is told to each hero's owner and the DMs, and stands on the roster
+    // for all: public, one post per hero.
+    const xp = await page.request.post(`/api/campaigns/${campaign.id}/xp`, { data: { amount: 50 } });
+    expect(xp.status(), await xp.text()).toBe(200);
+    await waitFor(() => rx.got.length >= 5);
+    expect(rx.got.slice(3).every((r) => (JSON.parse(r.body) as { content: string }).content.includes("XP"))).toBeTruthy();
+    await other.dispose();
 
     // The DM's payload carries the channel; the player's never does.
     const mine = await (await page.request.get("/api/campaigns")).json();
@@ -168,7 +208,7 @@ test("the table's channel receives a Discord-shaped message for what the whole t
     await expect(herald).toContainText("no channel");
     await postQuest(page.request, campaign.id, "Wolves on the road");
     await new Promise((r) => setTimeout(r, 4000));
-    expect(rx.got.length).toBe(2);
+    expect(rx.got.length).toBe(5);
     await player.dispose();
   } finally {
     rx.server.close();

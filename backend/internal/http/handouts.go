@@ -371,7 +371,8 @@ func (s *Server) SetHandoutVisibility(ctx context.Context, request api.SetHandou
 		partyFlag := meta.VisibleToParty || grain.table
 		after, audErr := s.handoutAudience(ctx, meta.CampaignID, handoutID, partyFlag)
 		if reached := newly(before, after); len(reached) > 0 || audErr != nil {
-			s.emit(ctx, meta.CampaignID, events.HandoutGiven, reached, audErr, handoutPayload(handoutID, meta.Title, meta.Caption))
+			public, _ := s.coversPlayers(ctx, meta.CampaignID, after)
+			s.emitPublic(ctx, meta.CampaignID, events.HandoutGiven, reached, audErr, public, handoutPayload(handoutID, meta.Title, meta.Caption))
 		}
 	}
 	return api.SetHandoutVisibility200JSONResponse(out), nil
