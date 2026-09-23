@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { Campaign, EventName } from "../../api/client";
 import { usePingTableChannel, useRemoveTableChannel, useSetTableChannel } from "../../hooks";
-import { TABLE_EVENTS } from "../../lib/events";
+import { TABLE_EVENTS, labelOf } from "../../lib/events";
+import EventPicker from "../EventPicker";
 import ParchmentModal from "../ui/ParchmentModal";
 
 /*
@@ -63,10 +64,10 @@ export default function HeraldSection({ campaign }: { campaign: Campaign }) {
               channel.events.map((e) => (
                 <span
                   key={e}
-                  className="label-stamp rounded-[2px] px-1.5 py-0.5 font-mono text-[10px] tracking-[.5px]"
+                  className="font-body rounded-[2px] px-1.5 py-0.5 text-[11px]"
                   style={{ color: "#cdb582", background: "rgba(201,162,39,.10)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }}
                 >
-                  {e}
+                  {labelOf(e)}
                 </span>
               ))
             )}
@@ -149,16 +150,17 @@ function ChannelModal({ campaign, onClose }: { campaign: Campaign; onClose: () =
 
       <span className="field-label">Which events</span>
       <p className="font-body m-0 mb-1.5 mt-0.5 text-[11.5px] italic text-ink-body">
-        Pick none to post every one. Only what the whole table may hear is ever posted.
+        Only what the whole table may hear is ever posted.
       </p>
-      <div className="mb-4 grid gap-x-4 gap-y-1 sm:grid-cols-2">
-        {TABLE_EVENTS.map((ev) => (
-          <label key={ev.name} className="flex cursor-pointer items-baseline gap-2 font-body text-[12.5px] text-ink">
-            <input type="checkbox" checked={picked.has(ev.name)} onChange={() => toggle(ev.name)} name={`herald-${ev.name}`} />
-            <span className="font-mono text-[11.5px]">{ev.name}</span>
-            <span className="text-[11px] italic text-ink-body">{ev.hint}</span>
-          </label>
-        ))}
+      <div className="mb-4">
+        <EventPicker
+          events={TABLE_EVENTS}
+          picked={picked}
+          onToggle={toggle}
+          namePrefix="herald"
+          surface="parchment"
+          everything={{ label: "Everything the table hears", onSet: () => setPicked(new Set()) }}
+        />
       </div>
 
       {set.isError && <div className="mb-2 text-[11.5px] italic text-[#8b2520]">{errText(set.error, "The channel could not be hung.")}</div>}

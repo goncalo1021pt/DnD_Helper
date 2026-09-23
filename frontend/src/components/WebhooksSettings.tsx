@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { CampaignMembership, EventName, Webhook, WebhookCreated, WebhookDelivery, WebhookFormat } from "../api/client";
 import { useCreateWebhook, useDeleteWebhook, useEnableWebhook, usePingWebhook, useWebhookDeliveries, useWebhooks } from "../hooks";
-import { EVENTS, isDiscordUrl } from "../lib/events";
+import { EVENTS, isDiscordUrl, labelOf } from "../lib/events";
+import EventPicker from "./EventPicker";
 import ParchmentModal from "./ui/ParchmentModal";
 
 /*
@@ -78,10 +79,14 @@ function WebhookRow({ hook, onRemove }: { hook: Webhook; onRemove: () => void })
               hook.events.map((e) => (
                 <span
                   key={e}
-                  className="label-stamp rounded-[2px] px-1.5 py-0.5 font-mono text-[10px] tracking-[.5px]"
+                  className={
+                    hook.format === "discord"
+                      ? "font-body rounded-[2px] px-1.5 py-0.5 text-[11px]"
+                      : "label-stamp rounded-[2px] px-1.5 py-0.5 font-mono text-[10px] tracking-[.5px]"
+                  }
                   style={{ color: "#cdb582", background: "rgba(201,162,39,.10)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.35)" }}
                 >
-                  {e}
+                  {hook.format === "discord" ? labelOf(e) : e}
                 </span>
               ))
             )}
@@ -270,15 +275,17 @@ function AddModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; onC
           </div>
 
           <span className="field-label">Which events</span>
-          <p className="font-body m-0 mb-1.5 mt-0.5 text-[11.5px] italic text-ink-body">Pick none to hear every one. You only ever hear what you could see here.</p>
-          <div className="mb-3 grid gap-x-4 gap-y-1 sm:grid-cols-2">
-            {EVENTS.map((ev) => (
-              <label key={ev.name} className="flex cursor-pointer items-baseline gap-2 font-body text-[12.5px] text-ink">
-                <input type="checkbox" checked={picked.has(ev.name)} onChange={() => toggle(ev.name)} name={`event-${ev.name}`} />
-                <span className="font-mono text-[11.5px]">{ev.name}</span>
-                <span className="text-[11px] italic text-ink-body">{ev.hint}</span>
-              </label>
-            ))}
+          <p className="font-body m-0 mb-1.5 mt-0.5 text-[11.5px] italic text-ink-body">You only ever hear what you could see here.</p>
+          <div className="mb-3">
+            <EventPicker
+              events={EVENTS}
+              picked={picked}
+              onToggle={toggle}
+              namePrefix="event"
+              surface="parchment"
+              showNames={format === "questboard"}
+              everything={{ label: "Everything I could see", onSet: () => setPicked(new Set()) }}
+            />
           </div>
 
           <label className="mb-4 block">

@@ -78,8 +78,14 @@ test("registered on the profile, a delivery arrives signed; a veiled notice neve
     await page.goto("/questboard/profile");
     await expect(page.getByText("No webhooks yet.")).toBeVisible();
     await page.getByRole("button", { name: "New webhook" }).click();
+    // "Everything" is the explicit first choice (#347), and a signed hook shows the names a script filters on.
+    const form = page.getByRole("dialog");
+    await expect(form.locator('input[name="event-everything"]')).toBeChecked();
+    await expect(form.getByText("The board", { exact: true })).toBeVisible();
+    await expect(form.getByText("quest.posted", { exact: true })).toBeVisible();
     await page.locator('input[name="webhook-url"]').fill(hookUrl(rx.port, "/player"));
     await page.locator('input[name="event-quest.posted"]').check();
+    await expect(form.locator('input[name="event-everything"]')).not.toBeChecked();
     await page.getByRole("button", { name: "Register" }).click();
     const secret = (await page.getByTestId("webhook-secret").textContent())?.trim() ?? "";
     expect(secret).toMatch(/^whsec_[A-Za-z0-9_-]{43}$/);
