@@ -1,0 +1,23 @@
+/me/export:
+  get:
+    operationId: exportMe
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:read]
+    summary: Everything you own, as one document
+    description: >
+      One read of everything the caller owns (#317): the account, every hero
+      as its sheet reads, every table as it reads to you, your homebrew.
+      Composed from the same doors the app reads through, so veils hold. A
+      token gets only the sections its scopes could read — heroes:read,
+      campaigns:read, rules:read — and the rest are named in `omitted`. Costly:
+      it counts as twenty-five requests against the rate ceiling.
+    responses:
+      "200":
+        description: The document
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MeExport"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"

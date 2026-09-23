@@ -837,6 +837,25 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+  /me/export:
+    get:
+      operationId: exportMe
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:read
+      summary: Everything you own, as one document
+      description: |
+        One read of everything the caller owns (#317): the account, every hero as its sheet reads, every table as it reads to you, your homebrew. Composed from the same doors the app reads through, so veils hold. A token gets only the sections its scopes could read — heroes:read, campaigns:read, rules:read — and the rest are named in `omitted`. Costly: it counts as twenty-five requests against the rate ceiling.
+      responses:
+        "200":
+          description: The document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeExport"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /me/webhooks:
     get:
       operationId: listWebhooks
@@ -9633,5 +9652,188 @@ components:
             The catalogue names to post; empty means every one the whole table may hear. Whatever is named, the channel only ever receives an event whose audience is the entire table.
           items:
             $ref: "#/components/schemas/EventName"
+    MeExport:
+      type: object
+      description: |
+        Everything the caller owns, as one document (#317). Built from the same doors the app reads through, so a veil that holds on the screen holds here: a player's table carries what the board shows them, a DM's carries the drafts. A token gets only the sections its scopes could read, and the rest are named in `omitted`. Images are URLs, re-checked on fetch, never bytes. Not an import.
+      required:
+        - exportVersion
+        - exportedAt
+        - account
+        - omitted
+      properties:
+        exportVersion:
+          type: integer
+          description: The shape's version; 1.
+        exportedAt:
+          type: string
+          format: date-time
+        omitted:
+          type: array
+          description: "Sections absent because the token lacks their read scope: heroes (heroes:read), campaigns (campaigns:read), homebrew (rules:read). Empty for a browser."
+          items:
+            type: string
+            enum:
+              - heroes
+              - campaigns
+              - homebrew
+        account:
+          $ref: "#/components/schemas/MeExportAccount"
+        heroes:
+          type: array
+          description: Every hero you own, seated or on the shelf, as its sheet reads — stored facts and what the sheet derives.
+          items:
+            $ref: "#/components/schemas/MeExportHero"
+        campaigns:
+          type: array
+          description: Every table you sit at, as it reads to you.
+          items:
+            $ref: "#/components/schemas/MeExportCampaign"
+        homebrew:
+          $ref: "#/components/schemas/MeExportHomebrew"
+    MeExportAccount:
+      type: object
+      required:
+        - user
+        - friends
+        - threads
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        friends:
+          $ref: "#/components/schemas/FriendRoll"
+        threads:
+          type: array
+          description: Your direct conversations, with every message in each.
+          items:
+            $ref: "#/components/schemas/MeExportThread"
+    MeExportThread:
+      type: object
+      required:
+        - thread
+        - messages
+      properties:
+        thread:
+          $ref: "#/components/schemas/DirectThread"
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+    MeExportHero:
+      type: object
+      required:
+        - sheet
+      properties:
+        sheet:
+          $ref: "#/components/schemas/CharacterDetail"
+        tree:
+          $ref: "#/components/schemas/CharacterTreeState"
+    MeExportCampaign:
+      type: object
+      required:
+        - campaign
+        - role
+        - members
+        - quests
+        - locations
+        - npcs
+        - maps
+        - handouts
+        - chronicle
+        - parties
+        - vendors
+        - encounters
+        - bestiary
+        - trees
+        - pregens
+      properties:
+        campaign:
+          $ref: "#/components/schemas/Campaign"
+        role:
+          $ref: "#/components/schemas/Role"
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/Member"
+        quests:
+          type: array
+          items:
+            $ref: "#/components/schemas/Quest"
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/Location"
+        npcs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Npc"
+        maps:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeExportMap"
+        handouts:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeExportHandout"
+        chronicle:
+          type: array
+          description: The whole chronicle as it reads to you, newest first.
+          items:
+            $ref: "#/components/schemas/ChronicleEvent"
+        parties:
+          type: array
+          items:
+            $ref: "#/components/schemas/Party"
+        vendors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Vendor"
+        encounters:
+          type: array
+          items:
+            $ref: "#/components/schemas/Encounter"
+        bestiary:
+          type: array
+          items:
+            $ref: "#/components/schemas/BestiaryEntry"
+        trees:
+          type: array
+          items:
+            $ref: "#/components/schemas/SkillTree"
+        pregens:
+          type: array
+          items:
+            $ref: "#/components/schemas/Character"
+    MeExportMap:
+      type: object
+      required:
+        - map
+        - imageUrl
+      properties:
+        map:
+          $ref: "#/components/schemas/MapDetail"
+        imageUrl:
+          type: string
+          description: Where the picture is — relative to the API, with the table as its lens; the veil is checked again on fetch.
+    MeExportHandout:
+      type: object
+      required:
+        - handout
+        - imageUrl
+      properties:
+        handout:
+          $ref: "#/components/schemas/Handout"
+        imageUrl:
+          type: string
+    MeExportHomebrew:
+      type: object
+      description: Your homebrew, exactly as the pack export gives it.
+      required:
+        - entries
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackEntry"
 security:
   - sessionCookie: []

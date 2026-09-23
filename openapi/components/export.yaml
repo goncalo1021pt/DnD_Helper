@@ -1,0 +1,162 @@
+MeExport:
+  type: object
+  description: >
+    Everything the caller owns, as one document (#317). Built from the same
+    doors the app reads through, so a veil that holds on the screen holds here:
+    a player's table carries what the board shows them, a DM's carries the
+    drafts. A token gets only the sections its scopes could read, and the rest
+    are named in `omitted`. Images are URLs, re-checked on fetch, never bytes.
+    Not an import.
+  required: [exportVersion, exportedAt, account, omitted]
+  properties:
+    exportVersion:
+      type: integer
+      description: The shape's version; 1.
+    exportedAt:
+      type: string
+      format: date-time
+    omitted:
+      type: array
+      description: "Sections absent because the token lacks their read scope: heroes (heroes:read), campaigns (campaigns:read), homebrew (rules:read). Empty for a browser."
+      items:
+        type: string
+        enum: [heroes, campaigns, homebrew]
+    account:
+      $ref: "../openapi.yaml#/components/schemas/MeExportAccount"
+    heroes:
+      type: array
+      description: Every hero you own, seated or on the shelf, as its sheet reads — stored facts and what the sheet derives.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MeExportHero"
+    campaigns:
+      type: array
+      description: Every table you sit at, as it reads to you.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MeExportCampaign"
+    homebrew:
+      $ref: "../openapi.yaml#/components/schemas/MeExportHomebrew"
+
+MeExportAccount:
+  type: object
+  required: [user, friends, threads]
+  properties:
+    user:
+      $ref: "../openapi.yaml#/components/schemas/User"
+    friends:
+      $ref: "../openapi.yaml#/components/schemas/FriendRoll"
+    threads:
+      type: array
+      description: Your direct conversations, with every message in each.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MeExportThread"
+
+MeExportThread:
+  type: object
+  required: [thread, messages]
+  properties:
+    thread:
+      $ref: "../openapi.yaml#/components/schemas/DirectThread"
+    messages:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Message"
+
+MeExportHero:
+  type: object
+  required: [sheet]
+  properties:
+    sheet:
+      $ref: "../openapi.yaml#/components/schemas/CharacterDetail"
+    tree:
+      $ref: "../openapi.yaml#/components/schemas/CharacterTreeState"
+
+MeExportCampaign:
+  type: object
+  required: [campaign, role, members, quests, locations, npcs, maps, handouts, chronicle, parties, vendors, encounters, bestiary, trees, pregens]
+  properties:
+    campaign:
+      $ref: "../openapi.yaml#/components/schemas/Campaign"
+    role:
+      $ref: "../openapi.yaml#/components/schemas/Role"
+    members:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Member"
+    quests:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Quest"
+    locations:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Location"
+    npcs:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Npc"
+    maps:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MeExportMap"
+    handouts:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MeExportHandout"
+    chronicle:
+      type: array
+      description: The whole chronicle as it reads to you, newest first.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/ChronicleEvent"
+    parties:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Party"
+    vendors:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Vendor"
+    encounters:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Encounter"
+    bestiary:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/BestiaryEntry"
+    trees:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/SkillTree"
+    pregens:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Character"
+
+MeExportMap:
+  type: object
+  required: [map, imageUrl]
+  properties:
+    map:
+      $ref: "../openapi.yaml#/components/schemas/MapDetail"
+    imageUrl:
+      type: string
+      description: Where the picture is — relative to the API, with the table as its lens; the veil is checked again on fetch.
+
+MeExportHandout:
+  type: object
+  required: [handout, imageUrl]
+  properties:
+    handout:
+      $ref: "../openapi.yaml#/components/schemas/Handout"
+    imageUrl:
+      type: string
+
+MeExportHomebrew:
+  type: object
+  description: Your homebrew, exactly as the pack export gives it.
+  required: [entries]
+  properties:
+    entries:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/PackEntry"

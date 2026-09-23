@@ -38,6 +38,7 @@ var routeCost = map[string]float64{
 	"/api/rules/import":                     10,
 	"/api/maps/{mapID}/image":               5,
 	"POST /api/campaigns/{campaignId}/maps": 10,
+	"/api/me/export":                        25, // everything you own, in one read (#317)
 }
 
 // costOf reads the matched route off the request. It runs inside the endpoint

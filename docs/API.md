@@ -310,6 +310,36 @@ request, a veiled notice never do, whatever `events` names. It rides the
 post to the channel — and when it dies of a URL that is gone, every DM with
 a confirmed address is told. Setting it again re-enables it.
 
+## Your data
+
+Everything you own, as one document:
+
+```
+GET /me/export        account:read
+```
+
+One JSON document, `exportVersion: 1`, described in `openapi.yaml` as
+`MeExport`: your account (who you are, your friends, your conversations with
+every message), every hero you own as its sheet reads — stored facts and what
+the sheet derives: abilities, slots, pools, creatures — every table you sit at
+as it reads to you (members, board, atlas, folk, maps with pins and shapes,
+handouts, the whole chronicle, parties, vendors, encounters, bestiary, trees,
+pregens), and your homebrew exactly as the pack export gives it.
+
+It is composed from the same doors the app reads through, so **veils hold**: a
+player's table carries what the board shows them, a DM's carries the drafts.
+Map and handout images are **URLs**, with the table as their lens and the veil
+checked again on fetch, never bytes.
+
+**A token gets only the sections its scopes could read.** The endpoint needs
+`account:read`; heroes need `heroes:read`, tables `campaigns:read`, homebrew
+`rules:read`, and a section the token lacks is absent and named in `omitted`.
+A browser gets everything and `omitted` is empty. It counts as twenty-five
+requests against the rate ceiling.
+
+It is not an import. There is a **Download my data** button on the profile,
+under Settings.
+
 ## Reading it as an assistant
 
 The bundled contract is the whole vocabulary. A workable first prompt:

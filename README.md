@@ -26,6 +26,10 @@ login.
   **webhook** and have a URL of yours told, signed, when a quest is posted or
   the session moves — it only ever hears what you could see. See
   [docs/API.md](docs/API.md).
+- **Your data, as one document** — one read of everything you own: your
+  heroes as their sheets read, every table as it reads to you, your homebrew,
+  your account. Veils hold, images are links, and a token sees only what its
+  scopes could. A **Download my data** button on the profile, or `GET /me/export`.
 - **Print to the real sheet** — one button on a hero's page prints them onto the
   **official 2024 character sheet**, which ships with the app, at coordinates
   measured off it. Assembled entirely in the browser. See

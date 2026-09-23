@@ -64,6 +64,8 @@ paths:
     $ref: "./paths/tokens.yaml#/~1me~1tokens"
   /me/tokens/{tokenId}:
     $ref: "./paths/tokens.yaml#/~1me~1tokens~1{tokenId}"
+  /me/export:
+    $ref: "./paths/export.yaml#/~1me~1export"
   /me/webhooks:
     $ref: "./paths/webhooks.yaml#/~1me~1webhooks"
   /me/webhooks/{webhookId}:
@@ -843,6 +845,22 @@ components:
       $ref: "./components/notifications.yaml#/NotificationSettingsInput"
     TableChannelInput:
       $ref: "./components/notifications.yaml#/TableChannelInput"
+    MeExport:
+      $ref: "./components/export.yaml#/MeExport"
+    MeExportAccount:
+      $ref: "./components/export.yaml#/MeExportAccount"
+    MeExportThread:
+      $ref: "./components/export.yaml#/MeExportThread"
+    MeExportHero:
+      $ref: "./components/export.yaml#/MeExportHero"
+    MeExportCampaign:
+      $ref: "./components/export.yaml#/MeExportCampaign"
+    MeExportMap:
+      $ref: "./components/export.yaml#/MeExportMap"
+    MeExportHandout:
+      $ref: "./components/export.yaml#/MeExportHandout"
+    MeExportHomebrew:
+      $ref: "./components/export.yaml#/MeExportHomebrew"
 
 security:
   - sessionCookie: []
