@@ -7,7 +7,7 @@ STATIC := backend/internal/static
 # The Playwright image tag MUST match the @playwright/test version pinned in
 # frontend/package.json — the library refuses to drive browsers it did not ship
 # with. Bump both together.
-PLAYWRIGHT_VERSION := v1.62.1
+PLAYWRIGHT_VERSION := v1.63.0
 E2E_BASE_URL ?= http://localhost:8080
 
 # The version is the git tag, stamped into the binary at build time rather than
@@ -60,6 +60,7 @@ embed: frontend ## Build the SPA and copy it into the Go embed directory
 	mkdir -p $(STATIC)/assets
 	touch $(STATIC)/assets/.gitkeep
 	cp frontend/dist/index.html $(STATIC)/index.html
+	cp frontend/dist/api-docs.html $(STATIC)/api-docs.html
 	cp -r frontend/dist/assets/. $(STATIC)/assets/
 	# Files from frontend/public land in the dist ROOT, not dist/assets — they
 	# need copying by name, and naming in the go:embed directive in static.go.

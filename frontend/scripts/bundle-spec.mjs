@@ -22,15 +22,43 @@ The check that this is honest is not in here — it is that `make generate`
 produces byte-identical api.gen.go and schema.d.ts, which CI runs on every
 change. A bundler that quietly dropped or reordered something would move them.
 */
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import $RefParser from "@apidevtools/json-schema-ref-parser";
-import { dump } from "js-yaml";
+import { dump, load } from "js-yaml";
 
 const src = fileURLToPath(new URL("../../openapi/openapi.yaml", import.meta.url));
 const out = fileURLToPath(new URL("../../openapi.yaml", import.meta.url));
+const guide = fileURLToPath(new URL("../../docs/API.md", import.meta.url));
 
 const bundled = await $RefParser.bundle(src);
+
+// Tags are the domain files (#348): a path item authored in paths/quests.yaml
+// is tagged Quests, so the reference page groups the doors the way the tree
+// does, and nobody writes `tags:` by hand. Three stems are renamed to the
+// app's own words; the rest are the file name, capitalised.
+const TAG_NAMES = { characters: "Heroes", npcs: "Folk", trees: "Skill trees" };
+const index = load(readFileSync(src, "utf8"));
+const tagOf = new Map();
+for (const [path, item] of Object.entries(index.paths ?? {})) {
+  const m = /^\.\/paths\/([a-z-]+)\.yaml#/.exec(item?.$ref ?? "");
+  if (m) tagOf.set(path, TAG_NAMES[m[1]] ?? m[1][0].toUpperCase() + m[1].slice(1));
+}
+const METHODS = ["get", "post", "put", "patch", "delete"];
+for (const [path, item] of Object.entries(bundled.paths ?? {})) {
+  const tag = tagOf.get(path);
+  if (!tag) continue;
+  for (const method of METHODS) if (item[method]) item[method].tags ??= [tag];
+}
+bundled.tags = [...new Set(tagOf.values())].map((name) => ({ name }));
+
+// The guide a token holder reads is docs/API.md, and it rides in
+// info.description so the reference page at /api/docs and GitHub show the same
+// words (#348). The file's own title goes — the page has one — and its one
+// relative link is rewritten to the door the server serves the contract at.
+bundled.info.description = readFileSync(guide, "utf8")
+  .replace(/^# .*\n+/, "")
+  .replaceAll("](../openapi.yaml)", "](/api/openapi.yaml)");
 
 // ref-parser ≥12 keeps a subfile's reference back into the index verbatim
 // ("../openapi.yaml#/components/…"); ≤11 rewrote it to an internal pointer.

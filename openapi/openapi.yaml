@@ -2,10 +2,9 @@ openapi: 3.0.3
 info:
   title: Quest Board API
   version: 0.1.0
-  description: |
-    Self-hosted D&D campaign helper. This spec is the single source of truth for
-    the API contract: the Go server interface and the TypeScript client are both
-    generated from it (`make generate`).
+  # Replaced at bundle time by docs/API.md, the guide a token holder reads —
+  # edit that file, not this line (#348).
+  description: See docs/API.md.
 servers:
   - url: /api
 

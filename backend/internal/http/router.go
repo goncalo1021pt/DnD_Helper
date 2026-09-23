@@ -67,6 +67,14 @@ func NewRouter(deps Deps) http.Handler {
 		ar.Get("/notifications/unsubscribe", srv.Unsubscribe)
 		ar.Post("/notifications/unsubscribe", srv.Unsubscribe)
 
+		// The API documents itself (#348): the contract compiled into the
+		// binary, and one page reading it. Public, and outside the bearer
+		// group so no scope is asked — a script author reads the sign before
+		// they hold a key. Behind the limiter like every other door.
+		ar.With(srv.rateLimit).Get("/openapi.json", serveSpec("json"))
+		ar.With(srv.rateLimit).Get("/openapi.yaml", serveSpec("yaml"))
+		ar.With(srv.rateLimit).Get("/docs", serveDocs.ServeHTTP)
+
 		ar.Group(func(g chi.Router) {
 			// The token door (#294): an Authorization header decides the
 			// identity, and a bad one is refused here rather than falling
