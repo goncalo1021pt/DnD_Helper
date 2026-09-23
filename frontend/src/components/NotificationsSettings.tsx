@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { CampaignMembership, EventName } from "../api/client";
 import { useNotificationSettings, useSetNotificationSettings } from "../hooks";
 import { EMAIL_EVENTS } from "../lib/events";
+import EventPicker from "./EventPicker";
 
 /*
  * Notifications (#316) — the section of the profile's Settings where a
@@ -48,19 +49,8 @@ export default function NotificationsSettings({ campaigns }: { campaigns: Campai
   return (
     <div data-testid="notifications-settings">
       <p className="font-body m-0 text-[13px] text-[#c9b183]">{where}</p>
-      <div className="mt-3 grid gap-x-4 gap-y-1 sm:grid-cols-2">
-        {EMAIL_EVENTS.map((ev) => (
-          <label key={ev.name} className="flex cursor-pointer items-baseline gap-2 font-body text-[12.5px] text-[#e6d5af]">
-            <input
-              type="checkbox"
-              checked={chosen.has(ev.name)}
-              onChange={() => toggle(ev.name)}
-              name={`email-${ev.name}`}
-            />
-            <span className="font-mono text-[11.5px]">{ev.name}</span>
-            <span className="text-[11px] italic text-[#9c855e]">{ev.hint}</span>
-          </label>
-        ))}
+      <div className="mt-3">
+        <EventPicker events={EMAIL_EVENTS} picked={chosen} onToggle={toggle} namePrefix="email" surface="hall" />
       </div>
       <p className="font-body m-0 mt-3 text-[12px] italic text-[#9c855e]">
         {muted.length > 0 && (

@@ -58,6 +58,10 @@ test("the profile's email choices start at the defaults, persist, and refuse the
   await page.goto("/questboard/profile");
   const section = page.getByTestId("notifications-settings");
   await expect(section).toContainText("once it is confirmed");
+  // The picker speaks to a person (#347): groups, a sentence per row, no catalogue names.
+  await expect(section.getByText("The board", { exact: true })).toBeVisible();
+  await expect(section.getByText("The next gathering changes date")).toBeVisible();
+  await expect(section.getByText("session.moved")).toHaveCount(0);
   await expect(section.locator('input[name="email-session.moved"]')).toBeChecked();
   await expect(section.locator('input[name="email-quest.posted"]')).not.toBeChecked();
   // The chronicle is not offered at all.
@@ -136,6 +140,9 @@ test("the table's channel receives a Discord-shaped message for what the whole t
     await expect(herald).toContainText("no channel");
     await herald.getByRole("button", { name: "Hang a channel" }).click();
     await page.locator('input[name="herald-url"]').fill(hookUrl(rx.port, "/discord"));
+    // The Herald's picker opens on Everything and never shows a catalogue name (#347).
+    await expect(page.getByRole("dialog").locator('input[name="herald-everything"]')).toBeChecked();
+    await expect(page.getByRole("dialog").getByText("session.scheduled")).toHaveCount(0);
     await page.getByRole("button", { name: "Hang it" }).click();
     await expect(herald.getByTestId("herald-url")).toContainText("/discord");
     await expect(herald).toContainText("posting");

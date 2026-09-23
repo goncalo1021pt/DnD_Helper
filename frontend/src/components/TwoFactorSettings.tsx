@@ -3,7 +3,7 @@ import type { CurrentUser } from "../api/client";
 import { useTwofaDisable, useTwofaEnable, useTwofaSetup, type TwofaSetup } from "../hooks";
 import ParchmentModal from "./ui/ParchmentModal";
 
-const PROVIDER_LABEL: Record<string, string> = { discord: "Discord", google: "Google", dev: "the Dev Forge" };
+const PROVIDER_LABEL: Record<string, string> = { discord: "Discord", google: "Google", dev: "Dev Forge" };
 
 type TwofaError = { data?: { error?: string } };
 const errText = (e: unknown, fallback: string) => (e as TwofaError)?.data?.error ?? fallback;
