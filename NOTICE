@@ -24,6 +24,15 @@ self-hosting operators; anyone redistributing this software should satisfy
 themselves that they are content to redistribute it too, and may simply delete
 the file and supply their own sheet at that path instead.
 
+The API reference page (/api/docs) is drawn by RapiDoc, vendored as one
+file at
+
+    frontend/vendor/rapidoc/rapidoc-min.js
+
+Copyright (c) Mrinmoy Majumdar, MIT License; the licences of the libraries
+bundled inside it are in THIRD-PARTY-NOTICES.txt beside it, and the reason it
+is a file rather than a dependency is in the README there.
+
 No other Wizards of the Coast content is included in this repository. Content
 imported at runtime by an operator (homebrew or otherwise) is that operator's
 responsibility and never ships with this software.

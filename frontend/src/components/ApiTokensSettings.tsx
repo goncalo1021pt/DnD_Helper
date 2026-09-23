@@ -81,6 +81,22 @@ const fmtWhen = (iso: string) =>
 type ApiError = { data?: { error?: string } };
 const errText = (e: unknown, fallback: string) => (e as ApiError)?.data?.error ?? fallback;
 
+/*
+ * The door the mint dialog's "try it" curl aims at (#348): the first one the
+ * token's own scopes open, so the example never answers 403. A scope's domain
+ * is what matters — write covers read — and the identity door comes first
+ * when it is held at all.
+ */
+export function firstDoor(scopes: string[]): string {
+  const domains = new Set(scopes.map((s) => s.split(":")[0]));
+  if (domains.has("account")) return "/api/me";
+  if (domains.has("heroes")) return "/api/me/characters";
+  if (domains.has("campaigns")) return "/api/campaigns";
+  if (domains.has("rules")) return "/api/rules/class";
+  if (domains.has("webhooks")) return "/api/me/webhooks";
+  return "/api/me";
+}
+
 export default function ApiTokensSettings({ campaigns }: { campaigns: CampaignMembership[] }) {
   const { data: tokens = [], isPending } = useApiTokens();
   const [minting, setMinting] = useState(false);
@@ -90,7 +106,15 @@ export default function ApiTokensSettings({ campaigns }: { campaigns: CampaignMe
     <div>
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-body text-[13px] text-[#c9b183]">
-          Let a script or an assistant read the codex and your heroes as you, with only the doors you hand it.
+          Let a script or an assistant read the codex and your heroes as you, with only the doors you hand it.{" "}
+          <a
+            href="/api/docs"
+            target="_blank"
+            rel="noreferrer"
+            className="text-ember-bright underline transition hover:text-cream"
+          >
+            How to use a token
+          </a>
         </span>
         <button onClick={() => setMinting(true)} className="btn-base btn-gold clip-octagon ml-auto h-9 px-4 text-[12px]">
           New token
@@ -220,8 +244,22 @@ function MintModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; on
           >
             {created.secret}
           </div>
+          <p className="font-body m-0 mb-2 text-[12px] text-ink-body">
+            Send it as <code className="font-mono">Authorization: Bearer …</code> on every request. Try it from a terminal:
+          </p>
+          <pre
+            className="m-0 mb-3 overflow-x-auto whitespace-pre-wrap break-all rounded-[4px] px-3 py-2 font-mono text-[11px] leading-snug text-ink"
+            style={{ background: "rgba(60,40,15,.06)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.2)" }}
+            data-testid="token-curl"
+          >
+            {`curl -H "Authorization: Bearer ${created.secret}" ${window.location.origin}${firstDoor(created.token.scopes)}`}
+          </pre>
           <p className="font-body m-0 mb-4 text-[12px] text-ink-body">
-            Send it as <code className="font-mono">Authorization: Bearer {created.token.prefix}…</code> on every request.
+            Every door it can open, and what each scope means, is at{" "}
+            <a href="/api/docs" target="_blank" rel="noreferrer" className="underline">
+              /api/docs
+            </a>
+            .
           </p>
           <div className="flex items-center justify-between gap-3">
             <button onClick={copy} className="btn-base h-10 px-4 text-[12px]" style={{ color: "#4a3a24", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.4)" }}>

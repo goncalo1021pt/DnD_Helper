@@ -20,6 +20,7 @@ COPY backend ./
 # ROOT rather than dist/assets, so it needs copying by name here as well as
 # naming in the go:embed directive in internal/static/static.go.
 COPY --from=frontend /app/frontend/dist/index.html ./internal/static/index.html
+COPY --from=frontend /app/frontend/dist/api-docs.html ./internal/static/api-docs.html
 COPY --from=frontend /app/frontend/dist/favicon.svg ./internal/static/favicon.svg
 COPY --from=frontend /app/frontend/dist/assets/ ./internal/static/assets/
 # The version is the git tag, stamped in at build time rather than committed

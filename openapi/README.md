@@ -52,6 +52,9 @@ nothing and cost that proof.
   `$ref: "../openapi.yaml#/components/schemas/Error"`. The index and the small
   shared blocks (`parameters`, `responses`, `securitySchemes`) use plain
   `#/components/...` because for them the root *is* the document.
+- **`info.description` is not authored here** — the bundler splices `docs/API.md`
+  into it (#348), so the reference page at `/api/docs` and GitHub read the same
+  guide. Edit that file; the index carries a one-line pointer.
 - **A path key in a `$ref`** is JSON-Pointer escaped — `/` becomes `~1`, so
   `/campaigns/{campaignId}` is `#/~1campaigns~1{campaignId}`.
 

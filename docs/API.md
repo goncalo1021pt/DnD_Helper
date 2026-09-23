@@ -7,8 +7,11 @@ JSON endpoint under `/api`, described by the OpenAPI contract at
 the same doors the browser does, holding a **token** instead of a cookie.
 
 - Base URL: `https://dnd.fontao.net/api` (a self-hosted stack: `http://<host>:8080/api`)
-- Contract: `openapi.yaml` at the repo root — paste it into any OpenAPI viewer or
-  hand it to the assistant that will be calling
+- Reference: **`/api/docs`** on every Quest Board — this guide, then every
+  endpoint with the scope it needs, read off the contract the server runs
+- Contract: `/api/openapi.yaml` (or `.json`) from the server, `openapi.yaml`
+  at the repo root — paste it into any OpenAPI viewer or hand it to the
+  assistant that will be calling
 - Every response is JSON; refusals carry `{"error": "..."}`
 
 ## Minting a token
@@ -339,6 +342,40 @@ requests against the rate ceiling.
 
 It is not an import. There is a **Download my data** button on the profile,
 under Settings.
+
+## Doors outside the contract
+
+A few doors are mounted by hand rather than generated from the contract, so
+the reference at `/api/docs` cannot list them. A token opens these with the
+scope named:
+
+| Door | Scope | What it is |
+|---|---|---|
+| `GET /api/maps/{mapId}/image?campaignId=…` | `campaigns:read` | the map's picture, fogged for the viewer, with the table as its lens |
+| `GET /api/handouts/{handoutId}/image` | `campaigns:read` | a handout's picture, if the handout reaches you |
+| `GET /api/campaigns/{campaignId}/events/stream` | `campaigns:read` | Server-Sent Events for the table: a topic name per nudge and no payload — refetch what it names |
+| `GET /api/me/events/stream` | `account:read` | the same for your own account: friendships, messages, your seats |
+
+And these answer to no token: `/api/auth/*` (session-only, above),
+`/api/notifications/unsubscribe` (the link in an email is its own proof), and
+`/api/docs`, `/api/openapi.json` and `/api/openapi.yaml` themselves, which
+need no key at all.
+
+## From a script
+
+Two small clients ride in the repo, both reading the token from `QB_TOKEN`
+and the server from `QB_URL` (default `http://localhost:8080`):
+
+- `scripts/api/qb.sh` — a curl wrapper: `qb.sh tour` walks through what the
+  token can see; `qb.sh GET /me/characters` or `qb.sh POST /campaigns/join
+  '{"code":"…"}'` opens any door the reference lists.
+- `scripts/api/quest_board.py` — the same in Python, standard library only: a
+  `QuestBoard` class with `get`/`post`/`put`/`delete`, and a `Refused`
+  exception carrying the server's own words, so a 403 tells you the scope.
+
+Both say plainly what the token cannot read instead of stopping. Staging sits
+behind Cloudflare Access; see the comment at the top of either script for
+the service-token headers that get a script through.
 
 ## Reading it as an assistant
 
