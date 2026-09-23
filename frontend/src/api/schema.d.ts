@@ -491,6 +491,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Everything you own, as one document
+         * @description One read of everything the caller owns (#317): the account, every hero as its sheet reads, every table as it reads to you, your homebrew. Composed from the same doors the app reads through, so veils hold. A token gets only the sections its scopes could read — heroes:read, campaigns:read, rules:read — and the rest are named in `omitted`. Costly: it counts as twenty-five requests against the rate ceiling.
+         */
+        get: operations["exportMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/webhooks": {
         parameters: {
             query?: never;
@@ -4906,6 +4926,66 @@ export interface components {
             /** @description The catalogue names to post; empty means every one the whole table may hear. Whatever is named, the channel only ever receives an event whose audience is the entire table. */
             events: components["schemas"]["EventName"][];
         };
+        /** @description Everything the caller owns, as one document (#317). Built from the same doors the app reads through, so a veil that holds on the screen holds here: a player's table carries what the board shows them, a DM's carries the drafts. A token gets only the sections its scopes could read, and the rest are named in `omitted`. Images are URLs, re-checked on fetch, never bytes. Not an import. */
+        MeExport: {
+            /** @description The shape's version; 1. */
+            exportVersion: number;
+            /** Format: date-time */
+            exportedAt: string;
+            /** @description Sections absent because the token lacks their read scope: heroes (heroes:read), campaigns (campaigns:read), homebrew (rules:read). Empty for a browser. */
+            omitted: ("heroes" | "campaigns" | "homebrew")[];
+            account: components["schemas"]["MeExportAccount"];
+            /** @description Every hero you own, seated or on the shelf, as its sheet reads — stored facts and what the sheet derives. */
+            heroes?: components["schemas"]["MeExportHero"][];
+            /** @description Every table you sit at, as it reads to you. */
+            campaigns?: components["schemas"]["MeExportCampaign"][];
+            homebrew?: components["schemas"]["MeExportHomebrew"];
+        };
+        MeExportAccount: {
+            user: components["schemas"]["User"];
+            friends: components["schemas"]["FriendRoll"];
+            /** @description Your direct conversations, with every message in each. */
+            threads: components["schemas"]["MeExportThread"][];
+        };
+        MeExportThread: {
+            thread: components["schemas"]["DirectThread"];
+            messages: components["schemas"]["Message"][];
+        };
+        MeExportHero: {
+            sheet: components["schemas"]["CharacterDetail"];
+            tree?: components["schemas"]["CharacterTreeState"];
+        };
+        MeExportCampaign: {
+            campaign: components["schemas"]["Campaign"];
+            role: components["schemas"]["Role"];
+            members: components["schemas"]["Member"][];
+            quests: components["schemas"]["Quest"][];
+            locations: components["schemas"]["Location"][];
+            npcs: components["schemas"]["Npc"][];
+            maps: components["schemas"]["MeExportMap"][];
+            handouts: components["schemas"]["MeExportHandout"][];
+            /** @description The whole chronicle as it reads to you, newest first. */
+            chronicle: components["schemas"]["ChronicleEvent"][];
+            parties: components["schemas"]["Party"][];
+            vendors: components["schemas"]["Vendor"][];
+            encounters: components["schemas"]["Encounter"][];
+            bestiary: components["schemas"]["BestiaryEntry"][];
+            trees: components["schemas"]["SkillTree"][];
+            pregens: components["schemas"]["Character"][];
+        };
+        MeExportMap: {
+            map: components["schemas"]["MapDetail"];
+            /** @description Where the picture is — relative to the API, with the table as its lens; the veil is checked again on fetch. */
+            imageUrl: string;
+        };
+        MeExportHandout: {
+            handout: components["schemas"]["Handout"];
+            imageUrl: string;
+        };
+        /** @description Your homebrew, exactly as the pack export gives it. */
+        MeExportHomebrew: {
+            entries: components["schemas"]["PackEntry"][];
+        };
     };
     responses: {
         /** @description Not authenticated */
@@ -5857,6 +5937,27 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    exportMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeExport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     listWebhooks: {

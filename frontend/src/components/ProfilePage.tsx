@@ -16,6 +16,7 @@ import ResetHomebrewModal from "./ResetHomebrewModal";
 import TwoFactorSettings from "./TwoFactorSettings";
 import ApiTokensSettings from "./ApiTokensSettings";
 import WebhooksSettings from "./WebhooksSettings";
+import YourDataSettings from "./YourDataSettings";
 import NotificationsSettings from "./NotificationsSettings";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import ParchmentModal from "./ui/ParchmentModal";
@@ -346,6 +347,10 @@ export default function ProfilePage() {
             <IconBell size={14} /> Webhooks
           </div>
           {me && <WebhooksSettings campaigns={me.campaigns} />}
+          <div className="label-stamp mb-2 mt-6 flex items-center gap-2 text-[11px] tracking-[2px] text-[#9c855e]">
+            <IconBook size={14} /> Your data
+          </div>
+          <YourDataSettings />
         </div>
       </div>
 

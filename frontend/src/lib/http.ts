@@ -40,7 +40,7 @@ const BUDGET_MS = 20_000;
  * connection.
  */
 const HEAVY_BUDGET_MS = 120_000;
-const HEAVY_PATHS = [/\/maps(\/|$|\?)/, /\/handouts(\/|$|\?)/, /\/rules\/(import|export)\b/];
+const HEAVY_PATHS = [/\/maps(\/|$|\?)/, /\/handouts(\/|$|\?)/, /\/rules\/(import|export)\b/, /\/me\/export\b/];
 
 /** Attempts in total, not retries after the first. Fewer than the budget allows. */
 const ATTEMPTS = 3;

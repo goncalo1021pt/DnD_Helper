@@ -208,3 +208,4 @@ export type WebhookFormat = Webhook["format"];
 export type NotificationSettings = paths["/me/notifications"]["get"]["responses"]["200"]["content"]["application/json"];
 export type NotificationSettingsInput = paths["/me/notifications"]["put"]["requestBody"]["content"]["application/json"];
 export type TableChannelInput = paths["/campaigns/{campaignId}/channel"]["put"]["requestBody"]["content"]["application/json"];
+export type MeExport = paths["/me/export"]["get"]["responses"]["200"]["content"]["application/json"];
