@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -20,6 +21,15 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+    // Two pages: the SPA, and the API reference (#348) — a page of its own so
+    // the app's load pays nothing for the viewer. The Go router serves
+    // dist/api-docs.html at /api/docs; in dev, open /api-docs.html on :5173.
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        "api-docs": fileURLToPath(new URL("./api-docs.html", import.meta.url)),
+      },
+    },
   },
   // Unit tests (#125). Node environment on purpose: what is worth testing here
   // is the pure derivation — sheet values, spell slots, progression — and none

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quest Board — The API</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <!--
+      The API reference (#348): a page of its own, built beside the SPA and
+      served by the Go router at /api/docs. It reads the contract the server
+      runs — /api/openapi.json — where every operation opens with the scope a
+      token needs, and the guide at the top is docs/API.md. In dev, open
+      http://localhost:5173/api-docs.html.
+
+      render-style is "focused" — the guide as the landing page, one door at a
+      time on the right — because "read" draws all 202 operations with their
+      schemas open: twelve seconds and nine thousand nodes before the first
+      word, against under two here. load-fonts is off because the page brings
+      its own.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #140b06;
+      }
+      rapi-doc {
+        height: 100%;
+      }
+      rapi-doc::part(section-navbar) {
+        border-right: 1px solid rgba(201, 162, 39, 0.18);
+      }
+      .brand {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 18px 16px 10px;
+        font-family: "Cinzel", Georgia, serif;
+        color: #f3e6c8;
+      }
+      .brand .name {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+      }
+      .brand .sub {
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: #a87f3a;
+      }
+      .brand a {
+        color: inherit;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <rapi-doc
+      spec-url="/api/openapi.json"
+      render-style="focused"
+      layout="row"
+      load-fonts="false"
+      theme="dark"
+      bg-color="#140b06"
+      text-color="#e9dcc0"
+      header-color="#140b06"
+      primary-color="#e0a94e"
+      nav-bg-color="#1c120a"
+      nav-text-color="#cdba93"
+      nav-hover-bg-color="#2e1e10"
+      nav-hover-text-color="#f3e6c8"
+      nav-accent-color="#e0a94e"
+      nav-accent-text-color="#140b06"
+      nav-item-spacing="relaxed"
+      regular-font="Spectral, Georgia, serif"
+      mono-font="ui-monospace, Menlo, Consolas, monospace"
+      font-size="large"
+      show-header="false"
+      show-info="true"
+      info-description-headings-in-navbar="true"
+      allow-try="false"
+      allow-authentication="false"
+      allow-server-selection="false"
+      allow-spec-url-load="false"
+      allow-spec-file-load="false"
+      allow-spec-file-download="false"
+      allow-search="true"
+      allow-advanced-search="false"
+      show-method-in-nav-bar="as-colored-text"
+      use-path-in-nav-bar="true"
+      schema-style="table"
+      default-schema-tab="schema"
+      sort-endpoints-by="path"
+      show-components="false"
+    >
+      <div slot="nav-logo" class="brand">
+        <a href="/"><span class="name">Quest Board</span></a>
+        <span class="sub">The API</span>
+      </div>
+    </rapi-doc>
+    <script type="module" src="/src/api-docs.ts"></script>
+  </body>
+</html>

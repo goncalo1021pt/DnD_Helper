@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-//go:embed all:assets index.html favicon.svg
+//go:embed all:assets index.html favicon.svg api-docs.html
 var files embed.FS
 
 // Handler returns an http.Handler that serves embedded static assets and falls
@@ -57,6 +57,16 @@ func Handler() http.Handler {
 		// SPA fallback: any unknown route renders the app shell.
 		w.Header().Set("Cache-Control", "no-cache")
 		serveFile(w, r, "index.html")
+	})
+}
+
+// Page serves one embedded root file on its own. The API reference (#348) is
+// a second Vite entry, api-docs.html, that the router mounts under /api rather
+// than leaving to the fallback above, which would answer it with the app shell.
+func Page(name string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		serveFile(w, r, name)
 	})
 }
 

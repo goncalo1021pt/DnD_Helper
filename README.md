@@ -24,8 +24,9 @@ login.
   the doors it needs (read the codex, read your heroes, run one table) and
   point a script or an assistant at the same API the app uses; or register a
   **webhook** and have a URL of yours told, signed, when a quest is posted or
-  the session moves — it only ever hears what you could see. See
-  [docs/API.md](docs/API.md).
+  the session moves — it only ever hears what you could see. The guide is
+  [docs/API.md](docs/API.md), served with the full endpoint reference at
+  `/api/docs` on every Quest Board.
 - **Your data, as one document** — one read of everything you own: your
   heroes as their sheets read, every table as it reads to you, your homebrew,
   your account. Veils hold, images are links, and a token sees only what its
