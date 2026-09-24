@@ -11,8 +11,10 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
+    // A regex key, not the "/api" prefix: a prefix also swallows
+    // /api-docs.html, the API reference's dev page, and proxies it to Go.
     proxy: {
-      "/api": {
+      "^/api(/|$)": {
         target: "http://localhost:8080",
         changeOrigin: false,
       },
