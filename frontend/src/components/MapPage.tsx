@@ -113,6 +113,27 @@ export default function MapPage() {
   // A line needs two points to go anywhere, a region three to enclose any.
   const drawEnough = drawPoints.length >= (drawKind === "area" ? 3 : 2);
 
+  /*
+  One tool at a time, and while it is held nothing else answers (#312).
+
+  The viewer leaves a press on a pin or a shape to the pin or the shape, so
+  that their own click survives. With a tool in hand that is exactly wrong: a
+  DM stamping the fog off a city was handed the city's menu, and the stamp
+  never landed. So while any tool is active a pin is ground (`passive`) and a
+  shape is ink (no `onOpen`) — the press falls through, the viewer resolves the
+  tap, and the tool does what it was picked up to do.
+
+  The one exception is drawing: a road is drawn *between* cities, so a tap on
+  a pin mid-run lays the point on the pin's own spot rather than wherever the
+  finger landed on its label. That is the tap the DM was making anyway, done
+  precisely.
+  */
+  const toolActive = dropMode || stampMode || drawKind !== null;
+
+  function snapDrawTo(pin: MapPin) {
+    setDrawPoints((pts) => [...pts, { x: pin.x, y: pin.y }]);
+  }
+
   // What a tap means is the page's business, not the viewer's: the viewer only
   // says that one happened, and where on the map it landed.
   const {
@@ -262,6 +283,7 @@ export default function MapPage() {
                   onClick={() => {
                     setDropMode((d) => !d);
                     setStampMode(false);
+                    stopDrawing();
                   }}
                   className={`btn-base ${dropMode ? "btn-wax" : "btn-ghost-gold"} px-4 py-2.5 text-[11px]`}
                 >
@@ -304,6 +326,7 @@ export default function MapPage() {
                     onClick={() => {
                       setStampMode((s) => !s);
                       setDropMode(false);
+                      stopDrawing();
                     }}
                     className={`btn-base ${stampMode ? "btn-wax" : "btn-ghost-gold"} px-4 py-2.5 text-[11px]`}
                   >
@@ -381,7 +404,7 @@ export default function MapPage() {
             background: "#0d0803",
             boxShadow: "inset 0 0 0 1px rgba(201,162,39,.28), inset 0 0 60px rgba(0,0,0,.7)",
             touchAction: "none",
-            cursor: dropMode || stampMode ? "crosshair" : "grab",
+            cursor: toolActive ? "crosshair" : "grab",
           }}
         >
           {/* First-glance answer to "is the map broken?" — black ground is
@@ -437,14 +460,20 @@ export default function MapPage() {
               width={map.width}
               height={map.height}
               onOpen={
-                isDM && !drawKind
+                isDM && !toolActive
                   ? (shape: MapShape) =>
                       setShapeDraft({ kind: shape.kind, points: shape.points, existing: shape })
                   : undefined
               }
             />
             {(detail?.pins ?? []).map((p) => (
-              <PinMarker key={p.id} pin={p} scale={view.scale} onOpen={setOpenPin} />
+              <PinMarker
+                key={p.id}
+                pin={p}
+                scale={view.scale}
+                passive={dropMode || stampMode}
+                onOpen={drawKind ? snapDrawTo : setOpenPin}
+              />
             ))}
           </div>
 

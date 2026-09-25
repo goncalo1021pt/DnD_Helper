@@ -30,6 +30,43 @@ export function shapePath(points: MapPoint[], close: boolean, w: number, h: numb
   return close ? `${d} Z` : d;
 }
 
+/**
+ * Where a road's name goes: along its longest straight leg (#312).
+ *
+ * A name used to ride the road as text on a path, and text on a path reads the
+ * path's own way and bends at every vertex — a road laid east to west carried
+ * its name upside down, and one drawn with three taps carried "te" on one leg
+ * and "ste 5" down the next. These roads are polylines with sharp corners,
+ * never curves, so following them buys nothing. Paper maps letter a road along
+ * its straightest stretch instead: the name is one straight label, centred on
+ * the longest leg and turned to its angle, and it always reads left to right —
+ * a leg that runs west is lettered from its far end, and a vertical one reads
+ * bottom to top like a book's spine, whichever way it was drawn.
+ */
+export function namePlacement(
+  points: MapPoint[],
+  w: number,
+  h: number,
+): { x: number; y: number; angle: number } | null {
+  if (points.length < 2) return null;
+  let at = 1;
+  let longest = -1;
+  for (let i = 1; i < points.length; i++) {
+    const len = Math.hypot((points[i].x - points[i - 1].x) * w, (points[i].y - points[i - 1].y) * h);
+    if (len > longest) {
+      longest = len;
+      at = i;
+    }
+  }
+  const a = points[at - 1];
+  const b = points[at];
+  let angle = (Math.atan2((b.y - a.y) * h, (b.x - a.x) * w) * 180) / Math.PI;
+  // Into [-90, 90): left to right, and straight up rather than straight down.
+  if (angle >= 90) angle -= 180;
+  else if (angle < -90) angle += 180;
+  return { x: ((a.x + b.x) / 2) * w, y: ((a.y + b.y) / 2) * h, angle };
+}
+
 /** Where a region's name sits: the centroid of its corners, near enough. */
 function centroid(points: MapPoint[], w: number, h: number) {
   const sx = points.reduce((a, p) => a + p.x, 0) / points.length;
@@ -39,14 +76,11 @@ function centroid(points: MapPoint[], w: number, h: number) {
 
 function ShapeMark({
   shape,
-  runKey,
   width,
   height,
   onOpen,
 }: {
   shape: MapShape;
-  /** Which run of a clipped road this is — its id alone is not unique. */
-  runKey: number;
   width: number;
   height: number;
   onOpen?: (shape: MapShape) => void;
@@ -58,6 +92,7 @@ function ShapeMark({
   const dash = shape.dashed ? `${stroke * 2.5} ${stroke * 2}` : undefined;
   const d = shapePath(shape.points, area, width, height);
   const label = shape.label || shape.locationName;
+  const place = area ? null : namePlacement(shape.points, width, height);
 
   return (
     <g
@@ -114,15 +149,17 @@ function ShapeMark({
             {label}
           </text>
         ) : (
-          // A road's name follows the road. It was stored and never drawn
-          // before, which made naming one pointless — and a straight caption
-          // beside a winding track reads as a different thing entirely.
-          <>
-            <defs>
-              <path id={`shape-path-${shape.id}-${runKey}`} d={d} />
-            </defs>
+          // A road's name sits along its longest straight leg, above it, turned
+          // to its angle. It was stored and never drawn before #262, which made
+          // naming one pointless; and a straight caption beside a winding track
+          // reads as a different thing, which is why it is *on* the leg.
+          place && (
             <text
-              dy={-stroke * 1.1}
+              data-road-name={label}
+              x={place.x}
+              y={place.y - stroke * 1.1}
+              transform={`rotate(${place.angle} ${place.x} ${place.y})`}
+              textAnchor="middle"
               fontSize={Math.max(width * 0.013, 9)}
               fill="#f3e6c8"
               stroke="rgba(16,9,5,.8)"
@@ -134,11 +171,9 @@ function ShapeMark({
                 ...(onOpen ? { pointerEvents: "auto" as const, cursor: "pointer" } : {}),
               }}
             >
-              <textPath href={`#shape-path-${shape.id}-${runKey}`} startOffset="50%" textAnchor="middle">
-                {label}
-              </textPath>
+              {label}
             </text>
-          </>
+          )
         ))}
     </g>
   );
@@ -176,7 +211,6 @@ export function ShapeLayer({
         <ShapeMark
           key={`${s.id}-${i}`}
           shape={s}
-          runKey={i}
           width={width}
           height={height}
           onOpen={onOpen}
