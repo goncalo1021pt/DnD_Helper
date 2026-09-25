@@ -329,3 +329,148 @@ test("a road answers a press, a region is still ground, and both can be rubbed o
     .poll(async () => (await shapesOf(page.request, mapId, campaign.id)).map((s) => s.label))
     .toEqual(["Barovia"]);
 });
+
+/*
+A tool in hand, and a city under it (#312).
+
+Pins used to answer a press whatever the DM was doing: lifting the fog off a
+town opened the town's menu instead of stamping it, and a road meant to run
+between two cities stopped dead at the first one's popover. Shapes had the same
+hole under the fog brush. Now a held tool owns the press — a pin is ground while
+stamping or dropping, and while drawing it is a waypoint: the point snaps to the
+pin's own spot, which is what "from Vallaki to Krezk" means.
+*/
+test("with a tool in hand a pin is ground, and a road drawn through a city snaps to it (#312)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("dmtool"));
+  const campaign = await createCampaign(page.request, unique("Waypoint "));
+  const mapId = await hangMap(page, campaign.id, true);
+
+  const pinned = await page.request.post(`/api/maps/${mapId}/pins?campaignId=${campaign.id}`, {
+    data: { label: "Vallaki", x: 0.5, y: 0.5 },
+  });
+  expect(pinned.ok(), await pinned.text()).toBeTruthy();
+
+  await page.goto(`/questboard/campaigns/${campaign.id}/map/${mapId}`);
+  await expect(page.getByRole("button", { name: /Draw/ })).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(1200);
+
+  const box = (await page.locator("[data-pin-id]").boundingBox())!;
+  const at = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const popover = page.getByRole("heading", { name: "Vallaki" });
+
+  // With nothing in hand, the pin is the door it always was.
+  await page.mouse.click(at.x, at.y);
+  await expect(popover).toBeVisible();
+  // The parchment has two ways out — the corner cross, titled Close, and the
+  // word itself — so the role alone is ambiguous; the word is not.
+  await page.getByText("Close", { exact: true }).click();
+  await expect(popover).toHaveCount(0);
+
+  // Lifting the fog: the stamp lands on the city, and the city keeps quiet.
+  await page.getByRole("button", { name: /Lift the fog/ }).click();
+  await expect(page.getByText(/Tap to stamp a reveal/)).toBeVisible();
+  await page.mouse.click(at.x, at.y);
+  await expect(page.getByText("1 stamped")).toBeVisible();
+  await expect(popover).toHaveCount(0);
+
+  // Drawing a road: the first tap is on the city, and the point is the city's.
+  await page.getByRole("button", { name: /Draw/ }).click();
+  await page.getByRole("button", { name: "A road" }).click();
+  await expect(page.getByText("Tap along the road")).toBeVisible();
+  await page.mouse.click(at.x, at.y);
+  await expect(page.getByText("1 point")).toBeVisible();
+  await expect(popover).toHaveCount(0);
+  await page.mouse.click(at.x + 160, at.y);
+  await expect(page.getByText("2 points")).toBeVisible();
+  await page.getByRole("button", { name: "Finish" }).click();
+  await page.getByRole("button", { name: "Draw the road" }).click();
+
+  await expect
+    .poll(async () => (await shapesOf(page.request, mapId, campaign.id)).length, { timeout: 15_000 })
+    .toBe(1);
+  const [road] = await shapesOf(page.request, mapId, campaign.id);
+  // Snapped: the pin's own fractions, not the marker's centre — which sits a
+  // good twenty pixels above the spot the teardrop hangs from.
+  expect(road.points[0].x).toBeCloseTo(0.5, 2);
+  expect(road.points[0].y).toBeCloseTo(0.5, 2);
+  expect(road.points[1].x).toBeGreaterThan(road.points[0].x + 0.05);
+});
+
+/*
+A road's name sits on its longest straight leg and reads left to right (#312).
+
+The name used to ride the road as text on a path, which reads the path's own
+way and bends at every vertex: a road laid east to west carried its name upside
+down, and one drawn with three taps split its name across the corner. Now the
+name is one straight label on the longest leg, turned to that leg's angle and
+never past a right angle — so it reads left to right whichever way the road was
+laid, and the road itself keeps the order it was drawn in.
+*/
+test("a road's name sits on its longest leg and reads left to right (#312)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("dmsign"));
+  const campaign = await createCampaign(page.request, unique("Signpost "));
+  const mapId = await hangMap(page, campaign.id, false);
+
+  const lay = (label: string, points: { x: number; y: number }[]) =>
+    page.request.post(`/api/maps/${mapId}/shapes?campaignId=${campaign.id}`, {
+      data: { kind: "line", label, points, color: "#c96a5a" },
+    });
+  // Laid east to west with a dog-leg at each end: the long middle leg runs
+  // westward, and that is where the name belongs — read the right way round.
+  const westward = await lay("The Coast Road", [
+    { x: 0.9, y: 0.2 },
+    { x: 0.8, y: 0.5 },
+    { x: 0.2, y: 0.5 },
+    { x: 0.1, y: 0.8 },
+  ]);
+  expect(westward.ok(), await westward.text()).toBeTruthy();
+  // Laid west to east, gently downhill — kept exactly as drawn.
+  const eastward = await lay("The King's Way", [
+    { x: 0.1, y: 0.2 },
+    { x: 0.9, y: 0.3 },
+  ]);
+  expect(eastward.ok(), await eastward.text()).toBeTruthy();
+
+  await page.goto(`/questboard/campaigns/${campaign.id}/map/${mapId}`);
+  await expect(page.getByRole("button", { name: /Draw/ })).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("text[data-road-name]")).toHaveCount(2);
+
+  // Where each name turns, as fractions of the image, and by how much.
+  const names = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("text[data-road-name]")).map((t) => {
+      const m = /rotate\((-?[\d.]+) ([\d.]+) ([\d.]+)\)/.exec(t.getAttribute("transform")!)!;
+      const sheet = t.closest("svg") as SVGSVGElement;
+      return {
+        name: t.textContent,
+        angle: Number(m[1]),
+        x: Number(m[2]) / sheet.viewBox.baseVal.width,
+        y: Number(m[3]) / sheet.viewBox.baseVal.height,
+      };
+    }),
+  );
+  const coast = names.find((n) => n.name === "The Coast Road")!;
+  const kings = names.find((n) => n.name === "The King's Way")!;
+  // On the middle of the long leg, not the middle of the run — and level,
+  // not turned on its head, though that leg was drawn heading west.
+  expect(coast.x).toBeCloseTo(0.5, 2);
+  expect(coast.y).toBeCloseTo(0.5, 2);
+  expect(coast.angle).toBeCloseTo(0, 1);
+  // Along the one leg there is, tilted with it.
+  expect(kings.x).toBeCloseTo(0.5, 2);
+  expect(kings.y).toBeCloseTo(0.25, 2);
+  expect(kings.angle).toBeGreaterThan(0);
+  expect(kings.angle).toBeLessThan(10);
+
+  // The road itself still runs the way it was laid: the stored points are
+  // untouched, this is a matter of how the name is painted.
+  const [stored] = (await shapesOf(page.request, mapId, campaign.id)).filter(
+    (s) => s.label === "The Coast Road",
+  );
+  expect(stored.points[0].x).toBeCloseTo(0.9, 2);
+});

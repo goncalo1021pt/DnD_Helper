@@ -46,15 +46,23 @@ function Marker({ shape, size, color }: { shape: PinShape; size: number; color: 
 
 /* One pin marker on the canvas, counter-scaled to stay a constant size.
  * Clicks are its own affair — the canvas never captures a press that starts
- * on a pin, so the native click survives. */
+ * on a pin, so the native click survives.
+ *
+ * Unless the pin is `passive` (#312): then it is ground like any other, the
+ * press falls straight through to the map, and whatever tool the DM is holding
+ * answers where they aimed. A DM lifting the fog off a city, or dropping a pin
+ * beside one, must not be handed that city's menu instead. */
 export function PinMarker({
   pin,
   scale,
   onOpen,
+  passive = false,
 }: {
   pin: MapPin;
   scale: number;
   onOpen: (pin: MapPin) => void;
+  /** Answer nothing: the press belongs to the tool under it, not to the pin. */
+  passive?: boolean;
 }) {
   const region = !!pin.linkMapId;
   const shape: PinShape = pin.shape ?? "pin";
@@ -65,17 +73,24 @@ export function PinMarker({
   return (
     <div
       data-pin-id={pin.id}
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen(pin);
-      }}
-      className="absolute cursor-pointer"
+      onClick={
+        passive
+          ? undefined
+          : (e) => {
+              e.stopPropagation();
+              onOpen(pin);
+            }
+      }
+      className={passive ? "absolute" : "absolute cursor-pointer"}
       style={{
         left: `${pin.x * 100}%`,
         top: `${pin.y * 100}%`,
         transform: `${anchor} scale(${1 / scale})`,
         transformOrigin: shape === "pin" ? "50% 100%" : "50% 50%",
         opacity: pin.dmOnly ? 0.65 : 1,
+        // Transparent to the pointer, so the viewer never sees a press on a
+        // pin at all: the target is the ground, and the tap lands there.
+        pointerEvents: passive ? "none" : undefined,
       }}
     >
       <div className="flex flex-col items-center">
