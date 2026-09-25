@@ -11,11 +11,14 @@ import {
   useLocations,
   useMapDetail,
   useMaps,
+  useNpcs,
+  useQuests,
   useSetRevealLocation,
   useParties,
   useSubmitReveals,
   useUpdateMap,
   useUpdateMapPin,
+  useVendors,
 } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 import ParchmentModal from "./ui/ParchmentModal";
@@ -25,6 +28,9 @@ import { FogCanvas, revealSig } from "./map/FogCanvas";
 import { HangMapForm } from "./map/HangMapForm";
 import { InkworkModal } from "./map/InkworkModal";
 import { PinForm } from "./map/PinForm";
+
+/** Detaches a place on the wire, as everywhere else in this API. */
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 import { PinMarker } from "./map/PinMarker";
 import { ShapeForm, type ShapeDraft } from "./map/ShapeForm";
 import { ShapeLayer } from "./map/ShapeLayer";
@@ -66,6 +72,24 @@ export default function MapPage() {
   // rather than to the whole table (#191). DM-only: the picker never renders
   // for a player, and this is the same list the quest board already loads.
   const { data: locations } = useLocations(campaign.id);
+
+  // What stands behind a pin's place (#312): the same lists the place page
+  // reads — already veiled for this viewer — counted here rather than fetched
+  // anew, so the popover can say "3 folk · 1 shop" before it offers the door.
+  const { data: npcs } = useNpcs(campaign.id);
+  const { data: vendors } = useVendors(campaign.id);
+  const { data: quests } = useQuests(campaign.id);
+  function placeSummary(locationId: string): string {
+    const tally = (n: number, one: string, many: string) =>
+      n > 0 ? `${n} ${n === 1 ? one : many}` : "";
+    return [
+      tally((npcs ?? []).filter((n) => n.locationId === locationId).length, "folk", "folk"),
+      tally((vendors ?? []).filter((v) => v.locationId === locationId).length, "shop", "shops"),
+      tally((quests ?? []).filter((q) => q.locationId === locationId).length, "notice", "notices"),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
 
   const draftState = useRevealDraft();
   const {
@@ -643,6 +667,28 @@ export default function MapPage() {
               {openPin.note}
             </p>
           )}
+          {/* A pin that names a place is a door to it (#312): what stands
+              there, then the way in. A player only ever holds this pin once
+              they know the place, so the door always opens. */}
+          {openPin.locationId && (
+            <div className="mb-2 flex flex-col items-center gap-2">
+              {placeSummary(openPin.locationId) && (
+                <span className="label-stamp text-[10px] tracking-[2px] text-ink-label">
+                  {placeSummary(openPin.locationId)}
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  const id = openPin.locationId!;
+                  setOpenPin(null);
+                  navigate(`/questboard/campaigns/${campaign.id}/world/${id}`);
+                }}
+                className="btn-base btn-gold clip-octagon flex h-11 px-6 text-[13px]"
+              >
+                Open {openPin.locationName ?? "the place"} →
+              </button>
+            </div>
+          )}
           {openPin.linkMapId && byId.get(openPin.linkMapId) && (
             <button
               onClick={() => {
@@ -700,8 +746,9 @@ export default function MapPage() {
             Drop a Pin
           </h3>
           <PinForm
-            initial={{ label: "", note: "", dmOnly: false, linkMapId: "", shape: "pin" }}
+            initial={{ label: "", note: "", dmOnly: false, linkMapId: "", locationId: "", shape: "pin" }}
             maps={maps ?? []}
+            locations={locations ?? []}
             currentMapId={map.id}
             isPending={createPin.isPending}
             errorText={createPin.isError ? apiError(createPin.error) : undefined}
@@ -716,6 +763,7 @@ export default function MapPage() {
                   dmOnly: v.dmOnly,
                   shape: v.shape,
                   ...(v.linkMapId ? { linkMapId: v.linkMapId } : {}),
+                  locationId: v.locationId || NIL_UUID,
                 },
                 {
                   onSuccess: () => {
@@ -744,9 +792,11 @@ export default function MapPage() {
               note: editingPin.note,
               dmOnly: editingPin.dmOnly,
               linkMapId: editingPin.linkMapId ?? "",
+              locationId: editingPin.locationId ?? "",
               shape: editingPin.shape ?? "pin",
             }}
             maps={maps ?? []}
+            locations={locations ?? []}
             currentMapId={map.id}
             isPending={updatePin.isPending}
             errorText={updatePin.isError ? apiError(updatePin.error) : undefined}
@@ -763,6 +813,7 @@ export default function MapPage() {
                     dmOnly: v.dmOnly,
                     shape: v.shape,
                     ...(v.linkMapId ? { linkMapId: v.linkMapId } : {}),
+                    locationId: v.locationId || NIL_UUID,
                   },
                 },
                 { onSuccess: () => setEditingPin(null) },

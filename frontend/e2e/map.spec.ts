@@ -630,3 +630,43 @@ test("scrolling the wheel over a freshly-loaded map zooms it, not the page (#292
   await expect.poll(scaleOf).toBeGreaterThan(before);
   expect(await page.evaluate(() => window.scrollY), "the page must not scroll").toBe(0);
 });
+
+/*
+A pin that names a place is a door to it (#312): the DM picks the place on the
+pin form, and pressing the pin offers to open the place's page. Driven through
+the real form and the real press, since the door is the part a person uses.
+*/
+test("a pin that names a place opens it (#312)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("pindoor"));
+  const campaign = await createCampaign(page.request, unique("Doorway "));
+  const vallaki = await createLocation(page.request, campaign.id, "Vallaki");
+
+  const res = await page.request.post(`/api/campaigns/${campaign.id}/maps`, {
+    data: { name: "Barovia", imageBase64: await twoTonePng(page), visibleToParty: true },
+  });
+  expect(res.ok(), await res.text()).toBeTruthy();
+
+  await page.goto(`/questboard/campaigns/${campaign.id}/map`);
+  const canvas = page.locator("img[alt='Barovia']");
+  await expect(canvas).toBeVisible({ timeout: 20_000 });
+  await page.waitForTimeout(800);
+
+  await page.getByRole("button", { name: "Drop a pin" }).click();
+  const box = (await canvas.boundingBox())!;
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.getByPlaceholder("The Sleeping Giant Inn").fill("The walled town");
+  await page.getByLabel("A place it stands for").selectOption({ label: "Vallaki" });
+  await page.getByRole("button", { name: "Pin it" }).click();
+  await expect(page.locator("[data-pin-id]")).toHaveCount(1, { timeout: 20_000 });
+  await page.waitForTimeout(400);
+
+  const pin = (await page.locator("[data-pin-id]").boundingBox())!;
+  await page.mouse.click(pin.x + pin.width / 2, pin.y + pin.height / 2);
+  await expect(page.getByRole("heading", { name: "The walled town" })).toBeVisible();
+  await page.getByRole("button", { name: /Open Vallaki/ }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/world/${vallaki}$`));
+  await expect(page.getByRole("heading", { name: "Vallaki" })).toBeVisible();
+});

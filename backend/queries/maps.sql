@@ -52,8 +52,8 @@ RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created
 DELETE FROM maps WHERE id = $1;
 
 -- name: CreateMapPin :one
-INSERT INTO map_pins (map_id, label, note, x, y, dm_only, link_map_id, shape)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO map_pins (map_id, label, note, x, y, dm_only, link_map_id, shape, location_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: ListMapPins :many
@@ -70,7 +70,8 @@ WHERE p.id = sqlc.arg(pin_id) AND c.id = sqlc.arg(campaign_id);
 
 -- name: UpdateMapPin :one
 UPDATE map_pins
-SET label = $2, note = $3, x = $4, y = $5, dm_only = $6, link_map_id = $7, shape = $8
+SET label = $2, note = $3, x = $4, y = $5, dm_only = $6, link_map_id = $7, shape = $8,
+    location_id = $9
 WHERE id = $1
 RETURNING *;
 

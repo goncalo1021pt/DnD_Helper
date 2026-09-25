@@ -171,8 +171,8 @@ func (s *Server) validateShapeInput(ctx context.Context, campaignID uuid.UUID, b
 	}, "", nil
 }
 
-// shapeName reads the place a shape stands for, for the payload's label.
-func (s *Server) shapeName(ctx context.Context, id pgtype.UUID) *string {
+// placeName reads the place a shape or a pin stands for, for the payload's label.
+func (s *Server) placeName(ctx context.Context, id pgtype.UUID) *string {
 	if !id.Valid {
 		return nil
 	}
@@ -247,18 +247,18 @@ func (s *Server) shapesFor(ctx context.Context, mapID uuid.UUID, isDM bool, aspe
 	for _, row := range rows {
 		pts := decodePoints(row.Points)
 		if isDM {
-			out = append(out, toAPIShape(row, s.shapeName(ctx, row.LocationID), pts))
+			out = append(out, toAPIShape(row, s.placeName(ctx, row.LocationID), pts))
 			continue
 		}
 		if row.DmOnly {
 			continue
 		}
 		if !fogged {
-			out = append(out, toAPIShape(row, s.shapeName(ctx, row.LocationID), pts))
+			out = append(out, toAPIShape(row, s.placeName(ctx, row.LocationID), pts))
 			continue
 		}
 		for _, run := range clipShape(row.Kind, pts, seen) {
-			out = append(out, toAPIShape(row, s.shapeName(ctx, row.LocationID), run))
+			out = append(out, toAPIShape(row, s.placeName(ctx, row.LocationID), run))
 		}
 	}
 	return out, nil
@@ -309,7 +309,7 @@ func (s *Server) CreateMapShape(ctx context.Context, request api.CreateMapShapeR
 	}
 	s.publishRealm(ctx, meta.RealmID, live.TopicMap)
 	return api.CreateMapShape201JSONResponse(
-		toAPIShape(row, s.shapeName(ctx, row.LocationID), decodePoints(row.Points))), nil
+		toAPIShape(row, s.placeName(ctx, row.LocationID), decodePoints(row.Points))), nil
 }
 
 func (s *Server) UpdateMapShape(ctx context.Context, request api.UpdateMapShapeRequestObject) (api.UpdateMapShapeResponseObject, error) {
@@ -349,7 +349,7 @@ func (s *Server) UpdateMapShape(ctx context.Context, request api.UpdateMapShapeR
 	}
 	s.publishRealm(ctx, current.RealmID, live.TopicMap)
 	return api.UpdateMapShape200JSONResponse(
-		toAPIShape(row, s.shapeName(ctx, row.LocationID), decodePoints(row.Points))), nil
+		toAPIShape(row, s.placeName(ctx, row.LocationID), decodePoints(row.Points))), nil
 }
 
 func (s *Server) DeleteMapShape(ctx context.Context, request api.DeleteMapShapeRequestObject) (api.DeleteMapShapeResponseObject, error) {

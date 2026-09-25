@@ -3743,6 +3743,12 @@ export interface components {
              * @description When set, this pin is a region marker leading into that sub-map.
              */
             linkMapId?: string | null;
+            /**
+             * Format: uuid
+             * @description The place this pin stands for, if any (#312): the marker is then a door to that place's page. A player never receives a pin naming a place they may not know of — it goes with the place, as a marker into a veiled map goes with the map (#276).
+             */
+            locationId?: string | null;
+            locationName?: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -3895,6 +3901,11 @@ export interface components {
             shape?: "pin" | "circle" | "square" | "diamond" | "triangle" | "star" | "cross" | "skull";
             /** Format: uuid */
             linkMapId?: string | null;
+            /**
+             * Format: uuid
+             * @description The nil UUID detaches the place, as everywhere else in this API.
+             */
+            locationId?: string | null;
         };
         Encounter: {
             /** Format: uuid */

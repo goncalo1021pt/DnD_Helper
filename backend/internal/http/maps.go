@@ -92,7 +92,7 @@ func toAPIMap(m mapRow, forDM bool, overrides []api.VisibilityOverride) api.Camp
 	return out
 }
 
-func toAPIPin(p db.MapPin) api.MapPin {
+func toAPIPin(p db.MapPin, placeName *string) api.MapPin {
 	out := api.MapPin{
 		Id:        p.ID,
 		MapId:     p.MapID,
@@ -107,6 +107,11 @@ func toAPIPin(p db.MapPin) api.MapPin {
 	if p.LinkMapID.Valid {
 		id := uuid.UUID(p.LinkMapID.Bytes)
 		out.LinkMapId = &id
+	}
+	if p.LocationID.Valid {
+		id := uuid.UUID(p.LocationID.Bytes)
+		out.LocationId = &id
+		out.LocationName = placeName
 	}
 	return out
 }
@@ -389,6 +394,16 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 		}
 	}
 
+	// A pin naming a place this viewer may not know of is that place's name
+	// in their hand (#312), so it goes with the place: the veil resolved
+	// through their own heroes, ancestors included, as the board resolves it.
+	namesSomewhereVeiled := func(p db.MapPin) bool {
+		if isDM || !p.LocationID.Valid {
+			return false
+		}
+		return !viewer.places.locationVisibleToAny(uuid.UUID(p.LocationID.Bytes), viewer.charIDs)
+	}
+
 	outPins := make([]api.MapPin, 0, len(pins))
 	for _, p := range pins {
 		if !isDM {
@@ -398,11 +413,11 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 			if meta.FogEnabled && !inRevealed(p) {
 				continue
 			}
-			if leadsSomewhereVeiled(p) {
+			if leadsSomewhereVeiled(p) || namesSomewhereVeiled(p) {
 				continue
 			}
 		}
-		outPins = append(outPins, toAPIPin(p))
+		outPins = append(outPins, toAPIPin(p, s.placeName(ctx, p.LocationID)))
 	}
 	// Roads and regions ride the same veil the pins do (#262): absent when
 	// DM-only, and a line clipped to the stretches this viewer has uncovered.
@@ -545,34 +560,56 @@ func pinShapeOf(v *api.MapPinInputShape) (string, bool) {
 }
 
 // validatePinInput normalizes and checks a pin body against its map.
-func (s *Server) validatePinInput(ctx context.Context, realmID uuid.UUID, body *api.MapPinInput) (label, note string, link pgtype.UUID, errMsg string, err error) {
-	label = strings.TrimSpace(body.Label)
-	if label == "" {
-		return "", "", pgtype.UUID{}, "the pin needs a label", nil
+// pinFields is what a pin input validates into: the same for a drop and an
+// amendment, so neither can accept something the other refuses.
+type pinFields struct {
+	label, note string
+	link, place pgtype.UUID
+}
+
+func (s *Server) validatePinInput(ctx context.Context, realmID, campaignID uuid.UUID, body *api.MapPinInput) (f pinFields, errMsg string, err error) {
+	f.label = strings.TrimSpace(body.Label)
+	if f.label == "" {
+		return f, "the pin needs a label", nil
 	}
 	if body.X < 0 || body.X > 1 || body.Y < 0 || body.Y > 1 {
-		return "", "", pgtype.UUID{}, "pin coordinates are fractions of the map, 0 to 1", nil
+		return f, "pin coordinates are fractions of the map, 0 to 1", nil
 	}
 	if body.Note != nil {
-		note = strings.TrimSpace(*body.Note)
+		f.note = strings.TrimSpace(*body.Note)
 	}
 	if _, ok := pinShapeOf(body.Shape); !ok {
-		return "", "", pgtype.UUID{}, "that is not a marker this map knows", nil
+		return f, "that is not a marker this map knows", nil
 	}
 	if body.LinkMapId != nil {
 		target, err := s.queries.GetMapMeta(ctx, *body.LinkMapId)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return "", "", pgtype.UUID{}, "linked map not found", nil
+				return f, "linked map not found", nil
 			}
-			return "", "", pgtype.UUID{}, "", err
+			return f, "", err
 		}
 		if target.RealmID != realmID {
-			return "", "", pgtype.UUID{}, "linked map belongs to another realm", nil
+			return f, "linked map belongs to another realm", nil
 		}
-		link = pgUUID(*body.LinkMapId)
+		f.link = pgUUID(*body.LinkMapId)
 	}
-	return label, note, link, "", nil
+	// The place a pin stands for (#312), resolved through this campaign's
+	// lens exactly as a shape's is: a place off the realm is no row at all,
+	// and the nil UUID detaches.
+	if body.LocationId != nil && uuid.UUID(*body.LocationId) != uuid.Nil {
+		loc, err := s.queries.GetLocationForCampaign(ctx, db.GetLocationForCampaignParams{
+			LocationID: uuid.UUID(*body.LocationId), CampaignID: campaignID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return f, "that place is not one of this campaign's", nil
+			}
+			return f, "", err
+		}
+		f.place = pgUUID(loc.ID)
+	}
+	return f, "", nil
 }
 
 // CreateMapPin drops a pin on a map (DM only).
@@ -593,7 +630,7 @@ func (s *Server) CreateMapPin(ctx context.Context, request api.CreateMapPinReque
 		}
 		return nil, err
 	}
-	label, note, link, errMsg, err := s.validatePinInput(ctx, meta.RealmID, request.Body)
+	f, errMsg, err := s.validatePinInput(ctx, meta.RealmID, meta.CampaignID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -601,20 +638,21 @@ func (s *Server) CreateMapPin(ctx context.Context, request api.CreateMapPinReque
 		return api.CreateMapPin400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errMsg}}, nil
 	}
 	pin, err := s.queries.CreateMapPin(ctx, db.CreateMapPinParams{
-		MapID:     request.MapId,
-		Label:     label,
-		Note:      note,
-		X:         float64(request.Body.X),
-		Y:         float64(request.Body.Y),
-		DmOnly:    request.Body.DmOnly != nil && *request.Body.DmOnly,
-		LinkMapID: link,
-		Shape:     mustPinShape(request.Body.Shape),
+		MapID:      request.MapId,
+		Label:      f.label,
+		Note:       f.note,
+		X:          float64(request.Body.X),
+		Y:          float64(request.Body.Y),
+		DmOnly:     request.Body.DmOnly != nil && *request.Body.DmOnly,
+		LinkMapID:  f.link,
+		Shape:      mustPinShape(request.Body.Shape),
+		LocationID: f.place,
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.publishRealm(ctx, meta.RealmID, live.TopicMap)
-	return api.CreateMapPin201JSONResponse(toAPIPin(pin)), nil
+	return api.CreateMapPin201JSONResponse(toAPIPin(pin, s.placeName(ctx, pin.LocationID))), nil
 }
 
 // UpdateMapPin moves or rewords a pin (DM only).
@@ -638,7 +676,7 @@ func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinReque
 		}
 		return nil, err
 	}
-	label, note, link, errMsg, err := s.validatePinInput(ctx, row.RealmID, request.Body)
+	f, errMsg, err := s.validatePinInput(ctx, row.RealmID, lensID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -646,20 +684,21 @@ func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinReque
 		return api.UpdateMapPin400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: errMsg}}, nil
 	}
 	pin, err := s.queries.UpdateMapPin(ctx, db.UpdateMapPinParams{
-		ID:        request.PinId,
-		Label:     label,
-		Note:      note,
-		X:         float64(request.Body.X),
-		Y:         float64(request.Body.Y),
-		DmOnly:    request.Body.DmOnly != nil && *request.Body.DmOnly,
-		LinkMapID: link,
-		Shape:     mustPinShape(request.Body.Shape),
+		ID:         request.PinId,
+		Label:      f.label,
+		Note:       f.note,
+		X:          float64(request.Body.X),
+		Y:          float64(request.Body.Y),
+		DmOnly:     request.Body.DmOnly != nil && *request.Body.DmOnly,
+		LinkMapID:  f.link,
+		Shape:      mustPinShape(request.Body.Shape),
+		LocationID: f.place,
 	})
 	if err != nil {
 		return nil, err
 	}
 	s.publishRealm(ctx, row.RealmID, live.TopicMap)
-	return api.UpdateMapPin200JSONResponse(toAPIPin(pin)), nil
+	return api.UpdateMapPin200JSONResponse(toAPIPin(pin, s.placeName(ctx, pin.LocationID))), nil
 }
 
 // DeleteMapPin pulls a pin off the map (DM only).

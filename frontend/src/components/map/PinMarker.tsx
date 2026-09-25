@@ -64,7 +64,9 @@ export function PinMarker({
   /** Answer nothing: the press belongs to the tool under it, not to the pin. */
   passive?: boolean;
 }) {
-  const region = !!pin.linkMapId;
+  // A door is gold — into a sub-map, or onto a place's page (#312) — and a
+  // plain marker is red, so a player can tell at a glance which pins open.
+  const region = !!pin.linkMapId || !!pin.locationId;
   const shape: PinShape = pin.shape ?? "pin";
   const color = region ? "#e0a94e" : "#c96a5a";
   // The teardrop hangs by its tip; everything else is centred on its spot,

@@ -79,20 +79,21 @@ func (q *Queries) CreateMap(ctx context.Context, arg CreateMapParams) (CreateMap
 }
 
 const createMapPin = `-- name: CreateMapPin :one
-INSERT INTO map_pins (map_id, label, note, x, y, dm_only, link_map_id, shape)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape
+INSERT INTO map_pins (map_id, label, note, x, y, dm_only, link_map_id, shape, location_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape, location_id
 `
 
 type CreateMapPinParams struct {
-	MapID     uuid.UUID   `json:"map_id"`
-	Label     string      `json:"label"`
-	Note      string      `json:"note"`
-	X         float64     `json:"x"`
-	Y         float64     `json:"y"`
-	DmOnly    bool        `json:"dm_only"`
-	LinkMapID pgtype.UUID `json:"link_map_id"`
-	Shape     string      `json:"shape"`
+	MapID      uuid.UUID   `json:"map_id"`
+	Label      string      `json:"label"`
+	Note       string      `json:"note"`
+	X          float64     `json:"x"`
+	Y          float64     `json:"y"`
+	DmOnly     bool        `json:"dm_only"`
+	LinkMapID  pgtype.UUID `json:"link_map_id"`
+	Shape      string      `json:"shape"`
+	LocationID pgtype.UUID `json:"location_id"`
 }
 
 func (q *Queries) CreateMapPin(ctx context.Context, arg CreateMapPinParams) (MapPin, error) {
@@ -105,6 +106,7 @@ func (q *Queries) CreateMapPin(ctx context.Context, arg CreateMapPinParams) (Map
 		arg.DmOnly,
 		arg.LinkMapID,
 		arg.Shape,
+		arg.LocationID,
 	)
 	var i MapPin
 	err := row.Scan(
@@ -118,6 +120,7 @@ func (q *Queries) CreateMapPin(ctx context.Context, arg CreateMapPinParams) (Map
 		&i.LinkMapID,
 		&i.CreatedAt,
 		&i.Shape,
+		&i.LocationID,
 	)
 	return i, err
 }
@@ -330,7 +333,7 @@ func (q *Queries) GetMapMetaForCampaign(ctx context.Context, arg GetMapMetaForCa
 }
 
 const getMapPin = `-- name: GetMapPin :one
-SELECT p.id, p.map_id, p.label, p.note, p.x, p.y, p.dm_only, p.link_map_id, p.created_at, p.shape, m.realm_id
+SELECT p.id, p.map_id, p.label, p.note, p.x, p.y, p.dm_only, p.link_map_id, p.created_at, p.shape, p.location_id, m.realm_id
 FROM map_pins p
 JOIN maps m ON m.id = p.map_id
 JOIN campaigns c ON c.realm_id = m.realm_id
@@ -343,17 +346,18 @@ type GetMapPinParams struct {
 }
 
 type GetMapPinRow struct {
-	ID        uuid.UUID          `json:"id"`
-	MapID     uuid.UUID          `json:"map_id"`
-	Label     string             `json:"label"`
-	Note      string             `json:"note"`
-	X         float64            `json:"x"`
-	Y         float64            `json:"y"`
-	DmOnly    bool               `json:"dm_only"`
-	LinkMapID pgtype.UUID        `json:"link_map_id"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	Shape     string             `json:"shape"`
-	RealmID   uuid.UUID          `json:"realm_id"`
+	ID         uuid.UUID          `json:"id"`
+	MapID      uuid.UUID          `json:"map_id"`
+	Label      string             `json:"label"`
+	Note       string             `json:"note"`
+	X          float64            `json:"x"`
+	Y          float64            `json:"y"`
+	DmOnly     bool               `json:"dm_only"`
+	LinkMapID  pgtype.UUID        `json:"link_map_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Shape      string             `json:"shape"`
+	LocationID pgtype.UUID        `json:"location_id"`
+	RealmID    uuid.UUID          `json:"realm_id"`
 }
 
 // A pin THROUGH one table (#234): its map must stand on the campaign's realm,
@@ -372,6 +376,7 @@ func (q *Queries) GetMapPin(ctx context.Context, arg GetMapPinParams) (GetMapPin
 		&i.LinkMapID,
 		&i.CreatedAt,
 		&i.Shape,
+		&i.LocationID,
 		&i.RealmID,
 	)
 	return i, err
@@ -432,7 +437,7 @@ func (q *Queries) GetMapShape(ctx context.Context, arg GetMapShapeParams) (GetMa
 }
 
 const listMapPins = `-- name: ListMapPins :many
-SELECT id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape FROM map_pins WHERE map_id = $1 ORDER BY created_at
+SELECT id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape, location_id FROM map_pins WHERE map_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListMapPins(ctx context.Context, mapID uuid.UUID) ([]MapPin, error) {
@@ -455,6 +460,7 @@ func (q *Queries) ListMapPins(ctx context.Context, mapID uuid.UUID) ([]MapPin, e
 			&i.LinkMapID,
 			&i.CreatedAt,
 			&i.Shape,
+			&i.LocationID,
 		); err != nil {
 			return nil, err
 		}
@@ -701,20 +707,22 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 
 const updateMapPin = `-- name: UpdateMapPin :one
 UPDATE map_pins
-SET label = $2, note = $3, x = $4, y = $5, dm_only = $6, link_map_id = $7, shape = $8
+SET label = $2, note = $3, x = $4, y = $5, dm_only = $6, link_map_id = $7, shape = $8,
+    location_id = $9
 WHERE id = $1
-RETURNING id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape
+RETURNING id, map_id, label, note, x, y, dm_only, link_map_id, created_at, shape, location_id
 `
 
 type UpdateMapPinParams struct {
-	ID        uuid.UUID   `json:"id"`
-	Label     string      `json:"label"`
-	Note      string      `json:"note"`
-	X         float64     `json:"x"`
-	Y         float64     `json:"y"`
-	DmOnly    bool        `json:"dm_only"`
-	LinkMapID pgtype.UUID `json:"link_map_id"`
-	Shape     string      `json:"shape"`
+	ID         uuid.UUID   `json:"id"`
+	Label      string      `json:"label"`
+	Note       string      `json:"note"`
+	X          float64     `json:"x"`
+	Y          float64     `json:"y"`
+	DmOnly     bool        `json:"dm_only"`
+	LinkMapID  pgtype.UUID `json:"link_map_id"`
+	Shape      string      `json:"shape"`
+	LocationID pgtype.UUID `json:"location_id"`
 }
 
 func (q *Queries) UpdateMapPin(ctx context.Context, arg UpdateMapPinParams) (MapPin, error) {
@@ -727,6 +735,7 @@ func (q *Queries) UpdateMapPin(ctx context.Context, arg UpdateMapPinParams) (Map
 		arg.DmOnly,
 		arg.LinkMapID,
 		arg.Shape,
+		arg.LocationID,
 	)
 	var i MapPin
 	err := row.Scan(
@@ -740,6 +749,7 @@ func (q *Queries) UpdateMapPin(ctx context.Context, arg UpdateMapPinParams) (Map
 		&i.LinkMapID,
 		&i.CreatedAt,
 		&i.Shape,
+		&i.LocationID,
 	)
 	return i, err
 }

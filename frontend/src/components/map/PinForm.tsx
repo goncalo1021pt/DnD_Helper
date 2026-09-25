@@ -1,36 +1,43 @@
 import { useState } from "react";
-import type { PinShape } from "../../api/client";
+import type { CampaignMap, Location, PinShape } from "../../api/client";
 import { MarkerSwatch, PIN_SHAPES } from "./PinMarker";
-import type { CampaignMap } from "../../api/client";
+
+/** What the form hands back; the page decides what absent and nil mean. */
+export interface PinFormValues {
+  label: string;
+  note: string;
+  dmOnly: boolean;
+  linkMapId: string;
+  locationId: string;
+  shape: PinShape;
+}
 
 /* Create-or-edit pin form. */
 export function PinForm({
   initial,
   maps,
+  locations,
   currentMapId,
   isPending,
   errorText,
   onCancel,
   onSubmit,
 }: {
-  initial: { label: string; note: string; dmOnly: boolean; linkMapId: string; shape: PinShape };
+  initial: PinFormValues;
   maps: CampaignMap[];
+  /** The place tree, for a pin to stand for one (#312). */
+  locations: Location[];
   currentMapId: string;
   isPending: boolean;
   errorText?: string;
   onCancel: () => void;
-  onSubmit: (v: {
-    label: string;
-    note: string;
-    dmOnly: boolean;
-    linkMapId: string;
-    shape: PinShape;
-  }) => void;
+  onSubmit: (v: PinFormValues) => void;
 }) {
   const [label, setLabel] = useState(initial.label);
   const [note, setNote] = useState(initial.note);
   const [dmOnly, setDmOnly] = useState(initial.dmOnly);
   const [linkMapId, setLinkMapId] = useState(initial.linkMapId);
+  const [locationId, setLocationId] = useState(initial.locationId);
   const [shape, setShape] = useState<PinShape>(initial.shape);
   const targets = maps.filter((m) => m.id !== currentMapId);
 
@@ -70,6 +77,28 @@ export function PinForm({
               </option>
             ))}
           </select>
+        </label>
+      )}
+      {locations.length > 0 && (
+        <label className="block">
+          <span className="field-label">A place it stands for</span>
+          <select
+            value={locationId}
+            onChange={(e) => setLocationId(e.target.value)}
+            className="input-parchment mt-1 w-full cursor-pointer"
+          >
+            <option value="">— none —</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {"— ".repeat(l.depth)}
+                {l.name}
+              </option>
+            ))}
+          </select>
+          <span className="font-body mt-1 block text-[12px] italic text-ink-body">
+            The pin becomes a door: press it and the place opens. The party
+            receives it only once they know the place.
+          </span>
         </label>
       )}
 
@@ -116,7 +145,7 @@ export function PinForm({
           Cancel
         </button>
         <button
-          onClick={() => onSubmit({ label, note, dmOnly, linkMapId, shape })}
+          onClick={() => onSubmit({ label, note, dmOnly, linkMapId, locationId, shape })}
           disabled={!label.trim() || isPending}
           className="btn-base btn-gold clip-octagon h-11 px-6 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
         >
