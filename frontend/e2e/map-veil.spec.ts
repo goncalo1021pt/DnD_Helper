@@ -274,3 +274,64 @@ test("the DM hangs a map in the hall from the atlas", async ({ browser }) => {
   await dmCtx.close();
   await plCtx.close();
 });
+
+/*
+A pin that names a place is a door to it (#312) — and a door the viewer may not
+know of is not handed over. The place's own veil decides, through the viewer's
+heroes and the ancestor walk, exactly as the board resolves it; the pin's own
+label never mattered, because the door would open onto "no such place".
+*/
+test("a pin naming a place nobody knows of goes with the place (#312)", async ({ browser }) => {
+  const dmCtx = await browser.newContext();
+  const dm = await dmCtx.newPage();
+  await dm.goto("/");
+  await registerViaAPI(dm.request, newAccount("dmdoor"));
+  const campaign = await createCampaign(dm.request, unique("The Overworld "));
+  const world = await hangMap(dm, campaign.id, { visibleToParty: true });
+  const vallaki = await createLocation(dm.request, campaign.id, unique("Vallaki "));
+
+  const door = await dm.request.post(`/api/maps/${world}/pins?campaignId=${campaign.id}`, {
+    data: { label: "The walled town", x: 0.5, y: 0.5, locationId: vallaki },
+  });
+  expect(door.ok(), await door.text()).toBeTruthy();
+  expect((await door.json()).locationName).toContain("Vallaki");
+  await dm.request.post(`/api/maps/${world}/pins?campaignId=${campaign.id}`, {
+    data: { label: "A crossroads", x: 0.2, y: 0.3 },
+  });
+
+  const plCtx = await browser.newContext();
+  const pl = await plCtx.newPage();
+  await pl.goto("/");
+  await registerViaAPI(pl.request, newAccount("pldoor"));
+  await joinCampaign(pl.request, campaign.inviteCode);
+
+  const before = await pl.request.get(`/api/maps/${world}?campaignId=${campaign.id}`);
+  const pins = (await before.json()).pins as Array<{ label: string }>;
+  expect(pins.map((p) => p.label)).toEqual(["A crossroads"]);
+  expect(JSON.stringify(pins)).not.toContain("Vallaki");
+
+  // Let the table in on the place and the pin arrives, door and all.
+  await revealLocation(dm.request, vallaki, campaign.id);
+  const after = await pl.request.get(`/api/maps/${world}?campaignId=${campaign.id}`);
+  const seen = (await after.json()).pins as Array<{ label: string; locationName?: string }>;
+  expect(seen.map((p) => p.label).sort()).toEqual(["A crossroads", "The walled town"]);
+  expect(seen.find((p) => p.label === "The walled town")!.locationName).toContain("Vallaki");
+
+  // The nil UUID takes the door off again; the marker stays.
+  const undone = await dm.request.patch(`/api/pins/${(await door.json()).id}?campaignId=${campaign.id}`, {
+    data: { label: "The walled town", x: 0.5, y: 0.5, locationId: "00000000-0000-0000-0000-000000000000" },
+  });
+  expect(undone.ok(), await undone.text()).toBeTruthy();
+  expect((await undone.json()).locationId ?? null).toBeNull();
+
+  // A place off this campaign's realm cannot be named: refused, never adopted.
+  const other = await createCampaign(dm.request, unique("Elsewhere "));
+  const foreign = await createLocation(dm.request, other.id, unique("Waterdeep "));
+  const refused = await dm.request.post(`/api/maps/${world}/pins?campaignId=${campaign.id}`, {
+    data: { label: "Far away", x: 0.7, y: 0.7, locationId: foreign },
+  });
+  expect(refused.status()).toBe(400);
+
+  await dmCtx.close();
+  await plCtx.close();
+});

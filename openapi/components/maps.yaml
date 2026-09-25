@@ -87,6 +87,18 @@ MapPin:
       format: uuid
       nullable: true
       description: When set, this pin is a region marker leading into that sub-map.
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        The place this pin stands for, if any (#312): the marker is then a door
+        to that place's page. A player never receives a pin naming a place they
+        may not know of — it goes with the place, as a marker into a veiled map
+        goes with the map (#276).
+    locationName:
+      type: string
+      nullable: true
     createdAt:
       type: string
       format: date-time
@@ -286,6 +298,11 @@ MapPinInput:
       type: string
       format: uuid
       nullable: true
+    locationId:
+      type: string
+      format: uuid
+      nullable: true
+      description: The nil UUID detaches the place, as everywhere else in this API.
 
 MapPoint:
   type: object
