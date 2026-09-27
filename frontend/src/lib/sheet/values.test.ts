@@ -190,4 +190,27 @@ describe("buildSheetValues", () => {
     expect(v.armorClass).toBe("");
     expect(v.strMod).toBeUndefined();
   });
+
+  it("prints a Warlock's pact slots, which live apart from the shared pool (#360)", () => {
+    // A pure Warlock 5: no shared slots, two pact slots at level 3.
+    const warlock = hero({});
+    Object.assign(warlock.character.sheet!, { spellSlots: [], pactSlots: { level: 3, max: 2, used: 1 } });
+    const v = build(warlock);
+    expect(v.lvl3Slots).toBe("2");
+    expect(v.lvl1Slots).toBeUndefined();
+
+    // Wizard 3 / Warlock 3: shared 4/2 and two pact slots at level 2 — the
+    // pools share a box on paper but are never added together.
+    const both = hero({});
+    Object.assign(both.character.sheet!, {
+      spellSlots: [
+        { level: 1, max: 4, used: 0 },
+        { level: 2, max: 2, used: 0 },
+      ],
+      pactSlots: { level: 2, max: 2, used: 0 },
+    });
+    const w = build(both);
+    expect(w.lvl1Slots).toBe("4");
+    expect(w.lvl2Slots).toBe("2+2");
+  });
 });

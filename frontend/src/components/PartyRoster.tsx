@@ -108,13 +108,24 @@ function PactRow({
 function SlotPips({ character, canEdit }: { character: Character; canEdit: boolean }) {
   const setSlots = useSetSpellSlots(character.id);
   const slots = character.sheet?.spellSlots ?? [];
+  const pact = character.sheet?.pactSlots;
+  function sharedUsed() {
+    const arr = new Array(9).fill(0);
+    for (const s of slots) arr[s.level - 1] = s.used;
+    return arr.slice(0, Math.max(1, ...slots.map((s) => s.level)));
+  }
   function tick(level: number, used: number, max: number, delta: number) {
     const next = Math.min(Math.max(used + delta, 0), max);
     if (next === used) return;
-    const arr = new Array(9).fill(0);
-    for (const s of slots) arr[s.level - 1] = s.used;
+    const arr = sharedUsed();
     arr[level - 1] = next;
-    setSlots.mutate({ used: arr.slice(0, Math.max(...slots.map((s) => s.level))) });
+    setSlots.mutate({ used: arr });
+  }
+  function tickPact(delta: number) {
+    if (!pact) return;
+    const next = Math.min(Math.max(pact.used + delta, 0), pact.max);
+    if (next === pact.used) return;
+    setSlots.mutate({ used: sharedUsed(), pactUsed: next });
   }
   return (
     <div className="mt-2 flex flex-col gap-1">
@@ -139,6 +150,35 @@ function SlotPips({ character, canEdit }: { character: Character; canEdit: boole
           </div>
         </div>
       ))}
+      {/* Pact Magic: its own pool, all at one level (#190, #360). */}
+      {pact && (
+        <div className="flex items-center gap-2">
+          <span
+            className="label-stamp w-8 text-[8px] tracking-[1px] text-[#8b2520]"
+            title={`Pact Magic — ${pact.max} slot${pact.max === 1 ? "" : "s"} at level ${pact.level}, back on a short rest`}
+          >
+            Pact
+          </span>
+          <div className="flex gap-1">
+            {Array.from({ length: pact.max }, (_, i) => (
+              <button
+                key={i}
+                disabled={!canEdit}
+                onClick={() => tickPact(i < pact.used ? -1 : 1)}
+                aria-label={`Pact slot ${i + 1} of ${pact.max}`}
+                title={i < pact.used ? "spent — click to restore" : "click to spend"}
+                className="h-3.5 w-3.5 cursor-pointer rounded-full border-none p-0"
+                style={{
+                  background: i < pact.used ? "#3d2317" : "linear-gradient(180deg,#c96a5a,#8b2520)",
+                  boxShadow: "inset 0 0 0 1.2px rgba(61,35,23,.7)",
+                  opacity: canEdit ? 1 : 0.7,
+                }}
+              />
+            ))}
+          </div>
+          <span className="label-stamp text-[7.5px] tracking-[1px] text-ink-faded">Lv {pact.level}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -433,7 +473,7 @@ function CharacterCard({
               {character.sheet.skills.join(" · ")}
             </div>
           )}
-          {(character.sheet.spellSlots ?? []).length > 0 && (
+          {((character.sheet.spellSlots ?? []).length > 0 || character.sheet.pactSlots) && (
             <SlotPips character={character} canEdit={canEdit} />
           )}
         </div>

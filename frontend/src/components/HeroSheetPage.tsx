@@ -481,7 +481,7 @@ export default function HeroSheetPage() {
           {/* right column — the sole column on the Inventory tab */}
           <div className="flex flex-col gap-6">
             {/* spells */}
-            {tab === "sheet" && (slots.length > 0 || spellsByLevel.length > 0) && (
+            {tab === "sheet" && (slots.length > 0 || pact || spellsByLevel.length > 0) && (
               <section>
                 <div className="mb-1.5 flex items-center justify-between">
                   <SectionLabel>Spells</SectionLabel>
@@ -500,7 +500,9 @@ export default function HeroSheetPage() {
                   )}
                 </div>
                 <div className="parchment px-4 py-4">
-                  {slots.length > 0 && (
+                  {/* A pure Warlock has no shared slots at all — gating on
+                      those alone hid their pact row entirely (#360). */}
+                  {(slots.length > 0 || pact) && (
                     <div className="mb-3 flex flex-col gap-1.5">
                       {slots.map((s) => (
                         <div key={s.level} className="flex items-center gap-2.5">

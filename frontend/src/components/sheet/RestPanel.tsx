@@ -34,7 +34,8 @@ type Report = {
 function restLine(kind: "long" | "short", r: Report, hasSlots: boolean): string {
   const parts: string[] = [];
   if (r.hpRestored > 0) parts.push(`${r.hpRestored} HP back`);
-  if (r.slotsRestored && hasSlots) parts.push("spell slots restored");
+  // A short rest hands back Pact Magic alone (#243), so it says so.
+  if (r.slotsRestored && hasSlots) parts.push(kind === "short" ? "pact slots restored" : "spell slots restored");
   // The server names only the pools that actually moved, so a Fighter's report
   // never mentions pools they do not have.
   if ((r.poolsRestored ?? []).length > 0) parts.push(`${r.poolsRestored.join(", ")} restored`);
@@ -71,7 +72,9 @@ export default function RestPanel({
   const dice = character.hitDice ?? [];
   const total = dice.reduce((n, d) => n + d.max, 0);
   const left = dice.reduce((n, d) => n + Math.max(0, d.max - d.used), 0);
-  const hasSlots = (character.sheet?.spellSlots ?? []).some((s) => s.max > 0);
+  // A pure Warlock has no shared slots, only the pact pool (#360).
+  const hasSlots =
+    (character.sheet?.spellSlots ?? []).some((s) => s.max > 0) || (character.sheet?.pactSlots?.max ?? 0) > 0;
 
   // Untouched, the first die (the largest — the pools arrive sorted) starts at
   // one, which is what the single stepper always did: pressing Short Rest
