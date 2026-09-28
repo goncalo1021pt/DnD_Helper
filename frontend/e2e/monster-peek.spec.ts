@@ -42,13 +42,14 @@ test("the DM reads a stat block off the tracker: hover for the card, press for t
   const campaign = await createCampaign(page.request, unique("Peek Table "));
   const goblin = await denEntry(page.request, "Goblin Warrior");
   const skeleton = await denEntry(page.request, "Skeleton");
-  await runningFight(page.request, campaign.id, [
+  const encounterId = await runningFight(page.request, campaign.id, [
     { kind: "monster", contentId: goblin, count: 3, hidden: true },
     { kind: "monster", contentId: skeleton, hidden: true },
     { kind: "custom", label: "The Looming Shape", hpMax: 30, ac: 12 },
   ]);
 
-  await page.goto(`/questboard/campaigns/${campaign.id}/encounters`);
+  // The fight has an address (#359); the library no longer opens it.
+  await page.goto(`/questboard/campaigns/${campaign.id}/encounters/${encounterId}`);
   await expect(page.getByText(/Round\s*1/i)).toBeVisible({ timeout: 20_000 });
 
   // --- a lone monster: its name is a button ---------------------------------

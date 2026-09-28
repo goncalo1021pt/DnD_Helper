@@ -96,6 +96,9 @@ export default function App() {
           <Route path="vendors" element={<VendorsPage />} />
           <Route path="npcs" element={<NpcsPage />} />
           <Route path="encounters" element={<EncounterPage />} />
+          {/* A fight open in the library is a place, not a state (#359): the
+              back button and the rail both lead out of it. */}
+          <Route path="encounters/:encounterId" element={<EncounterPage />} />
           <Route path="chronicle" element={<ChroniclePage />} />
           <Route path="dm" element={<DMMenuPage />} />
           <Route path="player" element={<PlayerMenuPage />} />

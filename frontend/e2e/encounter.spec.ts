@@ -248,7 +248,8 @@ test("a hero is seated at the AC on their sheet, not 10 + DEX", async ({ page })
   expect(seated?.ac, "donning armour mid-fight moves the tracker's number too").toBe(16);
 
   // And the DM reads it off the tracker, which is where it actually matters.
-  await page.goto(`/questboard/campaigns/${campaign.id}/encounters`);
+  // The fight has an address now (#359); the library no longer opens it.
+  await page.goto(`/questboard/campaigns/${campaign.id}/encounters/${encounterId}`);
   await expect(page.getByText(/AC 16/).first()).toBeVisible({ timeout: 20_000 });
 });
 
@@ -373,7 +374,7 @@ test("a monster arrives named to the party, and the DM can take the name back", 
 
   // The control the DM actually uses, in a real browser: the chip states what
   // the party reads and flips it.
-  await dm.goto(`/questboard/campaigns/${campaign.id}/encounters`);
+  await dm.goto(`/questboard/campaigns/${campaign.id}/encounters/${encounterId}`);
   // Wait for the fight itself before hunting controls inside it. Probing for
   // the chip straight after goto finds the login gate — the SPA renders it
   // while /me is still in flight — and a probe that early reads "no chip"
@@ -391,4 +392,52 @@ test("a monster arrives named to the party, and the DM can take the name back", 
 
   await dmCtx.close();
   await plCtx.close();
+});
+
+/*
+The fight that is open is the URL, not a piece of state (#359).
+
+It was state, and that made the library a trap in front of six people: the
+phone's back gesture left the page entirely, the rail's Encounters chip did
+nothing because the page never remounted, and "All encounters" bounced straight
+back into the running fight. Now every way out is a navigation, and a running
+fight is offered at the top of the library rather than forced open.
+*/
+test("a fight lives in the URL, every way out leads to the library, and a running one is offered (#359)", async ({
+  page,
+}) => {
+  const account = newAccount("dmnav");
+  await registerViaAPI(page.request, account);
+  const { id: campaignId } = await createCampaign(page.request, unique("Nav Table "));
+  const library = `/questboard/campaigns/${campaignId}/encounters`;
+
+  await page.goto(library);
+  await page.getByPlaceholder("Prepare a new encounter — name it…").fill("Goblin Ambush");
+  await page.getByRole("button", { name: "Prepare", exact: true }).click();
+  // Preparing opens the fight, and the fight has an address.
+  await expect(page).toHaveURL(new RegExp(`${library}/[0-9a-f-]{36}$`));
+  const fightUrl = page.url();
+
+  // The in-page way out.
+  await page.getByRole("button", { name: "← All encounters" }).click();
+  await expect(page).toHaveURL(new RegExp(`${library}$`));
+  await expect(page.getByText("Goblin Ambush")).toBeVisible();
+
+  // The card is the way back in — and the browser's own back is a way out.
+  await page.getByRole("button", { name: /Goblin Ambush/ }).click();
+  await expect(page).toHaveURL(fightUrl);
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`${library}$`));
+
+  // Trigger it, then leave by the rail: the library shows, offering the fight.
+  await page.goto(fightUrl);
+  await addFromDen(page, "Goblin Warrior");
+  await page.getByRole("button", { name: /Trigger/ }).click();
+  await expect(page.getByText(/Round\s*1/i)).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("link", { name: "Encounters" }).click();
+  await expect(page).toHaveURL(new RegExp(`${library}$`));
+  await expect(page.getByText("1 fight running")).toBeVisible();
+  await page.getByRole("button", { name: "Resume Goblin Ambush" }).click();
+  await expect(page).toHaveURL(fightUrl);
+  await expect(page.getByText(/Round\s*1/i)).toBeVisible();
 });
