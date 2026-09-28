@@ -270,3 +270,39 @@ test("a full-loaded Cleric dips Warlock and Ranger; a Warlock 1 prepares like a 
   });
   expect(ranger.ok(), "a cantrip-owning caster may dip Ranger: " + (await ranger.text())).toBeTruthy();
 });
+
+/*
+A lone Warlock's slots are on the screen (#360). The Spells section and its
+slot row were gated on the SHARED pool, which a Warlock alone does not have:
+the pact pips were never drawn, and with nothing prepared yet the whole section
+vanished — which read, at the table, as their spells not being registered.
+*/
+test("a lone Warlock sees Pact Magic on the sheet (#360)", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("cast5"));
+  const heroId = await forgeHero(page.request, {
+    name: unique("Hexbound "),
+    className: "Warlock",
+    speciesName: "Dwarf",
+    backgroundName: "Acolyte",
+    abilities: { str: 10, dex: 12, con: 14, int: 13, wis: 10, cha: 15 },
+    skills: ["Arcana", "Deception"],
+  });
+  const warlock = await classIdNamed(page.request, "Warlock");
+  const subs = (await (await page.request.get("/api/rules/subclass")).json()) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const fiend = subs.find((s) => s.name === "Fiend Patron")?.id;
+  for (const level of [2, 3]) {
+    const res = await page.request.post(`/api/characters/${heroId}/levelup`, {
+      data: { hpMode: "average", classId: warlock, ...(level === 3 && fiend ? { subclassId: fiend } : {}) },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  }
+
+  await page.goto(`/questboard/heroes/${heroId}`);
+  await expect(page.getByLabel("Pact slot 1 of 2")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByLabel("Pact slot 2 of 2")).toBeVisible();
+  await expect(page.getByText("Lv 2 · short rest")).toBeVisible();
+});

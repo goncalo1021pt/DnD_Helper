@@ -365,6 +365,15 @@ export function buildSheetValues({
   for (const slot of sheet?.spellSlots ?? []) {
     if (slot.level >= 1 && slot.level <= 9) v[`lvl${slot.level}Slots`] = String(slot.max);
   }
+  // Pact Magic has slot boxes too (#360). A Warlock's slots all sit at one
+  // level and the printed sheet has no separate row for them, so they go into
+  // that level's Total — added to whatever the shared pool put there, since a
+  // Warlock 3 / Wizard 3 really does hold both kinds at level 2.
+  const pact = sheet?.pactSlots;
+  if (pact && pact.level >= 1 && pact.level <= 9) {
+    const box = `lvl${pact.level}Slots` as const;
+    v[box] = String(Number(v[box] || 0) + pact.max);
+  }
 
   // Cantrips first, then by level, then alphabetically — the order the table
   // reads best in, and the order a player would write them.

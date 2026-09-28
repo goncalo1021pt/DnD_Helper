@@ -179,6 +179,26 @@ describe("buildSheetValues", () => {
     expect(l5.athletics).toBe("+6");
   });
 
+  it("prints Pact Magic into its level's slot box, beside the shared pool (#360)", () => {
+    // A Warlock 3 alone: no shared pool, two pact slots at level 2.
+    const lone = hero({ level: 3 });
+    lone.character.sheet!.spellSlots = [];
+    lone.character.sheet!.pactSlots = { level: 2, max: 2, used: 0 };
+    expect(build(lone).lvl2Slots).toBe("2");
+    expect(build(lone).lvl1Slots ?? "").toBe("");
+
+    // Warlock 3 / Wizard 3: the shared pool's 4 + 2 at levels 1 and 2, and
+    // the pact pair on top of the level 2 box — 2 + 2 = 4.
+    const both = hero({ level: 6 });
+    both.character.sheet!.spellSlots = [
+      { level: 1, max: 4, used: 0 },
+      { level: 2, max: 2, used: 0 },
+    ];
+    both.character.sheet!.pactSlots = { level: 2, max: 2, used: 0 };
+    expect(build(both).lvl1Slots).toBe("4");
+    expect(build(both).lvl2Slots).toBe("4");
+  });
+
   it("gives a hero with no sheet nothing to print rather than NaN", () => {
     const freeform = hero({});
     // A quick-added hero: a name and hit points, no forged sheet behind them.

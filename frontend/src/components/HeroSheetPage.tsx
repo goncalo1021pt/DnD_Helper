@@ -23,7 +23,7 @@ import ContentEntry from "./ui/ContentEntry";
 import RestPanel from "./sheet/RestPanel";
 import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
 import { casterSourceFor } from "../lib/spellcasting";
-import { printHeroSheet } from "../lib/sheet/print";
+import { openSheetTab, printHeroSheet } from "../lib/sheet/print";
 
 import FloatingDiceTray from "./ui/DiceTray";
 import ParchmentModal from "./ui/ParchmentModal";
@@ -321,18 +321,26 @@ export default function HeroSheetPage() {
           <button
             disabled={printing}
             onClick={async () => {
+              // The tab the sheet prints from is opened HERE, inside the
+              // click: a window opened after an await is one Safari's popup
+              // blocker eats (#360).
+              const tab = openSheetTab();
               setPrinting(true);
               setPrintError(null);
               try {
-                await printHeroSheet({
-                  detail,
-                  coinage,
-                  classes,
-                  subclasses,
-                  species: speciesLibrary,
-                  backgrounds: backgroundLibrary,
-                });
+                await printHeroSheet(
+                  {
+                    detail,
+                    coinage,
+                    classes,
+                    subclasses,
+                    species: speciesLibrary,
+                    backgrounds: backgroundLibrary,
+                  },
+                  tab,
+                );
               } catch (e) {
+                tab?.close();
                 setPrintError(
                   e instanceof Error ? e.message : "the sheet would not print",
                 );
@@ -481,7 +489,11 @@ export default function HeroSheetPage() {
           {/* right column — the sole column on the Inventory tab */}
           <div className="flex flex-col gap-6">
             {/* spells */}
-            {tab === "sheet" && (slots.length > 0 || spellsByLevel.length > 0) && (
+            {/* Pact Magic counts as slots here (#360): a lone Warlock has no
+                shared pool at all, and gating on it drew no pips and — with
+                nothing prepared yet — no Spells section, so their casting
+                looked unregistered. */}
+            {tab === "sheet" && (slots.length > 0 || pact || spellsByLevel.length > 0) && (
               <section>
                 <div className="mb-1.5 flex items-center justify-between">
                   <SectionLabel>Spells</SectionLabel>
@@ -500,7 +512,7 @@ export default function HeroSheetPage() {
                   )}
                 </div>
                 <div className="parchment px-4 py-4">
-                  {slots.length > 0 && (
+                  {(slots.length > 0 || pact) && (
                     <div className="mb-3 flex flex-col gap-1.5">
                       {slots.map((s) => (
                         <div key={s.level} className="flex items-center gap-2.5">

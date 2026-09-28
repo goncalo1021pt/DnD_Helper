@@ -11,9 +11,14 @@ measured off it.
 
 The character sheet Wizards publishes for free download is bundled at
 `frontend/src/assets/dnd-2024-character-sheet.pdf`. Pressing Print fetches it,
-copies both of its pages, draws your hero over them with `pdf-lib`, and hands
-the result to the browser's print dialog. Where a browser will not print a PDF
-in a frame, the file downloads instead.
+copies both of its pages, draws your hero over them with `pdf-lib`, opens the
+result in a new tab in the browser's own PDF viewer, and asks for the print
+dialog. The tab is opened by the click itself, before any of that work, because
+a window opened after an `await` is one Safari's popup blocker eats. It used to
+be a hidden frame, and Safari answered a print on a framed PDF by printing the
+page behind it (#360). Where a browser will not let a script print a PDF, the
+viewer's own print button is a tap away; where no tab could be opened at all,
+the file downloads instead.
 
 All of it happens in the browser. The hero is already loaded in the page, and
 the sheet is a static asset, so **nothing is posted anywhere** — printing never

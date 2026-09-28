@@ -183,3 +183,85 @@ test("a class with no table gets no table", async ({ page }) => {
   await expect(page.getByText("Features", { exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Table$/)).toHaveCount(0);
 });
+
+/*
+Print opens the sheet in a tab of its own (#360). It used to be a hidden frame,
+and Safari printed the page behind it. The tab is opened by the click, before
+the PDF is drawn, so no popup blocker sees a window opened after an await —
+then the finished file is put in it and the dialog asked for, once, only when
+the tab holds the PDF and not the placeholder.
+
+Headless Chromium has no PDF viewer to open a tab into, so window.open is
+stubbed with a window that records what the printer does to it; the PDF itself
+is fetched back from the blob address it was given.
+*/
+test("Print opens the finished sheet in a tab of its own, and asks for the dialog once (#360)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const stub = {
+      closed: false,
+      href: "",
+      printed: 0,
+      focused: 0,
+      document: { title: "", body: { innerHTML: "" }, readyState: "complete" },
+      location: {
+        get href() {
+          return stub.href;
+        },
+        set href(v: string) {
+          stub.href = v;
+        },
+      },
+      addEventListener: () => {},
+      focus: () => {
+        stub.focused++;
+      },
+      print: () => {
+        stub.printed++;
+      },
+      close: () => {
+        stub.closed = true;
+      },
+    };
+    (window as unknown as { __sheetTab: typeof stub }).__sheetTab = stub;
+    window.open = () => stub as unknown as Window;
+  });
+  const tab = () =>
+    page.evaluate(() => {
+      const t = (window as unknown as { __sheetTab: { href: string; printed: number; document: { title: string } } })
+        .__sheetTab;
+      return { href: t.href, printed: t.printed, title: t.document.title };
+    });
+
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("printer"));
+  const id = await forgeHero(page.request, {
+    name: unique("Inkwell "),
+    className: "Fighter",
+    speciesName: "Dwarf",
+    backgroundName: "Acolyte",
+    abilities: { str: 16, dex: 14, con: 15, int: 10, wis: 12, cha: 8 },
+    skills: ["Athletics", "Perception"],
+  });
+  await page.goto(`/questboard/heroes/${id}`);
+  const print = page.getByRole("button", { name: "Print" });
+  await expect(print).toBeVisible({ timeout: 20_000 });
+  await print.click();
+
+  // The tab was opened by the click and told what is happening…
+  await expect.poll(async () => (await tab()).title).toBe("Setting the ink…");
+  // …then handed the finished file and asked, once, for the dialog.
+  await expect.poll(async () => (await tab()).href, { timeout: 30_000 }).toMatch(/^blob:/);
+  await expect.poll(async () => (await tab()).printed).toBe(1);
+  await page.waitForTimeout(700);
+  expect((await tab()).printed, "asked once, not on every poll").toBe(1);
+
+  const head = await page.evaluate(async () => {
+    const t = (window as unknown as { __sheetTab: { href: string } }).__sheetTab;
+    const bytes = new Uint8Array(await (await fetch(t.href)).arrayBuffer());
+    return String.fromCharCode(...bytes.slice(0, 5));
+  });
+  expect(head).toBe("%PDF-");
+  await expect(print).toBeEnabled();
+});
