@@ -15,7 +15,7 @@
     "e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.103.1",
+    "@tanstack/react-query": "^5.103.2",
     "openapi-fetch": "^0.17.0",
     "pdf-lib": "^1.17.1",
     "react": "^19.3.0",
@@ -23,10 +23,10 @@
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
-    "@apidevtools/json-schema-ref-parser": "16.0.2",
+    "@apidevtools/json-schema-ref-parser": "16.0.3",
     "@playwright/test": "1.63.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
