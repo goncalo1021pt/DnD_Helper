@@ -78,7 +78,8 @@ test("a condition chip mid-fight opens the rule", async ({ page }) => {
   });
   expect(pinned.ok(), await pinned.text()).toBeTruthy();
 
-  await page.goto(`/questboard/campaigns/${campaign.id}/encounters`);
+  // The fight has an address (#359); the library no longer opens it.
+  await page.goto(`/questboard/campaigns/${campaign.id}/encounters/${encounterId}`);
   await page.getByRole("button", { name: "Rule: Grappled" }).click();
   const rule = page.getByRole("dialog").last();
   await expect(rule.getByText(/Speed 0\./).first()).toBeVisible();

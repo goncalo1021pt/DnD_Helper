@@ -112,7 +112,8 @@ test("a spell or condition pressed inside the tracker's peek stays open after th
   const trigger = await page.request.patch(`/api/encounters/${encounterId}`, { data: { status: "active" } });
   expect(trigger.ok(), await trigger.text()).toBeTruthy();
 
-  await page.goto(`/questboard/campaigns/${campaign.id}/encounters`);
+  // The fight has an address (#359); the library no longer opens it.
+  await page.goto(`/questboard/campaigns/${campaign.id}/encounters/${encounterId}`);
   await expect(page.getByText(/Round\s*1/i)).toBeVisible({ timeout: 20_000 });
 
   // A spell, from inside the card.

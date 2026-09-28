@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useOutletContext, useSearchParams } from "react-router-dom";
+import { useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import {
   useActiveEncounter,
   useCreateEncounter,
@@ -27,7 +27,19 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
   const create = useCreateEncounter(campaign.id);
   const del = useDeleteEncounter(campaign.id);
   const standDownAll = useStandDownEncounters(campaign.id);
-  const [openId, setOpenId] = useState<string | null>(null);
+  /*
+  The fight that is open is the URL, not a piece of state (#359). It was
+  state once, and that made the library a trap: the phone's back gesture left
+  the page entirely, the rail's Encounters chip changed nothing because the
+  page never remounted, and "All encounters" bounced straight back into the
+  running fight because the empty state fell through to it. As a route, every
+  way out works the way it does everywhere else — and a running fight is
+  *offered* at the top of the library, never forced open.
+  */
+  const { encounterId } = useParams();
+  const navigate = useNavigate();
+  const library = `/questboard/campaigns/${campaign.id}/encounters`;
+  const open = (id: string | null) => navigate(id ? `${library}/${id}` : library);
   const [name, setName] = useState("");
   // Filing for the next fight prepared. Deliberately sticky: a DM laying out a
   // night's worth of combats types the session once, not once per encounter.
@@ -48,7 +60,7 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
     if (!name.trim()) return;
     create.mutate(
       { name: name.trim(), tag: tag.trim() || undefined, locationId: placeId || null },
-      { onSuccess: (enc) => { setName(""); if (enc) setOpenId(enc.id); } },
+      { onSuccess: (enc) => { setName(""); if (enc) open(enc.id); } },
     );
   }
 
@@ -69,17 +81,23 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
   const shelves = useMemo(() => shelve(filtered, groupBy), [filtered, groupBy]);
 
   // Several fights can run at once — a split party is two encounters — so this
-  // is a count, not a lookup. The library still opens on a running one by
-  // default when there's exactly one obvious candidate.
+  // is a count, not a lookup.
   const running = useMemo(() => (list ?? []).filter((e) => e.status === "active"), [list]);
-  const activeId = running[0]?.id ?? null;
-  const selectedId = openId ?? activeId;
-  const { data: detail } = useEncounter(selectedId ?? undefined);
+  const { data: detail, isError: gone } = useEncounter(encounterId);
 
-  if (selectedId && detail) {
+  // A fight that has been struck answers 404 and the library shows instead —
+  // the URL is a wish, the list is what exists.
+  if (encounterId && !gone) {
+    if (!detail) {
+      return (
+        <div className="font-accent px-5 py-[50px] text-center text-base italic text-[#9c855e]">
+          Opening the fight…
+        </div>
+      );
+    }
     return (
       <div>
-        <button onClick={() => setOpenId(null)} className="label-stamp mb-3 text-[11px] text-gold-muted hover:text-ember-bright">
+        <button onClick={() => open(null)} className="label-stamp mb-3 cursor-pointer border-none bg-transparent text-[11px] text-gold-muted hover:text-ember-bright">
           ← All encounters
         </button>
         <div className="mb-3 flex items-baseline gap-3">
@@ -123,13 +141,24 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
         </button>
       </div>
 
-      {/* Even with the library shelved, hunting down which of several running
-          fights still holds a player is a chore. This releases them all. */}
+      {/* A running fight is offered here, never forced open: one press back
+          in, and nothing bounces. Even with the library shelved, hunting down
+          which of several running fights still holds a player is a chore, so
+          the last button releases them all. */}
       {running.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
             {running.length} fight{running.length === 1 ? "" : "s"} running
           </span>
+          {running.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => open(e.id)}
+              className="btn-base btn-ember px-3.5 py-2 text-[11px]"
+            >
+              Resume {e.name}
+            </button>
+          ))}
           <button
             onClick={() => {
               if (confirm(`Stand down ${running.length} running encounter${running.length === 1 ? "" : "s"}? Every summoned hero is released and initiative is cleared.`)) {
@@ -211,8 +240,11 @@ function DMEncounters({ campaign }: { campaign: CampaignContext["campaign"] }) {
                       // shows the other one, so nothing is said twice.
                       const aside = groupBy === "tag" ? e.locationName : groupBy === "place" ? e.tag : [e.tag, e.locationName].filter(Boolean).join(" · ");
                       return (
-                        <div key={e.id} className="parchment flex items-center justify-between px-4 py-3">
-                          <button onClick={() => setOpenId(e.id)} className="min-w-0 flex-1 text-left">
+                        <div
+                          key={e.id}
+                          className="parchment flex items-center justify-between px-4 py-3 transition hover:shadow-[inset_0_0_0_1.5px_rgba(139,37,32,.55)]"
+                        >
+                          <button onClick={() => open(e.id)} className="min-w-0 flex-1 cursor-pointer border-none bg-transparent p-0 text-left">
                             <div className="font-display truncate text-[15px] font-bold text-ink">{e.name}</div>
                             <div className="label-stamp mt-0.5 text-[9px] tracking-[1px] text-ink-label">
                               {e.combatantCount} combatant{e.combatantCount === 1 ? "" : "s"} · {e.status}
