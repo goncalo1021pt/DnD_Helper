@@ -261,6 +261,15 @@ export default function HeroSheetPage() {
   // Spells a class or subclass keeps always prepared (#361): marked on the
   // list, never offered to trade away, never offered as a replacement.
   const granted = new Set(casters.flatMap((c) => c.alwaysPreparedIds ?? []));
+  // Mystic Arcanum and its kind (#362): a class's spell above its own slot
+  // ceiling is an arcanum — cast once a Long Rest, with no slot.
+  const arcana = new Set(
+    casters.flatMap((c) =>
+      (detail?.spells ?? [])
+        .filter((s) => c.spellIds.includes(s.id) && ((s.data as { level?: number }).level ?? 0) > (c.maxSpellLevel ?? 9))
+        .map((s) => s.id),
+    ),
+  );
 
   function sharedUsed() {
     const arr = new Array(9).fill(0);
@@ -585,6 +594,15 @@ export default function HeroSheetPage() {
                               title="Cast off this class's spellcasting ability"
                             >
                               {classOfSpell.get(s.id)}
+                            </span>
+                          )}
+                          {arcana.has(s.id) && (
+                            <span
+                              className="label-stamp ml-1.5 rounded-[2px] px-1 py-px text-[8px] tracking-[1px] text-[#5b3f86]"
+                              style={{ boxShadow: "inset 0 0 0 1px rgba(91,63,134,.35)" }}
+                              title="Mystic Arcanum — cast once a Long Rest, with no slot; the pool of that name counts the cast"
+                            >
+                              arcanum · 1/long rest
                             </span>
                           )}
                           {granted.has(s.id) && (

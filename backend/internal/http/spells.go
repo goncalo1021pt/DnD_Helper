@@ -226,6 +226,11 @@ func (s *Server) validateSpellPicks(
 		atLevel = 20
 	}
 
+	maxSpellLevel := rules.MaxSpellLevel(kind, atLevel)
+	// Spell levels above the slot ceiling that hold one arcanum each (#362).
+	arcanum := rules.ArcanumOpen(rules.ArcanumIn(castingData), atLevel)
+	arcanumHeld := map[int]bool{}
+
 	cantrips, leveled := 0, 0
 	seen := map[uuid.UUID]bool{}
 	for _, row := range existing {
@@ -237,14 +242,17 @@ func (s *Server) validateSpellPicks(
 		}
 		var d spellData
 		_ = json.Unmarshal(row.Data, &d)
-		if d.Level == 0 {
+		switch {
+		case d.Level == 0:
 			cantrips++
-		} else {
+		case d.Level > maxSpellLevel && arcanum[d.Level]:
+			// An arcanum is its own allowance, one per level, never prepared.
+			arcanumHeld[d.Level] = true
+		default:
 			leveled++
 		}
 	}
 
-	maxSpellLevel := rules.MaxSpellLevel(kind, atLevel)
 	for _, id := range newIDs {
 		if granted[id] {
 			return "that spell is always prepared already — it needs no pick", nil, nil
@@ -267,12 +275,17 @@ func (s *Server) validateSpellPicks(
 		if !spellOnList(d, row.Name, class.Name, cr) {
 			return fmt.Sprintf("%s is not on the %s spell list", row.Name, spellListName(class.Name, cr)), nil, nil
 		}
-		if d.Level == 0 {
+		switch {
+		case d.Level == 0:
 			cantrips++
-		} else {
-			if d.Level > maxSpellLevel {
-				return fmt.Sprintf("%s is level %d — beyond a level-%d %s's slots", row.Name, d.Level, atLevel, class.Name), nil, nil
+		case d.Level > maxSpellLevel && arcanum[d.Level]:
+			if arcanumHeld[d.Level] {
+				return fmt.Sprintf("%s already holds a level %d arcanum — one per level", class.Name, d.Level), nil, nil
 			}
+			arcanumHeld[d.Level] = true
+		case d.Level > maxSpellLevel:
+			return fmt.Sprintf("%s is level %d — beyond a level-%d %s's slots", row.Name, d.Level, atLevel, class.Name), nil, nil
+		default:
 			leveled++
 		}
 	}
@@ -349,18 +362,21 @@ func (s *Server) validateSpellSwaps(
 	known := map[uuid.UUID]bool{}
 	isCantrip := map[uuid.UUID]bool{}
 	name := map[uuid.UUID]string{}
+	levelOf := map[uuid.UUID]int{}
 	for _, row := range existing {
 		var d spellData
 		_ = json.Unmarshal(row.Data, &d)
 		known[row.ID] = true
 		isCantrip[row.ID] = d.Level == 0
 		name[row.ID] = row.Name
+		levelOf[row.ID] = d.Level
 	}
 
 	maxSpellLevel := rules.MaxSpellLevel(kind, atLevel)
+	arcanum := rules.ArcanumOpen(rules.ArcanumIn(castingData), atLevel)
 	usedOut := map[uuid.UUID]bool{}
 	usedIn := map[uuid.UUID]bool{}
-	cantripSwaps, preparedSwaps := 0, 0
+	cantripSwaps, preparedSwaps, arcanumSwaps := 0, 0, 0
 
 	for _, sw := range swaps {
 		outID, inID := uuid.UUID(sw.Replace), uuid.UUID(sw.With)
@@ -401,8 +417,27 @@ func (s *Server) validateSpellSwaps(
 		if !spellOnList(d, row.Name, class.Name, cr) {
 			return fmt.Sprintf("%s is not on the %s spell list", row.Name, spellListName(class.Name, cr)), out, nil
 		}
-		if d.Level > maxSpellLevel {
-			return fmt.Sprintf("%s is level %d — beyond a level-%d %s's slots", row.Name, d.Level, atLevel, class.Name), out, nil
+		// An arcanum is traded only for another spell of its own level, and
+		// only as a level is gained — one a level, beside the ordinary trade
+		// (#362).
+		outArcanum := levelOf[outID] > maxSpellLevel && arcanum[levelOf[outID]]
+		if outArcanum || d.Level > maxSpellLevel {
+			if !outArcanum || d.Level != levelOf[outID] {
+				if outArcanum {
+					return fmt.Sprintf("%s is an arcanum — it can only be traded for another level %d spell", name[outID], levelOf[outID]), out, nil
+				}
+				return fmt.Sprintf("%s is level %d — beyond a level-%d %s's slots", row.Name, d.Level, atLevel, class.Name), out, nil
+			}
+			if trigger != "level-up" {
+				return "an arcanum is traded only on gaining a level", out, nil
+			}
+			arcanumSwaps++
+			if arcanumSwaps > 1 {
+				return fmt.Sprintf("%s may change one arcanum on gaining a level", class.Name), out, nil
+			}
+			out.Out = append(out.Out, outID)
+			out.In = append(out.In, inID)
+			continue
 		}
 		// A cantrip and a prepared spell are different currencies.
 		if isCantrip[outID] != (d.Level == 0) {

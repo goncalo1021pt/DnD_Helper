@@ -343,3 +343,77 @@ test("a Fiend Warlock's patron spells are always prepared and cost no pick (#361
   await page.goto(`/questboard/heroes/${heroId}`);
   await expect(page.getByText("always prepared")).toHaveCount(4, { timeout: 20_000 });
 });
+
+/*
+Mystic Arcanum (#362). At Warlock 11 one level-6 spell may be learned above
+the pact ceiling — one, not two, and not a level 7 yet — with a pool that
+counts its once-a-Long-Rest cast. On gaining a level it may be traded for
+another spell of its own level, never for a lower one. The sheet says what
+it is.
+*/
+test("a Warlock 11 learns one Mystic Arcanum and may trade it on the way up (#362)", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("arcanum"));
+  const heroId = await forgeHero(page.request, {
+    name: unique("Archfey-sworn "),
+    className: "Warlock",
+    speciesName: "Dwarf",
+    backgroundName: "Acolyte",
+    abilities: { str: 10, dex: 12, con: 14, int: 13, wis: 10, cha: 15 },
+    skills: ["Arcana", "Deception"],
+  });
+  const warlock = await classIdNamed(page.request, "Warlock");
+  const subs = (await (await page.request.get("/api/rules/subclass")).json()) as Array<{ id: string; name: string }>;
+  const fiend = subs.find((s) => s.name === "Fiend Patron")!.id;
+  const library = (await (await page.request.get("/api/rules/spell")).json()) as Array<{ id: string; name: string }>;
+  const spell = (n: string) => library.find((s) => s.name === n)!.id;
+  const levelUp = (extra: Record<string, unknown> = {}) =>
+    page.request.post(`/api/characters/${heroId}/levelup`, { data: { hpMode: "average", classId: warlock, ...extra } });
+
+  // Up to Warlock 10: the patron at 3, an ability increase at 4 and 8.
+  for (let level = 2; level <= 10; level++) {
+    const extra = level === 3 ? { subclassId: fiend } : level === 4 || level === 8 ? { asi: { cha: 1, con: 1 } } : {};
+    const res = await levelUp(extra);
+    expect(res.ok(), `level ${level}: ${await res.text()}`).toBeTruthy();
+  }
+
+  // At 11: not two of level 6, not a level 7 — one level 6.
+  const two = await levelUp({ spells: [spell("Circle of Death"), spell("Eyebite")] });
+  expect(two.status()).toBe(400);
+  expect(await two.text()).toContain("one per level");
+  const seven = await levelUp({ spells: [spell("Finger of Death")] });
+  expect(seven.status()).toBe(400);
+  const eleven = await levelUp({ spells: [spell("Circle of Death")] });
+  expect(eleven.ok(), await eleven.text()).toBeTruthy();
+
+  type Detail = {
+    spells: Array<{ id: string; name: string }>;
+    character: { sheet?: { pools?: Array<{ name: string; max: number }> } };
+  };
+  const detailOf = async () => (await (await page.request.get(`/api/characters/${heroId}`)).json()) as Detail;
+  const d11 = await detailOf();
+  expect(d11.spells.map((s) => s.name)).toContain("Circle of Death");
+  const pools = d11.character.sheet?.pools ?? [];
+  expect(pools.find((p) => p.name === "Mystic Arcanum (6th level)")?.max).toBe(1);
+  expect(pools.find((p) => p.name === "Mystic Arcanum (7th level)"), "not before Warlock 13").toBeFalsy();
+
+  // At 12 (an ability level): the arcanum trades for another level 6, not a 5.
+  const down = await levelUp({
+    asi: { cha: 2 },
+    spellSwaps: [{ replace: spell("Circle of Death"), with: spell("Hold Monster") }],
+  });
+  expect(down.status()).toBe(400);
+  expect(await down.text()).toContain("arcanum");
+  const twelve = await levelUp({
+    asi: { cha: 2 },
+    spellSwaps: [{ replace: spell("Circle of Death"), with: spell("Eyebite") }],
+  });
+  expect(twelve.ok(), await twelve.text()).toBeTruthy();
+  const d12 = await detailOf();
+  expect(d12.spells.map((s) => s.name)).toContain("Eyebite");
+  expect(d12.spells.map((s) => s.name)).not.toContain("Circle of Death");
+
+  await page.goto(`/questboard/heroes/${heroId}`);
+  await expect(page.getByText("arcanum · 1/long rest")).toHaveCount(1, { timeout: 20_000 });
+});

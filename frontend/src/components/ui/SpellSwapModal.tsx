@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { RulesContent } from "../../api/client";
 import {
   ANY_SWAPS,
+  arcanumOpenAt,
   maxSpellLevel,
   spellChangesFor,
   spellOnClassList,
@@ -74,6 +75,10 @@ export default function SpellSwapModal({
   const limits = swapLimits(klass, trigger);
   const casterKind = (klass?.data as CasterData | undefined)?.spellcaster ?? "full";
   const topLevel = maxSpellLevel(casterKind, characterLevel);
+  // An arcanum sits above the slot ceiling and trades only for another spell
+  // of its own level, one per level gained, beside the ordinary trade (#362).
+  const arcanumLevels = arcanumOpenAt(klass?.data, characterLevel);
+  const isArcanum = (s: RulesContent) => level(s) > topLevel && arcanumLevels.includes(level(s));
 
   const knownById = useMemo(() => new Map(known.map((s) => [s.id, s])), [known]);
   const used = (id: string) => pairs.some((p) => p.out === id);
@@ -82,12 +87,13 @@ export default function SpellSwapModal({
   const spent = pairs.reduce(
     (acc, p) => {
       const s = knownById.get(p.out);
-      if (s) (level(s) === 0 ? acc.cantrips++ : acc.prepared++);
+      if (s) (isArcanum(s) ? acc.arcanum++ : level(s) === 0 ? acc.cantrips++ : acc.prepared++);
       return acc;
     },
-    { prepared: 0, cantrips: 0 },
+    { prepared: 0, cantrips: 0, arcanum: 0 },
   );
   const roomFor = (s: RulesContent) => {
+    if (isArcanum(s)) return trigger === "level-up" && spent.arcanum < 1;
     const allowed = level(s) === 0 ? limits.cantrips : limits.prepared;
     if (allowed === 0) return false;
     if (allowed === ANY_SWAPS) return true;
@@ -98,7 +104,13 @@ export default function SpellSwapModal({
   const replacementsFor = (out: RulesContent) =>
     library
       .filter((s) => spellOnClassList(s, klass))
-      .filter((s) => (level(out) === 0 ? level(s) === 0 : level(s) > 0 && level(s) <= topLevel))
+      .filter((s) =>
+        isArcanum(out)
+          ? level(s) === level(out)
+          : level(out) === 0
+            ? level(s) === 0
+            : level(s) > 0 && level(s) <= topLevel,
+      )
       .filter((s) => !knownById.has(s.id))
       .filter((s) => !pairs.some((p) => p.in === s.id))
       .sort((a, b) => level(a) - level(b) || a.name.localeCompare(b.name));

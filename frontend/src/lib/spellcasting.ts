@@ -173,6 +173,25 @@ export function alwaysPreparedAt(classData: unknown, subclassData: unknown, leve
   return out;
 }
 
+/** One spell level opened to a single arcanum pick at a level in the class (#362). */
+export interface ArcanumGrant {
+  level: number;
+  spellLevel: number;
+}
+
+/**
+ * The spell levels open to an arcanum pick at a level in the class — Mystic
+ * Arcanum's 6th at Warlock 11, 7th at 13 and so on. Each holds one spell,
+ * above the class's slot ceiling, cast once a Long Rest. Mirrors ArcanumOpen
+ * in backend/internal/rules/arcanum.go; read off the casting data.
+ */
+export function arcanumOpenAt(castingData: unknown, level: number): number[] {
+  const rows = (castingData as { arcanum?: ArcanumGrant[] } | undefined)?.arcanum ?? [];
+  return [...new Set(rows.filter((r) => r.level <= level && r.spellLevel >= 1 && r.spellLevel <= 9).map((r) => r.spellLevel))].sort(
+    (a, b) => a - b,
+  );
+}
+
 /** Highest spell level with a slot at a character level (matches the Go tables). */
 export function maxSpellLevel(kind: string, level: number): number {
   const l = Math.min(Math.max(level, 1), 20);
