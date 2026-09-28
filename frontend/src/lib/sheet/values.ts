@@ -365,6 +365,14 @@ export function buildSheetValues({
   for (const slot of sheet?.spellSlots ?? []) {
     if (slot.level >= 1 && slot.level <= 9) v[`lvl${slot.level}Slots`] = String(slot.max);
   }
+  // Pact Magic has its own pool at one level (#190). A pure Warlock has no
+  // shared slots at all, so this is their whole row (#360); where both pools
+  // land on one level they are written apart, "3+2", never added.
+  const pact = sheet?.pactSlots;
+  if (pact && pact.max > 0 && pact.level >= 1 && pact.level <= 9) {
+    const key = `lvl${pact.level}Slots`;
+    v[key] = v[key] ? `${v[key]}+${pact.max}` : String(pact.max);
+  }
 
   // Cantrips first, then by level, then alphabetically — the order the table
   // reads best in, and the order a player would write them.
