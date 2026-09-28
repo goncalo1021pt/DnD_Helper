@@ -3214,6 +3214,8 @@ export interface components {
             maxSpellLevel?: number;
             /** @description The hero's spells belonging to this class. */
             spellIds: string[];
+            /** @description Spells this class and its subclass keep always prepared at the hero's level in the class (#361) — the Fiend's spells, a domain's, an oath's. Derived from content (`data.alwaysPrepared`), never stored: each is also in the detail's `spells`, is cast off this class's ability, and counts against neither allowance. A spell picked before it was granted appears in `spellIds` too, and reads as granted. */
+            alwaysPreparedIds?: string[];
         };
         /** @description Present only on wizard-forged heroes. */
         CharacterSheet: {

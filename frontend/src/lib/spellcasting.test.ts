@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { casterSourceFor, fallbackCasting, maxSpellLevel, spellOnClassList } from "./spellcasting";
+import {
+  alwaysPreparedAt,
+  casterSourceFor,
+  fallbackCasting,
+  maxSpellLevel,
+  spellOnClassList,
+} from "./spellcasting";
 
 /*
 The TypeScript half of the shared rules contract (#112).
@@ -102,5 +108,29 @@ describe("casterSourceFor", () => {
     expect(spellOnClassList(fireball, source)).toBe(true);
     const bless = { name: "Bless", data: { classes: ["Cleric"], level: 1 } };
     expect(spellOnClassList(bless, source)).toBe(false);
+  });
+});
+
+// The client's reading of an always-prepared table (#361), which must agree
+// with the server's grantedNames in backend/internal/http/prepared.go: the
+// class's rows first, then the subclass's, each name once, up to the level
+// in the class.
+describe("alwaysPreparedAt", () => {
+  const fiend = {
+    alwaysPrepared: [
+      { level: 3, spells: ["Burning Hands", "Command"] },
+      { level: 5, spells: ["Fireball", "command"] },
+    ],
+  };
+  it("grants nothing below the first row", () => {
+    expect(alwaysPreparedAt({}, fiend, 2)).toEqual([]);
+  });
+  it("reads every row at or below the level, each name once", () => {
+    expect(alwaysPreparedAt({}, fiend, 3)).toEqual(["Burning Hands", "Command"]);
+    expect(alwaysPreparedAt({}, fiend, 9)).toEqual(["Burning Hands", "Command", "Fireball"]);
+  });
+  it("puts the class's own table before the subclass's", () => {
+    const klass = { alwaysPrepared: [{ level: 1, spells: ["Command", "Hex"] }] };
+    expect(alwaysPreparedAt(klass, fiend, 3)).toEqual(["Command", "Hex", "Burning Hands"]);
   });
 });

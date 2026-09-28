@@ -270,3 +270,76 @@ test("a full-loaded Cleric dips Warlock and Ranger; a Warlock 1 prepares like a 
   });
   expect(ranger.ok(), "a cantrip-owning caster may dip Ranger: " + (await ranger.text())).toBeTruthy();
 });
+
+/*
+A subclass's always-prepared spells are granted (#361). The Fiend's four
+level-3 spells arrive with the subclass, marked on the sheet; they cost no
+pick — a Warlock 4 prepares five spells of their own beside them — and a
+granted spell cannot be picked again.
+*/
+test("a Fiend Warlock's patron spells are always prepared and cost no pick (#361)", async ({ page }) => {
+  await page.goto("/");
+  await registerViaAPI(page.request, newAccount("fiend"));
+  const heroId = await forgeHero(page.request, {
+    name: unique("Pactkeeper "),
+    className: "Warlock",
+    speciesName: "Dwarf",
+    backgroundName: "Acolyte",
+    abilities: { str: 10, dex: 12, con: 14, int: 13, wis: 10, cha: 15 },
+    skills: ["Arcana", "Deception"],
+  });
+  const warlock = await classIdNamed(page.request, "Warlock");
+  const subs = (await (await page.request.get("/api/rules/subclass")).json()) as Array<{ id: string; name: string }>;
+  const fiend = subs.find((s) => s.name === "Fiend Patron")!.id;
+  for (const level of [2, 3]) {
+    const res = await page.request.post(`/api/characters/${heroId}/levelup`, {
+      data: { hpMode: "average", classId: warlock, ...(level === 3 ? { subclassId: fiend } : {}) },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  }
+
+  type Detail = {
+    spells: Array<{ id: string; name: string }>;
+    casters?: Array<{ classId: string; alwaysPreparedIds?: string[]; spellIds: string[] }>;
+  };
+  const detailOf = async () => (await (await page.request.get(`/api/characters/${heroId}`)).json()) as Detail;
+  const granted = ["Burning Hands", "Command", "Scorching Ray", "Suggestion"];
+  const d3 = await detailOf();
+  expect(d3.spells.map((s) => s.name).sort()).toEqual(granted);
+  expect(d3.casters![0].alwaysPreparedIds).toHaveLength(4);
+  expect(d3.casters![0].spellIds, "granted, not picked").toHaveLength(0);
+
+  // A granted spell is not a pick.
+  const command = d3.spells.find((s) => s.name === "Command")!.id;
+  const again = await page.request.post(`/api/characters/${heroId}/levelup`, {
+    // Warlock 4 is an ability-score level, so the increase rides along.
+    data: { hpMode: "average", classId: warlock, asi: { cha: 2 }, spells: [command] },
+  });
+  expect(again.status()).toBe(400);
+  expect(await again.text()).toContain("always prepared");
+
+  // Warlock 4 prepares five of their own, beside the four granted ones.
+  const library = (await (await page.request.get("/api/rules/spell")).json()) as Array<{
+    id: string;
+    name: string;
+    data: { level?: number; classes?: string[] };
+  }>;
+  const own = library
+    .filter((s) => (s.data.classes ?? []).includes("Warlock"))
+    .filter((s) => (s.data.level ?? 0) >= 1 && (s.data.level ?? 0) <= 2)
+    .filter((s) => !granted.includes(s.name))
+    .slice(0, 5)
+    .map((s) => s.id);
+  expect(own).toHaveLength(5);
+  const four = await page.request.post(`/api/characters/${heroId}/levelup`, {
+    data: { hpMode: "average", classId: warlock, asi: { cha: 2 }, spells: own },
+  });
+  expect(four.ok(), await four.text()).toBeTruthy();
+  const d4 = await detailOf();
+  expect(d4.spells).toHaveLength(9);
+  expect(d4.casters![0].spellIds).toHaveLength(5);
+
+  // The sheet marks what the patron keeps prepared, and nothing else.
+  await page.goto(`/questboard/heroes/${heroId}`);
+  await expect(page.getByText("always prepared")).toHaveCount(4, { timeout: 20_000 });
+});

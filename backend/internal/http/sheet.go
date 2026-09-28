@@ -137,6 +137,26 @@ func (s *Server) GetCharacter(ctx context.Context, request api.GetCharacterReque
 	}
 
 	heroClasses := s.classesFor(ctx, character)
+	// Spells the hero's classes keep always prepared (#361), derived here and
+	// never stored: they join the list the sheet reads, once each, and every
+	// caster says which of its spells are its grants.
+	granted, err := s.grantedByClass(ctx, character.OwnerUserID, heroClasses)
+	if err != nil {
+		return nil, err
+	}
+	onList := map[uuid.UUID]bool{}
+	for _, row := range spellRows {
+		onList[row.ID] = true
+	}
+	for _, rows := range granted {
+		for _, row := range rows {
+			if onList[row.ID] {
+				continue
+			}
+			onList[row.ID] = true
+			spells = append(spells, toAPIRulesContent(row, nil, uid))
+		}
+	}
 	hero := toAPICharacterWithClass(character, ownerName, uid, s.classDataFor(ctx, character), heroClasses)
 	attachPools(&hero, s.resolvePools(ctx, character))
 	detail := api.CharacterDetail{
@@ -147,7 +167,7 @@ func (s *Server) GetCharacter(ctx context.Context, request api.GetCharacterReque
 	}
 	// Which class each spell is prepared from, and what each class allows at
 	// the hero's level in it (#190).
-	if casters := castersOf(heroClasses, spellRows, character.ClassID); len(casters) > 0 {
+	if casters := castersOf(heroClasses, spellRows, character.ClassID, granted); len(casters) > 0 {
 		detail.Casters = &casters
 	}
 	return api.GetCharacter200JSONResponse(detail), nil

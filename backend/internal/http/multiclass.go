@@ -236,7 +236,7 @@ existing single-classed hero's list groups exactly as it always displayed.
 The casting itself may be declared on the class or on its subclass — an
 Eldritch Knight casts as a Fighter, off the subclass's Intelligence (#220).
 */
-func castersOf(classes []heroClass, spells []db.ListCharacterSpellsRow, startingClass pgtype.UUID) []api.Spellcaster {
+func castersOf(classes []heroClass, spells []db.ListCharacterSpellsRow, startingClass pgtype.UUID, granted map[uuid.UUID][]db.RulesContent) []api.Spellcaster {
 	out := []api.Spellcaster{}
 	for _, k := range classes {
 		kind, casting, isCaster := parseCasting(castingDataOf(k))
@@ -275,6 +275,16 @@ func castersOf(classes []heroClass, spells []db.ListCharacterSpellsRow, starting
 			MaxSpellLevel: &maxLevel,
 			SpellIds:      ids,
 		})
+		// Its always-prepared spells (#361), apart from its picks: a spell
+		// the player picked before the grant arrived is in both lists, and
+		// the sheet reads that as granted.
+		if rows := granted[k.ClassID]; len(rows) > 0 {
+			ap := make([]uuid.UUID, 0, len(rows))
+			for _, r := range rows {
+				ap = append(ap, r.ID)
+			}
+			out[len(out)-1].AlwaysPreparedIds = &ap
+		}
 	}
 	return out
 }

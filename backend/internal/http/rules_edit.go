@@ -193,6 +193,47 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 	if msg := validatePools(data); msg != "" {
 		return msg
 	}
+	if msg := validateAlwaysPrepared(data); msg != "" {
+		return msg
+	}
+	return ""
+}
+
+/*
+Always-prepared spells, as content declares them (#361): a table of
+{level, spells}. Refused at the door when malformed, like pools — a Paladin
+who silently gets no oath spells is a worse failure than an import that says
+why. Whether each NAME is a spell the codex knows is only a warning (the pack
+import says so), since the spell may arrive in the same pack or a later one.
+*/
+func validateAlwaysPrepared(data map[string]interface{}) string {
+	raw, present := data["alwaysPrepared"]
+	if !present {
+		return ""
+	}
+	list, ok := raw.([]interface{})
+	if !ok {
+		return "alwaysPrepared must be a list of {level, spells}"
+	}
+	for i, item := range list {
+		row, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Sprintf("alwaysPrepared[%d] must be {level, spells}", i)
+		}
+		lvl, ok := row["level"].(float64)
+		if !ok || lvl != float64(int(lvl)) || lvl < 1 || lvl > 20 {
+			return fmt.Sprintf("alwaysPrepared[%d].level must be a whole number from 1 to 20", i)
+		}
+		spells, ok := row["spells"].([]interface{})
+		if !ok || len(spells) == 0 {
+			return fmt.Sprintf("alwaysPrepared[%d].spells must be a non-empty list of spell names", i)
+		}
+		for _, sp := range spells {
+			if name, ok := sp.(string); !ok || strings.TrimSpace(name) == "" {
+				return fmt.Sprintf("alwaysPrepared[%d].spells must be spell names", i)
+			}
+		}
+	}
 	return ""
 }
 

@@ -72,7 +72,7 @@ func TestAnEldritchKnightHasThirdCasterSlots(t *testing.T) {
 
 func TestCastersOfReportsTheSubclassAbilityAndAllowances(t *testing.T) {
 	ek := anEldritchKnight(3)
-	out := castersOf([]heroClass{ek}, nil, pgtype.UUID{Bytes: ek.ClassID, Valid: true})
+	out := castersOf([]heroClass{ek}, nil, pgtype.UUID{Bytes: ek.ClassID, Valid: true}, nil)
 	if len(out) != 1 {
 		t.Fatalf("castersOf found %d casters; want 1", len(out))
 	}
