@@ -201,6 +201,9 @@ func (s *Server) validateSpellPicks(
 	atLevel int,
 	existing []db.ListCharacterSpellsRow,
 	newIDs []uuid.UUID,
+	// What the class keeps always prepared at atLevel (#361): never a pick,
+	// never counted. nil when nothing is granted.
+	granted map[uuid.UUID]bool,
 ) (string, []uuid.UUID, error) {
 	castingData := class.Data
 	kind, casting, isCaster := parseCasting(castingData)
@@ -227,6 +230,11 @@ func (s *Server) validateSpellPicks(
 	seen := map[uuid.UUID]bool{}
 	for _, row := range existing {
 		seen[row.ID] = true
+		// A spell the class now grants stops costing a pick, even when the
+		// player picked it before the grant arrived.
+		if granted[row.ID] {
+			continue
+		}
 		var d spellData
 		_ = json.Unmarshal(row.Data, &d)
 		if d.Level == 0 {
@@ -238,6 +246,9 @@ func (s *Server) validateSpellPicks(
 
 	maxSpellLevel := rules.MaxSpellLevel(kind, atLevel)
 	for _, id := range newIDs {
+		if granted[id] {
+			return "that spell is always prepared already — it needs no pick", nil, nil
+		}
 		if seen[id] {
 			return "a spell was chosen twice", nil, nil
 		}
@@ -306,6 +317,9 @@ func (s *Server) validateSpellSwaps(
 	existing []db.ListCharacterSpellsRow,
 	swaps []api.SpellSwap,
 	trigger string,
+	// Spells the class keeps always prepared (#361): a trade may not bring
+	// one in, since the hero already has it without spending anything.
+	granted map[uuid.UUID]bool,
 ) (string, swapResult, error) {
 	var out swapResult
 	if len(swaps) == 0 {
@@ -352,6 +366,12 @@ func (s *Server) validateSpellSwaps(
 		outID, inID := uuid.UUID(sw.Replace), uuid.UUID(sw.With)
 		if outID == inID {
 			return "a spell can't be swapped for itself", out, nil
+		}
+		if granted[inID] {
+			return "that spell is always prepared already — it needs no trade", out, nil
+		}
+		if granted[outID] && !known[outID] {
+			return "an always-prepared spell cannot be traded away", out, nil
 		}
 		if !known[outID] {
 			return "that hero doesn't know the spell being replaced", out, nil

@@ -7017,6 +7017,13 @@ components:
           items:
             type: string
             format: uuid
+        alwaysPreparedIds:
+          type: array
+          description: |
+            Spells this class and its subclass keep always prepared at the hero's level in the class (#361) — the Fiend's spells, a domain's, an oath's. Derived from content (`data.alwaysPrepared`), never stored: each is also in the detail's `spells`, is cast off this class's ability, and counts against neither allowance. A spell picked before it was granted appears in `spellIds` too, and reads as granted.
+          items:
+            type: string
+            format: uuid
     CharacterSheet:
       type: object
       description: Present only on wizard-forged heroes.

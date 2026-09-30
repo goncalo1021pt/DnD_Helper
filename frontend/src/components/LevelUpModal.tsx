@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { AbilityScores, Character, LevelUpRequest } from "../api/client";
 import { useCharacterDetail, useCodex, useLevelUp, useRules } from "../hooks";
 import {
   casterSourceFor,
   castingFor,
+  alwaysPreparedAt,
   maxSpellLevel,
   spellOnClassList,
   type CasterData,
@@ -178,11 +179,33 @@ export default function LevelUpModal({
     () => new Set((detail?.casters ?? []).find((c) => c.classId === takingIn)?.spellIds ?? []),
     [detail, takingIn],
   );
+  // What the class and its subclass keep always prepared at the level being
+  // reached (#361): not a pick, not counted, not offered — a Fiend Warlock
+  // reaching 5 is handed Fireball by the level itself.
+  const grantedNames = useMemo(
+    () => new Set(alwaysPreparedAt(klass?.data, subEntry?.data, classLevel).map((n) => n.toLowerCase())),
+    [klass, subEntry, classLevel],
+  );
+  const grantedIds = useMemo(
+    () => new Set((detail?.casters ?? []).find((c) => c.classId === takingIn)?.alwaysPreparedIds ?? []),
+    [detail, takingIn],
+  );
+  const isGranted = useCallback(
+    (s: { id: string; name: string }) => grantedIds.has(s.id) || grantedNames.has(s.name.toLowerCase()),
+    [grantedIds, grantedNames],
+  );
+  const newlyGranted = useMemo(
+    () =>
+      alwaysPreparedAt(klass?.data, subEntry?.data, classLevel).filter(
+        (n) => !alwaysPreparedAt(klass?.data, subEntry?.data, classLevel - 1).includes(n),
+      ),
+    [klass, subEntry, classLevel],
+  );
   const ownedCantrips = (detail?.spells ?? []).filter(
-    (s) => classSpellIds.has(s.id) && (s.data as { level?: number }).level === 0,
+    (s) => classSpellIds.has(s.id) && !isGranted(s) && (s.data as { level?: number }).level === 0,
   ).length;
   const ownedLeveled = (detail?.spells ?? []).filter(
-    (s) => classSpellIds.has(s.id) && ((s.data as { level?: number }).level ?? 0) > 0,
+    (s) => classSpellIds.has(s.id) && !isGranted(s) && ((s.data as { level?: number }).level ?? 0) > 0,
   ).length;
   const spellChoices = useMemo(() => {
     if (!casting) return [];
@@ -192,12 +215,13 @@ export default function LevelUpModal({
       const lvl = d.level ?? 99;
       return (
         !ownedSpellIds.has(s.id) &&
+        !isGranted(s) &&
         (lvl === 0 || lvl <= maxLvl) &&
         spellOnClassList(s, casterSource) &&
         codexLegal(s)
       );
     });
-  }, [casting, casterKind, classLevel, allSpells, ownedSpellIds, casterSource, codexLegal]);
+  }, [casting, casterKind, classLevel, allSpells, ownedSpellIds, casterSource, codexLegal, isGranted]);
   const pickedNewCantrips = newSpellIds.filter(
     (id) => ((allSpells ?? []).find((s) => s.id === id)?.data as { level?: number })?.level === 0,
   ).length;
@@ -375,6 +399,14 @@ export default function LevelUpModal({
             </span>
           </div>
         </div>
+
+        {/* spells the level itself grants (#361) */}
+        {newlyGranted.length > 0 && (
+          <div className="font-body text-[13px] text-ink-body">
+            <span className="field-label mr-1.5">Always prepared from now on</span>
+            {newlyGranted.join(", ")}
+          </div>
+        )}
 
         {/* new spells */}
         {casting && (cantripRoom > 0 || preparedRoom > 0) && spellChoices.length > 0 && (
@@ -652,8 +684,8 @@ export default function LevelUpModal({
           klass={casterSource}
           // Trades happen within ONE class's list, judged at the hero's level
           // in that class (#241) — offer only the spells this class owns.
-          known={(detail?.spells ?? []).filter((s) => classSpellIds.has(s.id))}
-          library={allSpells ?? []}
+          known={(detail?.spells ?? []).filter((s) => classSpellIds.has(s.id) && !isGranted(s))}
+          library={(allSpells ?? []).filter((s) => !isGranted(s))}
           characterLevel={classLevel}
           trigger="level-up"
           onClose={() => setSwapping(false)}

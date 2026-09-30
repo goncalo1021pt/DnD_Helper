@@ -81,9 +81,13 @@ func (s *Server) SwapCharacterSpells(ctx context.Context, request api.SwapCharac
 	// pick; validateSpellSwaps runs that check when a campaign is given, so an
 	// unseated hero (uuid.Nil) is ruled by no codex (#239).
 	seatedAt, _ := seatedCampaign(character)
+	granted, err := s.grantedIDs(ctx, character.OwnerUserID, class.Data, subclassData, classLevel)
+	if err != nil {
+		return nil, err
+	}
 	msg, swaps, err := s.validateSpellSwaps(
 		ctx, uid, seatedAt, class, subclassData, classLevel,
-		spellsOfClass(existing, class.ID, character.ClassID), request.Body.Swaps, "long-rest")
+		spellsOfClass(existing, class.ID, character.ClassID), request.Body.Swaps, "long-rest", granted)
 	if err != nil {
 		return nil, err
 	}

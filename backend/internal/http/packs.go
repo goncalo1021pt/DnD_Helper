@@ -12,6 +12,7 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
+	"github.com/goncalo1021pt/questboard/backend/internal/rules"
 )
 
 /*
@@ -95,6 +96,10 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 		}
 	}
 	var warnings []string
+	// Always-prepared tables name spells (#361); a name nothing answers to
+	// grants nothing, so it is said out loud once the whole pack is in.
+	type preparedRef struct{ entry, spell string }
+	var preparedRefs []preparedRef
 
 	fail := func(kind, name, msg string) {
 		report.Failed++
@@ -148,6 +153,11 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 			fail(string(kind), name, fmt.Sprintf("storage refused the entry: %v", err))
 			continue
 		}
+		for _, g := range rules.AlwaysPreparedIn(raw) {
+			for _, sp := range g.Spells {
+				preparedRefs = append(preparedRefs, preparedRef{entry: name, spell: strings.TrimSpace(sp)})
+			}
+		}
 		if srdNames[kind][strings.ToLower(name)] {
 			warnings = append(warnings, fmt.Sprintf(
 				"%s %q shadows the SRD entry of the same name — both will be listed. Packs add content; to extend an existing %s, ship a subclass, feat or spell that names it instead of a second copy.",
@@ -166,6 +176,28 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 			Name   string                        `json:"name"`
 			Status api.ImportReportResultsStatus `json:"status"`
 		}{Kind: string(kind), Name: name, Status: status})
+	}
+	if len(preparedRefs) > 0 {
+		// The pack is in, so its own spells answer as well as the SRD and the
+		// importer's homebrew.
+		if rows, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
+			Kind: db.ContentKindSpell, CreatedBy: pgUUID(uid),
+		}); err == nil {
+			known := map[string]bool{}
+			for _, r := range rows {
+				known[strings.ToLower(r.Name)] = true
+			}
+			warned := map[preparedRef]bool{}
+			for _, ref := range preparedRefs {
+				if known[strings.ToLower(ref.spell)] || warned[ref] {
+					continue
+				}
+				warned[ref] = true
+				warnings = append(warnings, fmt.Sprintf(
+					"%s keeps %q always prepared, but no spell by that name is known — it grants nothing until one is.",
+					ref.entry, ref.spell))
+			}
+		}
 	}
 	if len(warnings) > 0 {
 		report.Warnings = &warnings

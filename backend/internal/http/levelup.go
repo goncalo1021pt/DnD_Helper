@@ -348,13 +348,21 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 	// is ruled by no codex — the level-up swap used to slip the ban here (#239).
 	codexCampaign, _ := seatedCampaign(character)
 
+	// What the class and its subclass keep always prepared at the level being
+	// reached (#361) — a Fiend Warlock reaching 5 is granted Fireball by this
+	// very level, so it may not also be picked with it.
+	granted, err := s.grantedIDs(ctx, character.OwnerUserID, class.Data, subclassData, classLevel)
+	if err != nil {
+		return nil, err
+	}
+
 	// Bard, Sorcerer and Warlock trade a spell on the way up rather than on a
 	// Long Rest. The swap is settled first so the new picks are counted against
 	// the list the hero will actually have.
 	var swaps swapResult
 	if body.SpellSwaps != nil && len(*body.SpellSwaps) > 0 {
 		msg, resolved, err := s.validateSpellSwaps(
-			ctx, uid, codexCampaign, class, subclassData, classLevel, classSpells, *body.SpellSwaps, "level-up")
+			ctx, uid, codexCampaign, class, subclassData, classLevel, classSpells, *body.SpellSwaps, "level-up", granted)
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +384,7 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 			}
 		}
 	}
-	if msg, _, err := s.validateSpellPicks(ctx, uid, codexCampaign, class, subclassData, classLevel, afterSwaps, newSpells); err != nil {
+	if msg, _, err := s.validateSpellPicks(ctx, uid, codexCampaign, class, subclassData, classLevel, afterSwaps, newSpells, granted); err != nil {
 		return nil, err
 	} else if msg != "" {
 		return badRequest(msg)

@@ -62,6 +62,38 @@
   "summary": "The god of the hearth-flame: preserve, mend, restore.",
   "data": {
    "class": "Cleric",
+   "alwaysPrepared": [
+    {
+     "level": 3,
+     "spells": [
+      "Aid",
+      "Bless",
+      "Cure Wounds",
+      "Lesser Restoration"
+     ]
+    },
+    {
+     "level": 5,
+     "spells": [
+      "Mass Healing Word",
+      "Revivify"
+     ]
+    },
+    {
+     "level": 7,
+     "spells": [
+      "Aura of Life",
+      "Death Ward"
+     ]
+    },
+    {
+     "level": 9,
+     "spells": [
+      "Greater Restoration",
+      "Mass Cure Wounds"
+     ]
+    }
+   ],
    "features": [
     {
      "level": 3,
@@ -198,6 +230,43 @@
   "summary": "Honesty, courage, compassion — the knight's oath.",
   "data": {
    "class": "Paladin",
+   "alwaysPrepared": [
+    {
+     "level": 3,
+     "spells": [
+      "Protection from Evil and Good",
+      "Shield of Faith"
+     ]
+    },
+    {
+     "level": 5,
+     "spells": [
+      "Aid",
+      "Zone of Truth"
+     ]
+    },
+    {
+     "level": 9,
+     "spells": [
+      "Beacon of Hope",
+      "Dispel Magic"
+     ]
+    },
+    {
+     "level": 13,
+     "spells": [
+      "Freedom of Movement",
+      "Guardian of Faith"
+     ]
+    },
+    {
+     "level": 17,
+     "spells": [
+      "Commune",
+      "Flame Strike"
+     ]
+    }
+   ],
    "features": [
     {
      "level": 3,
@@ -300,6 +369,38 @@
   "summary": "A dragon's blood hums in your veins.",
   "data": {
    "class": "Sorcerer",
+   "alwaysPrepared": [
+    {
+     "level": 3,
+     "spells": [
+      "Alter Self",
+      "Chromatic Orb",
+      "Command",
+      "Dragon's Breath"
+     ]
+    },
+    {
+     "level": 5,
+     "spells": [
+      "Fear",
+      "Fly"
+     ]
+    },
+    {
+     "level": 7,
+     "spells": [
+      "Arcane Eye",
+      "Charm Monster"
+     ]
+    },
+    {
+     "level": 9,
+     "spells": [
+      "Legend Lore",
+      "Summon Dragon"
+     ]
+    }
+   ],
    "features": [
     {
      "level": 3,
@@ -341,6 +442,38 @@
   "summary": "Power on loan from the lower planes.",
   "data": {
    "class": "Warlock",
+   "alwaysPrepared": [
+    {
+     "level": 3,
+     "spells": [
+      "Burning Hands",
+      "Command",
+      "Scorching Ray",
+      "Suggestion"
+     ]
+    },
+    {
+     "level": 5,
+     "spells": [
+      "Fireball",
+      "Stinking Cloud"
+     ]
+    },
+    {
+     "level": 7,
+     "spells": [
+      "Fire Shield",
+      "Wall of Fire"
+     ]
+    },
+    {
+     "level": 9,
+     "spells": [
+      "Geas",
+      "Insect Plague"
+     ]
+    }
+   ],
    "features": [
     {
      "level": 3,

@@ -255,8 +255,12 @@ export default function HeroSheetPage() {
   const casters = detail?.casters ?? [];
   const classOfSpell = new Map<string, string>();
   if (casters.length > 1) {
-    for (const c of casters) for (const id of c.spellIds) classOfSpell.set(id, c.className);
+    for (const c of casters)
+      for (const id of [...c.spellIds, ...(c.alwaysPreparedIds ?? [])]) classOfSpell.set(id, c.className);
   }
+  // Spells a class or subclass keeps always prepared (#361): marked on the
+  // list, never offered to trade away, never offered as a replacement.
+  const granted = new Set(casters.flatMap((c) => c.alwaysPreparedIds ?? []));
 
   function sharedUsed() {
     const arr = new Array(9).fill(0);
@@ -581,6 +585,15 @@ export default function HeroSheetPage() {
                               title="Cast off this class's spellcasting ability"
                             >
                               {classOfSpell.get(s.id)}
+                            </span>
+                          )}
+                          {granted.has(s.id) && (
+                            <span
+                              className="label-stamp ml-1.5 rounded-[2px] px-1 py-px text-[8px] tracking-[1px] text-[#8b2520]"
+                              style={{ boxShadow: "inset 0 0 0 1px rgba(139,37,32,.35)" }}
+                              title="Your class or subclass keeps this prepared — it needs no pick and counts against nothing"
+                            >
+                              always prepared
                             </span>
                           )}
                           <SpellFlags spell={s} />
@@ -1001,10 +1014,12 @@ export default function HeroSheetPage() {
           klass={casterSource}
           // The long-rest trade is the STARTING class's, within its own list
           // at the hero's level in it — never the whole grimoire (#241).
-          known={(detail?.spells ?? []).filter((s) =>
-            ((detail?.casters ?? []).find((c) => c.classId === sheet?.classId)?.spellIds ?? []).includes(s.id),
+          known={(detail?.spells ?? []).filter(
+            (s) =>
+              !granted.has(s.id) &&
+              ((detail?.casters ?? []).find((c) => c.classId === sheet?.classId)?.spellIds ?? []).includes(s.id),
           )}
-          library={spellLibrary ?? []}
+          library={(spellLibrary ?? []).filter((s) => !granted.has(s.id))}
           characterLevel={
             sheet?.classes?.find((k) => k.classId === sheet?.classId)?.level ?? character.level
           }

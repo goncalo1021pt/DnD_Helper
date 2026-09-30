@@ -143,6 +143,36 @@ export function castingFor(data: CasterData | undefined): Casting | null {
   };
 }
 
+/** One row of an always-prepared table: at this level in the class, these spells (#361). */
+export interface PreparedGrant {
+  level: number;
+  spells: string[];
+}
+
+/**
+ * The spell names a class and its subclass keep always prepared at a level in
+ * that class — the class's table first, then the subclass's, each name once.
+ * Mirrors the server's grantedNames (backend/internal/http/prepared.go); the
+ * server resolves the names and has the last word.
+ */
+export function alwaysPreparedAt(classData: unknown, subclassData: unknown, level: number): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const data of [classData, subclassData]) {
+    const rows = (data as { alwaysPrepared?: PreparedGrant[] } | undefined)?.alwaysPrepared ?? [];
+    for (const row of rows) {
+      if (row.level > level) continue;
+      for (const raw of row.spells ?? []) {
+        const name = raw.trim();
+        if (!name || seen.has(name.toLowerCase())) continue;
+        seen.add(name.toLowerCase());
+        out.push(name);
+      }
+    }
+  }
+  return out;
+}
+
 /** Highest spell level with a slot at a character level (matches the Go tables). */
 export function maxSpellLevel(kind: string, level: number): number {
   const l = Math.min(Math.max(level, 1), 20);
