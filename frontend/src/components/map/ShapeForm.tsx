@@ -36,6 +36,7 @@ export function ShapeForm({
   draft,
   locations,
   layers,
+  mark = false,
   isPending,
   errorText,
   onSubmit,
@@ -46,22 +47,26 @@ export function ShapeForm({
   locations: Location[];
   /** The map's layers, for filing it in one (#355). */
   layers: MapLayer[];
+  /** A player's own line (#356): its one choice about who sees it is sharing. */
+  mark?: boolean;
   isPending: boolean;
   errorText?: string;
-  onSubmit: (body: MapShapeInput) => void;
+  onSubmit: (body: MapShapeInput & { shared?: boolean }) => void;
   onDelete?: () => void;
   onCancel: () => void;
 }) {
   const e = draft.existing;
   const area = draft.kind === "area";
   const [label, setLabel] = useState(e?.label ?? "");
-  const [color, setColor] = useState(e?.color ?? (area ? "#7d9b6a" : "#c96a5a"));
+  // A player's line starts in slate, the colour a mark wears on the map.
+  const [color, setColor] = useState(e?.color ?? (mark ? "#6a8fb0" : area ? "#7d9b6a" : "#c96a5a"));
   const [dashed, setDashed] = useState(e?.dashed ?? false);
   const [width, setWidth] = useState(e?.width ?? 0.004);
   const [opacity, setOpacity] = useState(e?.opacity ?? 0.25);
   const [dmOnly, setDmOnly] = useState(e?.dmOnly ?? false);
   const [locationId, setLocationId] = useState(e?.locationId ?? "");
   const [layerId, setLayerId] = useState(e?.layerId ?? "");
+  const [shared, setShared] = useState(e?.shared ?? false);
 
   function submit(ev: FormEvent) {
     ev.preventDefault();
@@ -77,13 +82,16 @@ export function ShapeForm({
       // Absent keeps what is set; the nil UUID detaches, as everywhere else.
       locationId: locationId || NIL_UUID,
       layerId: layerId || NIL_UUID,
+      ...(mark ? { shared } : {}),
     });
   }
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4 text-ink-strong">
       <label className="flex flex-col gap-1.5">
-        <span className="field-label">{area ? "Name of the region" : "Name of the road"}</span>
+        <span className="field-label">
+          {mark ? "Name of the route" : area ? "Name of the region" : "Name of the road"}
+        </span>
         <input
           autoFocus
           value={label}
@@ -158,15 +166,30 @@ export function ShapeForm({
         </span>
       </label>
 
-      <label className="flex cursor-pointer items-center gap-2.5">
-        <input
-          type="checkbox"
-          checked={dmOnly}
-          onChange={(ev) => setDmOnly(ev.target.checked)}
-          className="h-4 w-4 cursor-pointer accent-[#8b2520]"
-        />
-        <span className="font-body text-sm">Yours alone — the table never receives it</span>
-      </label>
+      {mark ? (
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <input
+            type="checkbox"
+            name="shared"
+            checked={shared}
+            onChange={(ev) => setShared(ev.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-[#8b2520]"
+          />
+          <span className="font-body text-sm">
+            Share with the party — otherwise it is yours and the DM's alone
+          </span>
+        </label>
+      ) : (
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={dmOnly}
+            onChange={(ev) => setDmOnly(ev.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-[#8b2520]"
+          />
+          <span className="font-body text-sm">Yours alone — the table never receives it</span>
+        </label>
+      )}
 
       {locations.length > 0 && (
         <label className="flex flex-col gap-1.5">
@@ -202,7 +225,7 @@ export function ShapeForm({
           disabled={isPending}
           className="btn-base btn-wax clip-octagon px-6 py-[11px] text-xs"
         >
-          {isPending ? "Drawing…" : e ? "Save" : area ? "Draw the region" : "Draw the road"}
+          {isPending ? "Drawing…" : e ? "Save" : mark ? "Draw the route" : area ? "Draw the region" : "Draw the road"}
         </button>
         <button type="button" onClick={onCancel} className="btn-base btn-ghost-ink px-5 py-[11px] text-xs">
           Cancel

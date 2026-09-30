@@ -264,6 +264,14 @@ paths:
     $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1layers"
   /layers/{layerId}:
     $ref: "./paths/maps.yaml#/~1layers~1{layerId}"
+  /maps/{mapId}/marks/pins:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1marks~1pins"
+  /marks/pins/{pinId}:
+    $ref: "./paths/maps.yaml#/~1marks~1pins~1{pinId}"
+  /maps/{mapId}/marks/lines:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1marks~1lines"
+  /marks/lines/{shapeId}:
+    $ref: "./paths/maps.yaml#/~1marks~1lines~1{shapeId}"
 
   /campaigns/{campaignId}/handouts:
     $ref: "./paths/handouts.yaml#/~1campaigns~1{campaignId}~1handouts"
@@ -666,6 +674,10 @@ components:
       $ref: "./components/maps.yaml#/MapLayerInput"
     MapLayerOrder:
       $ref: "./components/maps.yaml#/MapLayerOrder"
+    MapMarkPinInput:
+      $ref: "./components/maps.yaml#/MapMarkPinInput"
+    MapMarkLineInput:
+      $ref: "./components/maps.yaml#/MapMarkLineInput"
 
     Encounter:
       $ref: "./components/encounters.yaml#/Encounter"

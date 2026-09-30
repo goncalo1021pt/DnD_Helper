@@ -9,7 +9,14 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { MapLayerInput, MapPinInput, MapShapeInput, SetVisibilityInput } from "../api/client";
+import type {
+  MapLayerInput,
+  MapMarkLineInput,
+  MapMarkPinInput,
+  MapPinInput,
+  MapShapeInput,
+  SetVisibilityInput,
+} from "../api/client";
 
 export function useMaps(campaignId: string) {
   return useQuery({
@@ -357,6 +364,74 @@ export function useDeleteMapLayer(mapId: string, campaignId: string) {
   return useShapeMutation(mapId, async (layerId: string) => {
     const { error } = await api.DELETE("/layers/{layerId}", {
       params: { path: { layerId }, query: { campaignId } },
+    });
+    if (error) throw error;
+  });
+}
+
+/*
+ * A player's own marks (#356): pins and lines with an author, made at one
+ * table. Their own doors, because they are the player's to write and never the
+ * DM's — a DM pulls one through the DM's delete, and never rewords it.
+ */
+
+export function useCreateMarkPin(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (body: MapMarkPinInput) => {
+    const { data, error } = await api.POST("/maps/{mapId}/marks/pins", {
+      params: { path: { mapId }, query: { campaignId } },
+      body,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useUpdateMarkPin(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (vars: { pinId: string; body: MapMarkPinInput }) => {
+    const { data, error } = await api.PATCH("/marks/pins/{pinId}", {
+      params: { path: { pinId: vars.pinId }, query: { campaignId } },
+      body: vars.body,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useDeleteMarkPin(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (pinId: string) => {
+    const { error } = await api.DELETE("/marks/pins/{pinId}", {
+      params: { path: { pinId }, query: { campaignId } },
+    });
+    if (error) throw error;
+  });
+}
+
+export function useCreateMarkLine(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (body: MapMarkLineInput) => {
+    const { data, error } = await api.POST("/maps/{mapId}/marks/lines", {
+      params: { path: { mapId }, query: { campaignId } },
+      body,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useUpdateMarkLine(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (vars: { shapeId: string; body: MapMarkLineInput }) => {
+    const { data, error } = await api.PATCH("/marks/lines/{shapeId}", {
+      params: { path: { shapeId: vars.shapeId }, query: { campaignId } },
+      body: vars.body,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useDeleteMarkLine(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (shapeId: string) => {
+    const { error } = await api.DELETE("/marks/lines/{shapeId}", {
+      params: { path: { shapeId }, query: { campaignId } },
     });
     if (error) throw error;
   });

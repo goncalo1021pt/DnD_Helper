@@ -868,35 +868,41 @@ type MapLayer struct {
 }
 
 type MapPin struct {
-	ID         uuid.UUID          `json:"id"`
-	MapID      uuid.UUID          `json:"map_id"`
-	Label      string             `json:"label"`
-	Note       string             `json:"note"`
-	X          float64            `json:"x"`
-	Y          float64            `json:"y"`
-	DmOnly     bool               `json:"dm_only"`
-	LinkMapID  pgtype.UUID        `json:"link_map_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Shape      string             `json:"shape"`
-	LocationID pgtype.UUID        `json:"location_id"`
-	LayerID    pgtype.UUID        `json:"layer_id"`
+	ID           uuid.UUID          `json:"id"`
+	MapID        uuid.UUID          `json:"map_id"`
+	Label        string             `json:"label"`
+	Note         string             `json:"note"`
+	X            float64            `json:"x"`
+	Y            float64            `json:"y"`
+	DmOnly       bool               `json:"dm_only"`
+	LinkMapID    pgtype.UUID        `json:"link_map_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Shape        string             `json:"shape"`
+	LocationID   pgtype.UUID        `json:"location_id"`
+	LayerID      pgtype.UUID        `json:"layer_id"`
+	AuthorUserID pgtype.UUID        `json:"author_user_id"`
+	CampaignID   pgtype.UUID        `json:"campaign_id"`
+	Shared       bool               `json:"shared"`
 }
 
 type MapShape struct {
-	ID         uuid.UUID          `json:"id"`
-	MapID      uuid.UUID          `json:"map_id"`
-	Kind       MapShapeKind       `json:"kind"`
-	Label      string             `json:"label"`
-	Points     []byte             `json:"points"`
-	Color      string             `json:"color"`
-	Dashed     bool               `json:"dashed"`
-	Width      float64            `json:"width"`
-	Opacity    float64            `json:"opacity"`
-	DmOnly     bool               `json:"dm_only"`
-	LocationID pgtype.UUID        `json:"location_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
-	LayerID    pgtype.UUID        `json:"layer_id"`
+	ID           uuid.UUID          `json:"id"`
+	MapID        uuid.UUID          `json:"map_id"`
+	Kind         MapShapeKind       `json:"kind"`
+	Label        string             `json:"label"`
+	Points       []byte             `json:"points"`
+	Color        string             `json:"color"`
+	Dashed       bool               `json:"dashed"`
+	Width        float64            `json:"width"`
+	Opacity      float64            `json:"opacity"`
+	DmOnly       bool               `json:"dm_only"`
+	LocationID   pgtype.UUID        `json:"location_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	LayerID      pgtype.UUID        `json:"layer_id"`
+	AuthorUserID pgtype.UUID        `json:"author_user_id"`
+	CampaignID   pgtype.UUID        `json:"campaign_id"`
+	Shared       bool               `json:"shared"`
 }
 
 type MapVisibility struct {
