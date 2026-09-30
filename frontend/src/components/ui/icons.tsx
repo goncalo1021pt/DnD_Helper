@@ -308,6 +308,14 @@ export const IconEyeOff = (p: IconProps) => (
   </Icon>
 );
 
+export const IconLayers = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 2 2 7l10 5 10-5-10-5z" />
+    <path d="m2 17 10 5 10-5" />
+    <path d="m2 12 10 5 10-5" />
+  </Icon>
+);
+
 export const IconBook = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />

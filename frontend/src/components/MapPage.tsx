@@ -24,11 +24,13 @@ import { AtlasModal } from "./map/AtlasModal";
 import { FogCanvas, revealSig } from "./map/FogCanvas";
 import { HangMapForm } from "./map/HangMapForm";
 import { InkworkModal } from "./map/InkworkModal";
+import { Legend, type LegendGroup } from "./map/Legend";
 import { PinForm } from "./map/PinForm";
 import { PinMarker } from "./map/PinMarker";
 import { ShapeForm, type ShapeDraft } from "./map/ShapeForm";
 import { ShapeLayer } from "./map/ShapeLayer";
 import { RevealLedger } from "./map/RevealLedger";
+import { useMapView, BUILT_IN_ROWS, type BuiltInKey } from "./map/useMapView";
 import { useMapViewer } from "./map/useMapViewer";
 import { useRevealDraft } from "./map/useRevealDraft";
 
@@ -162,6 +164,35 @@ export default function MapPage() {
         draftState.reset();
       },
     });
+
+  /*
+  What this viewer has switched off (#355) — view state, never a veil: the
+  payload is the same whatever is ticked. The draft being drawn is not a row,
+  so a DM drawing a road with Roads off still sees the run they are laying.
+  */
+  const mapView = useMapView(map?.id);
+  const pins = detail?.pins ?? [];
+  const shapes = detail?.shapes ?? [];
+  const drawnPins = mapView.shown("pins") ? pins : [];
+  const drawnShapes = shapes.filter((s) => mapView.shown(s.kind === "line" ? "roads" : "regions"));
+  const showNames = mapView.shown("names");
+  // A road clipped by the fog arrives as several runs sharing one id.
+  const shapeCount = (kind: MapShape["kind"]) =>
+    new Set(shapes.filter((s) => s.kind === kind).map((s) => s.id)).size;
+  const counts: Record<BuiltInKey, number | undefined> = {
+    pins: pins.length,
+    roads: shapeCount("line"),
+    regions: shapeCount("area"),
+    names: undefined,
+  };
+  const legendGroups: LegendGroup[] = [
+    { title: "On the map", rows: BUILT_IN_ROWS.map((r) => ({ ...r, count: counts[r.key] })) },
+  ];
+  // Whatever the DM just made is shown, or it would vanish into a switched-off
+  // row the moment it was saved and read as lost.
+  const reveal = (key: BuiltInKey) => {
+    if (!mapView.shown(key)) mapView.set(key, true);
+  };
 
   // ── atlas structure ──────────────────────────────────────────────────────
   const byId = useMemo(() => new Map((maps ?? []).map((m) => [m.id, m])), [maps]);
@@ -408,10 +439,12 @@ export default function MapPage() {
           }}
         >
           {/* First-glance answer to "is the map broken?" — black ground is
-              fog, not a failed image (#250). */}
+              fog, not a failed image (#250). Along the top, which a player's
+              map leaves free: the bottom corners hold the Legend and the zoom
+              rail, and on a phone the line ran under both (#355). */}
           {map.fogEnabled && !isDM && (
             <div
-              className="pointer-events-none absolute bottom-2 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-[3px] px-3 py-1.5"
+              className="pointer-events-none absolute left-1/2 top-2 z-10 w-max max-w-[calc(100%-16px)] -translate-x-1/2 rounded-[3px] px-3 py-1.5 text-center"
               style={{
                 background: "rgba(13,8,3,.78)",
                 boxShadow: "inset 0 0 0 1px rgba(201,162,39,.25)",
@@ -454,7 +487,8 @@ export default function MapPage() {
             {/* Under the pins, over the map: a road should not cover a
                 marker standing on it. */}
             <ShapeLayer
-              shapes={detail?.shapes ?? []}
+              shapes={drawnShapes}
+              showNames={showNames}
               draft={drawKind ? drawPoints : undefined}
               drawingArea={drawKind === "area"}
               width={map.width}
@@ -466,16 +500,19 @@ export default function MapPage() {
                   : undefined
               }
             />
-            {(detail?.pins ?? []).map((p) => (
+            {drawnPins.map((p) => (
               <PinMarker
                 key={p.id}
                 pin={p}
                 scale={view.scale}
+                showLabel={showNames}
                 passive={dropMode || stampMode}
                 onOpen={drawKind ? snapDrawTo : setOpenPin}
               />
             ))}
           </div>
+
+          <Legend groups={legendGroups} view={mapView} />
 
           {/* zoom rail */}
           <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
@@ -721,6 +758,7 @@ export default function MapPage() {
                   onSuccess: () => {
                     setNewPinAt(null);
                     setDropMode(false);
+                    reveal("pins");
                   },
                 },
               )
@@ -789,7 +827,12 @@ export default function MapPage() {
               ((createShape.error ?? updateShape.error) as { error?: string } | null)?.error
             }
             onSubmit={(body) => {
-              const done = { onSuccess: () => setShapeDraft(null) };
+              const done = {
+                onSuccess: () => {
+                  setShapeDraft(null);
+                  reveal(shapeDraft.kind === "line" ? "roads" : "regions");
+                },
+              };
               if (shapeDraft.existing) {
                 updateShape.mutate({ shapeId: shapeDraft.existing.id, body }, done);
               } else {

@@ -96,6 +96,8 @@ export function useMapViewer({
     const el = containerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
+      // A panel laid over the map (the Legend) scrolls itself.
+      if ((e.target as HTMLElement).closest?.("[data-map-overlay]")) return;
       e.preventDefault();
       const v = viewRef.current;
       const r = el.getBoundingClientRect();
@@ -132,7 +134,9 @@ export function useMapViewer({
     // A shape is exempted here but answers pointer events only along its
     // stroke (see ShapeLayer): a region covering half the map must still be
     // ground you can drag, or the map would lock up inside its own borders.
-    if ((e.target as HTMLElement).closest?.("button, [data-pin-id], [data-shape-id]")) return;
+    // A panel laid over the map (`data-map-overlay`, the Legend) is the same
+    // case: its checkboxes are labels, not buttons.
+    if ((e.target as HTMLElement).closest?.("button, [data-pin-id], [data-shape-id], [data-map-overlay]")) return;
     el.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 1) {

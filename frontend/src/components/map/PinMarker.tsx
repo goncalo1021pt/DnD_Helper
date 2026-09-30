@@ -57,12 +57,15 @@ export function PinMarker({
   scale,
   onOpen,
   passive = false,
+  showLabel = true,
 }: {
   pin: MapPin;
   scale: number;
   onOpen: (pin: MapPin) => void;
   /** Answer nothing: the press belongs to the tool under it, not to the pin. */
   passive?: boolean;
+  /** The name under the marker — off when the viewer switched Names off (#355). */
+  showLabel?: boolean;
 }) {
   const region = !!pin.linkMapId;
   const shape: PinShape = pin.shape ?? "pin";
@@ -105,15 +108,17 @@ export function PinMarker({
             </span>
           )}
         </span>
-        <span
-          className="label-stamp mt-0.5 max-w-[140px] truncate rounded-[2px] px-1.5 py-0.5 text-[9px] font-semibold tracking-[1px] text-[#f0dfb8]"
-          style={{
-            background: "rgba(16,9,5,.72)",
-            boxShadow: `inset 0 0 0 1px ${region ? "rgba(201,162,39,.5)" : "rgba(201,106,90,.4)"}`,
-          }}
-        >
-          {pin.label}
-        </span>
+        {showLabel && (
+          <span
+            className="label-stamp mt-0.5 max-w-[140px] truncate rounded-[2px] px-1.5 py-0.5 text-[9px] font-semibold tracking-[1px] text-[#f0dfb8]"
+            style={{
+              background: "rgba(16,9,5,.72)",
+              boxShadow: `inset 0 0 0 1px ${region ? "rgba(201,162,39,.5)" : "rgba(201,106,90,.4)"}`,
+            }}
+          >
+            {pin.label}
+          </span>
+        )}
       </div>
     </div>
   );
