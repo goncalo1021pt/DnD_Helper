@@ -3,7 +3,11 @@ import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { CampaignMap, MapPin, MapPoint, MapShape } from "../api/client";
 import {
   useCreateMapPin,
+  useCreateMapLayer,
   useCreateMapShape,
+  useDeleteMapLayer,
+  useReorderMapLayers,
+  useUpdateMapLayer,
   useDeleteMapPin,
   useDeleteMapShape,
   useUpdateMapShape,
@@ -69,6 +73,10 @@ export default function MapPage() {
   const updateShape = useUpdateMapShape(currentId ?? "", campaign.id);
   const deleteShape = useDeleteMapShape(currentId ?? "", campaign.id);
   const setRevealLocation = useSetRevealLocation(currentId ?? "", campaign.id);
+  const createLayer = useCreateMapLayer(currentId ?? "", campaign.id);
+  const updateLayer = useUpdateMapLayer(currentId ?? "", campaign.id);
+  const reorderLayers = useReorderMapLayers(currentId ?? "", campaign.id);
+  const deleteLayer = useDeleteMapLayer(currentId ?? "", campaign.id);
 
   // The place tree, so a reveal can be handed to whoever knows that place
   // rather than to the whole table (#191). DM-only: the picker never renders
@@ -197,8 +205,27 @@ export default function MapPage() {
   const mapView = useMapView(map?.id);
   const pins = detail?.pins ?? [];
   const shapes = detail?.shapes ?? [];
-  const drawnPins = mapView.shown("pins") ? pins : [];
-  const drawnShapes = shapes.filter((s) => mapView.shown(s.kind === "line" ? "roads" : "regions"));
+  // The DM's named layers (#355), bottom to top. The base map — anything in no
+  // layer — is always drawn, and beneath all of them.
+  const layers = detail?.layers ?? [];
+  const layerKey = (id: string) => `layer:${id}`;
+  const layerById = new Map(layers.map((l) => [l.id, l]));
+  const layerOpen = (id?: string | null) => {
+    const l = id ? layerById.get(id) : undefined;
+    return !l || mapView.shown(layerKey(l.id), l.shownByDefault);
+  };
+  // A thing is drawn when its kind is switched on AND its layer is: switching a
+  // layer off hides everything in it, a door into a sub-map included.
+  const depth = (id?: string | null) => (id ? (layerById.get(id)?.position ?? -1) : -1);
+  const byDepth = <T extends { layerId?: string | null }>(xs: T[]) =>
+    xs
+      .map((x, i) => ({ x, i }))
+      .sort((a, b) => depth(a.x.layerId) - depth(b.x.layerId) || a.i - b.i)
+      .map((e) => e.x);
+  const drawnPins = mapView.shown("pins") ? byDepth(pins.filter((p) => layerOpen(p.layerId))) : [];
+  const drawnShapes = byDepth(
+    shapes.filter((s) => mapView.shown(s.kind === "line" ? "roads" : "regions") && layerOpen(s.layerId)),
+  );
   const showNames = mapView.shown("names");
   // A road clipped by the fog arrives as several runs sharing one id.
   const shapeCount = (kind: MapShape["kind"]) =>
@@ -209,13 +236,27 @@ export default function MapPage() {
     regions: shapeCount("area"),
     names: undefined,
   };
+  const inLayer = (id: string) =>
+    pins.filter((p) => p.layerId === id).length +
+    new Set(shapes.filter((s) => s.layerId === id).map((s) => s.id)).size;
   const legendGroups: LegendGroup[] = [
     { title: "On the map", rows: BUILT_IN_ROWS.map((r) => ({ ...r, count: counts[r.key] })) },
+    {
+      // Top to bottom, the way a stack of sheets is read.
+      title: "Layers",
+      rows: [...layers].reverse().map((l) => ({
+        key: layerKey(l.id),
+        label: isDM && l.dmOnly ? `${l.name} · DM only` : l.name,
+        count: inLayer(l.id),
+        byDefault: l.shownByDefault,
+      })),
+    },
   ];
   // Whatever the DM just made is shown, or it would vanish into a switched-off
-  // row the moment it was saved and read as lost.
-  const reveal = (key: BuiltInKey) => {
+  // row the moment it was saved and read as lost — its layer included.
+  const reveal = (key: BuiltInKey, layerId?: string) => {
     if (!mapView.shown(key)) mapView.set(key, true);
+    if (layerId && !layerOpen(layerId)) mapView.set(layerKey(layerId), true);
   };
 
   // ── atlas structure ──────────────────────────────────────────────────────
@@ -783,9 +824,18 @@ export default function MapPage() {
             Drop a Pin
           </h3>
           <PinForm
-            initial={{ label: "", note: "", dmOnly: false, linkMapId: "", locationId: "", shape: "pin" }}
+            initial={{
+              label: "",
+              note: "",
+              dmOnly: false,
+              linkMapId: "",
+              locationId: "",
+              layerId: "",
+              shape: "pin",
+            }}
             maps={maps ?? []}
             locations={locations ?? []}
+            layers={layers}
             currentMapId={map.id}
             isPending={createPin.isPending}
             errorText={createPin.isError ? apiError(createPin.error) : undefined}
@@ -801,12 +851,13 @@ export default function MapPage() {
                   shape: v.shape,
                   ...(v.linkMapId ? { linkMapId: v.linkMapId } : {}),
                   locationId: v.locationId || NIL_UUID,
+                  layerId: v.layerId || NIL_UUID,
                 },
                 {
                   onSuccess: () => {
                     setNewPinAt(null);
                     setDropMode(false);
-                    reveal("pins");
+                    reveal("pins", v.layerId);
                   },
                 },
               )
@@ -831,10 +882,12 @@ export default function MapPage() {
               dmOnly: editingPin.dmOnly,
               linkMapId: editingPin.linkMapId ?? "",
               locationId: editingPin.locationId ?? "",
+              layerId: editingPin.layerId ?? "",
               shape: editingPin.shape ?? "pin",
             }}
             maps={maps ?? []}
             locations={locations ?? []}
+            layers={layers}
             currentMapId={map.id}
             isPending={updatePin.isPending}
             errorText={updatePin.isError ? apiError(updatePin.error) : undefined}
@@ -852,9 +905,15 @@ export default function MapPage() {
                     shape: v.shape,
                     ...(v.linkMapId ? { linkMapId: v.linkMapId } : {}),
                     locationId: v.locationId || NIL_UUID,
+                    layerId: v.layerId || NIL_UUID,
                   },
                 },
-                { onSuccess: () => setEditingPin(null) },
+                {
+                  onSuccess: () => {
+                    setEditingPin(null);
+                    reveal("pins", v.layerId);
+                  },
+                },
               )
             }
           />
@@ -873,6 +932,7 @@ export default function MapPage() {
           <ShapeForm
             draft={shapeDraft}
             locations={locations ?? []}
+            layers={layers}
             isPending={createShape.isPending || updateShape.isPending}
             errorText={
               ((createShape.error ?? updateShape.error) as { error?: string } | null)?.error
@@ -881,7 +941,7 @@ export default function MapPage() {
               const done = {
                 onSuccess: () => {
                   setShapeDraft(null);
-                  reveal(shapeDraft.kind === "line" ? "roads" : "regions");
+                  reveal(shapeDraft.kind === "line" ? "roads" : "regions", body.layerId ?? undefined);
                 },
               };
               if (shapeDraft.existing) {
@@ -907,6 +967,19 @@ export default function MapPage() {
       {inkworkOpen && map && (
         <InkworkModal
           shapes={detail?.shapes ?? []}
+          layers={layers}
+          layerControls={{
+            countIn: (id) => ({
+              pins: pins.filter((p) => p.layerId === id).length,
+              shapes: new Set(shapes.filter((s) => s.layerId === id).map((s) => s.id)).size,
+            }),
+            isPending:
+              createLayer.isPending || updateLayer.isPending || reorderLayers.isPending || deleteLayer.isPending,
+            onCreate: (body) => createLayer.mutate(body),
+            onUpdate: (layerId, body) => updateLayer.mutate({ layerId, body }),
+            onReorder: (ids) => reorderLayers.mutate(ids),
+            onDelete: (layerId) => deleteLayer.mutate(layerId),
+          }}
           isPending={deleteShape.isPending}
           onEdit={(shape) => {
             setInkworkOpen(false);

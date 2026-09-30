@@ -9,7 +9,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { MapPinInput, MapShapeInput, SetVisibilityInput } from "../api/client";
+import type { MapLayerInput, MapPinInput, MapShapeInput, SetVisibilityInput } from "../api/client";
 
 export function useMaps(campaignId: string) {
   return useQuery({
@@ -309,6 +309,54 @@ export function useDeleteMapShape(mapId: string, campaignId: string) {
   return useShapeMutation(mapId, async (shapeId: string) => {
     const { error } = await api.DELETE("/shapes/{shapeId}", {
       params: { path: { shapeId }, query: { campaignId } },
+    });
+    if (error) throw error;
+  });
+}
+
+/*
+ * Map layers (#355). A layer is authored ground like the map it hangs on, so
+ * every change refetches the map detail — which carries the layer list, and the
+ * pins and shapes filed in them.
+ */
+
+export function useCreateMapLayer(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (body: MapLayerInput) => {
+    const { data, error } = await api.POST("/maps/{mapId}/layers", {
+      params: { path: { mapId }, query: { campaignId } },
+      body,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useUpdateMapLayer(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (vars: { layerId: string; body: MapLayerInput }) => {
+    const { data, error } = await api.PATCH("/layers/{layerId}", {
+      params: { path: { layerId: vars.layerId }, query: { campaignId } },
+      body: vars.body,
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useReorderMapLayers(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (layerIds: string[]) => {
+    const { data, error } = await api.PUT("/maps/{mapId}/layers", {
+      params: { path: { mapId }, query: { campaignId } },
+      body: { layerIds },
+    });
+    if (error) throw error;
+    return data;
+  });
+}
+
+export function useDeleteMapLayer(mapId: string, campaignId: string) {
+  return useShapeMutation(mapId, async (layerId: string) => {
+    const { error } = await api.DELETE("/layers/{layerId}", {
+      params: { path: { layerId }, query: { campaignId } },
     });
     if (error) throw error;
   });

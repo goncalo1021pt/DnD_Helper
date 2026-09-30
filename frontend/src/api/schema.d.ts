@@ -2312,6 +2312,55 @@ export interface paths {
         patch: operations["updateMapPin"];
         trace?: never;
     };
+    "/maps/{mapId}/layers": {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Set the drawing order of a map's layers (DM only) */
+        put: operations["reorderMapLayers"];
+        /** Add a named layer on top of a map's others (DM only) */
+        post: operations["createMapLayer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/layers/{layerId}": {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Strike a layer; what was filed in it drops to the base map (DM only)
+         * @description Nothing drawn is lost — the pins and shapes stay where they are, on the base map — which is why this is `campaigns:run` and not one of the cascading strikes behind `campaigns:own`.
+         */
+        delete: operations["deleteMapLayer"];
+        options?: never;
+        head?: never;
+        /** Rename a layer, or change how it starts or who sees it (DM only) */
+        patch: operations["updateMapLayer"];
+        trace?: never;
+    };
     "/campaigns/{campaignId}/handouts": {
         parameters: {
             query?: never;
@@ -3751,6 +3800,11 @@ export interface components {
              */
             locationId?: string | null;
             locationName?: string | null;
+            /**
+             * Format: uuid
+             * @description The layer this is filed in (#355), or null for the base map, which is always drawn. A player never receives anything filed in a DM-only layer.
+             */
+            layerId?: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -3787,6 +3841,11 @@ export interface components {
              */
             locationId?: string | null;
             locationName?: string | null;
+            /**
+             * Format: uuid
+             * @description The layer this is filed in (#355), or null for the base map, which is always drawn. A player never receives anything filed in a DM-only layer.
+             */
+            layerId?: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -3805,9 +3864,16 @@ export interface components {
              * @description The nil UUID detaches the place, as everywhere else in this API.
              */
             locationId?: string | null;
+            /**
+             * Format: uuid
+             * @description The layer to file this in (#355) — one of this map's. Absent, null or the nil UUID files it on the base map.
+             */
+            layerId?: string | null;
         };
         MapDetail: {
             map: components["schemas"]["CampaignMap"];
+            /** @description The map's named layers (#355), bottom to top — the order they are drawn in, above the base map. A player receives no DM-only layer, and nothing filed in one. */
+            layers: components["schemas"]["MapLayer"][];
             pins: components["schemas"]["MapPin"][];
             /** @description Roads and regions drawn on this map (#262), filtered for the caller exactly as pins are: a DM-only shape is absent from a player's payload, and under fog a line comes back clipped to the stretches standing on ground they have uncovered. */
             shapes: components["schemas"]["MapShape"][];
@@ -3908,6 +3974,36 @@ export interface components {
              * @description The nil UUID detaches the place, as everywhere else in this API.
              */
             locationId?: string | null;
+            /**
+             * Format: uuid
+             * @description The layer to file this in (#355) — one of this map's. Absent, null or the nil UUID files it on the base map.
+             */
+            layerId?: string | null;
+        };
+        /** @description A named group of pins and shapes on one map (#355), which a viewer may switch off. Which layers are open is the viewer's own and kept in their browser; the server holds only what the DM authored. */
+        MapLayer: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            mapId: string;
+            name: string;
+            /** @description Drawing order — higher paints above. The base map is beneath every layer. */
+            position: number;
+            /** @description How a viewer first sees the layer. A suggestion, not a secret: a player may switch on a layer that starts hidden. Only `dmOnly` keeps it from them. */
+            shownByDefault: boolean;
+            /** @description When true, the layer and everything filed in it are absent from a player's payload. */
+            dmOnly: boolean;
+        };
+        MapLayerInput: {
+            name: string;
+            /** @description Defaults to true. */
+            shownByDefault?: boolean;
+            /** @description Defaults to false. */
+            dmOnly?: boolean;
+        };
+        MapLayerOrder: {
+            /** @description Every layer on the map, bottom to top. A list that leaves one out, or names another map's, is refused. */
+            layerIds: string[];
         };
         Encounter: {
             /** Format: uuid */
@@ -9509,6 +9605,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapPin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    reorderMapLayers: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapLayerOrder"];
+            };
+        };
+        responses: {
+            /** @description The layers, bottom to top */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapLayer"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMapLayer: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapLayerInput"];
+            };
+        };
+        responses: {
+            /** @description The new layer */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapLayer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMapLayer: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMapLayer: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                layerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapLayerInput"];
+            };
+        };
+        responses: {
+            /** @description The layer as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapLayer"];
                 };
             };
             400: components["responses"]["BadRequest"];
