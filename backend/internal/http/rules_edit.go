@@ -196,6 +196,42 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 	if msg := validateAlwaysPrepared(data); msg != "" {
 		return msg
 	}
+	if msg := validateArcanum(data); msg != "" {
+		return msg
+	}
+	return ""
+}
+
+// validateArcanum checks a Mystic Arcanum-shaped declaration (#362): a list of
+// {level, spellLevel}, one row per spell level, since each level holds one pick.
+func validateArcanum(data map[string]interface{}) string {
+	raw, present := data["arcanum"]
+	if !present {
+		return ""
+	}
+	list, ok := raw.([]interface{})
+	if !ok {
+		return "arcanum must be a list of {level, spellLevel}"
+	}
+	seen := map[int]bool{}
+	for i, item := range list {
+		row, ok := item.(map[string]interface{})
+		if !ok {
+			return fmt.Sprintf("arcanum[%d] must be {level, spellLevel}", i)
+		}
+		lvl, ok := row["level"].(float64)
+		if !ok || lvl != float64(int(lvl)) || lvl < 1 || lvl > 20 {
+			return fmt.Sprintf("arcanum[%d].level must be a whole number from 1 to 20", i)
+		}
+		sl, ok := row["spellLevel"].(float64)
+		if !ok || sl != float64(int(sl)) || sl < 1 || sl > 9 {
+			return fmt.Sprintf("arcanum[%d].spellLevel must be a whole number from 1 to 9", i)
+		}
+		if seen[int(sl)] {
+			return fmt.Sprintf("arcanum opens spell level %d twice — each level holds one spell", int(sl))
+		}
+		seen[int(sl)] = true
+	}
 	return ""
 }
 

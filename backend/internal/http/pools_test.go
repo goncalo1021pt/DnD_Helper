@@ -60,6 +60,8 @@ func TestSeededClassPoolsAreLegal(t *testing.T) {
 		"Barbarian": true, "Bard": true, "Cleric": true, "Druid": true,
 		"Fighter": true, "Monk": true, "Paladin": true, "Ranger": true,
 		"Sorcerer": true,
+		// Mystic Arcanum: one cast of each arcanum a Long Rest (#362).
+		"Warlock": true,
 	}
 	seen := 0
 	for _, e := range seededClasses(t) {

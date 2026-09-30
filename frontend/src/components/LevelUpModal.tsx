@@ -5,6 +5,7 @@ import {
   casterSourceFor,
   castingFor,
   alwaysPreparedAt,
+  arcanumOpenAt,
   maxSpellLevel,
   spellOnClassList,
   type CasterData,
@@ -201,11 +202,25 @@ export default function LevelUpModal({
       ),
     [klass, subEntry, classLevel],
   );
+  // Mystic Arcanum and its kind (#362): spell levels above the slot ceiling,
+  // each open to one pick of its own, counted apart from the prepared spells.
+  const slotCeiling = maxSpellLevel(casterKind, classLevel);
+  const spellLvl = (s: { data: unknown }) => (s.data as { level?: number }).level ?? 0;
+  const arcanumHeld = new Set(
+    (detail?.spells ?? []).filter((s) => classSpellIds.has(s.id) && spellLvl(s) > slotCeiling).map(spellLvl),
+  );
+  const arcanumOpen = casting
+    ? arcanumOpenAt(casterSource?.data, classLevel).filter((l) => l > slotCeiling && !arcanumHeld.has(l))
+    : [];
   const ownedCantrips = (detail?.spells ?? []).filter(
     (s) => classSpellIds.has(s.id) && !isGranted(s) && (s.data as { level?: number }).level === 0,
   ).length;
   const ownedLeveled = (detail?.spells ?? []).filter(
-    (s) => classSpellIds.has(s.id) && !isGranted(s) && ((s.data as { level?: number }).level ?? 0) > 0,
+    (s) =>
+      classSpellIds.has(s.id) &&
+      !isGranted(s) &&
+      ((s.data as { level?: number }).level ?? 0) > 0 &&
+      spellLvl(s) <= slotCeiling,
   ).length;
   const spellChoices = useMemo(() => {
     if (!casting) return [];
@@ -216,16 +231,23 @@ export default function LevelUpModal({
       return (
         !ownedSpellIds.has(s.id) &&
         !isGranted(s) &&
-        (lvl === 0 || lvl <= maxLvl) &&
+        (lvl === 0 || lvl <= maxLvl || arcanumOpen.includes(lvl)) &&
         spellOnClassList(s, casterSource) &&
         codexLegal(s)
       );
     });
-  }, [casting, casterKind, classLevel, allSpells, ownedSpellIds, casterSource, codexLegal, isGranted]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [casting, casterKind, classLevel, allSpells, ownedSpellIds, casterSource, codexLegal, isGranted, arcanumOpen.join()]);
   const pickedNewCantrips = newSpellIds.filter(
     (id) => ((allSpells ?? []).find((s) => s.id === id)?.data as { level?: number })?.level === 0,
   ).length;
-  const pickedNewLeveled = newSpellIds.length - pickedNewCantrips;
+  const pickedArcanum = new Set(
+    newSpellIds
+      .map((id) => (allSpells ?? []).find((s) => s.id === id))
+      .filter((s): s is NonNullable<typeof s> => !!s && spellLvl(s) > slotCeiling)
+      .map(spellLvl),
+  );
+  const pickedNewLeveled = newSpellIds.length - pickedNewCantrips - pickedArcanum.size;
   const cantripRoom = casting ? Math.max(casting.cantrips[classLevel - 1] - ownedCantrips, 0) : 0;
   const preparedRoom = casting ? Math.max(casting.prepared[classLevel - 1] - ownedLeveled, 0) : 0;
 
@@ -409,13 +431,15 @@ export default function LevelUpModal({
         )}
 
         {/* new spells */}
-        {casting && (cantripRoom > 0 || preparedRoom > 0) && spellChoices.length > 0 && (
+        {casting && (cantripRoom > 0 || preparedRoom > 0 || arcanumOpen.length > 0) && spellChoices.length > 0 && (
           <div>
             <div className="field-label mb-1.5">
               New spells at {klass?.name ?? "class"} level {classLevel}
               <span className="ml-2 font-normal normal-case tracking-normal text-ink-label">
                 {cantripRoom > 0 && `cantrips ${pickedNewCantrips}/${cantripRoom} · `}
                 spells {pickedNewLeveled}/{preparedRoom}
+                {arcanumOpen.length > 0 &&
+                  ` · arcanum ${pickedArcanum.size}/${arcanumOpen.length} (level ${arcanumOpen.join(", ")}, once a Long Rest)`}
               </span>
             </div>
             <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto pr-1">
@@ -425,7 +449,9 @@ export default function LevelUpModal({
                 const atCap =
                   lvl === 0
                     ? pickedNewCantrips >= cantripRoom
-                    : pickedNewLeveled >= preparedRoom;
+                    : lvl > slotCeiling
+                      ? pickedArcanum.has(lvl)
+                      : pickedNewLeveled >= preparedRoom;
                 return (
                   <SpellHover key={s.id} spell={s}>
                   <button

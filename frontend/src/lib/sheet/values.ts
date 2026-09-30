@@ -392,7 +392,10 @@ export function buildSheetValues({
     v[`spell${n}Range`] = data.range ? shortRange(data.range) : "";
     v[`spell${n}Conc`] = !!data.concentration;
     v[`spell${n}Ritual`] = !!data.ritual;
-    v[`spell${n}Notes`] = data.school ?? "";
+    // An arcanum (#362) is above every slot the hero has; the sheet says
+    // how it is cast rather than which school it is.
+    const ceiling = Math.max(0, ...(detail.casters ?? []).map((c) => c.maxSpellLevel ?? 0));
+    v[`spell${n}Notes`] = lvl > 5 && lvl > ceiling && (detail.casters ?? []).length > 0 ? "Arcanum, 1/LR" : data.school ?? "";
   });
 
   return v;

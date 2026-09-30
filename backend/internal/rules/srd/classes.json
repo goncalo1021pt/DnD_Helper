@@ -2712,6 +2712,50 @@
      "count": 1
     }
    },
+   "arcanum": [
+    {
+     "level": 11,
+     "spellLevel": 6
+    },
+    {
+     "level": 13,
+     "spellLevel": 7
+    },
+    {
+     "level": 15,
+     "spellLevel": 8
+    },
+    {
+     "level": 17,
+     "spellLevel": 9
+    }
+   ],
+   "pools": [
+    {
+     "name": "Mystic Arcanum (6th level)",
+     "level": 11,
+     "uses": "1",
+     "shortRest": "none"
+    },
+    {
+     "name": "Mystic Arcanum (7th level)",
+     "level": 13,
+     "uses": "1",
+     "shortRest": "none"
+    },
+    {
+     "name": "Mystic Arcanum (8th level)",
+     "level": 15,
+     "uses": "1",
+     "shortRest": "none"
+    },
+    {
+     "name": "Mystic Arcanum (9th level)",
+     "level": 17,
+     "uses": "1",
+     "shortRest": "none"
+    }
+   ],
    "featuresTable": [
     {
      "name": "Eldritch Invocations",
