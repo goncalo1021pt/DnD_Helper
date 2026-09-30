@@ -92,6 +92,11 @@ func toAPIShape(s db.MapShape, locationName *string, points []shapePoint) api.Ma
 		id := uuid.UUID(s.LayerID.Bytes)
 		out.LayerId = &id
 	}
+	if s.AuthorUserID.Valid {
+		id := uuid.UUID(s.AuthorUserID.Bytes)
+		out.AuthorUserId = &id
+	}
+	out.Shared = &s.Shared
 	return out
 }
 
@@ -236,9 +241,20 @@ func clipShape(kind db.MapShapeKind, pts []shapePoint, seen func(shapePoint) boo
 	return runs
 }
 
+// shapeViewer is who a map's shapes are being assembled for: their role, who
+// they are and the table they read through (for players' marks, #356), the
+// layers they may not know of (#355), and the names marks go under.
+type shapeViewer struct {
+	isDM   bool
+	user   uuid.UUID
+	lens   uuid.UUID
+	hidden map[uuid.UUID]bool
+	names  map[uuid.UUID]string
+}
+
 // shapesFor assembles every shape on a map as this viewer may have it.
-// hidden is the map's layers the viewer may not know of (#355).
-func (s *Server) shapesFor(ctx context.Context, mapID uuid.UUID, isDM bool, hidden map[uuid.UUID]bool, aspect float64, revealed []api.RevealCircle, fogged bool) ([]api.MapShape, error) {
+func (s *Server) shapesFor(ctx context.Context, mapID uuid.UUID, v shapeViewer, aspect float64, revealed []api.RevealCircle, fogged bool) ([]api.MapShape, error) {
+	isDM, hidden := v.isDM, v.hidden
 	rows, err := s.queries.ListMapShapes(ctx, mapID)
 	if err != nil {
 		return nil, err
@@ -257,6 +273,24 @@ func (s *Server) shapesFor(ctx context.Context, mapID uuid.UUID, isDM bool, hidd
 	out := make([]api.MapShape, 0, len(rows))
 	for _, row := range rows {
 		pts := decodePoints(row.Points)
+		// A player's line (#356): its author and the DMs whole, the rest of
+		// the table only when shared — and then clipped by the fog exactly as
+		// the DM's roads are.
+		if isMark(row.AuthorUserID) {
+			if !markVisible(row.AuthorUserID, row.CampaignID, row.Shared, v.lens, v.user, isDM) {
+				continue
+			}
+			runs := [][]shapePoint{pts}
+			if markIsOthers(row.AuthorUserID, v.user, isDM) && fogged {
+				runs = clipShape(row.Kind, pts, seen)
+			}
+			for _, run := range runs {
+				out1 := toAPIShape(row, nil, run)
+				out1.AuthorName = authorNameOf(row.AuthorUserID, v.names)
+				out = append(out, out1)
+			}
+			continue
+		}
 		if isDM {
 			out = append(out, toAPIShape(row, s.placeName(ctx, row.LocationID), pts))
 			continue
@@ -285,6 +319,11 @@ func (s *Server) requireShapeDM(ctx context.Context, shapeID, campaignID uuid.UU
 	row, err := s.queries.GetMapShape(ctx, db.GetMapShapeParams{ShapeID: shapeID, CampaignID: campaignID})
 	if err != nil {
 		return db.GetMapShapeRow{}, err
+	}
+	// A player's line made at a sibling table on this realm is not this DM's
+	// to touch, and not theirs to know of (#356).
+	if isMark(row.AuthorUserID) && !markAt(row.CampaignID, campaignID) {
+		return db.GetMapShapeRow{}, pgx.ErrNoRows
 	}
 	return row, nil
 }
@@ -342,6 +381,12 @@ func (s *Server) UpdateMapShape(ctx context.Context, request api.UpdateMapShapeR
 	}
 	if msg != "" {
 		return api.UpdateMapShape400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: msg}}, nil
+	}
+	// A player's line is theirs to redraw; the DM may only pull it (#356).
+	if isMark(current.AuthorUserID) {
+		return api.UpdateMapShape400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "a player's mark is theirs to change — you may pull it",
+		}}, nil
 	}
 	// A shape does not change what it IS — a road cannot become a kingdom by
 	// being restyled. Rub it out and draw the other one.

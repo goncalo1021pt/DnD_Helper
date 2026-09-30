@@ -117,6 +117,11 @@ func toAPIPin(p db.MapPin, placeName *string) api.MapPin {
 		id := uuid.UUID(p.LayerID.Bytes)
 		out.LayerId = &id
 	}
+	if p.AuthorUserID.Valid {
+		id := uuid.UUID(p.AuthorUserID.Bytes)
+		out.AuthorUserId = &id
+	}
+	out.Shared = &p.Shared
 	return out
 }
 
@@ -424,8 +429,29 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 		return !viewer.places.locationVisibleToAny(uuid.UUID(p.LocationID.Bytes), viewer.charIDs)
 	}
 
+	// Whose name a player's mark goes under (#356).
+	names, err := s.memberNames(ctx, meta.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+
 	outPins := make([]api.MapPin, 0, len(pins))
 	for _, p := range pins {
+		// A player's own mark (#356) is this table's knowledge, never the
+		// realm's: its author and the DMs, and the rest when shared — under
+		// the same fog as the DM's ink. It carries none of the other veils.
+		if isMark(p.AuthorUserID) {
+			if !markVisible(p.AuthorUserID, p.CampaignID, p.Shared, meta.CampaignID, m.UserID, isDM) {
+				continue
+			}
+			if markIsOthers(p.AuthorUserID, m.UserID, isDM) && meta.FogEnabled && !inRevealed(p) {
+				continue
+			}
+			out := toAPIPin(p, nil)
+			out.AuthorName = authorNameOf(p.AuthorUserID, names)
+			outPins = append(outPins, out)
+			continue
+		}
 		if !isDM {
 			if p.DmOnly || inHiddenLayer(p.LayerID, hidden) {
 				continue
@@ -441,7 +467,9 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 	}
 	// Roads and regions ride the same veil the pins do (#262): absent when
 	// DM-only, and a line clipped to the stretches this viewer has uncovered.
-	shapes, err := s.shapesFor(ctx, request.MapId, isDM, hidden, aspect, revealed, meta.FogEnabled)
+	shapes, err := s.shapesFor(ctx, request.MapId, shapeViewer{
+		isDM: isDM, user: m.UserID, lens: meta.CampaignID, hidden: hidden, names: names,
+	}, aspect, revealed, meta.FogEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -700,6 +728,16 @@ func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinReque
 		}
 		return nil, err
 	}
+	// A player's mark (#356) is another table's knowledge unless it is this
+	// one's, and even then it is theirs to reword: the DM may only pull it.
+	if isMark(row.AuthorUserID) {
+		if !markAt(row.CampaignID, lensID) {
+			return api.UpdateMapPin404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+		}
+		return api.UpdateMapPin400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+			Error: "a player's mark is theirs to change — you may pull it",
+		}}, nil
+	}
 	f, errMsg, err := s.validatePinInput(ctx, row.RealmID, lensID, row.MapID, request.Body)
 	if err != nil {
 		return nil, err
@@ -744,6 +782,10 @@ func (s *Server) DeleteMapPin(ctx context.Context, request api.DeleteMapPinReque
 			return api.DeleteMapPin404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
 		return nil, err
+	}
+	// A DM pulls a mark made at their own table, never at a sibling's (#356).
+	if isMark(row.AuthorUserID) && !markAt(row.CampaignID, lensID) {
+		return api.DeleteMapPin404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 	}
 	if _, err := s.queries.DeleteMapPin(ctx, request.PinId); err != nil {
 		return nil, err

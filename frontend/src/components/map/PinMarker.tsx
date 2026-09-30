@@ -71,7 +71,9 @@ export function PinMarker({
   // plain marker is red, so a player can tell at a glance which pins open.
   const region = !!pin.linkMapId || !!pin.locationId;
   const shape: PinShape = pin.shape ?? "pin";
-  const color = region ? "#e0a94e" : "#c96a5a";
+  // A player's own mark (#356) wears slate, so it never reads as the DM's ink.
+  const mark = !!pin.authorUserId;
+  const color = region ? "#e0a94e" : mark ? "#8fb3d9" : "#c96a5a";
   // The teardrop hangs by its tip; everything else is centred on its spot,
   // because a circle has no point to stand on.
   const anchor = shape === "pin" ? "translate(-50%, -100%)" : "translate(-50%, -50%)";
@@ -115,7 +117,9 @@ export function PinMarker({
             className="label-stamp mt-0.5 max-w-[140px] truncate rounded-[2px] px-1.5 py-0.5 text-[9px] font-semibold tracking-[1px] text-[#f0dfb8]"
             style={{
               background: "rgba(16,9,5,.72)",
-              boxShadow: `inset 0 0 0 1px ${region ? "rgba(201,162,39,.5)" : "rgba(201,106,90,.4)"}`,
+              boxShadow: `inset 0 0 0 1px ${
+                region ? "rgba(201,162,39,.5)" : mark ? "rgba(143,179,217,.5)" : "rgba(201,106,90,.4)"
+              }`,
             }}
           >
             {pin.label}

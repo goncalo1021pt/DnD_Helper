@@ -2361,6 +2361,96 @@ export interface paths {
         patch: operations["updateMapLayer"];
         trace?: never;
     };
+    "/maps/{mapId}/marks/pins": {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Drop a pin of your own on a map (any member) */
+        post: operations["createMarkPin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/marks/pins/{pinId}": {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                pinId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Pull your own pin (its author only; a DM pulls through deleteMapPin) */
+        delete: operations["deleteMarkPin"];
+        options?: never;
+        head?: never;
+        /** Move, reword or share your own pin (its author only) */
+        patch: operations["updateMarkPin"];
+        trace?: never;
+    };
+    "/maps/{mapId}/marks/lines": {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Draw a line of your own on a map (any member) */
+        post: operations["createMarkLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/marks/lines/{shapeId}": {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                shapeId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Pull your own line (its author only; a DM pulls through deleteMapShape) */
+        delete: operations["deleteMarkLine"];
+        options?: never;
+        head?: never;
+        /** Redraw, restyle or share your own line (its author only) */
+        patch: operations["updateMarkLine"];
+        trace?: never;
+    };
     "/campaigns/{campaignId}/handouts": {
         parameters: {
             query?: never;
@@ -3805,6 +3895,14 @@ export interface components {
              * @description The layer this is filed in (#355), or null for the base map, which is always drawn. A player never receives anything filed in a DM-only layer.
              */
             layerId?: string | null;
+            /**
+             * Format: uuid
+             * @description Set when this is a player's own mark (#356) rather than the DM's ink. A mark belongs to one table and reaches its author and the DMs — and the whole table only when `shared`.
+             */
+            authorUserId?: string | null;
+            authorName?: string | null;
+            /** @description A player's mark shown to the whole table, under its author's name. Always false for the DM's ink. */
+            shared?: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -3846,6 +3944,14 @@ export interface components {
              * @description The layer this is filed in (#355), or null for the base map, which is always drawn. A player never receives anything filed in a DM-only layer.
              */
             layerId?: string | null;
+            /**
+             * Format: uuid
+             * @description Set when this is a player's own mark (#356) rather than the DM's ink. A mark belongs to one table and reaches its author and the DMs — and the whole table only when `shared`.
+             */
+            authorUserId?: string | null;
+            authorName?: string | null;
+            /** @description A player's mark shown to the whole table, under its author's name. Always false for the DM's ink. */
+            shared?: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -4004,6 +4110,26 @@ export interface components {
         MapLayerOrder: {
             /** @description Every layer on the map, bottom to top. A list that leaves one out, or names another map's, is refused. */
             layerIds: string[];
+        };
+        /** @description A player's own pin (#356). A mark names no place, leads into no map, sits in no layer and is never DM-only; `shared` is the one choice about who sees it. */
+        MapMarkPinInput: {
+            label: string;
+            note?: string;
+            x: number;
+            y: number;
+            /** @enum {string} */
+            shape?: "pin" | "circle" | "square" | "diamond" | "triangle" | "star" | "cross" | "skull";
+            /** @description Show it to the whole table. Defaults to false — the author and the DMs alone. */
+            shared?: boolean;
+        };
+        /** @description A player's own line (#356) — a route they took. Lines only; a region is the DM's. */
+        MapMarkLineInput: {
+            label?: string;
+            points: components["schemas"]["MapPoint"][];
+            color?: string;
+            dashed?: boolean;
+            width?: number;
+            shared?: boolean;
         };
         Encounter: {
             /** Format: uuid */
@@ -9730,6 +9856,190 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapLayer"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMarkPin: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapMarkPinInput"];
+            };
+        };
+        responses: {
+            /** @description Your mark */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapPin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMarkPin: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                pinId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMarkPin: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                pinId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapMarkPinInput"];
+            };
+        };
+        responses: {
+            /** @description Your mark as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapPin"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMarkLine: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                mapId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapMarkLineInput"];
+            };
+        };
+        responses: {
+            /** @description Your mark */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapShape"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMarkLine: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                shapeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMarkLine: {
+        parameters: {
+            query: {
+                /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
+                campaignId: components["parameters"]["CampaignLens"];
+            };
+            header?: never;
+            path: {
+                shapeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapMarkLineInput"];
+            };
+        };
+        responses: {
+            /** @description Your mark as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapShape"];
                 };
             };
             400: components["responses"]["BadRequest"];

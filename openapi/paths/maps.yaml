@@ -579,3 +579,181 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/maps/{mapId}/marks/pins:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
+    - name: mapId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: createMarkPin
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Drop a pin of your own on a map (any member)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapMarkPinInput"
+    responses:
+      "201":
+        description: Your mark
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapPin"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/marks/pins/{pinId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
+    - name: pinId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateMarkPin
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Move, reword or share your own pin (its author only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapMarkPinInput"
+    responses:
+      "200":
+        description: Your mark as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapPin"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteMarkPin
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Pull your own pin (its author only; a DM pulls through deleteMapPin)
+    responses:
+      "204":
+        description: Gone
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/maps/{mapId}/marks/lines:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
+    - name: mapId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: createMarkLine
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Draw a line of your own on a map (any member)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapMarkLineInput"
+    responses:
+      "201":
+        description: Your mark
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapShape"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/marks/lines/{shapeId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
+    - name: shapeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateMarkLine
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Redraw, restyle or share your own line (its author only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapMarkLineInput"
+    responses:
+      "200":
+        description: Your mark as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapShape"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteMarkLine
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Pull your own line (its author only; a DM pulls through deleteMapShape)
+    responses:
+      "204":
+        description: Gone
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
