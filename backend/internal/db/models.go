@@ -857,16 +857,17 @@ type MapCampaignState struct {
 }
 
 type MapPin struct {
-	ID        uuid.UUID          `json:"id"`
-	MapID     uuid.UUID          `json:"map_id"`
-	Label     string             `json:"label"`
-	Note      string             `json:"note"`
-	X         float64            `json:"x"`
-	Y         float64            `json:"y"`
-	DmOnly    bool               `json:"dm_only"`
-	LinkMapID pgtype.UUID        `json:"link_map_id"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	Shape     string             `json:"shape"`
+	ID         uuid.UUID          `json:"id"`
+	MapID      uuid.UUID          `json:"map_id"`
+	Label      string             `json:"label"`
+	Note       string             `json:"note"`
+	X          float64            `json:"x"`
+	Y          float64            `json:"y"`
+	DmOnly     bool               `json:"dm_only"`
+	LinkMapID  pgtype.UUID        `json:"link_map_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Shape      string             `json:"shape"`
+	LocationID pgtype.UUID        `json:"location_id"`
 }
 
 type MapShape struct {
