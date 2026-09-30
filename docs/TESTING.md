@@ -81,7 +81,14 @@ pretending to pass.
 
 **Run the suite against a server that has no `RESEND_API_KEY`.** Your local
 `.env` probably has the real one, in which case every run fires real Resend
-calls for addresses that do not exist. CI leaves the key unset on purpose.
+calls for addresses that do not exist — they bounce, and one run spends the
+day's quota, which is production's quota too (it happened, twice, in
+September 2026). So it is enforced rather than remembered: `make test` blanks
+the key for its containers, and `make e2e` refuses to run while the compose
+`app` container holds one (a container started before the fix keeps its key
+until it is recreated). CI leaves the key unset on purpose. The one path left
+unguarded is pointing `E2E_BASE_URL` at a `make run` server — that reads `.env`
+directly, so don't.
 
 ### Versions
 

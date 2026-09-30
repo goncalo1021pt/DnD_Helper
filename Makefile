@@ -77,8 +77,14 @@ run: ## Run the server from source (uses .env)
 version: ## Print the version this tree would build as
 	@echo $(VERSION)
 
+# RESEND_API_KEY is blanked on purpose: this stack exists to be driven by the
+# e2e, and with the real key from .env every registration mails a real
+# confirmation to a made-up @example.test address. They bounce, and a run is
+# enough to spend the day's Resend quota — which takes production's mail down
+# with it. The shell's empty value wins over .env; the server falls back to
+# logMailer. Real sending locally is `make run` or `make prod`.
 test: ## Run the WHOLE app locally in containers at http://localhost:8080 (no tunnel)
-	APP_ENV=development BASE_URL=http://localhost:8080 \
+	APP_ENV=development BASE_URL=http://localhost:8080 RESEND_API_KEY= \
 		docker compose --profile full up -d --build postgres app
 	@echo ""
 	@echo "  ▶ Quest Board running at http://localhost:8080  (dev login enabled)"
@@ -91,6 +97,10 @@ test: ## Run the WHOLE app locally in containers at http://localhost:8080 (no tu
 e2e: ## Run the Playwright smoke suite against a running app (start it with 'make test')
 	@curl -sf $(E2E_BASE_URL)/api/health >/dev/null || { \
 		echo "No app at $(E2E_BASE_URL) — start one first: make test"; exit 1; }
+	@id=$$(docker compose ps -q app 2>/dev/null); \
+	if [ -n "$$id" ] && docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' $$id | grep -q '^RESEND_API_KEY=.'; then \
+		echo "The app container holds a real RESEND_API_KEY — the suite would mail every account it makes."; \
+		echo "Recreate it without one: make test"; exit 1; fi
 	@echo "▶ Playwright against $(E2E_BASE_URL)"
 	docker run --rm --network host \
 		-v "$(CURDIR)/frontend":/app -w /app \
