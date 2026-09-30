@@ -260,6 +260,10 @@ paths:
     $ref: "./paths/maps.yaml#/~1reveals~1{batchId}"
   /pins/{pinId}:
     $ref: "./paths/maps.yaml#/~1pins~1{pinId}"
+  /maps/{mapId}/layers:
+    $ref: "./paths/maps.yaml#/~1maps~1{mapId}~1layers"
+  /layers/{layerId}:
+    $ref: "./paths/maps.yaml#/~1layers~1{layerId}"
 
   /campaigns/{campaignId}/handouts:
     $ref: "./paths/handouts.yaml#/~1campaigns~1{campaignId}~1handouts"
@@ -656,6 +660,12 @@ components:
       $ref: "./components/maps.yaml#/UpdateMapRequest"
     MapPinInput:
       $ref: "./components/maps.yaml#/MapPinInput"
+    MapLayer:
+      $ref: "./components/maps.yaml#/MapLayer"
+    MapLayerInput:
+      $ref: "./components/maps.yaml#/MapLayerInput"
+    MapLayerOrder:
+      $ref: "./components/maps.yaml#/MapLayerOrder"
 
     Encounter:
       $ref: "./components/encounters.yaml#/Encounter"

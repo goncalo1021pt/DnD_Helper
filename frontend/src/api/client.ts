@@ -169,6 +169,9 @@ export type MapPin = MapDetail["pins"][number];
 export type MapPinInput =
   paths["/maps/{mapId}/pins"]["post"]["requestBody"]["content"]["application/json"];
 export type RevealCircle = MapDetail["revealed"][number];
+export type MapLayer = MapDetail["layers"][number];
+export type MapLayerInput =
+  paths["/maps/{mapId}/layers"]["post"]["requestBody"]["content"]["application/json"];
 export type RevealBatch =
   paths["/maps/{mapId}/reveals"]["get"]["responses"]["200"]["content"]["application/json"][number];
 export type Handout =

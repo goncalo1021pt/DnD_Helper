@@ -113,6 +113,10 @@ func toAPIPin(p db.MapPin, placeName *string) api.MapPin {
 		out.LocationId = &id
 		out.LocationName = placeName
 	}
+	if p.LayerID.Valid {
+		id := uuid.UUID(p.LayerID.Bytes)
+		out.LayerId = &id
+	}
 	return out
 }
 
@@ -332,6 +336,22 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 	if err != nil {
 		return nil, err
 	}
+	// A DM-only layer is a second veil over everything filed in it (#355):
+	// the layer and its contents are absent from a player's payload.
+	layers, err := s.queries.ListMapLayers(ctx, request.MapId)
+	if err != nil {
+		return nil, err
+	}
+	hidden := map[uuid.UUID]bool{}
+	if !isDM {
+		hidden = hiddenLayers(layers)
+	}
+	outLayers := make([]api.MapLayer, 0, len(layers))
+	for _, l := range layers {
+		if !hidden[l.ID] {
+			outLayers = append(outLayers, toAPILayer(l))
+		}
+	}
 
 	// The caller's uncovered ground: everything for the DM, the union of
 	// their pools for a player. Stays empty while the fog is off.
@@ -407,7 +427,7 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 	outPins := make([]api.MapPin, 0, len(pins))
 	for _, p := range pins {
 		if !isDM {
-			if p.DmOnly {
+			if p.DmOnly || inHiddenLayer(p.LayerID, hidden) {
 				continue
 			}
 			if meta.FogEnabled && !inRevealed(p) {
@@ -421,7 +441,7 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 	}
 	// Roads and regions ride the same veil the pins do (#262): absent when
 	// DM-only, and a line clipped to the stretches this viewer has uncovered.
-	shapes, err := s.shapesFor(ctx, request.MapId, isDM, aspect, revealed, meta.FogEnabled)
+	shapes, err := s.shapesFor(ctx, request.MapId, isDM, hidden, aspect, revealed, meta.FogEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -429,6 +449,7 @@ func (s *Server) GetMap(ctx context.Context, request api.GetMapRequestObject) (a
 		Map:      toAPIMap(mapRow(meta), isDM, viewer.veil.overridesFor(meta.ID)),
 		Pins:     outPins,
 		Shapes:   shapes,
+		Layers:   outLayers,
 		Revealed: revealed,
 	}), nil
 }
@@ -563,11 +584,11 @@ func pinShapeOf(v *api.MapPinInputShape) (string, bool) {
 // pinFields is what a pin input validates into: the same for a drop and an
 // amendment, so neither can accept something the other refuses.
 type pinFields struct {
-	label, note string
-	link, place pgtype.UUID
+	label, note        string
+	link, place, layer pgtype.UUID
 }
 
-func (s *Server) validatePinInput(ctx context.Context, realmID, campaignID uuid.UUID, body *api.MapPinInput) (f pinFields, errMsg string, err error) {
+func (s *Server) validatePinInput(ctx context.Context, realmID, campaignID, mapID uuid.UUID, body *api.MapPinInput) (f pinFields, errMsg string, err error) {
 	f.label = strings.TrimSpace(body.Label)
 	if f.label == "" {
 		return f, "the pin needs a label", nil
@@ -609,7 +630,9 @@ func (s *Server) validatePinInput(ctx context.Context, realmID, campaignID uuid.
 		}
 		f.place = pgUUID(loc.ID)
 	}
-	return f, "", nil
+	// The layer it is filed in (#355): one of this map's own, or the base.
+	f.layer, errMsg, err = s.layerOf(ctx, mapID, body.LayerId)
+	return f, errMsg, err
 }
 
 // CreateMapPin drops a pin on a map (DM only).
@@ -630,7 +653,7 @@ func (s *Server) CreateMapPin(ctx context.Context, request api.CreateMapPinReque
 		}
 		return nil, err
 	}
-	f, errMsg, err := s.validatePinInput(ctx, meta.RealmID, meta.CampaignID, request.Body)
+	f, errMsg, err := s.validatePinInput(ctx, meta.RealmID, meta.CampaignID, request.MapId, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -647,6 +670,7 @@ func (s *Server) CreateMapPin(ctx context.Context, request api.CreateMapPinReque
 		LinkMapID:  f.link,
 		Shape:      mustPinShape(request.Body.Shape),
 		LocationID: f.place,
+		LayerID:    f.layer,
 	})
 	if err != nil {
 		return nil, err
@@ -676,7 +700,7 @@ func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinReque
 		}
 		return nil, err
 	}
-	f, errMsg, err := s.validatePinInput(ctx, row.RealmID, lensID, request.Body)
+	f, errMsg, err := s.validatePinInput(ctx, row.RealmID, lensID, row.MapID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -693,6 +717,7 @@ func (s *Server) UpdateMapPin(ctx context.Context, request api.UpdateMapPinReque
 		LinkMapID:  f.link,
 		Shape:      mustPinShape(request.Body.Shape),
 		LocationID: f.place,
+		LayerID:    f.layer,
 	})
 	if err != nil {
 		return nil, err

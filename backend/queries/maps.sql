@@ -52,8 +52,8 @@ RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created
 DELETE FROM maps WHERE id = $1;
 
 -- name: CreateMapPin :one
-INSERT INTO map_pins (map_id, label, note, x, y, dm_only, link_map_id, shape, location_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO map_pins (map_id, label, note, x, y, dm_only, link_map_id, shape, location_id, layer_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: ListMapPins :many
@@ -71,7 +71,7 @@ WHERE p.id = sqlc.arg(pin_id) AND c.id = sqlc.arg(campaign_id);
 -- name: UpdateMapPin :one
 UPDATE map_pins
 SET label = $2, note = $3, x = $4, y = $5, dm_only = $6, link_map_id = $7, shape = $8,
-    location_id = $9
+    location_id = $9, layer_id = $10
 WHERE id = $1
 RETURNING *;
 
@@ -91,19 +91,58 @@ JOIN campaigns c ON c.realm_id = m.realm_id
 WHERE s.id = sqlc.arg(shape_id) AND c.id = sqlc.arg(campaign_id);
 
 -- name: CreateMapShape :one
-INSERT INTO map_shapes (map_id, kind, label, points, color, dashed, width, opacity, dm_only, location_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO map_shapes (map_id, kind, label, points, color, dashed, width, opacity, dm_only, location_id, layer_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: UpdateMapShape :one
 UPDATE map_shapes
 SET label = $2, points = $3, color = $4, dashed = $5, width = $6,
-    opacity = $7, dm_only = $8, location_id = $9, updated_at = now()
+    opacity = $7, dm_only = $8, location_id = $9, layer_id = $10, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
 -- name: DeleteMapShape :execrows
 DELETE FROM map_shapes WHERE id = $1;
+
+-- Map layers (#355): named groups of the pins and shapes above, in drawing
+-- order. A layer is ground like its map (#234), so it is read through a
+-- campaign's lens exactly as a pin is.
+
+-- name: ListMapLayers :many
+SELECT * FROM map_layers WHERE map_id = $1 ORDER BY position, created_at;
+
+-- name: GetMapLayer :one
+-- A layer THROUGH one table (#234): its map must stand on the campaign's
+-- realm, else no row.
+SELECT l.*, m.realm_id
+FROM map_layers l
+JOIN maps m ON m.id = l.map_id
+JOIN campaigns c ON c.realm_id = m.realm_id
+WHERE l.id = sqlc.arg(layer_id) AND c.id = sqlc.arg(campaign_id);
+
+-- name: GetMapLayerOnMap :one
+-- Whether a layer hangs on this map — what a pin or a shape may be filed in.
+SELECT * FROM map_layers WHERE id = $1 AND map_id = $2;
+
+-- name: CreateMapLayer :one
+-- A new layer goes on top of the others.
+INSERT INTO map_layers (map_id, name, shown_by_default, dm_only, position)
+VALUES ($1, $2, $3, $4,
+        (SELECT COALESCE(MAX(position) + 1, 0) FROM map_layers WHERE map_id = $1))
+RETURNING *;
+
+-- name: UpdateMapLayer :one
+UPDATE map_layers
+SET name = $2, shown_by_default = $3, dm_only = $4, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: SetMapLayerPosition :exec
+UPDATE map_layers SET position = $2, updated_at = now() WHERE id = $1;
+
+-- name: DeleteMapLayer :execrows
+DELETE FROM map_layers WHERE id = $1;
 
 -- The veil over a map's very existence (#276). Same two layers as everything
 -- else in a campaign: one party-wide flag, per-hero exceptions over it. The

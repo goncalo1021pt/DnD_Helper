@@ -20,10 +20,11 @@ here, which asks the same question one step earlier and shows the answers to
 the last one.
 */
 
-import { useState } from "react";
-import type { MapShape } from "../../api/client";
+import { useState, type ComponentProps } from "react";
+import type { MapLayer, MapShape } from "../../api/client";
 import ParchmentModal from "../ui/ParchmentModal";
 import { IconEyeOff, IconPencil, IconTrash } from "../ui/icons";
+import { LayerList } from "./LayerList";
 
 /** A road is its ink drawn along; a region is its ink filled in. */
 function InkSwatch({ shape }: { shape: MapShape }) {
@@ -45,8 +46,15 @@ function InkSwatch({ shape }: { shape: MapShape }) {
   );
 }
 
+/*
+Since #355 the Inkwork is also where the DM keeps the map's layers: the layer
+controls sit above the list, and the list itself is grouped by layer, top to
+bottom, with the base map last — the stack as it is drawn, read from above.
+*/
 export function InkworkModal({
   shapes,
+  layers,
+  layerControls,
   isPending,
   onEdit,
   onDraw,
@@ -54,6 +62,9 @@ export function InkworkModal({
   onClose,
 }: {
   shapes: MapShape[];
+  /** Bottom to top, as the payload carries them. */
+  layers: MapLayer[];
+  layerControls: Omit<ComponentProps<typeof LayerList>, "layers">;
   isPending: boolean;
   /** Open one for renaming or restyling — the same form drawing one ends in. */
   onEdit: (shape: MapShape) => void;
@@ -63,6 +74,13 @@ export function InkworkModal({
   onClose: () => void;
 }) {
   const [striking, setStriking] = useState("");
+  // The stack read from above: each layer top to bottom, then the base map.
+  const groups = [
+    ...[...layers].reverse().map((l) => ({ id: l.id as string | null, name: l.name })),
+    { id: null, name: "The base map" },
+  ]
+    .map((g) => ({ ...g, rows: shapes.filter((s) => (s.layerId ?? null) === g.id) }))
+    .filter((g) => g.rows.length > 0);
 
   return (
     <ParchmentModal onClose={onClose} maxWidth="max-w-[460px]">
@@ -73,90 +91,101 @@ export function InkworkModal({
         The Inkwork
       </h3>
 
+      <LayerList layers={layers} {...layerControls} />
+
       {shapes.length === 0 ? (
         <div className="font-accent py-6 text-center text-sm italic text-ink-faded">
           Nothing is drawn on this map yet.
         </div>
       ) : (
         <div className="flex flex-col">
-          {shapes.map((s) => (
-            <div
-              key={s.id}
-              className="flex items-center gap-2 border-0 border-b border-solid py-2"
-              style={{ borderColor: "rgba(74,55,28,.14)" }}
-            >
-              <InkSwatch shape={s} />
-              <button
-                onClick={() => onEdit(s)}
-                title={`Open ${s.label || (s.kind === "area" ? "this region" : "this road")}`}
-                className="font-heading min-w-0 flex-1 cursor-pointer truncate border-none bg-transparent p-0 text-left text-[14px] text-ink transition hover:text-[#8b2520]"
-              >
-                {s.label || (
-                  <span className="font-accent italic text-ink-faded">
-                    {s.kind === "area" ? "an unnamed region" : "an unnamed road"}
-                  </span>
-                )}
-              </button>
-
-              {/* A shape that stands for a place says so — pressing it on the
-                  map opens that place, which is worth knowing before you
-                  strike it. */}
-              {s.locationName && (
-                <span className="font-accent flex-none text-[11px] italic text-ink-label">
-                  {s.locationName}
-                </span>
+          {groups.map((g) => (
+            <div key={g.id ?? "base"} data-ink-group={g.name} className="mb-2">
+              {layers.length > 0 && (
+                <div className="label-stamp mt-2 text-[9.5px] tracking-[2px] text-ink-label">
+                  {g.name}
+                </div>
               )}
-              {s.dmOnly && (
-                <span
-                  className="flex items-center text-ink-faded"
-                  title="Yours alone — the table never receives it"
+              {g.rows.map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center gap-2 border-0 border-b border-solid py-2"
+                  style={{ borderColor: "rgba(74,55,28,.14)" }}
                 >
-                  <IconEyeOff size={12} strokeWidth={1.8} />
-                </span>
-              )}
-
-              {striking === s.id ? (
-                <span className="flex items-center gap-1.5">
-                  <span className="font-body text-[11px] italic text-[#8b2520]">
-                    Gone for good.
-                  </span>
-                  <button
-                    onClick={() => {
-                      onDelete(s.id);
-                      setStriking("");
-                    }}
-                    disabled={isPending}
-                    className="btn-base btn-ghost-red px-2 py-1 text-[10px]"
-                  >
-                    {isPending ? "Rubbing…" : "Rub it out"}
-                  </button>
-                  <button
-                    onClick={() => setStriking("")}
-                    className="btn-base btn-ghost-ink px-2 py-1 text-[10px]"
-                  >
-                    Keep it
-                  </button>
-                </span>
-              ) : (
-                <span className="flex items-center gap-1">
+                  <InkSwatch shape={s} />
                   <button
                     onClick={() => onEdit(s)}
-                    aria-label={`Redraw ${s.label || "this shape"}`}
-                    title="Rename or restyle it"
-                    className="btn-base btn-ghost-ink h-7 px-2 py-0 text-[11px]"
+                    title={`Open ${s.label || (s.kind === "area" ? "this region" : "this road")}`}
+                    className="font-heading min-w-0 flex-1 cursor-pointer truncate border-none bg-transparent p-0 text-left text-[14px] text-ink transition hover:text-[#8b2520]"
                   >
-                    <IconPencil size={12} strokeWidth={1.8} />
+                    {s.label || (
+                      <span className="font-accent italic text-ink-faded">
+                        {s.kind === "area" ? "an unnamed region" : "an unnamed road"}
+                      </span>
+                    )}
                   </button>
-                  <button
-                    onClick={() => setStriking(s.id)}
-                    aria-label={`Rub out ${s.label || "this shape"}`}
-                    title="Rub it out"
-                    className="btn-base btn-ghost-red h-7 px-2 py-0 text-[11px]"
-                  >
-                    <IconTrash size={12} strokeWidth={1.8} />
-                  </button>
-                </span>
-              )}
+
+                  {/* A shape that stands for a place says so — pressing it on the
+                      map opens that place, which is worth knowing before you
+                      strike it. */}
+                  {s.locationName && (
+                    <span className="font-accent flex-none text-[11px] italic text-ink-label">
+                      {s.locationName}
+                    </span>
+                  )}
+                  {s.dmOnly && (
+                    <span
+                      className="flex items-center text-ink-faded"
+                      title="Yours alone — the table never receives it"
+                    >
+                      <IconEyeOff size={12} strokeWidth={1.8} />
+                    </span>
+                  )}
+
+                  {striking === s.id ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="font-body text-[11px] italic text-[#8b2520]">
+                        Gone for good.
+                      </span>
+                      <button
+                        onClick={() => {
+                          onDelete(s.id);
+                          setStriking("");
+                        }}
+                        disabled={isPending}
+                        className="btn-base btn-ghost-red px-2 py-1 text-[10px]"
+                      >
+                        {isPending ? "Rubbing…" : "Rub it out"}
+                      </button>
+                      <button
+                        onClick={() => setStriking("")}
+                        className="btn-base btn-ghost-ink px-2 py-1 text-[10px]"
+                      >
+                        Keep it
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      <button
+                        onClick={() => onEdit(s)}
+                        aria-label={`Redraw ${s.label || "this shape"}`}
+                        title="Rename or restyle it"
+                        className="btn-base btn-ghost-ink h-7 px-2 py-0 text-[11px]"
+                      >
+                        <IconPencil size={12} strokeWidth={1.8} />
+                      </button>
+                      <button
+                        onClick={() => setStriking(s.id)}
+                        aria-label={`Rub out ${s.label || "this shape"}`}
+                        title="Rub it out"
+                        className="btn-base btn-ghost-red h-7 px-2 py-0 text-[11px]"
+                      >
+                        <IconTrash size={12} strokeWidth={1.8} />
+                      </button>
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           ))}
         </div>
