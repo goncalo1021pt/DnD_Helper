@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { CampaignMap, Location, PinShape } from "../../api/client";
+import type { CampaignMap, Location, MapLayer, PinShape } from "../../api/client";
+import { LayerPicker } from "./LayerPicker";
 import { MarkerSwatch, PIN_SHAPES } from "./PinMarker";
 
 /** What the form hands back; the page decides what absent and nil mean. */
@@ -9,6 +10,7 @@ export interface PinFormValues {
   dmOnly: boolean;
   linkMapId: string;
   locationId: string;
+  layerId: string;
   shape: PinShape;
 }
 
@@ -17,6 +19,7 @@ export function PinForm({
   initial,
   maps,
   locations,
+  layers,
   currentMapId,
   isPending,
   errorText,
@@ -27,6 +30,8 @@ export function PinForm({
   maps: CampaignMap[];
   /** The place tree, for a pin to stand for one (#312). */
   locations: Location[];
+  /** The map's layers, for filing the pin in one (#355). */
+  layers: MapLayer[];
   currentMapId: string;
   isPending: boolean;
   errorText?: string;
@@ -39,6 +44,7 @@ export function PinForm({
   const [linkMapId, setLinkMapId] = useState(initial.linkMapId);
   const [locationId, setLocationId] = useState(initial.locationId);
   const [shape, setShape] = useState<PinShape>(initial.shape);
+  const [layerId, setLayerId] = useState(initial.layerId);
   const targets = maps.filter((m) => m.id !== currentMapId);
 
   return (
@@ -127,6 +133,8 @@ export function PinForm({
         </div>
       </div>
 
+      <LayerPicker layers={layers} value={layerId} onChange={setLayerId} />
+
       <label className="flex cursor-pointer items-center gap-2">
         <input
           type="checkbox"
@@ -145,7 +153,7 @@ export function PinForm({
           Cancel
         </button>
         <button
-          onClick={() => onSubmit({ label, note, dmOnly, linkMapId, locationId, shape })}
+          onClick={() => onSubmit({ label, note, dmOnly, linkMapId, locationId, layerId, shape })}
           disabled={!label.trim() || isPending}
           className="btn-base btn-gold clip-octagon h-11 px-6 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
         >

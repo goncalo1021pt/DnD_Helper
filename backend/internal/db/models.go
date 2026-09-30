@@ -856,6 +856,17 @@ type MapCampaignState struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type MapLayer struct {
+	ID             uuid.UUID          `json:"id"`
+	MapID          uuid.UUID          `json:"map_id"`
+	Name           string             `json:"name"`
+	Position       int32              `json:"position"`
+	ShownByDefault bool               `json:"shown_by_default"`
+	DmOnly         bool               `json:"dm_only"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type MapPin struct {
 	ID         uuid.UUID          `json:"id"`
 	MapID      uuid.UUID          `json:"map_id"`
@@ -868,6 +879,7 @@ type MapPin struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	Shape      string             `json:"shape"`
 	LocationID pgtype.UUID        `json:"location_id"`
+	LayerID    pgtype.UUID        `json:"layer_id"`
 }
 
 type MapShape struct {
@@ -884,6 +896,7 @@ type MapShape struct {
 	LocationID pgtype.UUID        `json:"location_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	LayerID    pgtype.UUID        `json:"layer_id"`
 }
 
 type MapVisibility struct {

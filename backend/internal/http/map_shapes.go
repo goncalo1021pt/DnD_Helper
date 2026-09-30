@@ -88,12 +88,16 @@ func toAPIShape(s db.MapShape, locationName *string, points []shapePoint) api.Ma
 		out.LocationId = &id
 		out.LocationName = locationName
 	}
+	if s.LayerID.Valid {
+		id := uuid.UUID(s.LayerID.Bytes)
+		out.LayerId = &id
+	}
 	return out
 }
 
 // validateShapeInput bounds everything a DM can hand over, and resolves the
 // place a shape may stand for. The middle return is a client-facing reason.
-func (s *Server) validateShapeInput(ctx context.Context, campaignID uuid.UUID, body *api.MapShapeInput) (db.CreateMapShapeParams, string, error) {
+func (s *Server) validateShapeInput(ctx context.Context, campaignID, mapID uuid.UUID, body *api.MapShapeInput) (db.CreateMapShapeParams, string, error) {
 	var out db.CreateMapShapeParams
 	if body == nil {
 		return out, "a shape is required", nil
@@ -162,12 +166,18 @@ func (s *Server) validateShapeInput(ctx context.Context, campaignID uuid.UUID, b
 		}
 		location = pgUUID(loc.ID)
 	}
+	// The layer it is filed in (#355): one of this map's own, or the base.
+	layer, msg, err := s.layerOf(ctx, mapID, body.LayerId)
+	if err != nil || msg != "" {
+		return out, msg, err
+	}
 
 	return db.CreateMapShapeParams{
 		Kind: kind, Label: label, Points: raw, Color: color,
 		Dashed: body.Dashed != nil && *body.Dashed,
 		Width:  width, Opacity: opacity,
 		DmOnly: body.DmOnly != nil && *body.DmOnly, LocationID: location,
+		LayerID: layer,
 	}, "", nil
 }
 
@@ -227,7 +237,8 @@ func clipShape(kind db.MapShapeKind, pts []shapePoint, seen func(shapePoint) boo
 }
 
 // shapesFor assembles every shape on a map as this viewer may have it.
-func (s *Server) shapesFor(ctx context.Context, mapID uuid.UUID, isDM bool, aspect float64, revealed []api.RevealCircle, fogged bool) ([]api.MapShape, error) {
+// hidden is the map's layers the viewer may not know of (#355).
+func (s *Server) shapesFor(ctx context.Context, mapID uuid.UUID, isDM bool, hidden map[uuid.UUID]bool, aspect float64, revealed []api.RevealCircle, fogged bool) ([]api.MapShape, error) {
 	rows, err := s.queries.ListMapShapes(ctx, mapID)
 	if err != nil {
 		return nil, err
@@ -250,7 +261,7 @@ func (s *Server) shapesFor(ctx context.Context, mapID uuid.UUID, isDM bool, aspe
 			out = append(out, toAPIShape(row, s.placeName(ctx, row.LocationID), pts))
 			continue
 		}
-		if row.DmOnly {
+		if row.DmOnly || inHiddenLayer(row.LayerID, hidden) {
 			continue
 		}
 		if !fogged {
@@ -295,7 +306,7 @@ func (s *Server) CreateMapShape(ctx context.Context, request api.CreateMapShapeR
 		}
 		return nil, err
 	}
-	params, msg, err := s.validateShapeInput(ctx, meta.CampaignID, request.Body)
+	params, msg, err := s.validateShapeInput(ctx, meta.CampaignID, request.MapId, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +336,7 @@ func (s *Server) UpdateMapShape(ctx context.Context, request api.UpdateMapShapeR
 		}
 		return nil, err
 	}
-	params, msg, err := s.validateShapeInput(ctx, uuid.UUID(request.Params.CampaignId), request.Body)
+	params, msg, err := s.validateShapeInput(ctx, uuid.UUID(request.Params.CampaignId), current.MapID, request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -343,6 +354,7 @@ func (s *Server) UpdateMapShape(ctx context.Context, request api.UpdateMapShapeR
 		ID: request.ShapeId, Label: params.Label, Points: params.Points,
 		Color: params.Color, Dashed: params.Dashed, Width: params.Width,
 		Opacity: params.Opacity, DmOnly: params.DmOnly, LocationID: params.LocationID,
+		LayerID: params.LayerID,
 	})
 	if err != nil {
 		return nil, err

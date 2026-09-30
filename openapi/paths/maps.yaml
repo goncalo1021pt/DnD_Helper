@@ -457,3 +457,125 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/maps/{mapId}/layers:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
+    - name: mapId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  post:
+    operationId: createMapLayer
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Add a named layer on top of a map's others (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapLayerInput"
+    responses:
+      "201":
+        description: The new layer
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapLayer"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  put:
+    operationId: reorderMapLayers
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Set the drawing order of a map's layers (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapLayerOrder"
+    responses:
+      "200":
+        description: The layers, bottom to top
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/MapLayer"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/layers/{layerId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignLens"
+    - name: layerId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: updateMapLayer
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Rename a layer, or change how it starts or who sees it (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/MapLayerInput"
+    responses:
+      "200":
+        description: The layer as it now stands
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/MapLayer"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteMapLayer
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Strike a layer; what was filed in it drops to the base map (DM only)
+    description: >-
+      Nothing drawn is lost — the pins and shapes stay where they are, on the
+      base map — which is why this is `campaigns:run` and not one of the
+      cascading strikes behind `campaigns:own`.
+    responses:
+      "204":
+        description: Gone
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

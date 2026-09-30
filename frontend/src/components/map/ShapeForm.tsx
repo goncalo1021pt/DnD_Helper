@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import type { Location, MapShape, MapShapeInput, MapPoint } from "../../api/client";
+import type { Location, MapLayer, MapShape, MapShapeInput, MapPoint } from "../../api/client";
+import { LayerPicker } from "./LayerPicker";
 
 /*
 Naming and styling a road or a region (#262).
@@ -34,6 +35,7 @@ export interface ShapeDraft {
 export function ShapeForm({
   draft,
   locations,
+  layers,
   isPending,
   errorText,
   onSubmit,
@@ -42,6 +44,8 @@ export function ShapeForm({
 }: {
   draft: ShapeDraft;
   locations: Location[];
+  /** The map's layers, for filing it in one (#355). */
+  layers: MapLayer[];
   isPending: boolean;
   errorText?: string;
   onSubmit: (body: MapShapeInput) => void;
@@ -57,6 +61,7 @@ export function ShapeForm({
   const [opacity, setOpacity] = useState(e?.opacity ?? 0.25);
   const [dmOnly, setDmOnly] = useState(e?.dmOnly ?? false);
   const [locationId, setLocationId] = useState(e?.locationId ?? "");
+  const [layerId, setLayerId] = useState(e?.layerId ?? "");
 
   function submit(ev: FormEvent) {
     ev.preventDefault();
@@ -71,6 +76,7 @@ export function ShapeForm({
       dmOnly,
       // Absent keeps what is set; the nil UUID detaches, as everywhere else.
       locationId: locationId || NIL_UUID,
+      layerId: layerId || NIL_UUID,
     });
   }
 
@@ -183,6 +189,8 @@ export function ShapeForm({
           </span>
         </label>
       )}
+
+      <LayerPicker layers={layers} value={layerId} onChange={setLayerId} />
 
       <div className="torn-divider" />
 
