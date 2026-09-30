@@ -79,11 +79,13 @@ function ShapeMark({
   width,
   height,
   onOpen,
+  showName,
 }: {
   shape: MapShape;
   width: number;
   height: number;
   onOpen?: (shape: MapShape) => void;
+  showName: boolean;
 }) {
   const area = shape.kind === "area";
   const stroke = Math.max(shape.width * width, 1);
@@ -91,7 +93,7 @@ function ShapeMark({
   // either end of the zoom, so it is measured in strokes rather than pixels.
   const dash = shape.dashed ? `${stroke * 2.5} ${stroke * 2}` : undefined;
   const d = shapePath(shape.points, area, width, height);
-  const label = shape.label || shape.locationName;
+  const label = showName ? shape.label || shape.locationName : "";
   const place = area ? null : namePlacement(shape.points, width, height);
 
   return (
@@ -186,6 +188,7 @@ export function ShapeLayer({
   width,
   height,
   onOpen,
+  showNames = true,
 }: {
   shapes: MapShape[];
   /** The run being drawn right now, if any — same coordinates, no row yet. */
@@ -194,6 +197,8 @@ export function ShapeLayer({
   width: number;
   height: number;
   onOpen?: (shape: MapShape) => void;
+  /** Letter each shape with its name — off when the viewer switched Names off (#355). */
+  showNames?: boolean;
 }) {
   return (
     <svg
@@ -214,6 +219,7 @@ export function ShapeLayer({
           width={width}
           height={height}
           onOpen={onOpen}
+          showName={showNames}
         />
       ))}
       {draft && draft.length > 0 && (
