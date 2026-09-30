@@ -42,7 +42,9 @@ Beware: `make test` starts the containerized app for manual testing — it is no
 
 Testing layers, and how to add to them, live in `docs/TESTING.md`. Two things
 that bite: run e2e against a server with **no `RESEND_API_KEY`** (otherwise every
-run fires real Resend calls), and keep `PLAYWRIGHT_VERSION` in the Makefile
+run fires real Resend calls, bounces, and spends production's daily quota —
+`make test` blanks the key and `make e2e` refuses a container holding one; never
+point the suite at `make run`, which reads `.env`), and keep `PLAYWRIGHT_VERSION` in the Makefile
 identical to the exact-pinned `@playwright/test` in `frontend/package.json`.
 
 ## How we work
