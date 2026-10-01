@@ -74,12 +74,28 @@ export function InkworkModal({
   onClose: () => void;
 }) {
   const [striking, setStriking] = useState("");
-  // The stack read from above: each layer top to bottom, then the base map.
+  // The stack read from above: each layer top to bottom, then the base map —
+  // then the players' own lines (#356), one group per author, which the DM
+  // may pull and never redraw.
+  const ink = shapes.filter((s) => !s.authorUserId);
+  const authors = [
+    ...new Map(
+      shapes.filter((s) => s.authorUserId).map((s) => [s.authorUserId!, s.authorName ?? "A player"]),
+    ),
+  ];
   const groups = [
-    ...[...layers].reverse().map((l) => ({ id: l.id as string | null, name: l.name })),
-    { id: null, name: "The base map" },
+    ...[...layers].reverse().map((l) => ({ id: l.id as string | null, name: l.name, marks: false })),
+    { id: null, name: "The base map", marks: false },
   ]
-    .map((g) => ({ ...g, rows: shapes.filter((s) => (s.layerId ?? null) === g.id) }))
+    .map((g) => ({ ...g, rows: ink.filter((s) => (s.layerId ?? null) === g.id) }))
+    .concat(
+      authors.map(([id, name]) => ({
+        id,
+        name: `Marked by ${name}`,
+        marks: true,
+        rows: shapes.filter((s) => s.authorUserId === id),
+      })),
+    )
     .filter((g) => g.rows.length > 0);
 
   return (
@@ -101,7 +117,7 @@ export function InkworkModal({
         <div className="flex flex-col">
           {groups.map((g) => (
             <div key={g.id ?? "base"} data-ink-group={g.name} className="mb-2">
-              {layers.length > 0 && (
+              {(layers.length > 0 || authors.length > 0) && (
                 <div className="label-stamp mt-2 text-[9.5px] tracking-[2px] text-ink-label">
                   {g.name}
                 </div>
@@ -114,8 +130,13 @@ export function InkworkModal({
                 >
                   <InkSwatch shape={s} />
                   <button
-                    onClick={() => onEdit(s)}
-                    title={`Open ${s.label || (s.kind === "area" ? "this region" : "this road")}`}
+                    onClick={() => !g.marks && onEdit(s)}
+                    disabled={g.marks}
+                    title={
+                      g.marks
+                        ? "A player's line — theirs to redraw; you may pull it"
+                        : `Open ${s.label || (s.kind === "area" ? "this region" : "this road")}`
+                    }
                     className="font-heading min-w-0 flex-1 cursor-pointer truncate border-none bg-transparent p-0 text-left text-[14px] text-ink transition hover:text-[#8b2520]"
                   >
                     {s.label || (
@@ -166,14 +187,16 @@ export function InkworkModal({
                     </span>
                   ) : (
                     <span className="flex items-center gap-1">
-                      <button
-                        onClick={() => onEdit(s)}
-                        aria-label={`Redraw ${s.label || "this shape"}`}
-                        title="Rename or restyle it"
-                        className="btn-base btn-ghost-ink h-7 px-2 py-0 text-[11px]"
-                      >
-                        <IconPencil size={12} strokeWidth={1.8} />
-                      </button>
+                      {!g.marks && (
+                        <button
+                          onClick={() => onEdit(s)}
+                          aria-label={`Redraw ${s.label || "this shape"}`}
+                          title="Rename or restyle it"
+                          className="btn-base btn-ghost-ink h-7 px-2 py-0 text-[11px]"
+                        >
+                          <IconPencil size={12} strokeWidth={1.8} />
+                        </button>
+                      )}
                       <button
                         onClick={() => setStriking(s.id)}
                         aria-label={`Rub out ${s.label || "this shape"}`}

@@ -174,3 +174,29 @@ SELECT v.map_id, v.character_id, v.visible, c.name AS character_name
 FROM map_visibility v
 JOIN characters c ON c.id = v.character_id
 WHERE c.campaign_id = sqlc.arg(campaign_id)::uuid;
+
+-- A player's own marks (#356): pins and lines with an author, made at one
+-- table. They are knowledge, not ground — the campaign rides the row — and the
+-- DM's doors never write one: a DM may pull a mark, never reword it.
+
+-- name: CreateMarkPin :one
+INSERT INTO map_pins (map_id, label, note, x, y, shape, author_user_id, campaign_id, shared)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: UpdateMarkPin :one
+UPDATE map_pins
+SET label = $2, note = $3, x = $4, y = $5, shape = $6, shared = $7
+WHERE id = $1
+RETURNING *;
+
+-- name: CreateMarkLine :one
+INSERT INTO map_shapes (map_id, kind, label, points, color, dashed, width, author_user_id, campaign_id, shared)
+VALUES ($1, 'line', $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *;
+
+-- name: UpdateMarkLine :one
+UPDATE map_shapes
+SET label = $2, points = $3, color = $4, dashed = $5, width = $6, shared = $7, updated_at = now()
+WHERE id = $1
+RETURNING *;

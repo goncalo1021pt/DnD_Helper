@@ -170,6 +170,10 @@ export type MapPinInput =
   paths["/maps/{mapId}/pins"]["post"]["requestBody"]["content"]["application/json"];
 export type RevealCircle = MapDetail["revealed"][number];
 export type MapLayer = MapDetail["layers"][number];
+export type MapMarkPinInput =
+  paths["/maps/{mapId}/marks/pins"]["post"]["requestBody"]["content"]["application/json"];
+export type MapMarkLineInput =
+  paths["/maps/{mapId}/marks/lines"]["post"]["requestBody"]["content"]["application/json"];
 export type MapLayerInput =
   paths["/maps/{mapId}/layers"]["post"]["requestBody"]["content"]["application/json"];
 export type RevealBatch =

@@ -106,6 +106,20 @@ MapPin:
       description: >-
         The layer this is filed in (#355), or null for the base map, which is
         always drawn. A player never receives anything filed in a DM-only layer.
+    authorUserId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        Set when this is a player's own mark (#356) rather than the DM's ink.
+        A mark belongs to one table and reaches its author and the DMs — and
+        the whole table only when `shared`.
+    authorName:
+      type: string
+      nullable: true
+    shared:
+      type: boolean
+      description: A player's mark shown to the whole table, under its author's name. Always false for the DM's ink.
     createdAt:
       type: string
       format: date-time
@@ -397,6 +411,20 @@ MapShape:
       description: >-
         The layer this is filed in (#355), or null for the base map, which is
         always drawn. A player never receives anything filed in a DM-only layer.
+    authorUserId:
+      type: string
+      format: uuid
+      nullable: true
+      description: >-
+        Set when this is a player's own mark (#356) rather than the DM's ink.
+        A mark belongs to one table and reaches its author and the DMs — and
+        the whole table only when `shared`.
+    authorName:
+      type: string
+      nullable: true
+    shared:
+      type: boolean
+      description: A player's mark shown to the whole table, under its author's name. Always false for the DM's ink.
     createdAt:
       type: string
       format: date-time
@@ -491,3 +519,52 @@ MapLayerOrder:
       items:
         type: string
         format: uuid
+
+MapMarkPinInput:
+  type: object
+  description: >
+    A player's own pin (#356). A mark names no place, leads into no map, sits
+    in no layer and is never DM-only; `shared` is the one choice about who sees
+    it.
+  required: [label, x, y]
+  properties:
+    label:
+      type: string
+      minLength: 1
+    note:
+      type: string
+    x:
+      type: number
+      minimum: 0
+      maximum: 1
+    y:
+      type: number
+      minimum: 0
+      maximum: 1
+    shape:
+      type: string
+      enum: [pin, circle, square, diamond, triangle, star, cross, skull]
+    shared:
+      type: boolean
+      description: Show it to the whole table. Defaults to false — the author and the DMs alone.
+
+MapMarkLineInput:
+  type: object
+  description: A player's own line (#356) — a route they took. Lines only; a region is the DM's.
+  required: [points]
+  properties:
+    label:
+      type: string
+      maxLength: 80
+    points:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/MapPoint"
+    color:
+      type: string
+    dashed:
+      type: boolean
+    width:
+      type: number
+    shared:
+      type: boolean

@@ -12,6 +12,8 @@ export interface PinFormValues {
   locationId: string;
   layerId: string;
   shape: PinShape;
+  /** A player's mark shown to the whole table (#356). */
+  shared: boolean;
 }
 
 /* Create-or-edit pin form. */
@@ -21,6 +23,7 @@ export function PinForm({
   locations,
   layers,
   currentMapId,
+  mark = false,
   isPending,
   errorText,
   onCancel,
@@ -33,6 +36,11 @@ export function PinForm({
   /** The map's layers, for filing the pin in one (#355). */
   layers: MapLayer[];
   currentMapId: string;
+  /**
+   * A player's own mark (#356): no door into a map or a place, no layer, no
+   * DM-only — the one choice is whether the table sees it.
+   */
+  mark?: boolean;
   isPending: boolean;
   errorText?: string;
   onCancel: () => void;
@@ -45,6 +53,7 @@ export function PinForm({
   const [locationId, setLocationId] = useState(initial.locationId);
   const [shape, setShape] = useState<PinShape>(initial.shape);
   const [layerId, setLayerId] = useState(initial.layerId);
+  const [shared, setShared] = useState(initial.shared);
   const targets = maps.filter((m) => m.id !== currentMapId);
 
   return (
@@ -64,11 +73,15 @@ export function PinForm({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={3}
-          placeholder="What the party should know — or what only you should."
+          placeholder={
+            mark
+              ? "Why you marked it — for you, or for the party if you share it."
+              : "What the party should know — or what only you should."
+          }
           className="input-parchment mt-1 w-full resize-y"
         />
       </label>
-      {targets.length > 0 && (
+      {!mark && targets.length > 0 && (
         <label className="block">
           <span className="field-label">Leads into</span>
           <select
@@ -85,7 +98,7 @@ export function PinForm({
           </select>
         </label>
       )}
-      {locations.length > 0 && (
+      {!mark && locations.length > 0 && (
         <label className="block">
           <span className="field-label">A place it stands for</span>
           <select
@@ -133,18 +146,32 @@ export function PinForm({
         </div>
       </div>
 
-      <LayerPicker layers={layers} value={layerId} onChange={setLayerId} />
+      {!mark && <LayerPicker layers={layers} value={layerId} onChange={setLayerId} />}
 
-      <label className="flex cursor-pointer items-center gap-2">
-        <input
-          type="checkbox"
-          checked={dmOnly}
-          onChange={(e) => setDmOnly(e.target.checked)}
-        />
-        <span className="text-[13px] text-ink-body">
-          DM only — the party never sees this pin
-        </span>
-      </label>
+      {mark ? (
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            name="shared"
+            checked={shared}
+            onChange={(e) => setShared(e.target.checked)}
+          />
+          <span className="text-[13px] text-ink-body">
+            Share with the party — otherwise it is yours and the DM's alone
+          </span>
+        </label>
+      ) : (
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={dmOnly}
+            onChange={(e) => setDmOnly(e.target.checked)}
+          />
+          <span className="text-[13px] text-ink-body">
+            DM only — the party never sees this pin
+          </span>
+        </label>
+      )}
       {errorText && (
         <div className="font-body text-sm italic text-[#8b2520]">{errorText}</div>
       )}
@@ -153,11 +180,11 @@ export function PinForm({
           Cancel
         </button>
         <button
-          onClick={() => onSubmit({ label, note, dmOnly, linkMapId, locationId, layerId, shape })}
+          onClick={() => onSubmit({ label, note, dmOnly, linkMapId, locationId, layerId, shape, shared })}
           disabled={!label.trim() || isPending}
           className="btn-base btn-gold clip-octagon h-11 px-6 text-[13px] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isPending ? "Pinning…" : "Pin it"}
+          {isPending ? "Pinning…" : mark ? "Mark it" : "Pin it"}
         </button>
       </div>
     </div>

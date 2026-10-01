@@ -4,6 +4,13 @@ import type { CampaignMap, MapPin, MapPoint, MapShape } from "../api/client";
 import {
   useCreateMapPin,
   useCreateMapLayer,
+  useCreateMarkLine,
+  useCreateMarkPin,
+  useCurrentUser,
+  useDeleteMarkLine,
+  useDeleteMarkPin,
+  useUpdateMarkLine,
+  useUpdateMarkPin,
   useCreateMapShape,
   useDeleteMapLayer,
   useReorderMapLayers,
@@ -77,6 +84,15 @@ export default function MapPage() {
   const updateLayer = useUpdateMapLayer(currentId ?? "", campaign.id);
   const reorderLayers = useReorderMapLayers(currentId ?? "", campaign.id);
   const deleteLayer = useDeleteMapLayer(currentId ?? "", campaign.id);
+  // A player's own marks (#356): their doors, not the DM's.
+  const createMarkPin = useCreateMarkPin(currentId ?? "", campaign.id);
+  const updateMarkPin = useUpdateMarkPin(currentId ?? "", campaign.id);
+  const deleteMarkPin = useDeleteMarkPin(currentId ?? "", campaign.id);
+  const createMarkLine = useCreateMarkLine(currentId ?? "", campaign.id);
+  const updateMarkLine = useUpdateMarkLine(currentId ?? "", campaign.id);
+  const deleteMarkLine = useDeleteMarkLine(currentId ?? "", campaign.id);
+  const { data: me } = useCurrentUser();
+  const myId = me?.user.id;
 
   // The place tree, so a reveal can be handed to whoever knows that place
   // rather than to the whole table (#191). DM-only: the picker never renders
@@ -144,6 +160,14 @@ export default function MapPage() {
     setDrawPoints([]);
   }
 
+  // A player draws their own line (#356); the DM draws the map's ink. An
+  // existing shape is whatever it already is.
+  const draftIsMark = shapeDraft
+    ? shapeDraft.existing
+      ? !!shapeDraft.existing.authorUserId
+      : !isDM
+    : false;
+
   // A line needs two points to go anywhere, a region three to enclose any.
   const drawEnough = drawPoints.length >= (drawKind === "area" ? 3 : 2);
 
@@ -183,10 +207,11 @@ export default function MapPage() {
     useMapViewer({
       map,
       onTap: (at) => {
-        if (!isDM) return;
+        // A player holds tools too now (#356): their own pin and their own
+        // line. Lifting the fog stays the DM's.
         if (drawKind) setDrawPoints((pts) => [...pts, { x: at.x, y: at.y }]);
         else if (dropMode) setNewPinAt(at);
-        else if (stampMode) draftState.stamp(at);
+        else if (isDM && stampMode) draftState.stamp(at);
       },
       onMapChanged: () => {
         setDropMode(false);
@@ -222,9 +247,19 @@ export default function MapPage() {
       .map((x, i) => ({ x, i }))
       .sort((a, b) => depth(a.x.layerId) - depth(b.x.layerId) || a.i - b.i)
       .map((e) => e.x);
-  const drawnPins = mapView.shown("pins") ? byDepth(pins.filter((p) => layerOpen(p.layerId))) : [];
+  // A player's own marks (#356) sit in no layer; each author is a Legend row.
+  const marksKey = (id: string) => `marks:${id}`;
+  const marksOpen = (author?: string | null) => !author || mapView.shown(marksKey(author));
+  const drawnPins = mapView.shown("pins")
+    ? byDepth(pins.filter((p) => layerOpen(p.layerId) && marksOpen(p.authorUserId)))
+    : [];
   const drawnShapes = byDepth(
-    shapes.filter((s) => mapView.shown(s.kind === "line" ? "roads" : "regions") && layerOpen(s.layerId)),
+    shapes.filter(
+      (s) =>
+        mapView.shown(s.kind === "line" ? "roads" : "regions") &&
+        layerOpen(s.layerId) &&
+        marksOpen(s.authorUserId),
+    ),
   );
   const showNames = mapView.shown("names");
   // A road clipped by the fog arrives as several runs sharing one id.
@@ -236,6 +271,10 @@ export default function MapPage() {
     regions: shapeCount("area"),
     names: undefined,
   };
+  const markAuthors = new Map<string, string>();
+  for (const x of [...pins, ...shapes]) {
+    if (x.authorUserId) markAuthors.set(x.authorUserId, x.authorName ?? "A player");
+  }
   const inLayer = (id: string) =>
     pins.filter((p) => p.layerId === id).length +
     new Set(shapes.filter((s) => s.layerId === id).map((s) => s.id)).size;
@@ -251,12 +290,26 @@ export default function MapPage() {
         byDefault: l.shownByDefault,
       })),
     },
+    {
+      // One row per person who has marked this map, your own first.
+      title: "Marks",
+      rows: [...markAuthors]
+        .sort(([a], [b]) => Number(b === myId) - Number(a === myId))
+        .map(([id, name]) => ({
+          key: marksKey(id),
+          label: id === myId ? "Yours" : name,
+          count:
+            pins.filter((p) => p.authorUserId === id).length +
+            new Set(shapes.filter((s) => s.authorUserId === id).map((s) => s.id)).size,
+        })),
+    },
   ];
   // Whatever the DM just made is shown, or it would vanish into a switched-off
   // row the moment it was saved and read as lost — its layer included.
-  const reveal = (key: BuiltInKey, layerId?: string) => {
+  const reveal = (key: BuiltInKey, layerId?: string, author?: string) => {
     if (!mapView.shown(key)) mapView.set(key, true);
     if (layerId && !layerOpen(layerId)) mapView.set(layerKey(layerId), true);
+    if (author && !marksOpen(author)) mapView.set(marksKey(author), true);
   };
 
   // ── atlas structure ──────────────────────────────────────────────────────
@@ -341,6 +394,36 @@ export default function MapPage() {
               <IconBook size={13} strokeWidth={1.9} />
               Atlas
             </button>
+          )}
+          {/* A player's own tools (#356): a pin and a line of their own. */}
+          {!isDM && map && (
+            <>
+              <button
+                onClick={() => {
+                  setDropMode((d) => !d);
+                  stopDrawing();
+                }}
+                className={`btn-base ${dropMode ? "btn-wax" : "btn-ghost-gold"} px-4 py-2.5 text-[11px]`}
+              >
+                <IconMapPin size={13} strokeWidth={1.9} />
+                {dropMode ? "Tap the map…" : "Mark it"}
+              </button>
+              <button
+                onClick={() => {
+                  if (drawKind) {
+                    stopDrawing();
+                    return;
+                  }
+                  setDropMode(false);
+                  setDrawKind("line");
+                  setDrawPoints([]);
+                }}
+                className={`btn-base ${drawKind ? "btn-wax" : "btn-ghost-gold"} px-3 py-2.5 text-[11px]`}
+              >
+                <IconPencil size={13} strokeWidth={1.9} />
+                {drawKind ? "Drawing…" : "Draw a route"}
+              </button>
+            </>
           )}
           {isDM && (
             <>
@@ -559,11 +642,14 @@ export default function MapPage() {
               width={map.width}
               height={map.height}
               onOpen={
-                isDM && !toolActive
+                !toolActive
                   ? (shape: MapShape) =>
                       setShapeDraft({ kind: shape.kind, points: shape.points, existing: shape })
                   : undefined
               }
+              // The DM opens their own ink; a player's line opens for its
+              // author alone, and a DM pulls one from the Inkwork (#356).
+              canOpen={(shape) => (shape.authorUserId ? shape.authorUserId === myId : isDM)}
             />
             {drawnPins.map((p) => (
               <PinMarker
@@ -614,25 +700,30 @@ export default function MapPage() {
               className="absolute left-1/2 top-3 flex max-w-[95%] -translate-x-1/2 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-[3px] px-3.5 py-2"
               style={{ background: "rgba(16,9,5,.88)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.4)" }}
             >
-              <span className="flex items-center gap-1">
-                {(["line", "area"] as const).map((k) => (
-                  <button
-                    key={k}
-                    onClick={() => setDrawKind(k)}
-                    className={`label-stamp cursor-pointer rounded-[2px] border-none px-2 py-1 text-[9px] font-semibold tracking-[1px] transition ${
-                      drawKind === k ? "text-[#f0dfb8]" : "text-gold-muted hover:text-ember-bright"
-                    }`}
-                    style={{ background: drawKind === k ? "rgba(201,162,39,.22)" : "transparent" }}
-                  >
-                    {k === "line" ? "Road" : "Region"}
-                  </button>
-                ))}
-              </span>
+              {/* Road or region is the DM's question; a player draws a route. */}
+              {isDM && (
+                <span className="flex items-center gap-1">
+                  {(["line", "area"] as const).map((k) => (
+                    <button
+                      key={k}
+                      onClick={() => setDrawKind(k)}
+                      className={`label-stamp cursor-pointer rounded-[2px] border-none px-2 py-1 text-[9px] font-semibold tracking-[1px] transition ${
+                        drawKind === k ? "text-[#f0dfb8]" : "text-gold-muted hover:text-ember-bright"
+                      }`}
+                      style={{ background: drawKind === k ? "rgba(201,162,39,.22)" : "transparent" }}
+                    >
+                      {k === "line" ? "Road" : "Region"}
+                    </button>
+                  ))}
+                </span>
+              )}
               <span className="label-stamp text-[10px] tracking-[1.5px] text-[#f0dfb8]">
                 {drawPoints.length === 0
                   ? drawKind === "area"
                     ? "Tap the corners"
-                    : "Tap along the road"
+                    : isDM
+                      ? "Tap along the road"
+                      : "Tap along your route"
                   : `${drawPoints.length} ${drawPoints.length === 1 ? "point" : "points"}`}
               </span>
               {drawPoints.length > 0 && (
@@ -735,7 +826,13 @@ export default function MapPage() {
       {openPin && (
         <ParchmentModal onClose={() => setOpenPin(null)} maxWidth="max-w-[420px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            {openPin.dmOnly ? "DM only" : map?.name}
+            {openPin.authorUserId
+              ? `${openPin.authorUserId === myId ? "Your mark" : `Marked by ${openPin.authorName ?? "a player"}`}${
+                  openPin.shared ? " · shared" : ""
+                }`
+              : openPin.dmOnly
+                ? "DM only"
+                : map?.name}
           </div>
           <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
             {openPin.label}
@@ -786,21 +883,26 @@ export default function MapPage() {
             >
               Close
             </button>
-            {isDM && (
+            {/* The DM's own pin is theirs to amend; a player's mark is its
+                author's to amend, and the DM may only pull it (#356). */}
+            {(openPin.authorUserId ? openPin.authorUserId === myId || isDM : isDM) && (
               <div className="flex items-center gap-2">
+                {(openPin.authorUserId ? openPin.authorUserId === myId : true) && (
+                  <button
+                    onClick={() => {
+                      setEditingPin(openPin);
+                      setOpenPin(null);
+                    }}
+                    className="btn-base btn-ghost-ink px-3.5 py-2 text-[11px]"
+                  >
+                    <IconPencil size={12} strokeWidth={1.8} />
+                    Amend
+                  </button>
+                )}
                 <button
                   onClick={() => {
-                    setEditingPin(openPin);
-                    setOpenPin(null);
-                  }}
-                  className="btn-base btn-ghost-ink px-3.5 py-2 text-[11px]"
-                >
-                  <IconPencil size={12} strokeWidth={1.8} />
-                  Amend
-                </button>
-                <button
-                  onClick={() => {
-                    deletePin.mutate(openPin.id);
+                    if (openPin.authorUserId === myId) deleteMarkPin.mutate(openPin.id);
+                    else deletePin.mutate(openPin.id);
                     setOpenPin(null);
                   }}
                   className="btn-base btn-ghost-red px-3.5 py-2 text-[11px]"
@@ -821,7 +923,7 @@ export default function MapPage() {
             {map.name}
           </div>
           <h3 className="font-display m-0 mb-4 text-center text-2xl font-bold text-ink">
-            Drop a Pin
+            {isDM ? "Drop a Pin" : "Mark the Map"}
           </h3>
           <PinForm
             initial={{
@@ -832,16 +934,42 @@ export default function MapPage() {
               locationId: "",
               layerId: "",
               shape: "pin",
+              shared: false,
             }}
             maps={maps ?? []}
             locations={locations ?? []}
             layers={layers}
             currentMapId={map.id}
-            isPending={createPin.isPending}
-            errorText={createPin.isError ? apiError(createPin.error) : undefined}
+            mark={!isDM}
+            isPending={createPin.isPending || createMarkPin.isPending}
+            errorText={
+              createPin.isError
+                ? apiError(createPin.error)
+                : createMarkPin.isError
+                  ? apiError(createMarkPin.error)
+                  : undefined
+            }
             onCancel={() => setNewPinAt(null)}
             onSubmit={(v) =>
-              createPin.mutate(
+              !isDM
+                ? createMarkPin.mutate(
+                    {
+                      label: v.label,
+                      note: v.note,
+                      x: newPinAt.x,
+                      y: newPinAt.y,
+                      shape: v.shape,
+                      shared: v.shared,
+                    },
+                    {
+                      onSuccess: () => {
+                        setNewPinAt(null);
+                        setDropMode(false);
+                        reveal("pins", undefined, myId);
+                      },
+                    },
+                  )
+                : createPin.mutate(
                 {
                   label: v.label,
                   note: v.note,
@@ -873,10 +1001,12 @@ export default function MapPage() {
             {map.name}
           </div>
           <h3 className="font-display m-0 mb-4 text-center text-2xl font-bold text-ink">
-            Amend the Pin
+            {editingPin.authorUserId ? "Amend your Mark" : "Amend the Pin"}
           </h3>
           <PinForm
+            mark={!!editingPin.authorUserId}
             initial={{
+              shared: editingPin.shared ?? false,
               label: editingPin.label,
               note: editingPin.note,
               dmOnly: editingPin.dmOnly,
@@ -889,11 +1019,32 @@ export default function MapPage() {
             locations={locations ?? []}
             layers={layers}
             currentMapId={map.id}
-            isPending={updatePin.isPending}
-            errorText={updatePin.isError ? apiError(updatePin.error) : undefined}
+            isPending={updatePin.isPending || updateMarkPin.isPending}
+            errorText={
+              updatePin.isError
+                ? apiError(updatePin.error)
+                : updateMarkPin.isError
+                  ? apiError(updateMarkPin.error)
+                  : undefined
+            }
             onCancel={() => setEditingPin(null)}
             onSubmit={(v) =>
-              updatePin.mutate(
+              editingPin.authorUserId
+                ? updateMarkPin.mutate(
+                    {
+                      pinId: editingPin.id,
+                      body: {
+                        label: v.label,
+                        note: v.note,
+                        x: editingPin.x,
+                        y: editingPin.y,
+                        shape: v.shape,
+                        shared: v.shared,
+                      },
+                    },
+                    { onSuccess: () => setEditingPin(null) },
+                  )
+                : updatePin.mutate(
                 {
                   pinId: editingPin.id,
                   body: {
@@ -920,24 +1071,56 @@ export default function MapPage() {
         </ParchmentModal>
       )}
 
-      {/* naming and styling a road or a region (#262) */}
+      {/* naming and styling a road or a region (#262), or a player's route (#356) */}
       {shapeDraft && (
         <ParchmentModal onClose={() => setShapeDraft(null)} maxWidth="max-w-[460px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            {shapeDraft.kind === "area" ? "A region" : "A road"}
+            {draftIsMark ? "Your route" : shapeDraft.kind === "area" ? "A region" : "A road"}
           </div>
           <h3 className="font-display m-0 mb-4 text-center text-2xl font-bold text-ink">
             {shapeDraft.existing ? "Redraw it" : "Ink it in"}
           </h3>
           <ShapeForm
             draft={shapeDraft}
-            locations={locations ?? []}
-            layers={layers}
-            isPending={createShape.isPending || updateShape.isPending}
+            mark={draftIsMark}
+            locations={draftIsMark ? [] : (locations ?? [])}
+            layers={draftIsMark ? [] : layers}
+            isPending={
+              createShape.isPending ||
+              updateShape.isPending ||
+              createMarkLine.isPending ||
+              updateMarkLine.isPending
+            }
             errorText={
-              ((createShape.error ?? updateShape.error) as { error?: string } | null)?.error
+              (
+                (createShape.error ?? updateShape.error ?? createMarkLine.error ?? updateMarkLine.error) as {
+                  error?: string;
+                } | null
+              )?.error
             }
             onSubmit={(body) => {
+              if (draftIsMark) {
+                const line = {
+                  label: body.label,
+                  points: body.points,
+                  color: body.color,
+                  dashed: body.dashed,
+                  width: body.width,
+                  shared: body.shared,
+                };
+                const markDone = {
+                  onSuccess: () => {
+                    setShapeDraft(null);
+                    reveal("roads", undefined, myId);
+                  },
+                };
+                if (shapeDraft.existing) {
+                  updateMarkLine.mutate({ shapeId: shapeDraft.existing.id, body: line }, markDone);
+                } else {
+                  createMarkLine.mutate(line, markDone);
+                }
+                return;
+              }
               const done = {
                 onSuccess: () => {
                   setShapeDraft(null);
@@ -953,7 +1136,7 @@ export default function MapPage() {
             onDelete={
               shapeDraft.existing
                 ? () =>
-                    deleteShape.mutate(shapeDraft.existing!.id, {
+                    (draftIsMark ? deleteMarkLine : deleteShape).mutate(shapeDraft.existing!.id, {
                       onSuccess: () => setShapeDraft(null),
                     })
                 : undefined

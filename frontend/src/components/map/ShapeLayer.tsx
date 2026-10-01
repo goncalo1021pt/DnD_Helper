@@ -188,6 +188,7 @@ export function ShapeLayer({
   width,
   height,
   onOpen,
+  canOpen,
   showNames = true,
 }: {
   shapes: MapShape[];
@@ -197,6 +198,8 @@ export function ShapeLayer({
   width: number;
   height: number;
   onOpen?: (shape: MapShape) => void;
+  /** Which shapes answer a press at all — a player's line answers only its author (#356). */
+  canOpen?: (shape: MapShape) => boolean;
   /** Letter each shape with its name — off when the viewer switched Names off (#355). */
   showNames?: boolean;
 }) {
@@ -218,7 +221,7 @@ export function ShapeLayer({
           shape={s}
           width={width}
           height={height}
-          onOpen={onOpen}
+          onOpen={onOpen && (!canOpen || canOpen(s)) ? onOpen : undefined}
           showName={showNames}
         />
       ))}
