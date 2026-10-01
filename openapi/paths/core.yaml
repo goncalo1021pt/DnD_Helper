@@ -33,3 +33,31 @@
               $ref: "../openapi.yaml#/components/schemas/CurrentUser"
       "401":
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  patch:
+    operationId: updateCurrentUser
+    security:
+      - sessionCookie: []
+      - bearerToken: [account:write]
+    summary: Choose the name the table knows you by
+    description: >-
+      Sets the display name and marks it as chosen (#302), so a later sign-in
+      through Discord or Google no longer writes the provider's name over it.
+      Names are not unique — two people may both be Sam. The username a
+      password account signs in with is a different thing and is untouched.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/UpdateCurrentUserRequest"
+    responses:
+      "200":
+        description: The account, renamed
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/User"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"

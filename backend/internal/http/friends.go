@@ -157,15 +157,42 @@ func (s *Server) AskFriend(ctx context.Context, request api.AskFriendRequestObje
 	if !ok {
 		return api.AskFriend401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
-	if request.Body == nil || strings.TrimSpace(request.Body.FriendCode) == "" {
-		return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a friend code is required"}}, nil
+	code := ""
+	if request.Body != nil && request.Body.FriendCode != nil {
+		code = strings.TrimSpace(*request.Body.FriendCode)
 	}
-	them, err := s.queries.GetUserByFriendCode(ctx, strings.TrimSpace(request.Body.FriendCode))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+	byID := request.Body != nil && request.Body.UserId != nil
+	if (code == "") == !byID {
+		return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a friend code or a table-mate is required"}}, nil
+	}
+	var them db.User
+	var err error
+	if byID {
+		// A table-mate needs no code (#302); anybody else's id answers as a
+		// code nobody holds, so an id is no way to find a stranger.
+		id := uuid.UUID(*request.Body.UserId)
+		if id == me {
+			return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "you cannot befriend yourself"}}, nil
+		}
+		shared, serr := s.queries.ShareATable(ctx, db.ShareATableParams{UserID: me, UserID_2: id})
+		if serr != nil {
+			return nil, serr
+		}
+		if !shared {
 			return api.AskFriend404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 		}
-		return nil, err
+		them, err = s.queries.GetUserByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		them, err = s.queries.GetUserByFriendCode(ctx, code)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return api.AskFriend404JSONResponse{NotFoundJSONResponse: notFound()}, nil
+			}
+			return nil, err
+		}
 	}
 	if them.ID == me {
 		return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{

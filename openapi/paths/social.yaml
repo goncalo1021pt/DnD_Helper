@@ -19,7 +19,7 @@
     security:
       - sessionCookie: []
       - bearerToken: [account:write]
-    summary: Ask somebody to be your friend, by their code
+    summary: Ask somebody to be your friend, by their code or as a table-mate
     description: >-
       Answers 404 for a code nobody holds, and the same 404 for a code held by
       somebody who has blocked you — a block that could be detected by probing

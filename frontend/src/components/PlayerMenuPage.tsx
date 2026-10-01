@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, useNavigate, useOutletContext } from "react-router-dom";
+import type { Character } from "../api/client";
 import {
   useCharacters,
   useCurrentUser,
   useLeaveCampaign,
+  useMembers,
   useMyCharacters,
   useMySeatRequests,
   useSeatCharacter,
@@ -11,7 +13,9 @@ import {
 } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 import { classLine } from "../lib/classes";
+import Face from "./dm/Face";
 import ParchmentModal from "./ui/ParchmentModal";
+import Person from "./ui/Person";
 
 /**
  * The Player Menu (#171): the player's counterpart of the DM Menu. Your
@@ -177,6 +181,8 @@ export default function PlayerMenuPage() {
         )}
       </section>
 
+      <AtTheTable campaignId={campaign.id} characters={characters ?? []} />
+
       <MuteSection campaignId={campaign.id} muted={muted} />
 
       {/* leave the table */}
@@ -249,6 +255,70 @@ export default function PlayerMenuPage() {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * Who sits at this table (#302): the DMs first, then the players with the
+ * heroes they bring. Until this a player could not tell who ran the game
+ * from inside it. Heroes come from the roster the player already reads, so a
+ * table split into parties shows each group what its own roster shows.
+ */
+function AtTheTable({ campaignId, characters }: { campaignId: string; characters: Character[] }) {
+  const { data: members } = useMembers(campaignId);
+  if (!members) return null;
+  const order = [...members].sort(
+    (a, b) =>
+      Number(b.role === "dm") - Number(a.role === "dm") ||
+      Number(b.isOwner) - Number(a.isOwner) ||
+      a.name.localeCompare(b.name),
+  );
+  return (
+    <section className="panel-hall px-6 pb-6 pt-5" data-testid="at-the-table">
+      <div
+        className="mb-4 flex flex-wrap items-baseline justify-between gap-3 pb-3"
+        style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
+      >
+        <h2
+          className="font-display m-0 text-[21px] font-black text-[#e7d3a6]"
+          style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
+        >
+          At the Table
+        </h2>
+        <span className="label-stamp text-[11px] text-gold-muted">{members.length} seated</span>
+      </div>
+      <ul className="m-0 grid list-none gap-2.5 p-0">
+        {order.map((m) => {
+          const heroes = characters.filter((c) => c.ownerUserId === m.userId && !c.tableBorn);
+          return (
+            <li
+              key={m.userId}
+              className="flex flex-wrap items-center gap-3.5 rounded-[3px] px-3 py-2.5"
+              style={{ background: "rgba(0,0,0,.22)", border: "1px solid rgba(201,162,39,.16)" }}
+            >
+              <Face name={m.name} image={m.image} id={m.userId} />
+              <div className="min-w-0 flex-1">
+                <Person
+                  userId={m.userId}
+                  name={m.name}
+                  campaignId={campaignId}
+                  className="font-heading block max-w-full truncate text-[15px] font-bold text-cream transition hover:text-ember-bright"
+                />
+                <div className="label-stamp text-[10px] tracking-[1px] text-gold-muted">
+                  {m.role === "dm" ? "Dungeon Master" : "Player"}
+                  {m.isOwner && " · holds the table"}
+                </div>
+                {heroes.length > 0 && (
+                  <div className="font-accent truncate text-[12.5px] italic text-cream-muted">
+                    plays {heroes.map((h) => h.name).join(", ")}
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

@@ -46,12 +46,19 @@ FriendRoll:
 
 AskFriendRequest:
   type: object
-  required: [friendCode]
+  description: >-
+    Exactly one of the two: a code somebody handed you, or the id of somebody
+    you already share a table with (#302) — the player beside you should not
+    need to read you a code. An id that is not a table-mate's answers 404, as a
+    code nobody holds does, so ids are no way to find strangers.
   properties:
     friendCode:
       type: string
       minLength: 1
       maxLength: 32
+    userId:
+      type: string
+      format: uuid
 
 Message:
   type: object

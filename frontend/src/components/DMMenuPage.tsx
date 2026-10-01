@@ -13,6 +13,7 @@ import {
 import { formatWhen } from "../lib/dates";
 import type { CampaignContext } from "./CampaignView";
 import ParchmentModal from "./ui/ParchmentModal";
+import Person from "./ui/Person";
 import RoleBadge from "./ui/RoleBadge";
 import AtTheDoorSection from "./dm/AtTheDoorSection";
 import DisbandSection from "./dm/DisbandSection";
@@ -107,9 +108,12 @@ export default function DMMenuPage() {
               >
                 <Face name={m.name} image={m.image} id={m.userId} />
                 <div className="min-w-0 flex-1">
-                  <div className="font-heading truncate text-[15px] font-bold text-cream">
-                    {m.name}
-                  </div>
+                  <Person
+                    userId={m.userId}
+                    name={m.name}
+                    campaignId={campaign.id}
+                    className="font-heading block max-w-full truncate text-[15px] font-bold text-cream transition hover:text-ember-bright"
+                  />
                   <div className="label-stamp text-[10px] tracking-[1px] text-gold-muted">
                     At the table since {formatWhen(new Date(m.joinedAt))}
                   </div>

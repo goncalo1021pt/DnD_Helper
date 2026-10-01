@@ -43,7 +43,14 @@ RETURNING *;
 -- address is deliberately NOT touched: it is the account's identity now, one
 -- account holds it, and a provider changing its mind must not silently move an
 -- address off another account (or collide with it and fail the sign-in).
-UPDATE users SET name = $2, image = $3 WHERE id = $1 RETURNING *;
+-- A name the person chose for themselves outlasts the provider's (#302).
+UPDATE users SET name = CASE WHEN name_chosen THEN name ELSE $2 END, image = $3
+WHERE id = $1 RETURNING *;
+
+-- name: SetUserName :one
+-- Somebody naming themselves (#302): marked chosen, so the next sign-in through
+-- a provider does not quietly take it back.
+UPDATE users SET name = $2, name_chosen = true WHERE id = $1 RETURNING *;
 
 -- name: AdoptEmail :one
 -- Give a verified address to an account that has none. A provider vouches for

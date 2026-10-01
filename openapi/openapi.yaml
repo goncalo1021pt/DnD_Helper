@@ -527,6 +527,8 @@ components:
 
     CurrentUser:
       $ref: "./components/core.yaml#/CurrentUser"
+    UpdateCurrentUserRequest:
+      $ref: "./components/core.yaml#/UpdateCurrentUserRequest"
 
     CreateCampaignRequest:
       $ref: "./components/campaigns.yaml#/CreateCampaignRequest"

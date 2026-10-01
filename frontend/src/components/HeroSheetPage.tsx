@@ -42,6 +42,7 @@ import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
 import PoolsPanel from "./sheet/PoolsPanel";
 import CreaturesPanel from "./sheet/CreaturesPanel";
+import Person from "./ui/Person";
 
 export default function HeroSheetPage() {
   const { heroId } = useParams<{ heroId: string }>();
@@ -324,6 +325,19 @@ export default function HeroSheetPage() {
               {character.kind === "npc"
                 ? " · one of the Folk"
                 : character.campaignName && ` · seated at ${character.campaignName}`}
+              {/* Somebody else's hero names who plays it, and the name opens
+                  them (#302). */}
+              {character.kind !== "npc" && !character.mine && !character.tableBorn && character.campaignId && (
+                <>
+                  {" · played by "}
+                  <Person
+                    userId={character.ownerUserId}
+                    name={character.ownerName}
+                    campaignId={character.campaignId}
+                    className="text-cream transition hover:text-ember-bright"
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>

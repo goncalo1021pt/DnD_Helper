@@ -35,7 +35,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Choose the name the table knows you by
+         * @description Sets the display name and marks it as chosen (#302), so a later sign-in through Discord or Google no longer writes the provider's name over it. Names are not unique — two people may both be Sam. The username a password account signs in with is a different thing and is untouched.
+         */
+        patch: operations["updateCurrentUser"];
         trace?: never;
     };
     "/me/friends": {
@@ -49,7 +53,7 @@ export interface paths {
         get: operations["listFriends"];
         put?: never;
         /**
-         * Ask somebody to be your friend, by their code
+         * Ask somebody to be your friend, by their code or as a table-mate
          * @description Answers 404 for a code nobody holds, and the same 404 for a code held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes.
          */
         post: operations["askFriend"];
@@ -3199,6 +3203,9 @@ export interface components {
             user: components["schemas"]["User"];
             campaigns: components["schemas"]["CampaignMembership"][];
         };
+        UpdateCurrentUserRequest: {
+            name: string;
+        };
         CreateCampaignRequest: {
             name: string;
             /**
@@ -4775,8 +4782,11 @@ export interface components {
             friends: components["schemas"]["Friend"][];
             blocked: components["schemas"]["Friend"][];
         };
+        /** @description Exactly one of the two: a code somebody handed you, or the id of somebody you already share a table with (#302) — the player beside you should not need to read you a code. An id that is not a table-mate's answers 404, as a code nobody holds does, so ids are no way to find strangers. */
         AskFriendRequest: {
-            friendCode: string;
+            friendCode?: string;
+            /** Format: uuid */
+            userId?: string;
         };
         Message: {
             /** Format: uuid */
@@ -5330,6 +5340,32 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentUser"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCurrentUserRequest"];
+            };
+        };
+        responses: {
+            /** @description The account, renamed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

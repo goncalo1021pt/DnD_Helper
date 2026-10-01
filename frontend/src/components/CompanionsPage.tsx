@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { Friend, Message } from "../api/client";
 import {
   useAcceptFriend,
@@ -157,7 +158,12 @@ export default function CompanionsPage() {
 
   const [code, setCode] = useState("");
   const [askError, setAskError] = useState("");
-  const [open, setOpen] = useState<{ userId: string; name: string } | null>(null);
+  // A person's card elsewhere links straight into a conversation (#302).
+  const [params] = useSearchParams();
+  const [open, setOpen] = useState<{ userId: string; name: string } | null>(() => {
+    const userId = params.get("with");
+    return userId ? { userId, name: params.get("name") ?? "" } : null;
+  });
   const [copied, setCopied] = useState(false);
 
   const friends = roll?.friends ?? [];

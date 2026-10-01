@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
-import { useCampaigns, useLiveCampaign } from "../hooks";
+import { useCampaigns, useLiveCampaign, useMembers } from "../hooks";
 import { railFamilies } from "../lib/sections";
 import InviteModal from "./InviteModal";
+import Person from "./ui/Person";
 import RoleBadge from "./ui/RoleBadge";
 import { IconKey } from "./ui/icons";
 
@@ -166,6 +167,7 @@ export default function CampaignView() {
             <div className="font-display truncate text-[clamp(17px,2.2vw,24px)] font-bold leading-[1.15] text-cream">
               {campaign.name}
             </div>
+            <RunBy campaignId={campaign.id} />
           </div>
           <RoleBadge role={role} />
         </div>
@@ -182,6 +184,35 @@ export default function CampaignView() {
       <SectionRail role={role} />
 
       <Outlet context={context} />
+    </div>
+  );
+}
+
+/**
+ * Who runs this table (#302). A player had no way to tell — the members list
+ * lived on the DM's menu alone. The owner leads, the co-DMs follow, and each
+ * name opens the person.
+ */
+function RunBy({ campaignId }: { campaignId: string }) {
+  const { data: members } = useMembers(campaignId);
+  const dms = (members ?? [])
+    .filter((m) => m.role === "dm")
+    .sort((a, b) => Number(b.isOwner) - Number(a.isOwner));
+  if (dms.length === 0) return null;
+  return (
+    <div className="font-accent mt-0.5 text-[13px] italic text-cream-muted" data-testid="run-by">
+      Run by{" "}
+      {dms.map((m, i) => (
+        <span key={m.userId}>
+          {i > 0 && (i === dms.length - 1 ? " and " : ", ")}
+          <Person
+            userId={m.userId}
+            name={m.name}
+            campaignId={campaignId}
+            className="not-italic text-cream-soft transition hover:text-ember-bright"
+          />
+        </span>
+      ))}
     </div>
   );
 }

@@ -43,6 +43,7 @@ import {
   IconTrash,
   IconUsers,
 } from "./ui/icons";
+import Person from "./ui/Person";
 
 /* The character's pact line: tree name + waiting picks, or a DM bind control. */
 function PactRow({
@@ -188,6 +189,23 @@ function SlotPips({ character, canEdit }: { character: Character; canEdit: boole
  * else. The card is deliberately quiet — no medallion level, no HP bar, no
  * link to a sheet the server would refuse anyway.
  */
+/**
+ * "played by" names a person, and a person is a door (#302). A table-born
+ * stub is the DM's paperwork for a guest with no account, so its owner is
+ * not who plays it and stays plain text.
+ */
+function PlayedBy({ character }: { character: Character }) {
+  if (!character.campaignId || character.tableBorn) return <>{character.ownerName}</>;
+  return (
+    <Person
+      userId={character.ownerUserId}
+      name={character.ownerName}
+      campaignId={character.campaignId}
+      className="hover:text-[#8b2520]"
+    />
+  );
+}
+
 function VeiledCard({ character }: { character: Character }) {
   return (
     <div className="parchment px-[22px] pb-5 pt-[18px]" style={{ opacity: 0.92 }}>
@@ -208,7 +226,7 @@ function VeiledCard({ character }: { character: Character }) {
           </div>
           <div className="truncate text-[12.5px] text-ink-body">
             <span className="font-accent italic text-ink-label">
-              played by {character.ownerName}
+              played by <PlayedBy character={character} />
             </span>
           </div>
         </div>
@@ -389,7 +407,7 @@ function CharacterCard({
             {classLine(character)}
             <span className="font-accent italic text-ink-label">
               {" "}
-              · played by {character.ownerName}
+              · played by <PlayedBy character={character} />
             </span>
             {character.tableBorn && (
               <span

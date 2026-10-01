@@ -45,6 +45,15 @@ export function useAskFriend() {
   });
 }
 
+/** Ask a table-mate by who they are, no code needed (#302). */
+export function useBefriend() {
+  return useRollMutation(async (userId: string) => {
+    const { data, error } = await api.POST("/me/friends", { body: { userId } });
+    if (error) throw error;
+    return data;
+  });
+}
+
 export function useReforgeFriendCode() {
   return useRollMutation(async () => {
     const { data, error } = await api.POST("/me/friends/code", {});
