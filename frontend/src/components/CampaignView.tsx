@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
-import { useCampaigns, useLiveCampaign } from "../hooks";
+import { useCampaigns, useLiveCampaign, useMembers } from "../hooks";
 import { railFamilies } from "../lib/sections";
 import InviteModal from "./InviteModal";
+import Person from "./ui/Person";
 import RoleBadge from "./ui/RoleBadge";
 import { IconKey } from "./ui/icons";
 
@@ -162,6 +163,7 @@ export default function CampaignView() {
               {campaign.realmName !== campaign.name
                 ? `Campaign in ${campaign.realmName}`
                 : "Campaign"}
+              <RunBy campaignId={campaign.id} />
             </div>
             <div className="font-display truncate text-[clamp(17px,2.2vw,24px)] font-bold leading-[1.15] text-cream">
               {campaign.name}
@@ -183,5 +185,36 @@ export default function CampaignView() {
 
       <Outlet context={context} />
     </div>
+  );
+}
+
+/**
+ * Who runs this table (#302). A player had no way to tell — the members list
+ * lived on the DM's menu alone. The owner leads, the co-DMs follow, and each
+ * name opens the person.
+ */
+function RunBy({ campaignId }: { campaignId: string }) {
+  const { data: members } = useMembers(campaignId);
+  const dms = (members ?? [])
+    .filter((m) => m.role === "dm")
+    .sort((a, b) => Number(b.isOwner) - Number(a.isOwner));
+  if (dms.length === 0) return null;
+  return (
+    // Rides the eyebrow line rather than adding one, so the header keeps its
+    // height and nothing below it moves when the members arrive.
+    <span data-testid="run-by">
+      {" · run by "}
+      {dms.map((m, i) => (
+        <span key={m.userId}>
+          {i > 0 && (i === dms.length - 1 ? " and " : ", ")}
+          <Person
+            userId={m.userId}
+            name={m.name}
+            campaignId={campaignId}
+            className="tracking-normal text-cream-soft transition hover:text-ember-bright"
+          />
+        </span>
+      ))}
+    </span>
   );
 }

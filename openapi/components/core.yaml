@@ -68,3 +68,12 @@ CurrentUser:
       type: array
       items:
         $ref: "../openapi.yaml#/components/schemas/CampaignMembership"
+
+UpdateCurrentUserRequest:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 40

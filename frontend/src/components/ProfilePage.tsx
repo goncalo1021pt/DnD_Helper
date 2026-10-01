@@ -6,6 +6,7 @@ import {
   useHomebrewBooks,
   useImportPack,
   useLogout,
+  useRenameMe,
   useMyCharacters,
   useResetHomebrew,
 } from "../hooks";
@@ -20,7 +21,7 @@ import YourDataSettings from "./YourDataSettings";
 import NotificationsSettings from "./NotificationsSettings";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconBell, IconBook, IconGear, IconKey, IconLogOut, IconScroll, IconShield, IconTrash } from "./ui/icons";
+import { IconBell, IconBook, IconGear, IconKey, IconLogOut, IconPencil, IconScroll, IconShield, IconTrash } from "./ui/icons";
 
 const PROVIDER_LABEL: Record<string, string> = {
   discord: "Discord",
@@ -193,12 +194,7 @@ export default function ProfilePage() {
           )}
           <div className="min-w-[220px] flex-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <h2
-                className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
-                style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
-              >
-                {user?.name}
-              </h2>
+              <NameEditor name={user?.name ?? ""} />
               <span
                 className="label-stamp rounded-[2px] px-2 py-1 text-[9px] font-semibold tracking-[1.5px] text-gold-muted"
                 style={{
@@ -465,5 +461,73 @@ export default function ProfilePage() {
         </ParchmentModal>
       )}
     </div>
+  );
+}
+
+/**
+ * The name the table knows you by, yours to choose (#302). Once chosen it
+ * stays, whatever Discord or Google call you at the next sign-in. It is not
+ * the username a password account signs in with.
+ */
+function NameEditor({ name }: { name: string }) {
+  const rename = useRenameMe();
+  const [draft, setDraft] = useState<string | null>(null);
+
+  if (draft === null) {
+    return (
+      <span className="flex items-center gap-2">
+        <h2
+          className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
+          style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
+        >
+          {name}
+        </h2>
+        <button
+          onClick={() => setDraft(name)}
+          title="Choose the name the table knows you by"
+          aria-label="Change your name"
+          className="btn-base btn-ghost-gold p-[7px]"
+        >
+          <IconPencil size={13} />
+        </button>
+      </span>
+    );
+  }
+
+  const trimmed = draft.trim();
+  return (
+    <form
+      className="flex flex-wrap items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!trimmed || trimmed === name) return setDraft(null);
+        rename.mutate(trimmed, { onSuccess: () => setDraft(null) });
+      }}
+    >
+      <input
+        autoFocus
+        value={draft}
+        maxLength={40}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && setDraft(null)}
+        aria-label="Your name"
+        className="font-display h-10 w-[min(280px,100%)] rounded-[2px] border-none px-3 text-[20px] font-black text-[#e7d3a6] outline-none"
+        style={{ background: "rgba(16,9,5,.55)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.4)" }}
+      />
+      <button
+        type="submit"
+        disabled={!trimmed || rename.isPending}
+        className="btn-base btn-ember h-10 px-4 text-[11px] disabled:opacity-50"
+      >
+        {rename.isPending ? "Saving…" : "Save"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setDraft(null)}
+        className="btn-base btn-ghost-gold h-10 px-4 text-[11px]"
+      >
+        Cancel
+      </button>
+    </form>
   );
 }

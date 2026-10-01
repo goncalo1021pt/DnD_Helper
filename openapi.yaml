@@ -433,6 +433,33 @@ paths:
           $ref: "#/components/responses/Unauthorized"
       tags:
         - Core
+    patch:
+      operationId: updateCurrentUser
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - account:write
+      summary: Choose the name the table knows you by
+      description: Sets the display name and marks it as chosen (#302), so a later sign-in through Discord or Google no longer writes the provider's name over it. Names are not unique — two people may both be Sam. The username a password account signs in with is a different thing and is untouched.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCurrentUserRequest"
+      responses:
+        "200":
+          description: The account, renamed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      tags:
+        - Core
   /me/friends:
     get:
       operationId: listFriends
@@ -458,7 +485,7 @@ paths:
         - sessionCookie: []
         - bearerToken:
             - account:write
-      summary: Ask somebody to be your friend, by their code
+      summary: Ask somebody to be your friend, by their code or as a table-mate
       description: Answers 404 for a code nobody holds, and the same 404 for a code held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes.
       requestBody:
         required: true
@@ -7024,6 +7051,15 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CampaignMembership"
+    UpdateCurrentUserRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 40
     CreateCampaignRequest:
       type: object
       required:
@@ -10202,13 +10238,15 @@ components:
             $ref: "#/components/schemas/Friend"
     AskFriendRequest:
       type: object
-      required:
-        - friendCode
+      description: "Exactly one of the two: a code somebody handed you, or the id of somebody you already share a table with (#302) — the player beside you should not need to read you a code. An id that is not a table-mate's answers 404, as a code nobody holds does, so ids are no way to find strangers."
       properties:
         friendCode:
           type: string
           minLength: 1
           maxLength: 32
+        userId:
+          type: string
+          format: uuid
     Message:
       type: object
       required:

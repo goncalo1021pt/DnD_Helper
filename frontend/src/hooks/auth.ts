@@ -85,6 +85,23 @@ export function useCurrentUser() {
   });
 }
 
+/**
+ * Choose the name the table knows you by (#302). The name rides members,
+ * rosters, friends and threads alike, so every cached read is refetched
+ * rather than chased one key at a time — a rename is rare.
+ */
+export function useRenameMe() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      const { data, error } = await api.PATCH("/me", { body: { name } });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries(),
+  });
+}
+
 // Logout lives outside the OpenAPI surface (auth routes), so call it directly.
 export function useLogout() {
   const qc = useQueryClient();

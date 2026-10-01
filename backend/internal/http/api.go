@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -95,6 +96,31 @@ func (s *Server) GetCurrentUser(ctx context.Context, _ api.GetCurrentUserRequest
 		User:      out,
 		Campaigns: memberships,
 	}, nil
+}
+
+// UpdateCurrentUser lets somebody choose the name the table knows them by
+// (#302). It marks the name chosen, so a later sign-in through a provider stops
+// writing the provider's name over it.
+func (s *Server) UpdateCurrentUser(ctx context.Context, request api.UpdateCurrentUserRequestObject) (api.UpdateCurrentUserResponseObject, error) {
+	uid, ok := auth.UserID(ctx)
+	if !ok {
+		return api.UpdateCurrentUser401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+	}
+	if request.Body == nil {
+		return api.UpdateCurrentUser400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a name is required"}}, nil
+	}
+	name := strings.Join(strings.Fields(request.Body.Name), " ")
+	if name == "" {
+		return api.UpdateCurrentUser400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a name is required"}}, nil
+	}
+	if utf8.RuneCountInString(name) > 40 {
+		return api.UpdateCurrentUser400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a name is at most 40 characters"}}, nil
+	}
+	user, err := s.queries.SetUserName(ctx, db.SetUserNameParams{ID: uid, Name: name})
+	if err != nil {
+		return nil, err
+	}
+	return api.UpdateCurrentUser200JSONResponse(toAPIUser(user)), nil
 }
 
 // ListCampaigns returns the campaigns the caller belongs to.

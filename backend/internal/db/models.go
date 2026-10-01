@@ -1120,6 +1120,7 @@ type User struct {
 	TotpEnabled   bool               `json:"totp_enabled"`
 	FriendCode    string             `json:"friend_code"`
 	EmailEvents   []string           `json:"email_events"`
+	NameChosen    bool               `json:"name_chosen"`
 }
 
 type UserBlock struct {
