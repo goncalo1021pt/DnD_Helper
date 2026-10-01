@@ -72,7 +72,7 @@ test("a player reads who runs the table, and a name opens the person", async ({ 
   // The header names the DM for the player.
   await player.goto(`/questboard/campaigns/${campaign.id}`);
   const runBy = player.getByTestId("run-by");
-  await expect(runBy).toContainText(`Run by ${dmAccount.username}`);
+  await expect(runBy).toContainText(`run by ${dmAccount.username}`);
 
   // The name is a door: the card says who they are, and offers the ways in.
   await runBy.getByRole("button", { name: dmAccount.username }).click();

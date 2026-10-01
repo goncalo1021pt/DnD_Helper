@@ -163,11 +163,11 @@ export default function CampaignView() {
               {campaign.realmName !== campaign.name
                 ? `Campaign in ${campaign.realmName}`
                 : "Campaign"}
+              <RunBy campaignId={campaign.id} />
             </div>
             <div className="font-display truncate text-[clamp(17px,2.2vw,24px)] font-bold leading-[1.15] text-cream">
               {campaign.name}
             </div>
-            <RunBy campaignId={campaign.id} />
           </div>
           <RoleBadge role={role} />
         </div>
@@ -200,8 +200,10 @@ function RunBy({ campaignId }: { campaignId: string }) {
     .sort((a, b) => Number(b.isOwner) - Number(a.isOwner));
   if (dms.length === 0) return null;
   return (
-    <div className="font-accent mt-0.5 text-[13px] italic text-cream-muted" data-testid="run-by">
-      Run by{" "}
+    // Rides the eyebrow line rather than adding one, so the header keeps its
+    // height and nothing below it moves when the members arrive.
+    <span data-testid="run-by">
+      {" · run by "}
       {dms.map((m, i) => (
         <span key={m.userId}>
           {i > 0 && (i === dms.length - 1 ? " and " : ", ")}
@@ -209,10 +211,10 @@ function RunBy({ campaignId }: { campaignId: string }) {
             userId={m.userId}
             name={m.name}
             campaignId={campaignId}
-            className="not-italic text-cream-soft transition hover:text-ember-bright"
+            className="tracking-normal text-cream-soft transition hover:text-ember-bright"
           />
         </span>
       ))}
-    </div>
+    </span>
   );
 }
