@@ -201,7 +201,7 @@ export default function CompanionsPage() {
             Beyond your own tables
           </div>
           <h2 className="font-heading m-0 text-[clamp(26px,3vw,34px)] font-semibold text-[#f3e6c8]">
-            Companions
+            Friends
           </h2>
           {mutual.length > 0 && (
             <span className="label-stamp text-xs text-gold-muted">{mutual.length} known</span>
@@ -214,7 +214,7 @@ export default function CompanionsPage() {
               onClick={() => setOpen(null)}
               className="label-stamp mb-3 cursor-pointer border-none bg-transparent p-0 text-[10px] tracking-[2px] text-gold-muted transition hover:text-ember-bright"
             >
-              ← all companions
+              ← all friends
             </button>
             <Thread peer={open} />
           </div>
@@ -255,7 +255,7 @@ export default function CompanionsPage() {
 
               <section className="panel-hall px-6 pb-5 pt-4">
                 <div className="label-stamp mb-3 text-[10px] tracking-[2px] text-gold-muted">
-                  Your companions
+                  Your friends
                 </div>
                 {mutual.length === 0 ? (
                   <div className="px-2 py-8 text-center">

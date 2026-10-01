@@ -38,7 +38,7 @@ export function RevealLedger({
         {mapName}
       </div>
       <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
-        The Reveal Ledger
+        Revealed Areas
       </h3>
       <p className="font-body m-0 mb-4 text-center text-[13px] italic text-ink-body">
         Tear a page out and its ground fogs over again.

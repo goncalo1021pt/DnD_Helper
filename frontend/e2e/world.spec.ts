@@ -39,7 +39,7 @@ test("a city charted before its country can be moved into it", async ({ page }) 
   const bel = await createLocation(page.request, campaign.id, "Kingdom of Bel");
 
   await page.goto(`/questboard/campaigns/${campaign.id}/world`);
-  await expect(page.getByRole("heading", { name: "The World" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "World", exact: true })).toBeVisible();
   // Located by the row's own control rather than by name: every place name is
   // also an <option> in two parent pickers, so text alone matches three times.
   await expect(page.getByRole("button", { name: "Edit Redwater" })).toBeVisible();
@@ -255,7 +255,7 @@ test("a place is listed under its own parent, not banded with its depth", async 
   // "Move inside" select lists every place too, and matching those would be
   // asserting the dropdown, not the ladder.
   await page.goto(`/questboard/campaigns/${campaign.id}/world`);
-  await expect(page.getByRole("heading", { name: "The World" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "World", exact: true })).toBeVisible();
   // The row title became a door to the place's own page (#230), so the ladder
   // is read off the links now — still the row titles, not the dropdown.
   const drawn = await page.locator("a.font-heading.truncate").allTextContents();
@@ -269,7 +269,7 @@ test("the old /places address still finds the world", async ({ page }) => {
   const campaign = await createCampaign(page.request, unique("Bookmark "));
 
   await page.goto(`/questboard/campaigns/${campaign.id}/places`);
-  await expect(page.getByRole("heading", { name: "The World" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "World", exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page).toHaveURL(new RegExp(`/campaigns/${campaign.id}/world$`));
 });
 

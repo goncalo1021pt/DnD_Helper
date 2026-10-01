@@ -58,7 +58,7 @@ export function PlaceLinks({
     counted.push({
       to: `${base}/world/${place.id}`,
       title: `Who is found in ${place.name}`,
-      text: `${folk} folk`,
+      text: `${folk} NPC${folk === 1 ? "" : "s"}`,
     });
   }
   if (shops > 0) {

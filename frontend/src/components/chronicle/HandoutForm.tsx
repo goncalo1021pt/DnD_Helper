@@ -55,7 +55,7 @@ export default function HandoutForm({
   return (
     <ParchmentModal onClose={onClose} maxWidth="max-w-[440px]">
       <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-        The Chronicle
+        Chronicle
       </div>
       <h3 className="font-display m-0 mb-4 text-center text-2xl font-bold text-ink">
         Hand Something Over

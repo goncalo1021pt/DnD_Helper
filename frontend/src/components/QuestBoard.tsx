@@ -79,7 +79,7 @@ export default function QuestBoard() {
             className="btn-base btn-ghost-gold clip-octagon h-10 px-4 text-[13px] no-underline"
           >
             <IconMapPin size={15} strokeWidth={2} />
-            The World
+            World
           </Link>
           {isDM ? (
             <button

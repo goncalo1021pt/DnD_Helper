@@ -36,7 +36,7 @@ export default function HeraldSection({ campaign }: { campaign: Campaign }) {
           className="font-display m-0 text-[21px] font-black text-[#e7d3a6]"
           style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
         >
-          The Herald
+          Discord Channel
         </h2>
         <span className="label-stamp text-[11px] text-gold-muted">
           {channel ? (channel.disabledAt ? "silenced" : "posting") : "no channel"}
@@ -95,7 +95,7 @@ export default function HeraldSection({ campaign }: { campaign: Campaign }) {
         </div>
       ) : (
         <button onClick={() => setEditing(true)} className="btn-base btn-gold clip-octagon h-9 px-4 text-[11px]">
-          Hang a channel
+          Connect a channel
         </button>
       )}
 
@@ -129,7 +129,7 @@ function ChannelModal({ campaign, onClose }: { campaign: Campaign; onClose: () =
     <ParchmentModal onClose={onClose} maxWidth="max-w-[560px]">
       <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">The Herald</div>
       <h3 className="font-display m-0 mb-3 text-center text-2xl font-bold text-ink">
-        {campaign.channel ? "Change the channel" : "Hang a channel"}
+        {campaign.channel ? "Change the channel" : "Connect a channel"}
       </h3>
       <p className="font-body m-0 mb-3 text-center text-[13px] italic text-ink-body">
         In Discord: channel settings → Integrations → Webhooks → New Webhook, then copy its URL here.

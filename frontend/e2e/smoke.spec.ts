@@ -46,7 +46,7 @@ test("a DM founds a table and posts a quest; a player joins and claims it", asyn
   // Nail up a notice. Wait for the board itself: the hall also shows the quest
   // title (in its board preview) *and* the Chronicle line announcing it, so
   // asserting on the title before the page settles matches three things.
-  await dmPage.getByRole("link", { name: /Open the board/i }).click();
+  await dmPage.getByRole("link", { name: /The Quest Board/i }).click();
   await expect(dmPage.getByRole("button", { name: "Post a Quest" })).toBeVisible();
   await dmPage.getByRole("button", { name: "Post a Quest" }).click();
   await expect(dmPage.getByRole("heading", { name: "Nail Up a Notice" })).toBeVisible();
@@ -81,7 +81,7 @@ test("a DM founds a table and posts a quest; a player joins and claims it", asyn
   await playerPage.getByRole("button", { name: "Join", exact: true }).click();
 
   await playerPage.getByText(campaignName, { exact: false }).first().click();
-  await playerPage.getByRole("link", { name: /Open the board/i }).click();
+  await playerPage.getByRole("link", { name: /The Quest Board/i }).click();
   // Land on the board before looking for the notice — on the hall the title
   // also appears in the board preview and in the Chronicle's "A notice is
   // nailed to the board" line, and matching those is not the same claim.

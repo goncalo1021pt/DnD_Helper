@@ -94,7 +94,7 @@ export function AtlasModal({
   return (
     <ParchmentModal onClose={onClose} maxWidth="max-w-[440px]">
       <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-        The Map
+        Map
       </div>
       <h3 className="font-display m-0 mb-4 text-center text-2xl font-bold text-ink">
         The Atlas
@@ -218,7 +218,7 @@ export function AtlasModal({
             className="btn-base btn-gold clip-octagon h-10 px-4 text-[12px]"
           >
             <IconPlus size={14} strokeWidth={2} />
-            Hang a map
+            Add a map
           </button>
         ) : (
           <span />

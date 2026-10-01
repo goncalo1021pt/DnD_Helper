@@ -5,7 +5,7 @@ import { useDeleteCampaign } from "../../hooks";
 import ParchmentModal from "../ui/ParchmentModal";
 
 /*
- * Disband the Table: the last resort. Strikes the whole campaign — quests,
+ * Disband: the last resort. Strikes the whole campaign — quests,
  * chronicle, codex, maps, and encounters go with it, and every player loses
  * their seat. Seated heroes return to My Heroes rather than vanishing with
  * the table.
@@ -23,24 +23,11 @@ export default function DisbandSection({ campaign }: { campaign: Campaign }) {
   }
 
   return (
-    <section
-      className="panel-hall px-6 pb-6 pt-5"
-      style={{ border: "1px solid rgba(139,37,32,.4)" }}
-    >
-      <div
-        className="mb-4 flex flex-wrap items-baseline justify-between gap-3 pb-3"
-        style={{ borderBottom: "1px solid rgba(139,37,32,.3)" }}
-      >
-        <h2
-          className="font-display m-0 text-[21px] font-black text-[#e8a493]"
-          style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
-        >
-          Disband the Table
-        </h2>
-      </div>
+    <div>
+      <h3 className="font-display m-0 mb-2 text-[17px] font-black text-[#e8a493]">Disband campaign</h3>
 
       <p className="font-body mb-4 text-[13.5px] leading-relaxed text-cream-muted">
-        Strikes this campaign for good: the quest board, chronicle, codex,
+        Strikes this campaign for good: the quest board, chronicle, house rules,
         maps, and encounters go with it, and every player loses their seat.
         Heroes seated here return to their owners' My Heroes shelf. This
         can't be undone.
@@ -51,7 +38,7 @@ export default function DisbandSection({ campaign }: { campaign: Campaign }) {
         className="label-stamp cursor-pointer rounded-[2px] px-3 py-2 text-[11px] tracking-[1px] text-[#e8c4b8] transition hover:brightness-125"
         style={{ background: "rgba(139,37,32,.28)", border: "1px solid rgba(139,37,32,.6)" }}
       >
-        Disband this campaign
+        Disband
       </button>
 
       {confirming && (
@@ -100,6 +87,6 @@ export default function DisbandSection({ campaign }: { campaign: Campaign }) {
           </div>
         </ParchmentModal>
       )}
-    </section>
+    </div>
   );
 }

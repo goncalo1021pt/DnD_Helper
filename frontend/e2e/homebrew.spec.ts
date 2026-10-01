@@ -22,7 +22,7 @@ test("a scribed piece of armour is stored in the shape the sheet reads", async (
   const name = unique("Dwarven Plate ");
   await page.goto("/questboard/archives");
   await page.getByRole("button", { name: "Items", exact: true }).click();
-  await page.getByRole("button", { name: /Scribe an? Item/ }).click();
+  await page.getByRole("button", { name: /Create Item/ }).click();
 
   const form = page.getByRole("dialog");
   await form.getByLabel("Name").fill(name);
@@ -68,7 +68,7 @@ test("a monster scribed in the Den joins the bestiary and can be fought", async 
   // The Den belongs to a table, not to the account.
   const campaign = await createCampaign(page.request, unique("Den Table "));
   await page.goto(`/questboard/campaigns/${campaign.id}/den`);
-  await page.getByRole("button", { name: "Scribe a Monster" }).first().click();
+  await page.getByRole("button", { name: "Create Monster" }).first().click();
 
   const form = page.getByRole("dialog");
   await form.getByLabel("Name").fill(name);
@@ -105,7 +105,7 @@ test("a magic weapon keeps its price, its weight and its rarity", async ({ page 
   const name = unique("Flametongue ");
   await page.goto("/questboard/archives");
   await page.getByRole("button", { name: "Items", exact: true }).click();
-  await page.getByRole("button", { name: /Scribe an? Item/ }).click();
+  await page.getByRole("button", { name: /Create Item/ }).click();
 
   const form = page.getByRole("dialog");
   await form.getByLabel("Name").fill(name);

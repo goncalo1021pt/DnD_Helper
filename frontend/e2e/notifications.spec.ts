@@ -138,7 +138,7 @@ test("the table's channel receives a Discord-shaped message for what the whole t
     await page.goto(`/questboard/campaigns/${campaign.id}/dm`);
     const herald = page.getByTestId("herald-section");
     await expect(herald).toContainText("no channel");
-    await herald.getByRole("button", { name: "Hang a channel" }).click();
+    await herald.getByRole("button", { name: "Connect a channel" }).click();
     await page.locator('input[name="herald-url"]').fill(hookUrl(rx.port, "/discord"));
     // The Herald's picker opens on Everything and never shows a catalogue name (#347).
     await expect(page.getByRole("dialog").locator('input[name="herald-everything"]')).toBeChecked();

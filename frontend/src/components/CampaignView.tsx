@@ -31,7 +31,7 @@ function SectionRail({ role }: { role: Role }) {
 
   return (
     <nav
-      className="mb-[26px] flex flex-wrap items-end gap-x-6 gap-y-2 py-1"
+      className="mb-[26px] flex flex-wrap items-end gap-x-5 gap-y-2 py-1"
       style={{
         borderTop: "1px solid rgba(201,162,39,.18)",
         borderBottom: "1px solid rgba(201,162,39,.18)",
@@ -44,7 +44,7 @@ function SectionRail({ role }: { role: Role }) {
               word is the only separator — a rule between clusters would
               strand itself at the head of a line once the rail wraps. */}
           <span
-            className="label-stamp px-2.5 pt-1 text-[8px] leading-[1.4] tracking-[2.5px]"
+            className="label-stamp px-2 pt-1 text-[8px] leading-[1.4] tracking-[2.5px]"
             style={{ color: "#7b6033" }}
           >
             {g.label || " "}
@@ -56,7 +56,7 @@ function SectionRail({ role }: { role: Role }) {
                 to={s.to}
                 end={s.end}
                 className={({ isActive }) =>
-                  `label-stamp whitespace-nowrap px-2.5 pb-1.5 pt-0.5 text-[10px] tracking-[1.5px] no-underline transition ${
+                  `label-stamp whitespace-nowrap px-2 pb-1.5 pt-0.5 text-[10px] tracking-[1.2px] no-underline transition ${
                     isActive
                       ? "text-ember-bright"
                       : "text-gold-muted hover:text-cream"
@@ -146,7 +146,7 @@ export default function CampaignView() {
         to={onDashboard ? "/questboard" : "."}
         className="label-stamp text-[11px] text-gold-muted no-underline transition hover:text-ember-bright"
       >
-        {onDashboard ? "← All campaigns" : "← The campaign hall"}
+        {onDashboard ? "← All campaigns" : "← Overview"}
       </Link>
 
       {/* campaign toolbar */}

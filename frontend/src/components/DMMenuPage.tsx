@@ -87,7 +87,7 @@ export default function DMMenuPage() {
             className="font-display m-0 text-[21px] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Table
+            Members
           </h2>
           <span className="label-stamp text-[11px] text-gold-muted">
             {members ? `${members.length} seated` : ""}
@@ -107,7 +107,7 @@ export default function DMMenuPage() {
                 style={{ background: "rgba(0,0,0,.22)", border: "1px solid rgba(201,162,39,.16)" }}
               >
                 <Face name={m.name} image={m.image} id={m.userId} />
-                <div className="min-w-0 flex-1">
+                <div className="min-w-[150px] flex-1">
                   <Person
                     userId={m.userId}
                     name={m.name}
@@ -177,7 +177,7 @@ export default function DMMenuPage() {
             className="font-display m-0 text-[21px] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Banished
+            Banned
           </h2>
           <span className="label-stamp text-[11px] text-gold-muted">
             barred from the invite code
@@ -202,7 +202,7 @@ export default function DMMenuPage() {
                     {b.name}
                   </div>
                   <div className="label-stamp text-[10px] tracking-[1px] text-gold-muted">
-                    Banished {formatWhen(new Date(b.bannedAt))}
+                    Banned {formatWhen(new Date(b.bannedAt))}
                   </div>
                 </div>
                 <button
@@ -220,8 +220,22 @@ export default function DMMenuPage() {
       </section>
 
       {/* The owner's doors (#299): a co-DM runs the table, they do not end it. */}
-      {isOwner && <HandOverSection campaign={campaign} members={members ?? []} meId={me?.user.id ?? ""} />}
-      {isOwner && <DisbandSection campaign={campaign} />}
+      {isOwner && (
+        <section
+          className="panel-hall grid gap-6 px-6 pb-6 pt-5"
+          style={{ border: "1px solid rgba(139,37,32,.4)" }}
+          data-testid="danger-zone"
+        >
+          <h2
+            className="font-display m-0 pb-3 text-[21px] font-black text-[#e8a493]"
+            style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)", borderBottom: "1px solid rgba(139,37,32,.3)" }}
+          >
+            Danger Zone
+          </h2>
+          <HandOverSection campaign={campaign} members={members ?? []} meId={me?.user.id ?? ""} />
+          <DisbandSection campaign={campaign} />
+        </section>
+      )}
 
       {pending && (
         <ParchmentModal onClose={() => setPending(null)}>

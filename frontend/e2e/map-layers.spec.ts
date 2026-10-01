@@ -185,7 +185,7 @@ test("the DM keeps the stack in the Inkwork; a layer that starts hidden is the p
   expect(routes.shownByDefault).toBe(false);
   // A pin filed in the routes, through the real pin form's layer picker.
   await page.locator("button", { hasText: /^Close$/ }).click();
-  await page.getByRole("button", { name: "Drop a pin" }).click();
+  await page.getByRole("button", { name: "Pin", exact: true }).click();
   const box = (await page.getByTestId("map-canvas").boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
   await page.getByPlaceholder("The Sleeping Giant Inn").fill("Vallaki");

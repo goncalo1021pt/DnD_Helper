@@ -348,7 +348,7 @@ export default function MapPage() {
             className="font-display m-0 text-[clamp(20px,2.6vw,26px)] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Map
+            Map
           </h2>
           {breadcrumb.length > 0 && (
             <span className="label-stamp flex flex-wrap items-center gap-1 text-[10px] tracking-[1.5px] text-gold-muted">
@@ -467,7 +467,7 @@ export default function MapPage() {
                   className={`btn-base ${dropMode ? "btn-wax" : "btn-ghost-gold"} px-4 py-2.5 text-[11px]`}
                 >
                   <IconMapPin size={13} strokeWidth={1.9} />
-                  {dropMode ? "Tap the map…" : "Drop a pin"}
+                  {dropMode ? "Tap the map…" : "Pin"}
                 </button>
               )}
               {map && (
@@ -516,7 +516,7 @@ export default function MapPage() {
                     onClick={() => setLedgerOpen(true)}
                     className="btn-base btn-ghost-gold px-4 py-2.5 text-[11px]"
                   >
-                    Ledger
+                    Reveals
                   </button>
                 </>
               )}
@@ -547,7 +547,7 @@ export default function MapPage() {
                 className="btn-base btn-gold clip-octagon h-10 px-4 text-[12px]"
               >
                 <IconPlus size={14} strokeWidth={2} />
-                Hang a map
+                Add a map
               </button>
             </>
           )}
@@ -923,7 +923,7 @@ export default function MapPage() {
             {map.name}
           </div>
           <h3 className="font-display m-0 mb-4 text-center text-2xl font-bold text-ink">
-            {isDM ? "Drop a Pin" : "Mark the Map"}
+            {isDM ? "New Pin" : "New Mark"}
           </h3>
           <PinForm
             initial={{

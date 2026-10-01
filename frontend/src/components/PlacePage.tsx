@@ -192,7 +192,7 @@ export default function PlacePage() {
           to={`${base}/world`}
           className="label-stamp text-[9.5px] tracking-[1.5px] text-gold-muted no-underline hover:text-ember-bright"
         >
-          The World
+          World
         </Link>
         {ancestors.map((a) => (
           <span key={a.id} className="flex items-center gap-1.5">
@@ -267,7 +267,7 @@ export default function PlacePage() {
 
       <Chapter
         icon={<IconUsers size={15} />}
-        title="The Folk"
+        title="NPCs"
         door={`${base}/npcs`}
         doorLabel="All the folk"
         empty={
@@ -289,7 +289,7 @@ export default function PlacePage() {
 
       <Chapter
         icon={<IconCoins size={15} />}
-        title="The Bazaar"
+        title="Shops"
         door={`${base}/vendors`}
         doorLabel="All the shops"
         empty={

@@ -90,7 +90,7 @@ test("a hero the codex refuses is turned away with the reason on screen", async 
   await plPage.getByRole("button", { name: "Summon", exact: true }).click();
 
   // The refusal is explained, names the offending content, and offers the fix.
-  await expect(plPage.getByText(/The Codex Objects/i)).toBeVisible({ timeout: 15_000 });
+  await expect(plPage.getByText(/Not Allowed Here Yet/i)).toBeVisible({ timeout: 15_000 });
   await expect(plPage.getByText(/Fighter/).first()).toBeVisible();
   await expect(plPage.getByText(/banned by the DM/i)).toBeVisible();
 

@@ -81,7 +81,7 @@ export default function BestiaryPage() {
             className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Bestiary
+            Bestiary
           </h2>
           <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
             {isDM
@@ -103,7 +103,7 @@ export default function BestiaryPage() {
             className="btn-base btn-gold clip-octagon h-10 whitespace-nowrap px-5 text-[13px]"
           >
             <IconPlus size={15} strokeWidth={2} />
-            Log a sighting
+            Add a Creature
           </button>
         </div>
       </div>
@@ -136,10 +136,10 @@ export default function BestiaryPage() {
       {logging && (
         <ParchmentModal onClose={() => setLogging(false)} maxWidth="max-w-[440px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Bestiary
+            Bestiary
           </div>
           <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Log a sighting
+            Add a Creature
           </h3>
           <label className="label-stamp mb-1.5 block text-[10px] tracking-[1.5px] text-ink-label">
             What did you call it?

@@ -153,7 +153,7 @@ test("a pin dropped while pins are switched off is shown, not lost", async ({ pa
   await page.getByTestId("map-legend").getByText("Pins", { exact: true }).click();
   await expect(page.locator("[data-pin-id]")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Drop a pin" }).click();
+  await page.getByRole("button", { name: "Pin", exact: true }).click();
   const canvas = page.getByTestId("map-canvas");
   const box = (await canvas.boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.6);

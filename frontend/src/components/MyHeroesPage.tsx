@@ -133,9 +133,9 @@ function HeroCard({
           <div className="flex items-center justify-between gap-2">
             <span
               className="label-stamp truncate text-[9.5px] tracking-[1.5px] text-ink-label"
-              title={`Waiting at the door of ${waitingAt} — the DM decides`}
+              title={`Awaiting the DM's approval at ${waitingAt}`}
             >
-              ⧗ waiting at the door of {waitingAt}
+              ⧗ awaiting approval at {waitingAt}
             </span>
             <button
               onClick={() =>

@@ -44,9 +44,9 @@ const KIND_LABEL: Record<string, string> = {
   quest_completed: "the board",
   hero_seated: "the party",
   hero_unseated: "the party",
-  codex_proposed: "the codex",
-  codex_enabled: "the codex",
-  codex_banned: "the codex",
+  codex_proposed: "house rules",
+  codex_enabled: "house rules",
+  codex_banned: "house rules",
   session_set: "the gathering",
   progression: "the table",
 };
@@ -168,7 +168,7 @@ export default function ChroniclePage() {
             className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Chronicle
+            Chronicle
           </h2>
           <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
             Everything that happened at this table, newest first.

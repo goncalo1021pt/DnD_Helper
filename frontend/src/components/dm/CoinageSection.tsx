@@ -50,7 +50,7 @@ export default function CoinageSection({ campaign }: { campaign: Campaign }) {
         className="mb-4 flex flex-wrap items-baseline justify-between gap-3 pb-3"
         style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
       >
-        <h2 className="font-display m-0 text-[21px] font-black text-[#e7d3a6]">The Coin</h2>
+        <h2 className="font-display m-0 text-[21px] font-black text-[#e7d3a6]">Currency</h2>
         <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
           what this table counts in
         </span>
@@ -75,7 +75,7 @@ export default function CoinageSection({ campaign }: { campaign: Campaign }) {
               : `Your own coinage. A purse of 412 reads as ${formatCoins(412, current)}.`}
           </div>
           <button onClick={open} className="btn-base btn-ghost-gold mt-4 h-9 px-4 text-[11px]">
-            Mint your own
+            Custom
           </button>
         </>
       ) : (

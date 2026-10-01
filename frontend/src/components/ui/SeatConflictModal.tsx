@@ -32,10 +32,10 @@ export default function SeatConflictModal({
   return (
     <ParchmentModal onClose={onClose} maxWidth="max-w-[460px]">
       <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-        Held at the door
+        Awaiting approval
       </div>
       <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
-        The Codex Objects
+        Not Allowed Here Yet
       </h3>
       <p className="font-body m-0 mb-4 text-center text-[13.5px] italic text-ink-body">
         {conflict.campaignName} has not admitted everything {heroName} is made of:

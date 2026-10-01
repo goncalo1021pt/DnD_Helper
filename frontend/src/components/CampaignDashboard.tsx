@@ -104,33 +104,32 @@ function BlockHeader({
   title,
   meta,
   to,
-  linkLabel,
 }: {
   title: string;
   meta?: string;
   to: string;
-  linkLabel: string;
 }) {
+  // The title is the door (#287): a separate "Open the …" link beside it
+  // said the same thing twice in words nobody would use.
   return (
     <div
       className="mb-4 flex flex-wrap items-baseline justify-between gap-3 pb-3"
       style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
     >
       <div className="flex flex-wrap items-baseline gap-3">
-        <h2
-          className="font-display m-0 text-[21px] font-black text-[#e7d3a6]"
-          style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
-        >
-          {title}
-        </h2>
+        <Link to={to} className="group no-underline">
+          <h2
+            className="font-display m-0 text-[21px] font-black text-[#e7d3a6] transition group-hover:text-ember-bright"
+            style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
+          >
+            {title}
+            <span className="ml-2 text-[16px] text-gold-muted transition group-hover:text-ember-bright" aria-hidden>
+              →
+            </span>
+          </h2>
+        </Link>
         {meta && <span className="label-stamp text-[11px] text-gold-muted">{meta}</span>}
       </div>
-      <Link
-        to={to}
-        className="label-stamp text-[11px] font-semibold text-ember-bright no-underline transition hover:text-cream"
-      >
-        {linkLabel} →
-      </Link>
     </div>
   );
 }
@@ -152,7 +151,7 @@ function HallBlock({
   children?: ReactNode;
 }) {
   if (section.hall.kind !== "block") return null;
-  const { title, linkLabel, body } = section.hall;
+  const { title, body } = section.hall;
   const tall = body === "custom";
   return (
     <section className={`panel-hall px-6 pt-5 ${tall ? "pb-7" : "pb-6"}`}>
@@ -160,7 +159,6 @@ function HallBlock({
         title={title}
         meta={meta}
         to={section.to}
-        linkLabel={linkLabel[role]}
       />
       {body === "custom" ? (
         children
@@ -350,7 +348,7 @@ export default function CampaignDashboard() {
     bestiary: "the party's field journal",
     codex:
       codexWaiting > 0
-        ? `${codexAdmitted} admitted · ${codexWaiting} waiting at the door`
+        ? `${codexAdmitted} admitted · ${codexWaiting} awaiting approval`
         : `${codexAdmitted} homebrew admitted`,
     chronicle: progression === "xp" ? "advancing by XP" : "advancing by milestone",
   };

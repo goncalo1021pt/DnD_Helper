@@ -163,7 +163,7 @@ export default function PlayerMenuPage() {
                   {heroName(w.characterId)}
                 </span>
                 <span className="label-stamp text-[10px] tracking-[1px] text-gold-muted">
-                  ⧗ waiting at the door
+                  ⧗ awaiting approval
                 </span>
                 <span className="ml-auto flex flex-none items-center gap-2">
                   <button

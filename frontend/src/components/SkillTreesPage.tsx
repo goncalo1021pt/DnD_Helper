@@ -44,7 +44,7 @@ export default function SkillTreesPage() {
               className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
               style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
             >
-              The Skill Trees
+              Skill Trees
             </h2>
             {trees && trees.length > 0 && (
               <span className="label-stamp text-xs text-gold-muted">
@@ -64,7 +64,7 @@ export default function SkillTreesPage() {
             className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
           >
             <IconPlus size={15} strokeWidth={2} />
-            Weave a Tree
+            New Tree
           </button>
         )}
       </div>
@@ -115,7 +115,7 @@ export default function SkillTreesPage() {
             The Loom
           </div>
           <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Weave a New Tree
+            New Tree
           </h3>
           <form onSubmit={submit} className="flex flex-col gap-4">
             <label className="flex flex-col gap-1.5">
@@ -161,7 +161,7 @@ export default function SkillTreesPage() {
                 disabled={create.isPending || !name.trim()}
                 className="btn-base btn-wax clip-octagon px-6 py-[11px] text-xs"
               >
-                Weave it
+                Create
               </button>
               <button
                 type="button"
