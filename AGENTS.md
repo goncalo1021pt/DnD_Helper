@@ -117,6 +117,14 @@ procedure regardless of which machine or tool you run on.
 - **Buttons match their surface**: parchment surfaces take ghost-ink/red
   variants; hall (dark) surfaces take ghost-gold/ember. Audited app-wide in
   #186 — new buttons follow it.
+- **Controls speak plainly; prose may have flavour.** Navigation, buttons,
+  headings, options and form fields use the plain word a player would say —
+  *Add NPC*, *Currency*, *Banned*, *Transfer ownership*, *Pin*. The tavern voice
+  this file is written in belongs in blurbs, empty states and confirmations,
+  never on the thing you press: sessions that named controls in it shipped
+  *Weave a Tree*, *Bring in*, *The Herald* and *Hang a channel*, and #287 had
+  to rename them all. No leading "The" on a page or section title — *The
+  Quest Board* alone keeps it, because it is the app's name.
 
 ### Content gotchas
 

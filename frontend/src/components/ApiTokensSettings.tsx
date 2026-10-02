@@ -22,7 +22,7 @@ const DOMAINS: Domain[] = [
     label: "Rules",
     rungs: [
       { scope: null, label: "None", hint: "" },
-      { scope: "rules:read", label: "Read", hint: "the codex — classes, spells, items, monsters, your homebrew" },
+      { scope: "rules:read", label: "Read", hint: "the rules library — classes, spells, items, monsters, your homebrew" },
       { scope: "rules:write", label: "Write", hint: "author and import homebrew as you" },
     ],
   },

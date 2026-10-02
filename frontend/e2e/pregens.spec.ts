@@ -45,7 +45,7 @@ test("a DM offers a pregen, a player claims it, then releases it back (#180)", a
 
   // From the roster, the DM offers it into the pool.
   await dm.goto(`/questboard/campaigns/${campaign.id}/party`);
-  await expect(dm.getByRole("heading", { name: "The Party" })).toBeVisible({ timeout: 30_000 });
+  await expect(dm.getByRole("heading", { name: "Party", exact: true })).toBeVisible({ timeout: 30_000 });
   await dm.getByLabel("Offer a pre-made hero").selectOption({ label: heroName });
   await dm.getByRole("button", { name: "Offer", exact: true }).click();
 

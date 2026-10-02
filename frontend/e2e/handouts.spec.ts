@@ -205,7 +205,7 @@ test("the DM hands something over through the UI", async ({ page }) => {
   const campaign = await createCampaign(page.request, unique("The Satchel "));
 
   await page.goto(`/questboard/campaigns/${campaign.id}/chronicle`);
-  await expect(page.getByRole("heading", { name: "The Chronicle" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Chronicle", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Hand something over" }).click();
   const modal = page.getByRole("dialog");

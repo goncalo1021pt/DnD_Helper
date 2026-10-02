@@ -321,7 +321,7 @@ test("a road answers a press, a region is still ground, and both can be rubbed o
   // And the list is the other way in — the one a DM looks for, and the one
   // that reaches a road clipped away under fog or drawn off the screen.
   await page.getByRole("button", { name: /Draw/ }).click();
-  await expect(page.getByRole("heading", { name: "The Inkwork" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Drawings" })).toBeVisible();
   await page.getByRole("button", { name: "Rub out The High Road" }).click();
   await page.getByRole("button", { name: "Rub it out" }).click();
 

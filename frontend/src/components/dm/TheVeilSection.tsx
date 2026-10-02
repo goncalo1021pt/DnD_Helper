@@ -24,7 +24,7 @@ export default function TheVeilSection({ campaign }: { campaign: Campaign }) {
           className="font-display m-0 text-[21px] font-black text-[#e7d3a6]"
           style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
         >
-          The Veil
+          Hidden Sheets
         </h2>
         <span className="label-stamp text-[11px] text-gold-muted">
           {shownCount === 0

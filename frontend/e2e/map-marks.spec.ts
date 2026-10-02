@@ -162,7 +162,7 @@ test("a player marks the map and draws a route with their own tools", async ({ p
   await player.getByRole("button", { name: "Mark it" }).click();
   let box = (await canvas.boundingBox())!;
   await player.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.4);
-  await expect(player.getByRole("heading", { name: "Mark the Map" })).toBeVisible();
+  await expect(player.getByRole("heading", { name: "New Mark" })).toBeVisible();
   // A mark offers none of the DM's doors.
   await expect(player.getByText("Leads into")).toHaveCount(0);
   await expect(player.getByText("DM only — the party never sees this pin")).toHaveCount(0);

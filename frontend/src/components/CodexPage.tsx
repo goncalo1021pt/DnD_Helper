@@ -137,7 +137,7 @@ export default function CodexPage() {
             className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Codex
+            House Rules
           </h2>
           <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
             {isDM
@@ -214,7 +214,7 @@ export default function CodexPage() {
           {proposals.length > 0 && (
             <section>
               <div className="label-stamp mb-2.5 text-[10px] tracking-[2.5px] text-gold-muted">
-                Waiting at the door
+                Awaiting approval
               </div>
               <div className="flex flex-col gap-2.5">
                 {proposals.map((e) => (

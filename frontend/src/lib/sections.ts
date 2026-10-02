@@ -32,7 +32,6 @@ export type HallDoor =
       kind: "block";
       column: "left" | "right";
       title: string;
-      linkLabel: RoleCopy;
       body: RoleCopy | "custom";
     }
   /** A row on the DM's Screen / Your Pack panel in the right rail. */
@@ -61,7 +60,7 @@ export const SECTIONS: Section[] = [
   {
     key: "hall",
     to: ".",
-    label: "The Hall",
+    label: "Overview",
     family: "hall",
     end: true,
     hall: { kind: "self" },
@@ -75,7 +74,6 @@ export const SECTIONS: Section[] = [
       kind: "block",
       column: "left",
       title: "The Quest Board",
-      linkLabel: { dm: "Open the board", player: "Open the board" },
       body: "custom",
     },
   },
@@ -87,8 +85,7 @@ export const SECTIONS: Section[] = [
     hall: {
       kind: "block",
       column: "left",
-      title: "The Party",
-      linkLabel: { dm: "Manage the party", player: "Meet the party" },
+      title: "Party",
       body: "custom",
     },
   },
@@ -100,8 +97,7 @@ export const SECTIONS: Section[] = [
     hall: {
       kind: "block",
       column: "left",
-      title: "The World",
-      linkLabel: { dm: "Open the gazetteer", player: "Open the gazetteer" },
+      title: "World",
       body: {
         dm: "Chart realms and the cities inside them, move one that was filed wrong, and choose who knows each exists. Every place is a page: who lives there, what is sold, what hangs on the board.",
         player:
@@ -117,8 +113,7 @@ export const SECTIONS: Section[] = [
     hall: {
       kind: "block",
       column: "left",
-      title: "The Map",
-      linkLabel: { dm: "Unroll the map", player: "Unroll the map" },
+      title: "Map",
       body: {
         dm: "Hang your world, pin what matters, and lead the party from region to region.",
         player: "The lands your party travels — follow the pins the DM has placed.",
@@ -128,13 +123,12 @@ export const SECTIONS: Section[] = [
   {
     key: "npcs",
     to: "npcs",
-    label: "Folk",
+    label: "NPCs",
     family: "world",
     hall: {
       kind: "block",
       column: "left",
-      title: "The Folk",
-      linkLabel: { dm: "Open the register", player: "Who you have met" },
+      title: "NPCs",
       body: {
         dm: "The people your world turns on — file them where the party will meet them, and choose who is known and whose numbers may be read.",
         player: "The people you have met, and whatever you have learned of them.",
@@ -144,13 +138,12 @@ export const SECTIONS: Section[] = [
   {
     key: "vendors",
     to: "vendors",
-    label: "Bazaar",
+    label: "Shops",
     family: "world",
     hall: {
       kind: "block",
       column: "left",
-      title: "The Bazaar",
-      linkLabel: { dm: "Open the bazaar", player: "Go shopping" },
+      title: "Shops",
       body: {
         dm: "Stock a shop at home and file it under a place; show the party the shelves you want them to see.",
         player: "The traders you have met, and what they have out on the counter.",
@@ -165,8 +158,7 @@ export const SECTIONS: Section[] = [
     hall: {
       kind: "block",
       column: "left",
-      title: "The Skill Trees",
-      linkLabel: { dm: "Open the trees", player: "Open the trees" },
+      title: "Skill Trees",
       body: {
         dm: "Weave webs of powers outside the standard rules, bind heroes to a pact, and grant picks at story beats.",
         player:
@@ -183,7 +175,6 @@ export const SECTIONS: Section[] = [
       kind: "block",
       column: "left",
       title: "Encounters",
-      linkLabel: { dm: "Open encounters", player: "See the battle" },
       body: {
         dm: "Prepare battles from the Den and your party, then trigger them and run initiative in-app.",
         player:
@@ -199,8 +190,7 @@ export const SECTIONS: Section[] = [
     hall: {
       kind: "block",
       column: "left",
-      title: "The Bestiary",
-      linkLabel: { dm: "Open the bestiary", player: "Open the bestiary" },
+      title: "Bestiary",
       body: {
         dm: "What your heroes have met — identify each creature and reveal its record, piece by piece.",
         player:
@@ -211,13 +201,12 @@ export const SECTIONS: Section[] = [
   {
     key: "codex",
     to: "codex",
-    label: "Codex",
+    label: "House Rules",
     family: "table",
     hall: {
       kind: "block",
       column: "left",
-      title: "The Codex",
-      linkLabel: { dm: "Open the codex", player: "Open the codex" },
+      title: "House Rules",
       body: {
         dm: "Rule on what exists in this world — ban SRD entries, admit homebrew.",
         player: "What the DM has ruled legal at this table.",
@@ -232,20 +221,19 @@ export const SECTIONS: Section[] = [
     hall: {
       kind: "block",
       column: "right",
-      title: "The Chronicle",
-      linkLabel: { dm: "Open the chronicle", player: "Open the chronicle" },
+      title: "Chronicle",
       body: "custom",
     },
   },
   {
     key: "den",
     to: "den",
-    label: "The Den",
+    label: "Monster Den",
     family: "yours",
     only: "dm",
     hall: {
       kind: "screen",
-      title: "The Monster Den",
+      title: "Monster Den",
       sub: "Your private menagerie, statted and searchable",
     },
   },
@@ -258,7 +246,7 @@ export const SECTIONS: Section[] = [
     hall: {
       kind: "screen",
       title: "DM Menu",
-      sub: "Table rules, XP & milestones — kick or ban",
+      sub: "Table settings, XP & milestones — kick or ban",
     },
   },
   {

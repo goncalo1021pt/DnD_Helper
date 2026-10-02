@@ -38,18 +38,8 @@ export default function HandOverSection({
   if (others.length === 0) return null;
 
   return (
-    <section className="panel-hall px-6 pb-6 pt-5" style={{ border: "1px solid rgba(201,162,39,.28)" }}>
-      <div
-        className="mb-3 flex flex-wrap items-baseline justify-between gap-3 pb-3"
-        style={{ borderBottom: "1px solid rgba(201,162,39,.25)" }}
-      >
-        <h2 className="font-display m-0 text-[21px] font-black text-[#e7d3a6]" style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}>
-          Hand Over the Table
-        </h2>
-        <span className="font-accent text-[12.5px] italic text-cream-muted">
-          — they take the table; you stay seated as a DM. —
-        </span>
-      </div>
+    <div>
+      <h3 className="font-display m-0 mb-2 text-[17px] font-black text-[#e7d3a6]">Transfer ownership</h3>
       <p className="font-body m-0 mb-4 max-w-[68ch] text-[13.5px] leading-relaxed text-cream-soft">
         The new owner holds the doors that reshape or end the table — disbanding it, moving it between
         realms, appointing the DMs. A table alone in its realm takes the realm with it, maps and towns
@@ -59,10 +49,10 @@ export default function HandOverSection({
         <select
           value={heirId}
           onChange={(e) => setHeirId(e.target.value)}
-          aria-label="Hand the table to"
+          aria-label="Transfer ownership to"
           className="input-hall input-compact w-56 cursor-pointer text-[13px]"
         >
-          <option value="">Hand the table to…</option>
+          <option value="">Transfer to…</option>
           {others.map((m) => (
             <option key={m.userId} value={m.userId}>
               {m.name}{m.role === "dm" ? " · DM" : ""}
@@ -74,13 +64,13 @@ export default function HandOverSection({
           disabled={!heir}
           className="btn-base btn-ghost-gold h-10 px-3 text-[10px] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Hand it over
+          Transfer
         </button>
       </div>
 
       {confirming && heir && (
         <ParchmentModal onClose={close}>
-          <h3 className="font-display mb-2 mt-0 text-[20px] font-black text-ink">Hand the table to {heir.name}?</h3>
+          <h3 className="font-display mb-2 mt-0 text-[20px] font-black text-ink">Transfer ownership to {heir.name}?</h3>
           <p className="font-body mb-4 text-[13.5px] leading-relaxed text-ink-body">
             They become its owner and a DM. You stay seated as a DM and can no longer disband it, move
             it between realms, or appoint DMs. Type the campaign's name to confirm.
@@ -107,11 +97,11 @@ export default function HandOverSection({
               className="btn-base clip-octagon h-10 px-6 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
               style={{ background: "#8b2520", color: "#f3e6c8" }}
             >
-              Hand it over
+              Transfer
             </button>
           </div>
         </ParchmentModal>
       )}
-    </section>
+    </div>
   );
 }

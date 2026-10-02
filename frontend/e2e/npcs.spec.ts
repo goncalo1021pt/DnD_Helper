@@ -35,9 +35,9 @@ test("a person is a rumor until the DM says otherwise — and their numbers are 
 
   const captain = unique("Captain Amélia ");
   await dmPage.goto(`/questboard/campaigns/${campaign.id}/npcs`);
-  await dmPage.getByPlaceholder("Bring in a person — name them…").fill(captain);
+  await dmPage.getByPlaceholder("New NPC's name…").fill(captain);
   await dmPage.getByLabel("Where they are found").selectOption(town);
-  await dmPage.getByRole("button", { name: "Bring in", exact: true }).click();
+  await dmPage.getByRole("button", { name: "Add NPC", exact: true }).click();
   await expect(dmPage.getByText(captain)).toBeVisible({ timeout: 20_000 });
 
   // A stat block stands behind her: an SRD monster out of the Den.
@@ -63,8 +63,8 @@ test("a person is a rumor until the DM says otherwise — and their numbers are 
   expect(unseen, "an unrevealed person must not reach the player at all").toEqual([]);
 
   // --- the DM reveals HER, but Porto itself is still veiled -----------------
-  await dmPage.getByRole("button", { name: "Unknown to the party" }).click();
-  await expect(dmPage.getByRole("button", { name: "The party knows them" })).toBeVisible();
+  await dmPage.getByRole("button", { name: "Hidden from party" }).click();
+  await expect(dmPage.getByRole("button", { name: "Visible to party" })).toBeVisible();
 
   const stillDark = (await (
     await plPage.request.get(`/api/campaigns/${campaign.id}/npcs`)
@@ -85,8 +85,8 @@ test("a person is a rumor until the DM says otherwise — and their numbers are 
   expect(known[0].statBlock, "the stats stay behind their own veil").toBeUndefined();
 
   // --- the second veil opens ------------------------------------------------
-  await dmPage.getByRole("button", { name: "Stats veiled" }).click();
-  await expect(dmPage.getByRole("button", { name: "Stats open" })).toBeVisible();
+  await dmPage.getByRole("button", { name: "Stats hidden" }).click();
+  await expect(dmPage.getByRole("button", { name: "Stats visible" })).toBeVisible();
 
   await plPage.reload();
   await plPage.getByRole("button", { name: `Read their stat block — Aboleth` }).click();
@@ -179,9 +179,9 @@ test("a sheet forged for one of the Folk is a body, not a seat at the table", as
 
   const keeper = unique("Durnan ");
   await dmPage.goto(`/questboard/campaigns/${campaign.id}/npcs`);
-  await dmPage.getByPlaceholder("Bring in a person — name them…").fill(keeper);
+  await dmPage.getByPlaceholder("New NPC's name…").fill(keeper);
   await dmPage.getByLabel("Where they are found").selectOption(town);
-  await dmPage.getByRole("button", { name: "Bring in", exact: true }).click();
+  await dmPage.getByRole("button", { name: "Add NPC", exact: true }).click();
   await expect(dmPage.getByText(keeper)).toBeVisible({ timeout: 20_000 });
 
   // Forge them a sheet, right here — no walk through the Party page.

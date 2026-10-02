@@ -77,7 +77,7 @@ export default function NpcsPage() {
             className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Folk
+            NPCs
           </h2>
           <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
             {isDM
@@ -102,7 +102,7 @@ export default function NpcsPage() {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Bring in a person — name them…"
+            placeholder="New NPC's name…"
             className="input-hall min-w-0 flex-1 basis-[240px] sm:max-w-[320px]"
           />
           <select
@@ -111,7 +111,7 @@ export default function NpcsPage() {
             aria-label="Where they are found"
             className="input-hall w-[190px]"
           >
-            <option value="">Filed nowhere</option>
+            <option value="">No location</option>
             {(places ?? []).map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
@@ -122,7 +122,7 @@ export default function NpcsPage() {
             className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px] disabled:opacity-40"
           >
             <IconPlus size={15} strokeWidth={2} />
-            Bring in
+            Add NPC
           </button>
         </form>
       )}
@@ -218,7 +218,7 @@ function NpcCard({
                 boxShadow: `inset 0 0 0 1px rgba(201,162,39,${npc.visibleToParty ? ".34" : ".14"})`,
               }}
             >
-              {npc.visibleToParty ? "The party knows them" : "Unknown to the party"}
+              {npc.visibleToParty ? "Visible to party" : "Hidden from party"}
             </button>
             {hasStats && (
               <button
@@ -232,7 +232,7 @@ function NpcCard({
                   boxShadow: `inset 0 0 0 1px rgba(201,162,39,${npc.statsVisibleToParty ? ".3" : ".14"})`,
                 }}
               >
-                {npc.statsVisibleToParty ? "Stats open" : "Stats veiled"}
+                {npc.statsVisibleToParty ? "Stats visible" : "Stats hidden"}
               </button>
             )}
             {/* Walking with the party (#228): a third state, and the only one
@@ -262,7 +262,7 @@ function NpcCard({
               aria-expanded={veilsOpen}
               className="btn-base btn-ghost-gold h-7 px-2 py-0 text-[10px]"
             >
-              Hero by hero
+              Per-hero visibility
             </button>
             <button
               onClick={() => setEditingDesc((on) => !on)}

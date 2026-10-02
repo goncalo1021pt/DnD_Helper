@@ -277,7 +277,7 @@ export default function ArchivesPage() {
             className="btn-base btn-gold clip-octagon h-10 px-5 text-[13px]"
           >
             <IconPlus size={15} strokeWidth={2} />
-            Scribe a {kindLabel}
+            Create {kindLabel}
           </button>
         </div>
       </div>
@@ -483,7 +483,7 @@ export default function ArchivesPage() {
             The Archives
           </div>
           <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
-            Scribe a {kindLabel}
+            Create {kindLabel}
           </h3>
           <ContentForm
             kind={kind}

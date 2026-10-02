@@ -61,7 +61,7 @@ test("the places page fits a phone", async ({ page }) => {
   await chart("Baldur's Gate — the Lower City wards", "The Sword Coast");
 
   await page.goto(`/questboard/campaigns/${c.id}/world`);
-  await expect(page.getByRole("heading", { name: "The World" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "World", exact: true })).toBeVisible({ timeout: 20_000 });
   expect(await sidewaysOverflow(page), "the places page must not scroll sideways").toBeLessThanOrEqual(0);
 });
 

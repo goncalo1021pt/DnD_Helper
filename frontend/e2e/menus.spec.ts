@@ -139,7 +139,7 @@ async function railAndDoors(page: Page): Promise<{ rail: string[]; doors: string
   return page.evaluate(() => {
     const rail = Array.from(document.querySelectorAll("nav")).find((n) =>
       Array.from(n.querySelectorAll("a")).some(
-        (a) => a.textContent?.trim() === "The Hall",
+        (a) => a.textContent?.trim() === "Overview",
       ),
     );
     if (!rail) throw new Error("no section rail on the page");
@@ -182,11 +182,11 @@ test("every room on the rail has a door on the hall", async ({ browser }) => {
 
     // Folk is the one that shipped to the rail and never reached the Hall.
     expect(rooms).toContain(`${home}/npcs`);
-    await expect(page.getByRole("heading", { name: "The Folk" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "NPCs", exact: true })).toBeVisible();
 
     // The families read as headings over their clusters.
     const railNav = page.locator("nav").filter({
-      has: page.getByRole("link", { name: "The Hall", exact: true }),
+      has: page.getByRole("link", { name: "Overview", exact: true }),
     });
     for (const word of ["the story", "the world", "the table"]) {
       await expect(railNav.getByText(word, { exact: true })).toBeVisible();

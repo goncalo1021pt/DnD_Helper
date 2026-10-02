@@ -1143,7 +1143,7 @@ export default function PartyRoster() {
      the shape it has always had (#232). */
   const groups: Array<{ key: string; name: string; partyId?: string; members: Character[] }> = (() => {
     const heroes = characters ?? [];
-    if (parties.length === 0) return [{ key: "all", name: "The Party", members: heroes }];
+    if (parties.length === 0) return [{ key: "all", name: "Party", members: heroes }];
     const out: Array<{ key: string; name: string; partyId?: string; members: Character[] }> =
       parties.map((p) => ({
       key: p.id,
@@ -1174,7 +1174,7 @@ export default function PartyRoster() {
             className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Party
+            Party
           </h2>
           {characters && characters.length > 0 && (
             <span className="label-stamp text-xs text-gold-muted">

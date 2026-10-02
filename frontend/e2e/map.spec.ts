@@ -385,7 +385,7 @@ test("a pin lands where it was dropped, in the map's own coordinates", async ({ 
   const canvas = page.locator("img[alt='The Coast Road']");
   await expect(canvas).toBeVisible({ timeout: 20_000 });
 
-  await page.getByRole("button", { name: "Drop a pin" }).click();
+  await page.getByRole("button", { name: "Pin", exact: true }).click();
   await expect(page.getByText("Tap where the pin goes")).toBeVisible();
 
   // Three-quarters across, one-quarter down — chosen off-centre so a transposed
@@ -653,7 +653,7 @@ test("a pin that names a place opens it (#312)", async ({ page }) => {
   await expect(canvas).toBeVisible({ timeout: 20_000 });
   await page.waitForTimeout(800);
 
-  await page.getByRole("button", { name: "Drop a pin" }).click();
+  await page.getByRole("button", { name: "Pin", exact: true }).click();
   const box = (await canvas.boundingBox())!;
   await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
   await page.getByPlaceholder("The Sleeping Giant Inn").fill("The walled town");

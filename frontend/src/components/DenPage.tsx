@@ -134,7 +134,7 @@ export default function DenPage() {
             className="font-display m-0 text-[clamp(24px,3vw,32px)] font-black text-[#e7d3a6]"
             style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
           >
-            The Monster Den
+            Monster Den
           </h2>
           <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
             {monsters
@@ -163,7 +163,7 @@ export default function DenPage() {
             className="btn-base btn-gold clip-octagon h-10 whitespace-nowrap px-5 text-[13px]"
           >
             <IconPlus size={15} strokeWidth={2} />
-            Scribe a Monster
+            Create Monster
           </button>
         </div>
       </div>
@@ -326,7 +326,7 @@ export default function DenPage() {
       {editing && (
         <ParchmentModal onClose={() => setEditing(null)} maxWidth="max-w-[620px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Monster Den
+            Monster Den
           </div>
           <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
             Amend {editing.name}
@@ -360,10 +360,10 @@ export default function DenPage() {
       {scribing && (
         <ParchmentModal onClose={() => setScribing(null)} maxWidth="max-w-[620px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Monster Den
+            Monster Den
           </div>
           <h3 className="font-display m-0 mb-1 text-center text-2xl font-bold text-ink">
-            {scribing.copiedFrom ? "Copy a Monster" : "Scribe a Monster"}
+            {scribing.copiedFrom ? "Copy a Monster" : "Create Monster"}
           </h3>
           {scribing.copiedFrom && (
             <p className="font-body m-0 mb-4 text-center text-[12.5px] italic text-ink-body">
@@ -390,7 +390,7 @@ export default function DenPage() {
       {packReport && (
         <ParchmentModal onClose={() => setPackReport(null)} maxWidth="max-w-[520px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            The Monster Den
+            Monster Den
           </div>
           <h3 className="font-display m-0 mb-2 text-center text-2xl font-bold text-ink">
             Pack Unpacked

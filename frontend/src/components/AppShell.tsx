@@ -90,7 +90,7 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
             to="/questboard/companions"
             className="label-stamp relative text-[11px] font-semibold text-gold-muted no-underline transition hover:text-ember-bright"
           >
-            Companions
+            Friends
             {waiting > 0 && (
               <span
                 className="absolute -right-3.5 -top-2 rounded-full px-1.5 text-[9px] font-bold text-[#f0dfb8]"

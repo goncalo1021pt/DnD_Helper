@@ -19,7 +19,7 @@ const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 import ParchmentModal from "../ui/ParchmentModal";
 
 /*
- * Table Rules: how heroes advance here. Progression mode, the level
+ * Table Settings: how heroes advance here. Progression mode, the level
  * ceiling, and the DM's XP/milestone grants — moved out of the
  * Chronicle block, which grew into a chat surface.
  */
@@ -52,7 +52,7 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
           className="font-display m-0 text-[21px] font-black text-[#e7d3a6]"
           style={{ textShadow: "0 2px 6px rgba(0,0,0,.5)" }}
         >
-          Table Rules
+          Table Settings
         </h2>
         <span className="label-stamp text-[11px] text-gold-muted">
           how heroes advance here
@@ -140,7 +140,7 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
 
         <label className="flex flex-col gap-1.5">
           <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">
-            The door
+            Seating
           </span>
           <select
             value={campaign.requireSeatingApproval ? "barred" : "open"}
@@ -148,8 +148,8 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
             disabled={setSeatingApproval.isPending}
             className="input-hall h-9 w-44 text-[12px]"
           >
-            <option value="open">Open — heroes seat freely</option>
-            <option value="barred">Barred — you approve seats</option>
+            <option value="open">Open — heroes join freely</option>
+            <option value="barred">Approval — you approve each hero</option>
           </select>
         </label>
 
@@ -264,7 +264,7 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
       {confirmingMilestone && (
         <ParchmentModal onClose={() => setConfirmingMilestone(false)}>
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            Table Rules
+            Table Settings
           </div>
           <h3 className="font-display m-0 mb-3 text-center text-2xl font-bold text-ink">
             Declare a Milestone?
@@ -297,7 +297,7 @@ export default function TableRulesSection({ campaign }: { campaign: Campaign }) 
       {granting && (
         <ParchmentModal onClose={() => setGranting(false)} maxWidth="max-w-[440px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
-            Table Rules
+            Table Settings
           </div>
           <h3 className="font-display m-0 mb-5 text-center text-2xl font-bold text-ink">
             Grant Experience

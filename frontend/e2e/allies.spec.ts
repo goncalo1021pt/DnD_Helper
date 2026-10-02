@@ -147,7 +147,7 @@ test("a traveler is known to the party, watched by it, and run by whoever is han
 
   // Opening the stats veil hands the whole table his numbers at once — the
   // bar and the block ride the same switch, not two.
-  await dm.getByRole("button", { name: "Stats veiled" }).click();
+  await dm.getByRole("button", { name: "Stats hidden" }).click();
   await expect
     .poll(async () =>
       (await (await other.request.get(`/api/campaigns/${campaign.id}/npcs`)).json())[0].hpCurrent,
@@ -183,7 +183,7 @@ test("a traveler is known to the party, watched by it, and run by whoever is han
   // Everybody else loses him — off the register and off the roster both.
   expect(await (await other.request.get(`/api/campaigns/${campaign.id}/npcs`)).json()).toHaveLength(0);
   await other.goto(`/questboard/campaigns/${campaign.id}/party`);
-  await expect(other.getByRole("heading", { name: "The Party" })).toBeVisible({ timeout: 20_000 });
+  await expect(other.getByRole("heading", { name: "Party", exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(other.getByRole("heading", { name: "Traveling with you" })).toHaveCount(0);
   await expect(other.getByText(sildar)).toHaveCount(0);
 

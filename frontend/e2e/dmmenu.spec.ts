@@ -35,7 +35,7 @@ test("a barred door holds a hero until the DM lets them in", async ({ browser })
   // The door starts open. Bar it from the Table Rules, through the UI, because
   // the select is the only place this rule is ever set.
   await dmPage.goto(`/questboard/campaigns/${campaign.id}/dm`);
-  await dmPage.getByRole("combobox").filter({ hasText: /heroes seat freely/ }).selectOption("barred");
+  await dmPage.getByRole("combobox").filter({ hasText: /heroes join freely/ }).selectOption("barred");
 
   // A hero on the player's own account — `quickAddHero` is the DM's roster form
   // and a player is "not allowed" to use it, which is the point of the door.
@@ -92,7 +92,7 @@ test("disbanding takes the table away from everyone at it", async ({ browser }) 
   await expect(plPage.getByText(name)).toBeVisible({ timeout: 20_000 });
 
   await dmPage.goto(`/questboard/campaigns/${campaign.id}/dm`);
-  await dmPage.getByRole("button", { name: "Disband this campaign" }).click();
+  await dmPage.getByRole("button", { name: "Disband", exact: true }).click();
 
   // The name has to be typed out: a click alone cannot end a campaign.
   const confirm = dmPage.getByRole("dialog").getByRole("button", { name: /Disband/ });

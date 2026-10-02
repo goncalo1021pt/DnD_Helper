@@ -50,7 +50,10 @@ test("a table founded on its own ground reads exactly as it always did", async (
 
   // Nor does the campaign header, which would otherwise read "in Lost Mine".
   await dm.goto(`/questboard/campaigns/${campaign.id}`);
-  await expect(dm.getByText("Campaign", { exact: true })).toBeVisible({ timeout: 15_000 });
+  // The eyebrow reads "Campaign", followed by who runs it once the members
+  // arrive (#302) — never "Campaign in …".
+  await expect(dm.getByText(/^Campaign( · run by .*)?$/)).toBeVisible({ timeout: 15_000 });
+  await expect(dm.getByText(/^Campaign in /)).toHaveCount(0);
 
   await ctx.close();
 });
