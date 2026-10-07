@@ -86,6 +86,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 		if msg := validateFeaturesTable(data); msg != "" {
 			return msg
 		}
+		if msg := validateFeatureChoices(data); msg != "" {
+			return msg
+		}
 	case db.ContentKindSpecies:
 		if size, ok := getStr(data, "size"); !ok || strings.TrimSpace(size) == "" {
 			return "species data needs a size (e.g. \"Medium\")"
@@ -118,6 +121,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 	case db.ContentKindSubclass:
 		if class, ok := getStr(data, "class"); !ok || strings.TrimSpace(class) == "" {
 			return "subclass data needs class: the parent class name (e.g. \"Fighter\")"
+		}
+		if msg := validateFeatureChoices(data); msg != "" {
+			return msg
 		}
 	case db.ContentKindSpell:
 		lvl, ok := getNum(data, "level")

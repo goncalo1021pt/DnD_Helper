@@ -10,6 +10,7 @@ import {
   weaponAttacks,
   weaponProficiencies,
 } from "../derive";
+import { trainingFromChoices } from "../featureChoices";
 import {
   ABILITIES,
   ABILITY_LABEL,
@@ -190,8 +191,13 @@ export function buildSheetValues({
     v[`${a}SaveProf`] = saveProf;
   }
 
+  // Expertise counts the bonus twice (#382); the printed sheet has no mark for
+  // it, so it shows in the number alone.
+  const expertSkills = new Set(sheet?.expertise ?? []);
   const skillMod = (ability: AbilityKey, name: string) =>
-    abilityMod(abilities?.[ability] ?? 10) + (proficientSkills.has(name) ? prof : 0);
+    abilityMod(abilities?.[ability] ?? 10) +
+    (proficientSkills.has(name) ? prof : 0) +
+    (proficientSkills.has(name) && expertSkills.has(name) ? prof : 0);
 
   if (abilities) {
     for (const { name, ability } of SKILLS) {
@@ -259,7 +265,7 @@ export function buildSheetValues({
   const proficiencies = weaponProficiencies(
     klass,
     held.filter((k) => k.classId !== sheet?.classId).map((k) => byId(classes, k.classId)),
-    [race, background],
+    [race, background, ...trainingFromChoices(sheet?.featureChoices)],
   );
   const attacks = abilities
     ? weaponAttacks(detail.items, abilities, character.level, { features: acFeatures, proficiencies })

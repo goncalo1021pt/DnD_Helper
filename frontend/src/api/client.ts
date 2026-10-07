@@ -134,6 +134,10 @@ export type SpellSlot = NonNullable<
 export type ResourcePool = NonNullable<
   NonNullable<Character["sheet"]>["pools"]
 >[number];
+export type FeatureChoice = NonNullable<
+  NonNullable<Character["sheet"]>["featureChoices"]
+>[number];
+export type FeatureChoiceOption = FeatureChoice["options"][number];
 export type CharacterCreature = CharacterDetail["creatures"][number];
 export type CreatureRole = CharacterCreature["role"];
 export type CreatureInput =

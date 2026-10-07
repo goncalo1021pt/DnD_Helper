@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import type { AbilityScores, Character, LevelUpRequest } from "../api/client";
-import { useCharacterDetail, useCodex, useLevelUp, useRules } from "../hooks";
+import { useCharacterDetail, useCodex, useLevelUp, useRules, useSetFeatureChoice } from "../hooks";
+import { choicesGrowingAt, poolFor } from "../lib/featureChoices";
+import { FeatureChoicePicker } from "./sheet/FeatureChoicePicker";
 import {
   casterSourceFor,
   castingFor,
@@ -46,11 +48,13 @@ export default function LevelUpModal({
   const { data: classes } = useRules("class");
   const { data: subclasses } = useRules("subclass");
   const { data: feats } = useRules("feat");
+  const { data: items } = useRules("item");
   // Seated heroes choose only what the campaign's codex has ruled legal.
   const { data: codex } = useCodex(character.campaignId ?? undefined);
   const { data: allSpells } = useRules("spell");
   const { data: detail } = useCharacterDetail(character.id);
   const levelUp = useLevelUp();
+  const setChoice = useSetFeatureChoice(character.id);
 
   const codexLegal = useMemo(() => {
     if (!character.campaignId) return () => true;
@@ -141,6 +145,35 @@ export default function LevelUpModal({
       }),
     [subclasses, klass, codexLegal],
   );
+  /*
+    The picks this level brings (#382): a Paladin's Fighting Style at 2, a
+    Fighter's fourth Weapon Mastery at 4 — and any still owed from before, since
+    a level-up is as good a moment as any to make them. A Fighter may also
+    change their style as they rise. None of them blocks the level: one left
+    unmade waits on the sheet.
+  */
+  const made = useMemo(() => sheet.featureChoices ?? [], [sheet.featureChoices]);
+  const hasFightingStyle = made.some((c) => c.type === "feat" && c.from === "fighting-style");
+  const subclassEntry = subclasses?.find(
+    (s) => s.id === (needsSubclass ? subclassId : held.find((k) => k.classId === takingIn)?.subclassId),
+  );
+  const arriving = useMemo(() => {
+    const owedNow = [
+      ...choicesGrowingAt(klass, classLevel, made),
+      ...choicesGrowingAt(subclassEntry, classLevel, made, klass),
+    ];
+    const restyle = made.filter(
+      (c) =>
+        c.swap === "levelup" &&
+        c.picked.length === c.count &&
+        (c.key.startsWith(`${takingIn}:`) || (!!subclassEntry && c.key.startsWith(`${subclassEntry.id}:`))),
+    );
+    return [...owedNow, ...restyle.filter((c) => !owedNow.some((o) => o.key === c.key))];
+  }, [klass, subclassEntry, classLevel, made, takingIn]);
+  const [choicePicks, setChoicePicks] = useState<Record<string, string[]>>({});
+  const picksFor = (key: string) =>
+    choicePicks[key] ?? arriving.find((c) => c.key === key)?.picked ?? [];
+
   const generalFeats = useMemo(
     () =>
       (feats ?? []).filter((f) => {
@@ -149,9 +182,13 @@ export default function LevelUpModal({
         // choice next door; epic boons wait for level 19.
         if (d.category === "origin" || f.name === "Ability Score Improvement") return false;
         if (d.category === "epic-boon" && newLevel < 19) return false;
+        // A feature hands these out, not an ASI (#382) — and a Fighting Style
+        // feat only to a hero whose features already grant one.
+        if (d.category === "invocation" || d.category === "metamagic") return false;
+        if (d.category === "fighting-style" && !hasFightingStyle) return false;
         return !sheet.feats?.includes(f.name) && codexLegal(f);
       }),
-    [feats, sheet.feats, codexLegal, newLevel],
+    [feats, sheet.feats, codexLegal, newLevel, hasFightingStyle],
   );
 
   // Bard, Sorcerer and Warlock trade a spell as they rise rather than on a
@@ -303,7 +340,23 @@ export default function LevelUpModal({
         body.asi = { [bonus1a as string]: 1, [bonus1b as string]: 1 };
       }
     }
-    levelUp.mutate({ characterId: character.id, body }, { onSuccess: onClose });
+    levelUp.mutate(
+      { characterId: character.id, body },
+      {
+        // The choices are saved once the level has landed, one by one; a
+        // refused one says so and stays owed on the sheet.
+        onSuccess: async () => {
+          for (const c of arriving) {
+            const picks = picksFor(c.key);
+            const changed = picks.join("|") !== c.picked.join("|");
+            if (picks.length === c.count && changed) {
+              await setChoice.mutateAsync({ key: c.key, picks }).catch(() => undefined);
+            }
+          }
+          onClose();
+        },
+      },
+    );
   }
 
   return (
@@ -557,6 +610,31 @@ export default function LevelUpModal({
             )}
           </div>
         )}
+
+        {/* class feature choices (#382) */}
+        {arriving.map((c) => (
+          <div key={c.key}>
+            <div className="field-label mb-1.5">
+              {c.name}
+              <span className="ml-2 font-body text-[11px] normal-case italic tracking-normal text-ink-label">
+                {c.picked.length === c.count ? "change if you like" : `${c.source} ${c.level}`}
+              </span>
+            </div>
+            <FeatureChoicePicker
+              choice={c}
+              pool={poolFor(c, {
+                feats: (feats ?? []).filter(codexLegal),
+                items,
+                skills: sheet.skills,
+                heldFeats: sheet.feats,
+                expertise: sheet.expertise,
+              })}
+              value={picksFor(c.key)}
+              onChange={(picks) => setChoicePicks((prev) => ({ ...prev, [c.key]: picks }))}
+              locked={c.swap ? [] : c.picked}
+            />
+          </div>
+        ))}
 
         {/* ASI / feat */}
         {isASILevel && (

@@ -986,6 +986,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/characters/{characterId}/choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Answer a class feature's choice (owner or DM) — a Fighting Style, an Expertise, a Weapon Mastery, a Divine Order. A feat picked here joins the hero's feats. An owed choice may be filled at any time; a made one changes only when its feature declares a swap. */
+        put: operations["setFeatureChoice"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/characters/{characterId}/rest": {
         parameters: {
             query?: never;
@@ -3392,12 +3411,57 @@ export interface components {
             spellSlots?: components["schemas"]["SpellSlot"][];
             /** @description Pact Magic, which is its own pool: N slots all at one level, back on a short rest. Absent unless the hero has Warlock levels. Either pool may cast the other's prepared spells, but they are never added together. */
             pactSlots?: components["schemas"]["SpellSlot"];
+            /** @description The picks the hero's class features ask for (#382), made and owed. Only forged heroes with class rows carry them. */
+            featureChoices?: components["schemas"]["FeatureChoice"][];
+            /** @description Skills whose proficiency bonus is doubled, from the hero's expertise picks. */
+            expertise?: string[];
             /** @description The hero's resource pools — Rages, Channel Divinity, Focus Points — already resolved: max computed from the granting content and the hero's level, used read from what they have spent. */
             pools?: components["schemas"]["ResourcePool"][];
         };
         /** @description Species picks keyed by the choice id declared in the species entry's data, each holding the chosen option names. */
         SpeciesChoices: {
             [key: string]: string[];
+        };
+        /** @description A pick a class or subclass feature asks for (#382) — a Fighting Style, two skills for Expertise, a Divine Order — with what the hero has picked so far. Fewer picks than `count` means the choice is owed. Listed for every feature the hero has reached, at the level in that class. */
+        FeatureChoice: {
+            /** @description The content that asked and the choice's id, as "<content id>:<choice id>". */
+            key: string;
+            /** @description The class or subclass whose feature asks. */
+            source: string;
+            /** @description The feature's name, e.g. "Fighting Style". */
+            feature: string;
+            name: string;
+            /** @description The level in the class at which the feature arrives. */
+            level: number;
+            /**
+             * @description feat — a feat of the category in `from`, or one of `options`; expertise — a skill the hero is proficient in (narrowed by `options` when given); mastery — a kind of weapon; option — one of `options`.
+             * @enum {string}
+             */
+            type: "feat" | "expertise" | "mastery" | "option";
+            /** @description How many picks the choice wants at the hero's current level. */
+            count: number;
+            /** @description For a feat choice, the feat category drawn from (e.g. fighting-style). */
+            from?: string;
+            /**
+             * @description When a made choice may be changed — as the class rises, or after a rest. Absent means it is made once.
+             * @enum {string}
+             */
+            swap?: "levelup" | "rest";
+            options: components["schemas"]["FeatureChoiceOption"][];
+            picked: string[];
+        };
+        FeatureChoiceOption: {
+            name: string;
+            summary?: string;
+            /** @description Weapon proficiencies the option trains (a Protector Cleric's Martial weapons). */
+            weapons?: string[];
+            armor?: string[];
+        };
+        SetFeatureChoiceRequest: {
+            /** @description The choice's key, as listed in the sheet's featureChoices. */
+            key: string;
+            /** @description Every pick the choice holds after this call — exactly its count. Picks already made may be replaced only when the choice declares a swap. */
+            picks: string[];
         };
         SpellSlot: {
             level: number;
@@ -7107,6 +7171,36 @@ export interface operations {
         };
         responses: {
             /** @description The hero, one level mightier */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setFeatureChoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetFeatureChoiceRequest"];
+            };
+        };
+        responses: {
+            /** @description The hero, with the choice made */
             200: {
                 headers: {
                     [name: string]: unknown;

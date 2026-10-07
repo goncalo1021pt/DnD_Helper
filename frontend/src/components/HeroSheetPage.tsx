@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { InventoryItem, RulesContent } from "../api/client";
+import type { FeatureChoice, InventoryItem, RulesContent } from "../api/client";
 import {
   useAddItem,
   useCampaigns,
@@ -48,6 +48,8 @@ import SectionLabel, { type SpeciesChoice } from "./sheet/SectionLabel";
 import SkillsPanel from "./sheet/SkillsPanel";
 import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
+import { FeatureChoiceModal } from "./sheet/FeatureChoicePicker";
+import { poolFor, trainingFromChoices } from "../lib/featureChoices";
 import PoolsPanel from "./sheet/PoolsPanel";
 import CreaturesPanel from "./sheet/CreaturesPanel";
 import Person from "./ui/Person";
@@ -82,6 +84,7 @@ export default function HeroSheetPage() {
   const [tab, setTab] = useState<"sheet" | "inventory">("sheet");
   const [itemSearch, setItemSearch] = useState("");
   const [itemType, setItemType] = useState("");
+  const [choosing, setChoosing] = useState<FeatureChoice | null>(null);
 
   const character = detail?.character;
   const sheet = character?.sheet;
@@ -262,7 +265,8 @@ export default function HeroSheetPage() {
     (sheet?.classes ?? [])
       .filter((k) => k.classId !== sheet?.classId)
       .map((k) => classes?.find((c) => c.id === k.classId)),
-    [species, background],
+    // A Protector Cleric's Divine Order trains Martial weapons (#382).
+    [species, background, ...trainingFromChoices(sheet?.featureChoices)],
   );
   const attacks = abilities
     ? weaponAttacks(detail.items, abilities, character.level, { features, proficiencies })
@@ -488,7 +492,12 @@ export default function HeroSheetPage() {
             <SkillsPanel sheet={sheet} prof={prof} />
 
             {/* features */}
-            <FeaturesPanel features={features} />
+            <FeaturesPanel
+              features={features}
+              choices={sheet.featureChoices ?? []}
+              canEdit={canEdit}
+              onChoose={setChoosing}
+            />
 
             {/* Rages, Channel Divinity, Focus Points — the uses those
                 features spend (#175). Under Features for the same reason the
@@ -1061,6 +1070,20 @@ export default function HeroSheetPage() {
 
       {levelling && (
         <LevelUpModal character={character} onClose={() => setLevelling(false)} />
+      )}
+      {choosing && (
+        <FeatureChoiceModal
+          characterId={character.id}
+          choice={choosing}
+          pool={poolFor(choosing, {
+            feats,
+            items: itemLibrary,
+            skills: sheet?.skills,
+            heldFeats: sheet?.feats,
+            expertise: sheet?.expertise,
+          })}
+          onClose={() => setChoosing(null)}
+        />
       )}
       {swapping && (
         <SpellSwapModal

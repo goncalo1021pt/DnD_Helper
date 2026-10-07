@@ -1,6 +1,7 @@
 /* The eighteen skills, each with its proficiency pip and the modifier it rolls
    at. Proficiency is the hero's list; the modifier is the ability behind the
-   skill plus the bonus if they have it. */
+   skill plus the bonus if they have it — twice over for Expertise, which a
+   class feature's choice grants (#382). */
 
 import type { Character } from "../../api/client";
 import { abilityMod } from "../../lib/abilities";
@@ -20,16 +21,18 @@ export default function SkillsPanel({
     <div className="parchment grid grid-cols-2 gap-x-5 gap-y-1 px-4 py-3.5 sm:grid-cols-3">
       {Object.keys(SKILL_ABILITY).map((sk) => {
         const proficient = sheet.skills.includes(sk);
+        const expert = proficient && (sheet.expertise ?? []).includes(sk);
         const mod =
           abilityMod(sheet.abilities[SKILL_ABILITY[sk] as keyof typeof sheet.abilities]) +
-          (proficient ? prof : 0);
+          (proficient ? prof : 0) +
+          (expert ? prof : 0);
         return (
           <div
             key={sk}
             className={`flex items-baseline justify-between text-[12.5px] ${proficient ? "font-semibold text-ink" : "text-ink-body"}`}
           >
-            <span>
-              {proficient ? "● " : "○ "}
+            <span title={expert ? "Expertise — proficiency counted twice" : undefined}>
+              {expert ? "◆ " : proficient ? "● " : "○ "}
               {sk}
             </span>
             <span className="tabular-nums">{mod >= 0 ? `+${mod}` : mod}</span>
