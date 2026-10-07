@@ -281,18 +281,14 @@ func (s *Server) LevelUpCharacter(ctx context.Context, request api.LevelUpCharac
 				return badRequest(character.Name + " already has " + feat.Name)
 			}
 		}
-		// Some feats are a feature's to hand out, never an Ability Score
-		// Improvement's (#382): an invocation is a Warlock's, a Metamagic
-		// option a Sorcerer's. A Fighting Style feat may be taken here, but
-		// only by a hero whose features already grant one — its prerequisite
-		// is the Fighting Style feature, and a Wizard has none.
-		switch category := featCategory(feat.Data); category {
-		case "invocation", "metamagic":
-			return badRequest(feat.Name + " comes from a class feature, not an Ability Score Improvement")
-		case "fighting-style":
-			if !grantsFeatCategory(held, category) {
-				return badRequest(feat.Name + " needs the Fighting Style feature first")
-			}
+		// A Fighting Style feat may be taken at an Ability Score Improvement,
+		// but only by a hero whose features already grant one — its
+		// prerequisite is the Fighting Style feature, and a Wizard has none
+		// (#382). Invocations and Metamagic are a feature's to hand out too,
+		// but until their features ask for them (#384) this is the only door
+		// a Warlock or Sorcerer has, so it stays open.
+		if category := featCategory(feat.Data); category == "fighting-style" && !grantsFeatCategory(held, category) {
+			return badRequest(feat.Name + " needs the Fighting Style feature first")
 		}
 		feats = append(feats, feat.Name)
 	}

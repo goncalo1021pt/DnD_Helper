@@ -182,9 +182,9 @@ export default function LevelUpModal({
         // choice next door; epic boons wait for level 19.
         if (d.category === "origin" || f.name === "Ability Score Improvement") return false;
         if (d.category === "epic-boon" && newLevel < 19) return false;
-        // A feature hands these out, not an ASI (#382) — and a Fighting Style
-        // feat only to a hero whose features already grant one.
-        if (d.category === "invocation" || d.category === "metamagic") return false;
+        // A Fighting Style feat only to a hero whose features already grant
+        // one (#382). Invocations and Metamagic stay here until their own
+        // features ask for them (#384).
         if (d.category === "fighting-style" && !hasFightingStyle) return false;
         return !sheet.feats?.includes(f.name) && codexLegal(f);
       }),
