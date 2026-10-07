@@ -137,6 +137,44 @@ func (q *Queries) ProposeCodexContent(ctx context.Context, arg ProposeCodexConte
 	return err
 }
 
+const reproposeEditedContent = `-- name: ReproposeEditedContent :many
+UPDATE campaign_content cc SET status = 'proposed'
+WHERE cc.content_id = $1 AND cc.status = 'enabled'
+  AND NOT EXISTS (
+    SELECT 1 FROM memberships m
+    WHERE m.campaign_id = cc.campaign_id AND m.user_id = $2 AND m.role = 'dm'
+  )
+RETURNING cc.campaign_id
+`
+
+type ReproposeEditedContentParams struct {
+	ContentID uuid.UUID `json:"content_id"`
+	Author    uuid.UUID `json:"author"`
+}
+
+// An author changed homebrew a table had admitted (#378): the admission was
+// for what the DM read, so it goes back to them as a proposal. Not where the
+// author is a DM of that table — a DM editing their own world is not asking.
+func (q *Queries) ReproposeEditedContent(ctx context.Context, arg ReproposeEditedContentParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, reproposeEditedContent, arg.ContentID, arg.Author)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var campaign_id uuid.UUID
+		if err := rows.Scan(&campaign_id); err != nil {
+			return nil, err
+		}
+		items = append(items, campaign_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setCodexStatus = `-- name: SetCodexStatus :exec
 INSERT INTO campaign_content (campaign_id, content_id, status, proposed_by)
 VALUES ($1, $2, $3, $4)

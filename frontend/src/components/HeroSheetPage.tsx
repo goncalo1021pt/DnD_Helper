@@ -515,6 +515,11 @@ export default function HeroSheetPage() {
               characterId={character.id}
               creatures={detail.creatures}
               canEdit={canEdit}
+              // At a table the creatures' numbers are the DM's (#378).
+              locked={
+                !!character.campaignId &&
+                memberships?.find((m) => m.campaign.id === character.campaignId)?.role !== "dm"
+              }
             />
 
             {/* One action instead of three chores (#118). */}
