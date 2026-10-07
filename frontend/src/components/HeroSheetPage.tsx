@@ -14,7 +14,15 @@ import {
 import { classLine } from "../lib/classes";
 import { coinageOf, formatCoins } from "../lib/money";
 import { levelUpHold } from "../lib/progression";
-import { acFromEquipment, featuresOf, profBonus, weaponAttacks, type Feature } from "../lib/derive";
+import {
+  acFromEquipment,
+  featAsFeature,
+  featuresOf,
+  profBonus,
+  weaponAttacks,
+  weaponProficiencies,
+  type Feature,
+} from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow from "./ui/AbilityRow";
 import { abilityMod, modText } from "../lib/abilities";
@@ -193,8 +201,9 @@ export default function HeroSheetPage() {
       // exact match alone would leave the most commonly granted feat wordless.
       const bare = name.replace(/\s*\(.*\)\s*$/, "");
       const entry = feats?.find((f) => f.name === name) ?? feats?.find((f) => f.name === bare);
-      const data = entry?.data as { description?: string } | undefined;
-      return { name, summary: data?.description ?? entry?.summary, from: "Feat" };
+      // Carrying what the feat declares, so Defense lifts the AC and Archery
+      // the aim (#379) through the same list the rest of the sheet reads.
+      return featAsFeature(name, entry);
     });
 
     // The background's own grant that appears nowhere else on the sheet: its
@@ -246,7 +255,18 @@ export default function HeroSheetPage() {
   const prof = profBonus(character.level);
   // Features, because Unarmored Defense replaces the base formula (#132).
   const ac = abilities ? acFromEquipment(detail.items, abilities, features) : null;
-  const attacks = abilities ? weaponAttacks(detail.items, abilities, character.level) : [];
+  // The starting class grants its weapons whole; a later class only what its
+  // multiclass line says (#379).
+  const proficiencies = weaponProficiencies(
+    klass,
+    (sheet?.classes ?? [])
+      .filter((k) => k.classId !== sheet?.classId)
+      .map((k) => classes?.find((c) => c.id === k.classId)),
+    [species, background],
+  );
+  const attacks = abilities
+    ? weaponAttacks(detail.items, abilities, character.level, { features, proficiencies })
+    : [];
   const slots = sheet?.spellSlots ?? [];
   const hpc = hpColor(character.hpCurrent, character.hpMax);
 
@@ -358,6 +378,7 @@ export default function HeroSheetPage() {
                   subclasses,
                   species: speciesLibrary,
                   backgrounds: backgroundLibrary,
+                  feats,
                 });
               } catch (e) {
                 setPrintError(

@@ -69,6 +69,41 @@ func (g grantSource) levelOr(total int) int {
 	return total
 }
 
+// takenFeats resolves a hero's feats, which are recorded as names, to the
+// library entries they name. A background records them with their
+// specialisation — "Magic Initiate (Cleric)" — so the bare name has to match
+// too, the same fallback the sheet makes when it prints them. A name the
+// library no longer holds is skipped.
+func (s *Server) takenFeats(ctx context.Context, c db.Character) []db.RulesContent {
+	if len(c.Feats) == 0 {
+		return nil
+	}
+	feats, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
+		Kind:      db.ContentKindFeat,
+		CreatedBy: pgUUID(c.OwnerUserID),
+	})
+	if err != nil {
+		return nil
+	}
+	byName := map[string]db.ListContentByKindRow{}
+	for _, f := range feats {
+		byName[strings.ToLower(f.Name)] = f
+	}
+	var out []db.RulesContent
+	for _, taken := range c.Feats {
+		key := strings.ToLower(strings.TrimSpace(taken))
+		row, ok := byName[key]
+		if !ok {
+			bare := strings.TrimSpace(strings.Split(key, "(")[0])
+			row, ok = byName[bare]
+		}
+		if ok {
+			out = append(out, db.RulesContent{Name: row.Name, Data: row.Data})
+		}
+	}
+	return out
+}
+
 // grantSources gathers everything a hero carries that could grant a creature:
 // every class they hold with its subclass (#242 — it used to walk only the
 // starting ClassID, so a second class granted nothing), their species and
@@ -110,31 +145,8 @@ func (s *Server) grantSources(ctx context.Context, c db.Character) []grantSource
 		}
 	}
 
-	// Feats are recorded as names, and a background records them with their
-	// specialisation — "Magic Initiate (Cleric)" — so the bare name has to
-	// match too, the same fallback the sheet makes when it prints them.
-	if len(c.Feats) > 0 {
-		feats, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
-			Kind:      db.ContentKindFeat,
-			CreatedBy: pgUUID(c.OwnerUserID),
-		})
-		if err == nil {
-			byName := map[string]db.ListContentByKindRow{}
-			for _, f := range feats {
-				byName[strings.ToLower(f.Name)] = f
-			}
-			for _, taken := range c.Feats {
-				key := strings.ToLower(strings.TrimSpace(taken))
-				row, ok := byName[key]
-				if !ok {
-					bare := strings.TrimSpace(strings.Split(key, "(")[0])
-					row, ok = byName[bare]
-				}
-				if ok {
-					add(db.RulesContent{Name: row.Name, Data: row.Data})
-				}
-			}
-		}
+	for _, row := range s.takenFeats(ctx, c) {
+		add(row)
 	}
 
 	// Gear counts: a figurine that becomes a beast is an item that grants a

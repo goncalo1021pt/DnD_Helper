@@ -131,6 +131,7 @@ func TestArmorClassMatchesTheSharedFixture(t *testing.T) {
 			Level     int               `json:"level"`
 			Abilities map[string]int    `json:"abilities"`
 			Sources   []json.RawMessage `json:"sources"`
+			Feats     []json.RawMessage `json:"feats"`
 			Items     []struct {
 				Equipped bool            `json:"equipped"`
 				Attuned  bool            `json:"attuned"`
@@ -147,6 +148,11 @@ func TestArmorClassMatchesTheSharedFixture(t *testing.T) {
 		var features []heroFeature
 		for _, src := range c.Sources {
 			features = append(features, earnedFeatures(src, c.Level)...)
+		}
+		for _, feat := range c.Feats {
+			if f, ok := featFeature(feat); ok {
+				features = append(features, f)
+			}
 		}
 		items := make([]wornItem, 0, len(c.Items))
 		for _, it := range c.Items {

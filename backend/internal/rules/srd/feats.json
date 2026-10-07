@@ -58,7 +58,11 @@
   "data": {
    "category": "fighting-style",
    "description": "You gain a +2 bonus to attack rolls you make with Ranged weapons.",
-   "prerequisite": "Fighting Style Feature"
+   "prerequisite": "Fighting Style Feature",
+   "weaponBonus": {
+    "ranged": true,
+    "attack": 2
+   }
   }
  },
  {
@@ -67,7 +71,8 @@
   "data": {
    "category": "fighting-style",
    "description": "While you're wearing Light, Medium, or Heavy armor, you gain a +1 bonus to Armor Class.",
-   "prerequisite": "Fighting Style Feature"
+   "prerequisite": "Fighting Style Feature",
+   "armoredAC": 1
   }
  },
  {
