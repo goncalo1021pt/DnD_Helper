@@ -58,6 +58,7 @@ func (s *Server) ListMyCharacters(ctx context.Context, _ api.ListMyCharactersReq
 			SubclassID:     row.SubclassID,
 			Feats:          row.Feats,
 			SpeciesChoices: row.SpeciesChoices,
+			ClassChoices:   row.ClassChoices,
 			SpellSlotsUsed: row.SpellSlotsUsed,
 			HitDiceSpent:   row.HitDiceSpent,
 			PoolsUsed:      row.PoolsUsed,
@@ -264,7 +265,7 @@ func (s *Server) ListRules(ctx context.Context, request api.ListRulesRequestObje
 	if !ok {
 		return api.ListRules401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
-	if request.Kind == api.Monster {
+	if request.Kind == api.ContentKindMonster {
 		isDM, err := s.isDMAnywhere(ctx, uid)
 		if err != nil {
 			return nil, err

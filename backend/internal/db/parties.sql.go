@@ -190,7 +190,7 @@ func (q *Queries) RenameParty(ctx context.Context, arg RenamePartyParams) (Party
 const setCharacterParty = `-- name: SetCharacterParty :one
 UPDATE characters SET party_id = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born, species_choices, forge_key, pools_used, hit_dice_spent, pact_slots_used, kind, party_id, pregen_by
+RETURNING id, campaign_id, owner_user_id, name, class, level, hp_current, hp_max, created_at, updated_at, strength, dexterity, constitution, intelligence, wisdom, charisma, skills, class_id, species_id, background_id, subclass_id, feats, spell_slots_used, xp, pending_levels, table_born, species_choices, forge_key, pools_used, hit_dice_spent, pact_slots_used, kind, party_id, pregen_by, class_choices
 `
 
 type SetCharacterPartyParams struct {
@@ -237,6 +237,7 @@ func (q *Queries) SetCharacterParty(ctx context.Context, arg SetCharacterPartyPa
 		&i.Kind,
 		&i.PartyID,
 		&i.PregenBy,
+		&i.ClassChoices,
 	)
 	return i, err
 }

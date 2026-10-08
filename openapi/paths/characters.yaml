@@ -383,6 +383,41 @@
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
 
+/characters/{characterId}/choices:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  put:
+    operationId: setFeatureChoice
+    security:
+      - sessionCookie: []
+      - bearerToken: [heroes:write]
+    summary: >-
+      Answer a class feature's choice (owner or DM) — a Fighting Style, an
+      Expertise, a Weapon Mastery, a Divine Order. A feat picked here joins the
+      hero's feats. An owed choice may be filled at any time; a made one
+      changes only when its feature declares a swap.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/SetFeatureChoiceRequest"
+    responses:
+      "200":
+        description: The hero, with the choice made
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
 /characters/{characterId}/rest:
   parameters:
     - $ref: "../openapi.yaml#/components/parameters/CharacterId"

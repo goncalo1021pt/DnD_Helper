@@ -176,7 +176,13 @@
     {
      "level": 7,
      "name": "Additional Fighting Style",
-     "summary": "You gain another Fighting Style feat of your choice."
+     "summary": "You gain another Fighting Style feat of your choice.",
+     "choice": {
+      "id": "additional-fighting-style",
+      "type": "feat",
+      "from": "fighting-style",
+      "choose": 1
+     }
     },
     {
      "level": 10,

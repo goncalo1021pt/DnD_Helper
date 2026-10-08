@@ -119,6 +119,8 @@ paths:
 
   /characters/{characterId}/levelup:
     $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1levelup"
+  /characters/{characterId}/choices:
+    $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1choices"
   /characters/{characterId}/rest:
     $ref: "./paths/characters.yaml#/~1characters~1{characterId}~1rest"
   /characters/{characterId}/spells/swap:
@@ -560,6 +562,12 @@ components:
       $ref: "./components/characters.yaml#/CharacterSheet"
     SpeciesChoices:
       $ref: "./components/characters.yaml#/SpeciesChoices"
+    FeatureChoice:
+      $ref: "./components/characters.yaml#/FeatureChoice"
+    FeatureChoiceOption:
+      $ref: "./components/characters.yaml#/FeatureChoiceOption"
+    SetFeatureChoiceRequest:
+      $ref: "./components/characters.yaml#/SetFeatureChoiceRequest"
     SpellSlot:
       $ref: "./components/characters.yaml#/SpellSlot"
     AbilityScores:

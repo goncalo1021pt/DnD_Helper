@@ -189,6 +189,14 @@ SET pools_used = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
+-- name: SetClassChoices :one
+-- A class feature's pick (#382). Feats travel with it because a Fighting Style
+-- feat lives in feats like any other, and one write keeps the two in step.
+UPDATE characters
+SET class_choices = $2, feats = $3, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
 -- name: RestCharacter :one
 -- One rest, written as one row change (#118). HP, spent slots, spent hit
 -- dice and spent pool uses move together or not at all — a hero left with

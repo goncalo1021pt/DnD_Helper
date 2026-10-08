@@ -197,6 +197,18 @@ CharacterSheet:
         Pact Magic, which is its own pool: N slots all at one level, back on a
         short rest. Absent unless the hero has Warlock levels. Either pool may
         cast the other's prepared spells, but they are never added together.
+    featureChoices:
+      type: array
+      description: >-
+        The picks the hero's class features ask for (#382), made and owed.
+        Only forged heroes with class rows carry them.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/FeatureChoice"
+    expertise:
+      type: array
+      description: Skills whose proficiency bonus is doubled, from the hero's expertise picks.
+      items:
+        type: string
     pools:
       type: array
       description: >-
@@ -205,6 +217,91 @@ CharacterSheet:
         hero's level, used read from what they have spent.
       items:
         $ref: "../openapi.yaml#/components/schemas/ResourcePool"
+
+FeatureChoice:
+  type: object
+  description: >-
+    A pick a class or subclass feature asks for (#382) — a Fighting Style, two
+    skills for Expertise, a Divine Order — with what the hero has picked so far.
+    Fewer picks than `count` means the choice is owed. Listed for every
+    feature the hero has reached, at the level in that class.
+  required: [key, source, feature, name, level, type, count, options, picked]
+  properties:
+    key:
+      type: string
+      description: The content that asked and the choice's id, as "<content id>:<choice id>".
+    source:
+      type: string
+      description: The class or subclass whose feature asks.
+    feature:
+      type: string
+      description: The feature's name, e.g. "Fighting Style".
+    name:
+      type: string
+    level:
+      type: integer
+      description: The level in the class at which the feature arrives.
+    type:
+      type: string
+      enum: [feat, expertise, mastery, option]
+      description: >-
+        feat — a feat of the category in `from`, or one of `options`;
+        expertise — a skill the hero is proficient in (narrowed by `options`
+        when given); mastery — a kind of weapon; option — one of `options`.
+    count:
+      type: integer
+      minimum: 1
+      description: How many picks the choice wants at the hero's current level.
+    from:
+      type: string
+      description: For a feat choice, the feat category drawn from (e.g. fighting-style).
+    swap:
+      type: string
+      enum: [levelup, rest]
+      description: >-
+        When a made choice may be changed — as the class rises, or after a
+        rest. Absent means it is made once.
+    options:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/FeatureChoiceOption"
+    picked:
+      type: array
+      items:
+        type: string
+
+FeatureChoiceOption:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+    summary:
+      type: string
+    weapons:
+      type: array
+      description: Weapon proficiencies the option trains (a Protector Cleric's Martial weapons).
+      items:
+        type: string
+    armor:
+      type: array
+      items:
+        type: string
+
+SetFeatureChoiceRequest:
+  type: object
+  required: [key, picks]
+  properties:
+    key:
+      type: string
+      description: The choice's key, as listed in the sheet's featureChoices.
+    picks:
+      type: array
+      description: >-
+        Every pick the choice holds after this call — exactly its count.
+        Picks already made may be replaced only when the choice declares a swap.
+      items:
+        type: string
 
 SpeciesChoices:
   type: object
