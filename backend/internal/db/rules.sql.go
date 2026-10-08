@@ -202,6 +202,35 @@ func (q *Queries) HomebrewBooks(ctx context.Context, createdBy pgtype.UUID) ([]H
 	return items, nil
 }
 
+const homebrewByName = `-- name: HomebrewByName :one
+SELECT id, kind, source, name, summary, data, created_by, created_at, updated_at FROM rules_content
+WHERE kind = $1 AND name = $2 AND created_by = $3 AND source = 'homebrew'
+`
+
+type HomebrewByNameParams struct {
+	Kind      ContentKind `json:"kind"`
+	Name      string      `json:"name"`
+	CreatedBy pgtype.UUID `json:"created_by"`
+}
+
+// An author's own entry of a kind and name, as an import is about to overwrite it.
+func (q *Queries) HomebrewByName(ctx context.Context, arg HomebrewByNameParams) (RulesContent, error) {
+	row := q.db.QueryRow(ctx, homebrewByName, arg.Kind, arg.Name, arg.CreatedBy)
+	var i RulesContent
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.Source,
+		&i.Name,
+		&i.Summary,
+		&i.Data,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const homebrewImpact = `-- name: HomebrewImpact :many
 WITH mine AS (
     SELECT id, kind FROM rules_content

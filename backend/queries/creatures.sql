@@ -40,9 +40,16 @@ SET active = false, updated_at = now()
 WHERE character_id = $1 AND role = 'form' AND id <> $2 AND active;
 
 -- name: ListMonstersForCreatures :many
--- The stat blocks a hero may draw a creature from: SRD plus the viewer's own
--- homebrew. Deliberately NOT the Den's query — this one is reachable by
--- players, and the handler narrows it to what their features actually grant.
+-- The stat blocks a hero may draw a creature from: SRD plus the homebrew of
+-- the authors given — the hero's owner, whoever wrote the features that grant
+-- the hero a creature, and a seated hero's DMs (#378). Deliberately NOT the
+-- Den's query — this one is reachable by players, and the handler narrows it
+-- to what their features actually grant.
 SELECT * FROM rules_content
-WHERE kind = 'monster' AND (source = 'srd' OR created_by = $1)
+WHERE kind = 'monster' AND (source = 'srd' OR created_by = ANY(@authors::uuid[]))
 ORDER BY name;
+
+-- name: ContentAuthors :many
+-- Who wrote each homebrew entry among these.
+SELECT id, created_by::uuid AS author FROM rules_content
+WHERE id = ANY(@ids::uuid[]) AND source = 'homebrew' AND created_by IS NOT NULL;

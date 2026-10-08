@@ -25,6 +25,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/google/uuid"
@@ -38,6 +40,13 @@ import (
 
 // heroScope is the hero as a formula sees them: a level and six modifiers.
 func heroScope(c db.Character) rules.Scope {
+	return heroScopeAt(c, int(c.Level))
+}
+
+// heroScopeAt is the same hero read at a level in one class — what a Druid's
+// Wild Shape means by "your Druid level" when the hero is Druid 4 / Fighter 6
+// (#378: the temporary hit points of a form were read at the total).
+func heroScopeAt(c db.Character, level int) rules.Scope {
 	scores := map[string]int{}
 	for name, ptr := range map[string]*int16{
 		"str": c.Strength, "dex": c.Dexterity, "con": c.Constitution,
@@ -47,7 +56,7 @@ func heroScope(c db.Character) rules.Scope {
 			scores[name] = int(*ptr)
 		}
 	}
-	return rules.ScopeFor(int(c.Level), scores)
+	return rules.ScopeFor(level, scores)
 }
 
 // grantSource is one content entry that might declare a creature, kept with
@@ -59,6 +68,10 @@ type grantSource struct {
 	name  string
 	data  []byte
 	level int
+	// author wrote this entry when it is homebrew (uuid.Nil for the SRD). A
+	// companion it names is looked for among that author's monsters first, so
+	// a pack's subclass reaches the Steel Defender shipped beside it (#378).
+	author uuid.UUID
 }
 
 // levelOr is the level this source's grants are read at.
@@ -98,7 +111,7 @@ func (s *Server) takenFeats(ctx context.Context, c db.Character) []db.RulesConte
 			row, ok = byName[bare]
 		}
 		if ok {
-			out = append(out, db.RulesContent{Name: row.Name, Data: row.Data})
+			out = append(out, db.RulesContent{ID: row.ID, Name: row.Name, Data: row.Data, CreatedBy: row.CreatedBy, Source: row.Source})
 		}
 	}
 	return out
@@ -113,19 +126,31 @@ func (s *Server) grantSources(ctx context.Context, c db.Character) []grantSource
 	var out []grantSource
 	add := func(row db.RulesContent) {
 		if len(row.Data) > 0 {
-			out = append(out, grantSource{name: row.Name, data: row.Data})
+			src := grantSource{name: row.Name, data: row.Data}
+			if row.CreatedBy.Valid && row.Source != db.ContentSourceSrd {
+				src.author = uuid.UUID(row.CreatedBy.Bytes)
+			}
+			out = append(out, src)
 		}
 	}
+	// Class, subclass and gear rows come without their author; one read finds
+	// whichever of them are homebrew, and who wrote them.
+	var unauthored []uuid.UUID
+	pending := map[int]uuid.UUID{}
 
 	classes := s.classesFor(ctx, c)
 	for _, k := range classes {
 		if len(k.ClassData) > 0 {
+			pending[len(out)] = k.ClassID
 			out = append(out, grantSource{name: k.ClassName, data: k.ClassData, level: int(k.Level)})
 		}
 		if len(k.SubclassData) > 0 {
 			name := k.ClassName
 			if k.SubclassName != nil {
 				name = *k.SubclassName
+			}
+			if k.SubclassID.Valid {
+				pending[len(out)] = uuid.UUID(k.SubclassID.Bytes)
 			}
 			out = append(out, grantSource{name: name, data: k.SubclassData, level: int(k.Level)})
 		}
@@ -154,25 +179,86 @@ func (s *Server) grantSources(ctx context.Context, c db.Character) []grantSource
 	if items, err := s.queries.ListCharacterItems(ctx, c.ID); err == nil {
 		for _, it := range items {
 			if it.ContentID.Valid && len(it.Data) > 0 {
+				pending[len(out)] = uuid.UUID(it.ContentID.Bytes)
 				out = append(out, grantSource{name: it.Name, data: it.Data})
+			}
+		}
+	}
+
+	for _, id := range pending {
+		unauthored = append(unauthored, id)
+	}
+	if len(unauthored) > 0 {
+		if rows, err := s.queries.ContentAuthors(ctx, unauthored); err == nil {
+			author := map[uuid.UUID]uuid.UUID{}
+			for _, r := range rows {
+				author[r.ID] = r.Author
+			}
+			for i, id := range pending {
+				out[i].author = author[id]
 			}
 		}
 	}
 	return out
 }
 
-// visibleMonsters is the pool a hero's creatures may be drawn from: SRD plus
-// the hero owner's own homebrew. Narrowing to what their features grant is the
-// caller's job.
-func (s *Server) visibleMonsters(ctx context.Context, owner uuid.UUID) ([]db.RulesContent, error) {
-	return s.queries.ListMonstersForCreatures(ctx, pgUUID(owner))
+/*
+visibleMonsters is the pool a hero's creatures may be drawn from: the SRD, the
+owner's own homebrew, the homebrew of whoever wrote the features granting the
+hero a creature, and — for a seated hero — the table's DMs' (#378).
+
+A monster never enters the codex (a codex row would leak it into the player's
+view), so until this a homebrew companion could not be fielded at any table:
+the add checked the codex, and the codex refused monsters. A monster is now
+admitted by what names it. The subclass, feat or item that grants it already
+answered to the codex when the hero sat down, so its author's Steel Defender
+comes with it; and a DM's beasts are their own table's to offer. Narrowing to
+what the hero's features actually grant is still the caller's job.
+*/
+func (s *Server) visibleMonsters(ctx context.Context, c db.Character, sources []grantSource) ([]db.RulesContent, error) {
+	authors := []uuid.UUID{c.OwnerUserID}
+	for _, src := range sources {
+		if src.author != uuid.Nil {
+			authors = append(authors, src.author)
+		}
+	}
+	if campaignID, seated := seatedCampaign(c); seated {
+		if dms, err := s.dmsAt(ctx, campaignID); err == nil {
+			authors = append(authors, dms...)
+		}
+	}
+	return s.queries.ListMonstersForCreatures(ctx, authors)
+}
+
+// monsterNamed picks the block a grant's name means. The SRD's own entry
+// first, so a homebrew shadow never replaces what a book feature points at;
+// then the grant's own author's, so a pack's subclass finds the monster its
+// pack shipped; then the hero owner's; then anyone's in the pool.
+func monsterNamed(byName map[string][]db.RulesContent, name string, grant, owner uuid.UUID) (db.RulesContent, bool) {
+	rows := byName[strings.ToLower(name)]
+	if len(rows) == 0 {
+		return db.RulesContent{}, false
+	}
+	for _, want := range []func(db.RulesContent) bool{
+		func(r db.RulesContent) bool { return r.Source == db.ContentSourceSrd },
+		func(r db.RulesContent) bool {
+			return grant != uuid.Nil && r.CreatedBy.Valid && uuid.UUID(r.CreatedBy.Bytes) == grant
+		},
+		func(r db.RulesContent) bool { return r.CreatedBy.Valid && uuid.UUID(r.CreatedBy.Bytes) == owner },
+	} {
+		for _, r := range rows {
+			if want(r) {
+				return r, true
+			}
+		}
+	}
+	return rows[0], true
 }
 
 // creatureOptions answers "what may this hero have?" — the forms their
 // shapeshifting features admit, and the companions their features name.
 func (s *Server) creatureOptions(ctx context.Context, c db.Character) (api.CreatureOptions, error) {
 	out := api.CreatureOptions{Forms: []api.FormAllowance{}, Companions: []api.CreatureOption{}}
-	scope := heroScope(c)
 	sources := s.grantSources(ctx, c)
 	if len(sources) == 0 {
 		return out, nil
@@ -190,21 +276,17 @@ func (s *Server) creatureOptions(ctx context.Context, c db.Character) (api.Creat
 	if !wantsMonsters {
 		return out, nil
 	}
-	monsters, err := s.visibleMonsters(ctx, c.OwnerUserID)
+	monsters, err := s.visibleMonsters(ctx, c, sources)
 	if err != nil {
 		return out, err
 	}
-	byName := map[string]db.RulesContent{}
+	byName := map[string][]db.RulesContent{}
 	for _, m := range monsters {
-		// SRD first, so a homebrew entry shadowing an SRD name does not
-		// silently replace the block a feature meant to point at.
-		if prior, seen := byName[strings.ToLower(m.Name)]; seen && prior.Source == db.ContentSourceSrd {
-			continue
-		}
-		byName[strings.ToLower(m.Name)] = m
+		key := strings.ToLower(m.Name)
+		byName[key] = append(byName[key], m)
 	}
 
-	option := func(row db.RulesContent, role api.CreatureRole, grantedBy, summary string) api.CreatureOption {
+	option := func(row db.RulesContent, role api.CreatureRole, grantedBy, summary string, scope rules.Scope) api.CreatureOption {
 		block, _, _ := rules.ResolveBlock(row.Data, nil, scope)
 		id := row.ID
 		if summary == "" {
@@ -222,14 +304,16 @@ func (s *Server) creatureOptions(ctx context.Context, c db.Character) (api.Creat
 
 	for _, src := range sources {
 		companions, forms := rules.GrantsIn(src.data)
-		// A class's grants are read at the hero's level IN that class (#242).
+		// A class's grants are read at the hero's level IN that class (#242),
+		// and so are the formulas inside them.
 		srcLevel := src.levelOr(int(c.Level))
+		scope := heroScopeAt(c, srcLevel)
 
 		for _, grant := range companions {
 			if grant.Level > srcLevel {
 				continue
 			}
-			row, ok := byName[strings.ToLower(grant.Name)]
+			row, ok := monsterNamed(byName, grant.Name, src.author, c.OwnerUserID)
 			if !ok {
 				continue // names a block this instance does not have
 			}
@@ -237,7 +321,7 @@ func (s *Server) creatureOptions(ctx context.Context, c db.Character) (api.Creat
 			if !role.Valid() {
 				role = api.Companion
 			}
-			out.Companions = append(out.Companions, option(row, role, src.name, grant.Summary))
+			out.Companions = append(out.Companions, option(row, role, src.name, grant.Summary, scope))
 		}
 
 		allowance, ok := forms.At(srcLevel, scope)
@@ -251,7 +335,7 @@ func (s *Server) creatureOptions(ctx context.Context, c db.Character) (api.Creat
 		choices := []api.CreatureOption{}
 		for _, m := range monsters {
 			if allowance.EligibleForm(m.Data) {
-				choices = append(choices, option(m, api.Form, feature, ""))
+				choices = append(choices, option(m, api.Form, feature, "", scope))
 			}
 		}
 		creatureType := allowance.Type
@@ -271,11 +355,11 @@ func (s *Server) creatureOptions(ctx context.Context, c db.Character) (api.Creat
 // formTempHP is what assuming a form grants this hero, across every
 // shapeshifting feature they have. Zero when nothing declares any.
 func (s *Server) formTempHP(ctx context.Context, c db.Character) int {
-	scope := heroScope(c)
 	best := 0
 	for _, src := range s.grantSources(ctx, c) {
 		_, forms := rules.GrantsIn(src.data)
-		if allowance, ok := forms.At(int(c.Level), scope); ok && allowance.TempHP > best {
+		level := src.levelOr(int(c.Level))
+		if allowance, ok := forms.At(level, heroScopeAt(c, level)); ok && allowance.TempHP > best {
 			best = allowance.TempHP
 		}
 	}
@@ -405,26 +489,37 @@ func (s *Server) AddCharacterCreature(ctx context.Context, request api.AddCharac
 		return badRequest("role must be form, companion or summon")
 	}
 	isDM := member.Role == db.MembershipRoleDm && member.UserID != character.OwnerUserID
+	locked := tableLocked(character, member)
+
+	grantedBy := ""
+	if body.GrantedBy != nil {
+		grantedBy = strings.TrimSpace(*body.GrantedBy)
+	}
 
 	name := ""
 	var contentID pgtype.UUID
 	if body.ContentId != nil {
+		// Admitted by what names it (#378): the grant was ruled on when the hero
+		// sat down, so there is no codex row to ask about a monster — and there
+		// never could be one, since the codex refuses monsters.
 		row, err := s.creatureBlockFor(ctx, character, uuid.UUID(*body.ContentId), body.Role, isDM)
 		if err != nil {
 			return badRequest(err.Error())
 		}
-		// A seated hero only fields what the campaign's world admits.
-		if campaignID, seated := seatedCampaign(character); seated {
-			blockers, err := s.codexBlockers(ctx, campaignID, []uuid.UUID{row.ID})
+		if body.Role == api.Form && !isDM {
+			feature, msg, err := s.formRoom(ctx, character, row.ID)
 			if err != nil {
 				return nil, err
 			}
-			if len(blockers) > 0 {
-				return badRequest(row.Name + " is not admitted by the campaign's codex — ask the DM")
+			if msg != "" {
+				return badRequest(msg)
 			}
+			grantedBy = feature
 		}
 		contentID = pgUUID(row.ID)
 		name = row.Name
+	} else if locked {
+		return badRequest("at a table, a creature written by hand is the DM's to add — ask them")
 	}
 	if body.Name != nil && strings.TrimSpace(*body.Name) != "" {
 		name = strings.TrimSpace(*body.Name)
@@ -443,15 +538,14 @@ func (s *Server) AddCharacterCreature(ctx context.Context, request api.AddCharac
 	if !contentID.Valid && len(overrides) == 0 {
 		return badRequest("a hand-written creature needs at least one stat — start with hp and ac")
 	}
+	if locked && len(overrides) > 0 {
+		return badRequest("at a table, a creature's numbers are the DM's — take it as it stands")
+	}
 	raw, err := json.Marshal(overrides)
 	if err != nil {
 		return badRequest("unreadable overrides")
 	}
 
-	grantedBy := ""
-	if body.GrantedBy != nil {
-		grantedBy = strings.TrimSpace(*body.GrantedBy)
-	}
 	notes := ""
 	if body.Notes != nil {
 		notes = *body.Notes
@@ -478,6 +572,60 @@ func (s *Server) AddCharacterCreature(ctx context.Context, request api.AddCharac
 		return nil, err
 	}
 	return api.AddCharacterCreature201JSONResponse(s.freshCreature(ctx, character, created.ID)), nil
+}
+
+/*
+tableLocked is whether this caller may only take a hero's creatures as they
+stand (#378). At a table the numbers are the table's: a player renames their
+wolf, writes notes on it and tracks its hit points, but changing its stats or
+writing a creature by hand is the DM's — the same line the DM already holds
+over everything else on a seated sheet. An unseated hero is the owner's own
+sandbox, as before.
+*/
+func tableLocked(c db.Character, member db.Membership) bool {
+	_, seated := seatedCampaign(c)
+	return seated && member.Role != db.MembershipRoleDm
+}
+
+// formRoom checks a form against the shapeshifting feature that offers it: a
+// Druid knows only so many shapes (#378 — nothing counted them), and knows a
+// shape once. It answers the feature's name, which the row records as what
+// granted it, or why there is no room.
+func (s *Server) formRoom(ctx context.Context, c db.Character, contentID uuid.UUID) (string, string, error) {
+	options, err := s.creatureOptions(ctx, c)
+	if err != nil {
+		return "", "", err
+	}
+	held, err := s.queries.ListCharacterCreatures(ctx, c.ID)
+	if err != nil {
+		return "", "", err
+	}
+	for _, allowance := range options.Forms {
+		offered := false
+		for _, o := range allowance.Options {
+			if o.ContentId != nil && uuid.UUID(*o.ContentId) == contentID {
+				offered = true
+			}
+		}
+		if !offered {
+			continue
+		}
+		known := 0
+		for _, h := range held {
+			if h.Role != db.CreatureRoleForm || !strings.EqualFold(h.GrantedBy, allowance.Feature) {
+				continue
+			}
+			if h.ContentID.Valid && uuid.UUID(h.ContentID.Bytes) == contentID {
+				return "", "this hero already knows " + h.Name, nil
+			}
+			known++
+		}
+		if known >= allowance.Known {
+			return "", fmt.Sprintf("%s knows %d forms at this level — release one first", allowance.Feature, allowance.Known), nil
+		}
+		return allowance.Feature, "", nil
+	}
+	return "", "", nil
 }
 
 // creatureBlockFor resolves a chosen stat block and rules on whether this hero
@@ -559,6 +707,15 @@ func (s *Server) UpdateCharacterCreature(ctx context.Context, request api.Update
 		raw, err := json.Marshal(*body.Overrides)
 		if err != nil {
 			return badRequest("unreadable overrides")
+		}
+		if !sameJSON(raw, row.Overrides) {
+			member, err := s.requireCharacterEditor(ctx, character)
+			if err != nil {
+				return nil, err
+			}
+			if tableLocked(character, member) {
+				return badRequest("at a table, a creature's numbers are the DM's — ask them to change it")
+			}
 		}
 		overrides = raw
 	}
@@ -715,4 +872,20 @@ func (s *Server) GetCreatureOptions(ctx context.Context, request api.GetCreature
 		return nil, err
 	}
 	return api.GetCreatureOptions200JSONResponse(options), nil
+}
+
+// sameJSON is whether two JSON documents say the same thing, however they are
+// spaced or ordered — a patch that resends what is stored changes nothing.
+func sameJSON(a, b []byte) bool {
+	var x, y any
+	if len(a) == 0 {
+		a = []byte("{}")
+	}
+	if len(b) == 0 {
+		b = []byte("{}")
+	}
+	if json.Unmarshal(a, &x) != nil || json.Unmarshal(b, &y) != nil {
+		return false
+	}
+	return reflect.DeepEqual(x, y)
 }

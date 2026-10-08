@@ -86,6 +86,7 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 
 	// SRD names by kind, so an entry that shadows one can be called out. A
 	// lookup failure just means no warnings — never a failed import.
+	importerName, _ := s.ownerName(ctx, uid)
 	srdNames := map[db.ContentKind]map[string]bool{}
 	if rows, err := s.queries.ListSRDNames(ctx); err == nil {
 		for _, row := range rows {
@@ -142,6 +143,11 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 		if entry.Summary != nil {
 			summary = *entry.Summary
 		}
+		// What the import is about to overwrite, so a changed entry can go
+		// back to the tables that admitted it (#378) and an unchanged one not.
+		before, hadBefore := s.queries.HomebrewByName(ctx, db.HomebrewByNameParams{
+			Kind: kind, Name: name, CreatedBy: pgUUID(uid),
+		})
 		row, err := s.queries.UpsertOwnHomebrew(ctx, db.UpsertOwnHomebrewParams{
 			Kind:      kind,
 			Name:      name,
@@ -152,6 +158,9 @@ func (s *Server) ImportContentPack(ctx context.Context, request api.ImportConten
 		if err != nil {
 			fail(string(kind), name, fmt.Sprintf("storage refused the entry: %v", err))
 			continue
+		}
+		if hadBefore == nil && (before.Summary != summary || !sameJSON(before.Data, raw)) {
+			s.reproposeEdited(ctx, db.RulesContent{ID: row.ID, Name: row.Name, Kind: row.Kind}, uid, importerName)
 		}
 		for _, g := range rules.AlwaysPreparedIn(raw) {
 			for _, sp := range g.Spells {
