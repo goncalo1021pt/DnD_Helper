@@ -24,7 +24,7 @@ export type Method = "array" | "points" | "manual";
 export type BonusMode = "2/1" | "1/1/1";
 
 export const BASE_STEPS = ["Class", "Background", "Species", "Abilities", "Name"] as const;
-export type StepName = (typeof BASE_STEPS)[number] | "Spells" | "Gear";
+export type StepName = (typeof BASE_STEPS)[number] | "Choices" | "Spells" | "Gear";
 
 // What the option steps are browsing, for the sieve's placeholder and tally.
 export const STEP_NOUN: Partial<Record<StepName, string>> = {

@@ -87,6 +87,7 @@ func (s *Server) ListPregens(ctx context.Context, request api.ListPregensRequest
 			SubclassID:     row.SubclassID,
 			Feats:          row.Feats,
 			SpeciesChoices: row.SpeciesChoices,
+			ClassChoices:   row.ClassChoices,
 			SpellSlotsUsed: row.SpellSlotsUsed,
 			HitDiceSpent:   row.HitDiceSpent,
 			PoolsUsed:      row.PoolsUsed,

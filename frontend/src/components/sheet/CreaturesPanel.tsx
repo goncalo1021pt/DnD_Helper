@@ -19,6 +19,11 @@ Every number is moldable. A companion's book value is a starting point — half
 of them scale off the hero's level, and the ones that don't get houseruled — so
 the editor writes overrides, the server merges them over the library entry, and
 `molded` marks which numbers stopped tracking the book.
+
+At a table the numbers are the table's (#378): a player takes a creature from
+the list as it stands, renames it and keeps notes and its hit points, while
+molding its stats and writing one by hand is the DM's. `locked` says so; the
+server holds the same line.
 */
 
 import { useState } from "react";
@@ -81,10 +86,13 @@ export default function CreaturesPanel({
   characterId,
   creatures,
   canEdit,
+  locked = false,
 }: {
   characterId: string;
   creatures: CharacterCreature[];
   canEdit: boolean;
+  /** A seated hero read by someone who is not the table's DM. */
+  locked?: boolean;
 }) {
   const [picking, setPicking] = useState(false);
   const [reading, setReading] = useState<CharacterCreature | null>(null);
@@ -228,7 +236,7 @@ export default function CreaturesPanel({
                       onClick={() => setMolding(creature)}
                       className="btn-base btn-ghost-ink px-3 py-1 text-[10.5px]"
                     >
-                      Mold
+                      {locked ? "Rename" : "Mold"}
                     </button>
                     <button
                       onClick={() => remove.mutate(creature.id)}
@@ -255,6 +263,7 @@ export default function CreaturesPanel({
         <MoldModal
           characterId={characterId}
           creature={molding}
+          locked={locked}
           onClose={() => setMolding(null)}
         />
       )}
@@ -264,6 +273,8 @@ export default function CreaturesPanel({
           characterId={characterId}
           options={options}
           loading={optionsLoading}
+          locked={locked}
+          held={creatures}
           onClose={() => setPicking(false)}
           onPreview={(option) => setPreview(option)}
         />
@@ -287,10 +298,12 @@ is the only way to un-mold something once you have touched it.
 function MoldModal({
   characterId,
   creature,
+  locked,
   onClose,
 }: {
   characterId: string;
   creature: CharacterCreature;
+  locked: boolean;
   onClose: () => void;
 }) {
   const update = useUpdateCreature(characterId);
@@ -316,7 +329,8 @@ function MoldModal({
         creatureId: creature.id,
         name: name.trim() || creature.name,
         notes,
-        overrides: moldPatch(creature.overrides, seed, fields),
+        // A locked creature's numbers are not this editor's to send.
+        ...(locked ? {} : { overrides: moldPatch(creature.overrides, seed, fields) }),
       },
       { onSuccess: onClose },
     );
@@ -335,10 +349,13 @@ function MoldModal({
 
   return (
     <ParchmentModal onClose={onClose} maxWidth="max-w-[460px]">
-      <div className="font-display text-[15px] font-bold text-ink">Mold {creature.name}</div>
+      <div className="font-display text-[15px] font-bold text-ink">
+        {locked ? "Rename" : "Mold"} {creature.name}
+      </div>
       <div className="font-accent mt-0.5 text-[11.5px] italic text-ink-body">
-        Blank a field to hand that number back to the book — it will follow your
-        level again.
+        {locked
+          ? "At the table its numbers are the DM's — the name and the notes are yours."
+          : "Blank a field to hand that number back to the book — it will follow your level again."}
       </div>
 
       <label className="mt-3 flex flex-col gap-1">
@@ -351,13 +368,17 @@ function MoldModal({
         />
       </label>
 
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        {MOLDABLE.map(([key, label]) => field(key, label))}
-      </div>
+      {!locked && (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            {MOLDABLE.map(([key, label]) => field(key, label))}
+          </div>
 
-      <div className="mt-3 grid grid-cols-3 gap-2.5 sm:grid-cols-6">
-        {ABILITIES.map((ab) => field(ab, ab.toUpperCase()))}
-      </div>
+          <div className="mt-3 grid grid-cols-3 gap-2.5 sm:grid-cols-6">
+            {ABILITIES.map((ab) => field(ab, ab.toUpperCase()))}
+          </div>
+        </>
+      )}
 
       <label className="mt-3 flex flex-col gap-1">
         <span className="label-stamp text-[8.5px] tracking-[1px] text-ink-label">Notes</span>
@@ -398,12 +419,17 @@ function PickerModal({
   characterId,
   options,
   loading,
+  locked,
+  held,
   onClose,
   onPreview,
 }: {
   characterId: string;
   options: ReturnType<typeof useCreatureOptions>["data"];
   loading: boolean;
+  locked: boolean;
+  /** What the hero already has, so a known form is not offered twice. */
+  held: CharacterCreature[];
   onClose: () => void;
   onPreview: (option: CreatureOption) => void;
 }) {
@@ -426,7 +452,13 @@ function PickerModal({
   const q = search.trim().toLowerCase();
   const match = (option: CreatureOption) => !q || option.name.toLowerCase().includes(q);
 
-  const row = (option: CreatureOption, key: string) => (
+  // A Druid knows a shape once, and only so many (#378); the server refuses
+  // both, so the list says so before the button does.
+  const knownForms = (feature: string) =>
+    held.filter((h) => h.role === "form" && (h.grantedBy ?? "").toLowerCase() === feature.toLowerCase());
+  const row = (option: CreatureOption, key: string, full = false) => {
+    const known = option.role === "form" && held.some((h) => h.role === "form" && h.contentId === option.contentId);
+    return (
     <div key={key} className="flex items-center gap-2">
       <button
         onClick={() => onPreview(option)}
@@ -438,15 +470,20 @@ function PickerModal({
           CR {String((option.block.cr ?? "?")).split(" ")[0]} · AC {String(option.block.ac ?? "—")}
         </span>
       </button>
-      <button
-        onClick={() => take(option)}
-        disabled={add.isPending}
-        className="btn-base btn-ghost-ink px-3 py-1 text-[10.5px]"
-      >
-        Take
-      </button>
+      {known ? (
+        <span className="label-stamp px-3 text-[9px] tracking-[1px] text-ink-label">Known</span>
+      ) : (
+        <button
+          onClick={() => take(option)}
+          disabled={add.isPending || full}
+          className="btn-base btn-ghost-ink px-3 py-1 text-[10.5px]"
+        >
+          Take
+        </button>
+      )}
     </div>
-  );
+    );
+  };
 
   const forms = options?.forms ?? [];
   const companions = options?.companions ?? [];
@@ -498,15 +535,30 @@ function PickerModal({
             {allowance.maxCR < 1 ? `1/${Math.round(1 / allowance.maxCR)}` : allowance.maxCR}
             {allowance.fly ? " · flight allowed" : " · no flying forms yet"}
             {allowance.tempHp > 0 ? ` · +${allowance.tempHp} temp HP` : ""}
+            {knownForms(allowance.feature).length >= allowance.known &&
+              " · all known — release one to learn another"}
           </div>
           <div className="mt-1.5 flex max-h-[240px] flex-col gap-1.5 overflow-y-auto">
-            {allowance.options.filter(match).map((option, j) => row(option, `f${i}-${j}`))}
+            {allowance.options
+              .filter(match)
+              .map((option, j) =>
+                row(option, `f${i}-${j}`, knownForms(allowance.feature).length >= allowance.known),
+              )}
           </div>
         </div>
       ))}
 
       {/* A houseruled beast, a DM's improvisation, a creature from a book this
-          instance does not have — all of them start here. */}
+          instance does not have — all of them start here. At a table that is
+          the DM's to do (#378). */}
+      {locked ? (
+        <div
+          className="font-accent mt-4 border-t pt-3 text-[11.5px] italic text-ink-body"
+          style={{ borderColor: "rgba(90,60,20,.25)" }}
+        >
+          A creature that is not on this list is the DM's to add at the table.
+        </div>
+      ) : (
       <div className="mt-4 border-t pt-3" style={{ borderColor: "rgba(90,60,20,.25)" }}>
         <div className="label-stamp text-[8.5px] tracking-[1px] text-ink-label">
           Or write one by hand
@@ -552,6 +604,7 @@ function PickerModal({
           </button>
         </div>
       </div>
+      )}
     </ParchmentModal>
   );
 }

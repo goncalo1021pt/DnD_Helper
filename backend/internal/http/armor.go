@@ -73,6 +73,21 @@ type heroFeature struct {
 	Level            int               `json:"level"`
 	Name             string            `json:"name"`
 	UnarmoredDefense *unarmoredDefense `json:"unarmoredDefense"`
+	// ArmoredAC is +N while wearing armour — the Defense fighting style, which
+	// a feat declares at the top of its data (#379).
+	ArmoredAC int `json:"armoredAC"`
+}
+
+// featFeature reads a taken feat as one feature: a feat has no level table, it
+// is whole from the moment it is taken, and what it declares sits at the top
+// of its data.
+func featFeature(data []byte) (heroFeature, bool) {
+	var f heroFeature
+	if len(data) == 0 || json.Unmarshal(data, &f) != nil {
+		return heroFeature{}, false
+	}
+	f.Level = 1
+	return f, true
 }
 
 // featureSource is the shape every content entry that grants features shares.
@@ -192,6 +207,11 @@ func armorClass(items []wornItem, abilities map[string]int, features []heroFeatu
 				ac = base
 			}
 		}
+	} else {
+		// The Defense fighting style: a better use of the armour, so only in it.
+		for _, f := range features {
+			ac += f.ArmoredAC
+		}
 	}
 	return ac + shield + worn
 }
@@ -215,7 +235,7 @@ func characterAbilities(ch db.Character) map[string]int {
 
 // heroArmorClass derives one hero's AC the way their sheet does: their equipped
 // kit, plus any feature from the four sheet columns that replaces the
-// unarmoured formula.
+// unarmoured formula, plus the feats they have taken (Defense).
 func (s *Server) heroArmorClass(ctx context.Context, ch db.Character) (int32, error) {
 	rows, err := s.queries.ListCharacterItems(ctx, ch.ID)
 	if err != nil {
@@ -238,6 +258,11 @@ func (s *Server) heroArmorClass(ctx context.Context, ch db.Character) (int32, er
 			return 0, err
 		}
 		features = append(features, earnedFeatures(content.Data, int(ch.Level))...)
+	}
+	for _, feat := range s.takenFeats(ctx, ch) {
+		if f, ok := featFeature(feat.Data); ok {
+			features = append(features, f)
+		}
 	}
 
 	return int32(armorClass(items, characterAbilities(ch), features)), nil

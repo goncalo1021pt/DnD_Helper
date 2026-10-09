@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { InventoryItem, RulesContent } from "../api/client";
+import type { FeatureChoice, InventoryItem, RulesContent } from "../api/client";
 import {
   useAddItem,
   useCampaigns,
@@ -14,7 +14,15 @@ import {
 import { classLine } from "../lib/classes";
 import { coinageOf, formatCoins } from "../lib/money";
 import { levelUpHold } from "../lib/progression";
-import { acFromEquipment, featuresOf, profBonus, weaponAttacks, type Feature } from "../lib/derive";
+import {
+  acFromEquipment,
+  featAsFeature,
+  featuresOf,
+  profBonus,
+  weaponAttacks,
+  weaponProficiencies,
+  type Feature,
+} from "../lib/derive";
 import { hpColor, initials, medallionFor } from "../lib/party";
 import AbilityRow from "./ui/AbilityRow";
 import { abilityMod, modText } from "../lib/abilities";
@@ -40,6 +48,8 @@ import SectionLabel, { type SpeciesChoice } from "./sheet/SectionLabel";
 import SkillsPanel from "./sheet/SkillsPanel";
 import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
+import { FeatureChoiceModal } from "./sheet/FeatureChoicePicker";
+import { poolFor, trainingFromChoices } from "../lib/featureChoices";
 import PoolsPanel from "./sheet/PoolsPanel";
 import CreaturesPanel from "./sheet/CreaturesPanel";
 import Person from "./ui/Person";
@@ -74,6 +84,7 @@ export default function HeroSheetPage() {
   const [tab, setTab] = useState<"sheet" | "inventory">("sheet");
   const [itemSearch, setItemSearch] = useState("");
   const [itemType, setItemType] = useState("");
+  const [choosing, setChoosing] = useState<FeatureChoice | null>(null);
 
   const character = detail?.character;
   const sheet = character?.sheet;
@@ -193,8 +204,9 @@ export default function HeroSheetPage() {
       // exact match alone would leave the most commonly granted feat wordless.
       const bare = name.replace(/\s*\(.*\)\s*$/, "");
       const entry = feats?.find((f) => f.name === name) ?? feats?.find((f) => f.name === bare);
-      const data = entry?.data as { description?: string } | undefined;
-      return { name, summary: data?.description ?? entry?.summary, from: "Feat" };
+      // Carrying what the feat declares, so Defense lifts the AC and Archery
+      // the aim (#379) through the same list the rest of the sheet reads.
+      return featAsFeature(name, entry);
     });
 
     // The background's own grant that appears nowhere else on the sheet: its
@@ -246,7 +258,19 @@ export default function HeroSheetPage() {
   const prof = profBonus(character.level);
   // Features, because Unarmored Defense replaces the base formula (#132).
   const ac = abilities ? acFromEquipment(detail.items, abilities, features) : null;
-  const attacks = abilities ? weaponAttacks(detail.items, abilities, character.level) : [];
+  // The starting class grants its weapons whole; a later class only what its
+  // multiclass line says (#379).
+  const proficiencies = weaponProficiencies(
+    klass,
+    (sheet?.classes ?? [])
+      .filter((k) => k.classId !== sheet?.classId)
+      .map((k) => classes?.find((c) => c.id === k.classId)),
+    // A Protector Cleric's Divine Order trains Martial weapons (#382).
+    [species, background, ...trainingFromChoices(sheet?.featureChoices)],
+  );
+  const attacks = abilities
+    ? weaponAttacks(detail.items, abilities, character.level, { features, proficiencies })
+    : [];
   const slots = sheet?.spellSlots ?? [];
   const hpc = hpColor(character.hpCurrent, character.hpMax);
 
@@ -358,6 +382,7 @@ export default function HeroSheetPage() {
                   subclasses,
                   species: speciesLibrary,
                   backgrounds: backgroundLibrary,
+                  feats,
                 });
               } catch (e) {
                 setPrintError(
@@ -467,7 +492,12 @@ export default function HeroSheetPage() {
             <SkillsPanel sheet={sheet} prof={prof} />
 
             {/* features */}
-            <FeaturesPanel features={features} />
+            <FeaturesPanel
+              features={features}
+              choices={sheet.featureChoices ?? []}
+              canEdit={canEdit}
+              onChoose={setChoosing}
+            />
 
             {/* Rages, Channel Divinity, Focus Points — the uses those
                 features spend (#175). Under Features for the same reason the
@@ -485,6 +515,11 @@ export default function HeroSheetPage() {
               characterId={character.id}
               creatures={detail.creatures}
               canEdit={canEdit}
+              // At a table the creatures' numbers are the DM's (#378).
+              locked={
+                !!character.campaignId &&
+                memberships?.find((m) => m.campaign.id === character.campaignId)?.role !== "dm"
+              }
             />
 
             {/* One action instead of three chores (#118). */}
@@ -1040,6 +1075,20 @@ export default function HeroSheetPage() {
 
       {levelling && (
         <LevelUpModal character={character} onClose={() => setLevelling(false)} />
+      )}
+      {choosing && (
+        <FeatureChoiceModal
+          characterId={character.id}
+          choice={choosing}
+          pool={poolFor(choosing, {
+            feats,
+            items: itemLibrary,
+            skills: sheet?.skills,
+            heldFeats: sheet?.feats,
+            expertise: sheet?.expertise,
+          })}
+          onClose={() => setChoosing(null)}
+        />
       )}
       {swapping && (
         <SpellSwapModal

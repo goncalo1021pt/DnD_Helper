@@ -57,6 +57,37 @@ func (q *Queries) AddCharacterCreature(ctx context.Context, arg AddCharacterCrea
 	return i, err
 }
 
+const contentAuthors = `-- name: ContentAuthors :many
+SELECT id, created_by::uuid AS author FROM rules_content
+WHERE id = ANY($1::uuid[]) AND source = 'homebrew' AND created_by IS NOT NULL
+`
+
+type ContentAuthorsRow struct {
+	ID     uuid.UUID `json:"id"`
+	Author uuid.UUID `json:"author"`
+}
+
+// Who wrote each homebrew entry among these.
+func (q *Queries) ContentAuthors(ctx context.Context, ids []uuid.UUID) ([]ContentAuthorsRow, error) {
+	rows, err := q.db.Query(ctx, contentAuthors, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ContentAuthorsRow
+	for rows.Next() {
+		var i ContentAuthorsRow
+		if err := rows.Scan(&i.ID, &i.Author); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deactivateCharacterForms = `-- name: DeactivateCharacterForms :exec
 UPDATE character_creatures
 SET active = false, updated_at = now()
@@ -178,15 +209,17 @@ func (q *Queries) ListCharacterCreatures(ctx context.Context, characterID uuid.U
 
 const listMonstersForCreatures = `-- name: ListMonstersForCreatures :many
 SELECT id, kind, source, name, summary, data, created_by, created_at, updated_at FROM rules_content
-WHERE kind = 'monster' AND (source = 'srd' OR created_by = $1)
+WHERE kind = 'monster' AND (source = 'srd' OR created_by = ANY($1::uuid[]))
 ORDER BY name
 `
 
-// The stat blocks a hero may draw a creature from: SRD plus the viewer's own
-// homebrew. Deliberately NOT the Den's query — this one is reachable by
-// players, and the handler narrows it to what their features actually grant.
-func (q *Queries) ListMonstersForCreatures(ctx context.Context, createdBy pgtype.UUID) ([]RulesContent, error) {
-	rows, err := q.db.Query(ctx, listMonstersForCreatures, createdBy)
+// The stat blocks a hero may draw a creature from: SRD plus the homebrew of
+// the authors given — the hero's owner, whoever wrote the features that grant
+// the hero a creature, and a seated hero's DMs (#378). Deliberately NOT the
+// Den's query — this one is reachable by players, and the handler narrows it
+// to what their features actually grant.
+func (q *Queries) ListMonstersForCreatures(ctx context.Context, authors []uuid.UUID) ([]RulesContent, error) {
+	rows, err := q.db.Query(ctx, listMonstersForCreatures, authors)
 	if err != nil {
 		return nil, err
 	}

@@ -37,3 +37,15 @@ INSERT INTO campaign_content (campaign_id, content_id, status, proposed_by)
 SELECT $1, unnest($2::uuid[]), $3, $4
 ON CONFLICT (campaign_id, content_id)
 DO UPDATE SET status = EXCLUDED.status;
+
+-- name: ReproposeEditedContent :many
+-- An author changed homebrew a table had admitted (#378): the admission was
+-- for what the DM read, so it goes back to them as a proposal. Not where the
+-- author is a DM of that table — a DM editing their own world is not asking.
+UPDATE campaign_content cc SET status = 'proposed'
+WHERE cc.content_id = @content_id AND cc.status = 'enabled'
+  AND NOT EXISTS (
+    SELECT 1 FROM memberships m
+    WHERE m.campaign_id = cc.campaign_id AND m.user_id = @author AND m.role = 'dm'
+  )
+RETURNING cc.campaign_id;

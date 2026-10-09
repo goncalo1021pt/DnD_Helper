@@ -651,6 +651,7 @@ type Character struct {
 	Kind           CharacterKind      `json:"kind"`
 	PartyID        pgtype.UUID        `json:"party_id"`
 	PregenBy       pgtype.UUID        `json:"pregen_by"`
+	ClassChoices   []byte             `json:"class_choices"`
 }
 
 type CharacterClass struct {

@@ -28,7 +28,11 @@
     "category's DEX rule, a shield adds it to its board, and a worn `gear` item",
     "(`wear`: cloak, ring, ...) adds it to the wearer on top of everything. An",
     "item that declares `attunement` contributes the bonus only while its row",
-    "is attuned — an unattuned Frost Brand is a well-made sword and no more."
+    "is attuned — an unattuned Frost Brand is a well-made sword and no more.",
+    "",
+    "feats are the data of the feats a hero has taken (#379). One declaring",
+    "`armoredAC` — the Defense fighting style — adds it while armour is worn,",
+    "and only then."
   ],
   "cases": [
     {
@@ -339,6 +343,24 @@
       "abilities": { "str": 10, "dex": 14, "con": 10, "int": 10, "wis": 10, "cha": 10 },
       "sources": [],
       "items": [{ "equipped": true, "data": { "type": "gear", "wear": "ring", "bonus": 1, "attunement": true } }],
+      "ac": 12
+    },
+    {
+      "name": "Defense: the fighting style lifts a hero in armour",
+      "level": 1,
+      "abilities": { "str": 16, "dex": 10, "con": 14, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "feats": [{ "category": "fighting-style", "armoredAC": 1 }],
+      "items": [{ "equipped": true, "data": { "type": "armor", "category": "Heavy", "ac": 16 } }],
+      "ac": 17
+    },
+    {
+      "name": "Defense does nothing for a hero in a shirt",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 14, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "feats": [{ "category": "fighting-style", "armoredAC": 1 }],
+      "items": [],
       "ac": 12
     }
   ]

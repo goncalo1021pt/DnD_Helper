@@ -2,7 +2,15 @@ import type { CharacterDetail, InventoryItem, RulesContent } from "../../api/cli
 import { coinageOf, coinCounts, type Coin } from "../money";
 import { isMulticlass, multiclassLine } from "../classes";
 import { abilityMod } from "../abilities";
-import { acFromEquipment, featuresOf, profBonus, weaponAttacks } from "../derive";
+import {
+  acFromEquipment,
+  featAsFeature,
+  featuresOf,
+  profBonus,
+  weaponAttacks,
+  weaponProficiencies,
+} from "../derive";
+import { trainingFromChoices } from "../featureChoices";
 import {
   ABILITIES,
   ABILITY_LABEL,
@@ -32,6 +40,8 @@ export interface SheetSources {
   subclasses?: RulesContent[];
   species?: RulesContent[];
   backgrounds?: RulesContent[];
+  /** The feat library — a fighting style changes the AC and the aim (#379). */
+  feats?: RulesContent[];
 }
 
 interface ClassData {
@@ -132,6 +142,7 @@ export function buildSheetValues({
   subclasses,
   species,
   backgrounds,
+  feats,
 }: SheetSources): SheetValues {
   const ladder = coinageOf(coinage);
   const character = detail.character;
@@ -180,8 +191,13 @@ export function buildSheetValues({
     v[`${a}SaveProf`] = saveProf;
   }
 
+  // Expertise counts the bonus twice (#382); the printed sheet has no mark for
+  // it, so it shows in the number alone.
+  const expertSkills = new Set(sheet?.expertise ?? []);
   const skillMod = (ability: AbilityKey, name: string) =>
-    abilityMod(abilities?.[ability] ?? 10) + (proficientSkills.has(name) ? prof : 0);
+    abilityMod(abilities?.[ability] ?? 10) +
+    (proficientSkills.has(name) ? prof : 0) +
+    (proficientSkills.has(name) && expertSkills.has(name) ? prof : 0);
 
   if (abilities) {
     for (const { name, ability } of SKILLS) {
@@ -200,9 +216,26 @@ export function buildSheetValues({
   // unarmoredDefense on a class or a subclass, but content packs are additive,
   // and a homebrew species that shipped one used to raise the AC on screen and
   // not on the page (#153). The server derives it from the same four.
-  const acFeatures = [klass, subclass, race, background].flatMap((src) =>
-    featuresOf(src, character.level),
-  );
+  //
+  // A class is read at the hero's level in it, as the screen reads it, so a
+  // Monk 3 / Fighter 5 rolls a Martial Arts die of three levels and not eight;
+  // and the feats ride along for Defense and Archery (#379).
+  const held = sheet?.classes ?? [];
+  const classFeatures = held.length
+    ? held.flatMap((k) => [
+        ...featuresOf(byId(classes, k.classId), k.level),
+        ...featuresOf(byId(subclasses, k.subclassId), k.level),
+      ])
+    : [klass, subclass].flatMap((src) => featuresOf(src, character.level));
+  const featFeatures = (sheet?.feats ?? []).map((name) => {
+    const bare = name.replace(/\s*\(.*\)\s*$/, "");
+    return featAsFeature(name, feats?.find((f) => f.name === name) ?? feats?.find((f) => f.name === bare));
+  });
+  const acFeatures = [
+    ...classFeatures,
+    ...[race, background].flatMap((src) => featuresOf(src, character.level)),
+    ...featFeatures,
+  ];
   v.armorClass = abilities ? String(acFromEquipment(detail.items, abilities, acFeatures)) : "";
   v.shield = detail.items.some(
     (i) => i.equipped && ((i.content?.data ?? {}) as { type?: string }).type === "shield",
@@ -229,7 +262,14 @@ export function buildSheetValues({
 
   // — weapons and damage cantrips —
   const allSpells = detail.spells ?? [];
-  const attacks = abilities ? weaponAttacks(detail.items, abilities, character.level) : [];
+  const proficiencies = weaponProficiencies(
+    klass,
+    held.filter((k) => k.classId !== sheet?.classId).map((k) => byId(classes, k.classId)),
+    [race, background, ...trainingFromChoices(sheet?.featureChoices)],
+  );
+  const attacks = abilities
+    ? weaponAttacks(detail.items, abilities, character.level, { features: acFeatures, proficiencies })
+    : [];
   const castMod = sheet?.spellcastingAbility
     ? abilityMod(abilities?.[sheet.spellcastingAbility.toLowerCase() as AbilityKey] ?? 10)
     : 0;

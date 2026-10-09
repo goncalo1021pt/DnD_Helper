@@ -96,6 +96,7 @@ func (s *Server) ListCharacters(ctx context.Context, request api.ListCharactersR
 			SubclassID:     row.SubclassID,
 			Feats:          row.Feats,
 			SpeciesChoices: row.SpeciesChoices,
+			ClassChoices:   row.ClassChoices,
 			SpellSlotsUsed: row.SpellSlotsUsed,
 			HitDiceSpent:   row.HitDiceSpent,
 			PoolsUsed:      row.PoolsUsed,
@@ -403,6 +404,11 @@ func toAPICharacterWithClass(c db.Character, ownerName string, viewer uuid.UUID,
 	if out.Sheet != nil && len(classes) > 0 {
 		list := toAPICharacterClasses(classes, c.ClassID)
 		out.Sheet.Classes = &list
+		// What the class features ask of the hero, made and owed (#382).
+		choices := featureChoicesFor(classes, decodeClassChoices(c.ClassChoices))
+		expertise := expertiseOf(choices)
+		out.Sheet.FeatureChoices = &choices
+		out.Sheet.Expertise = &expertise
 	}
 	// Hit dice pooled across every class the hero holds, which is the only
 	// version that is right for a multiclassed one (#190).

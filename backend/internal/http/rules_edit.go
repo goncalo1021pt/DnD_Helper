@@ -86,6 +86,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 		if msg := validateFeaturesTable(data); msg != "" {
 			return msg
 		}
+		if msg := validateFeatureChoices(data); msg != "" {
+			return msg
+		}
 	case db.ContentKindSpecies:
 		if size, ok := getStr(data, "size"); !ok || strings.TrimSpace(size) == "" {
 			return "species data needs a size (e.g. \"Medium\")"
@@ -118,6 +121,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 	case db.ContentKindSubclass:
 		if class, ok := getStr(data, "class"); !ok || strings.TrimSpace(class) == "" {
 			return "subclass data needs class: the parent class name (e.g. \"Fighter\")"
+		}
+		if msg := validateFeatureChoices(data); msg != "" {
+			return msg
 		}
 	case db.ContentKindSpell:
 		lvl, ok := getNum(data, "level")
@@ -639,6 +645,9 @@ func (s *Server) UpdateRulesContent(ctx context.Context, request api.UpdateRules
 	if err != nil {
 		return nil, err
 	}
+	if existing.Name != row.Name || existing.Summary != row.Summary || !sameJSON(existing.Data, row.Data) {
+		s.reproposeEdited(ctx, row, uid, me.Name)
+	}
 	return api.UpdateRulesContent200JSONResponse(toAPIRulesContent(row, &me.Name, uid)), nil
 }
 
@@ -775,4 +784,30 @@ func validContentKind(k db.ContentKind) bool {
 		return true
 	}
 	return false
+}
+
+/*
+reproposeEdited sends homebrew back to the tables that admitted it, once its
+author has changed it (#378). A DM admitted what they read; a companion, a
+subclass or a feat edited afterwards — a Steel Defender quietly given forty
+more hit points — reached that table live and unread. Its codex row returns to
+proposed, which is where the DM's codex already lists what waits on them, and
+the chronicle says why. Not at a table the author is a DM of: a DM editing
+their own world is not asking anyone.
+
+Nothing on a sheet is pulled: a hero already using it keeps it while the DM
+rules, as a hero keeps an SRD entry the DM bans after they sat down.
+*/
+func (s *Server) reproposeEdited(ctx context.Context, row db.RulesContent, author uuid.UUID, authorName string) {
+	campaigns, err := s.queries.ReproposeEditedContent(ctx, db.ReproposeEditedContentParams{
+		ContentID: row.ID,
+		Author:    author,
+	})
+	if err != nil {
+		return
+	}
+	for _, campaignID := range campaigns {
+		s.logEvent(ctx, campaignID, author, "codex_proposed",
+			fmt.Sprintf("%s changed %q (%s) — it waits on the DM's ruling again", authorName, row.Name, row.Kind))
+	}
 }

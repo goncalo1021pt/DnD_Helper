@@ -77,6 +77,11 @@ ON CONFLICT (kind, name, created_by) WHERE source = 'homebrew' DO UPDATE
 SET summary = EXCLUDED.summary, data = EXCLUDED.data, updated_at = now()
 RETURNING *, (xmax = 0) AS created;
 
+-- name: HomebrewByName :one
+-- An author's own entry of a kind and name, as an import is about to overwrite it.
+SELECT * FROM rules_content
+WHERE kind = $1 AND name = $2 AND created_by = $3 AND source = 'homebrew';
+
 -- name: ListSRDNames :many
 -- Every SRD entry's kind and name, for spotting pack entries that shadow one.
 SELECT kind, name FROM rules_content WHERE source = 'srd';

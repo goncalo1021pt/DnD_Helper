@@ -55,6 +55,18 @@ async function walkTheWizard(page: Page, heroName: string): Promise<void> {
   await expect(nextStep(page)).toBeEnabled();
   await nextStep(page).click();
 
+  // --- Choices: what the Fighter's level-1 features ask (#382) --------------
+  // A Fighting Style feat, and three kinds of weapon for Weapon Mastery — the
+  // step will not let you leave half-answered.
+  await expect(page.getByText("Fighting Style", { exact: true })).toBeVisible();
+  await expect(nextStep(page)).toBeDisabled();
+  await page.getByRole("checkbox", { name: /^Defense/ }).click();
+  for (const weapon of ["Longsword", "Handaxe", "Javelin"]) {
+    await page.getByRole("checkbox", { name: new RegExp(`^${weapon}`) }).click();
+  }
+  await expect(nextStep(page)).toBeEnabled();
+  await nextStep(page).click();
+
   // --- Gear: one of the class's starting kits ------------------------------
   await expect(page.getByText(/Starting equipment/i)).toBeVisible();
   await page.getByRole("button", { name: /Chain Mail/ }).click();
@@ -86,6 +98,16 @@ test("forges a hero through every step and lands on their sheet", async ({ page 
   // The hero exists and the shelf reads back what we chose.
   await expect(page.getByText(heroName)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/Fighter/).first()).toBeVisible();
+
+  // And the Forge's choices were made on them, not left owed (#382).
+  const mine = (await (await page.request.get("/api/me/characters")).json()) as Array<{
+    name: string;
+    sheet?: { feats?: string[]; featureChoices?: Array<{ feature: string; picked: string[] }> };
+  }>;
+  const forged = mine.find((h) => h.name === heroName);
+  expect(forged?.sheet?.feats).toContain("Defense");
+  const mastery = forged?.sheet?.featureChoices?.find((c) => c.feature === "Weapon Mastery");
+  expect(mastery?.picked).toEqual(["Longsword", "Handaxe", "Javelin"]);
 
   // A hero who made it spends the draft behind them (#130): coming back to the
   // Forge offers a blank one, not the choices that already became someone.

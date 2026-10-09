@@ -42,7 +42,7 @@
     {
      "level": 1,
      "name": "Rage",
-     "summary": "You can imbue yourself with a primal power called Rage, a force that grants you extraordinary might and resilience. You can enter it as a Bonus Action if you aren't wearing Heavy armor.\n\nYou can enter your Rage the number of times shown for your Barbarian level in the Rages column of the Barbarian Features table. You regain one expended use when you finish a Short Rest, and you regain all expended uses when you finish a Long Rest.\n\nWhile active, your Rage follows the rules below.\n\n_Damage Resistance._ You have Resistance to Bludgeoning, Piercing, and Slashing damage.\n\n_Rage Damage._ When you make an attack using Strength—with either a weapon or an Unarmed Strike—and deal damage to the target, you gain a bonus to the damage that increases as you gain levels as a Barbarian, as shown in the Rage Damage column of the Barbarian Features table.\n\n_Strength Advantage._ You have Advantage on Strength checks and Strength saving throws.\n\n_No Concentration or Spells._ You can't maintain Concentration, and you can't cast spells.\n\n_Duration._ The Rage lasts until the end of your next turn, and it ends early if you don Heavy armor or have the Incapacitated condition. If your Rage is still active on your next turn, you can extend the Rage for another round by doing one of the following:\n\n- Make an attack roll against an enemy.\n- Force an enemy to make a saving throw.\n- Take a Bonus Action to extend your Rage.\n\nEach time the Rage is extended, it lasts until the end of your next turn. You can maintain a Rage for up to 10 minutes."
+     "summary": "You can imbue yourself with a primal power called Rage, a force that grants you extraordinary might and resilience. You can enter it as a Bonus Action if you aren't wearing Heavy armor.\n\nYou can enter your Rage the number of times shown for your Barbarian level in the Rages column of the Barbarian Features table. You regain one expended use when you finish a Short Rest, and you regain all expended uses when you finish a Long Rest.\n\nWhile active, your Rage follows the rules below.\n\n_Damage Resistance._ You have Resistance to Bludgeoning, Piercing, and Slashing damage.\n\n_Rage Damage._ When you make an attack using Strength—with either a weapon or an Unarmed Strike—and deal damage to the target, you gain a bonus to the damage that increases as you gain levels as a Barbarian, as shown in the Rage Damage column of the Barbarian Features table.\n\n_Strength Advantage._ You have Advantage on Strength checks and Strength saving throws.\n\n_No Concentration or Spells._ You can't maintain Concentration, and you can't cast spells.\n\n_Duration._ The Rage lasts until the end of your next turn, and it ends early if you don Heavy armor or have the Incapacitated condition. If your Rage is still active on your next turn, you can extend the Rage for another round by doing one of the following:\n\n• Make an attack roll against an enemy.\n\n• Force an enemy to make a saving throw.\n\n• Take a Bonus Action to extend your Rage.\n\nEach time the Rage is extended, it lasts until the end of your next turn. You can maintain a Rage for up to 10 minutes."
     },
     {
      "level": 1,
@@ -59,7 +59,13 @@
     {
      "level": 1,
      "name": "Weapon Mastery",
-     "summary": "Your training with weapons allows you to use the mastery properties of two kinds of Simple or Martial Melee weapons of your choice, such as Greataxes and Handaxes. Whenever you finish a Long Rest, you can practice weapon drills and change one of those weapon choices.\n\nWhen you reach certain Barbarian levels, you gain the ability to use the mastery properties of more kinds of weapons, as shown in the Weapon Mastery column of the Barbarian Features table."
+     "summary": "Your training with weapons allows you to use the mastery properties of two kinds of Simple or Martial Melee weapons of your choice, such as Greataxes and Handaxes. Whenever you finish a Long Rest, you can practice weapon drills and change one of those weapon choices.\n\nWhen you reach certain Barbarian levels, you gain the ability to use the mastery properties of more kinds of weapons, as shown in the Weapon Mastery column of the Barbarian Features table.",
+     "choice": {
+      "id": "weapon-mastery",
+      "type": "mastery",
+      "chooseTable": "Weapon Mastery",
+      "swap": "rest"
+     }
     },
     {
      "level": 2,
@@ -323,7 +329,33 @@
     {
      "level": 2,
      "name": "Expertise",
-     "summary": "You gain Expertise (see \"Rules Glossary\") in two of your skill proficiencies of your choice. Performance and Persuasion are recommended if you have proficiency in them.\n\nAt Bard level 9, you gain Expertise in two more of your skill proficiencies of your choice."
+     "summary": "You gain Expertise (see \"Rules Glossary\") in two of your skill proficiencies of your choice. Performance and Persuasion are recommended if you have proficiency in them.\n\nAt Bard level 9, you gain Expertise in two more of your skill proficiencies of your choice.",
+     "choice": {
+      "id": "expertise",
+      "type": "expertise",
+      "choose": [
+       2,
+       2,
+       2,
+       2,
+       2,
+       2,
+       2,
+       2,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4
+      ]
+     }
     },
     {
      "level": 2,
@@ -536,7 +568,28 @@
     {
      "level": 1,
      "name": "Divine Order",
-     "summary": "You have dedicated yourself to one of the following sacred roles of your choice.\n\n_Protector._ Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor.\n\n_Thaumaturge._ You know one extra cantrip from the Cleric spell list. In addition, your mystical connection to the divine gives you a bonus to your Intelligence (Arcana or Religion) checks. The bonus equals your Wisdom modifier (minimum of +1)."
+     "summary": "You have dedicated yourself to one of the following sacred roles of your choice.\n\n_Protector._ Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor.\n\n_Thaumaturge._ You know one extra cantrip from the Cleric spell list. In addition, your mystical connection to the divine gives you a bonus to your Intelligence (Arcana or Religion) checks. The bonus equals your Wisdom modifier (minimum of +1).",
+     "choice": {
+      "id": "divine-order",
+      "type": "option",
+      "choose": 1,
+      "options": [
+       {
+        "name": "Protector",
+        "summary": "Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor.",
+        "weapons": [
+         "Martial"
+        ],
+        "armor": [
+         "Heavy"
+        ]
+       },
+       {
+        "name": "Thaumaturge",
+        "summary": "You know one extra cantrip from the Cleric spell list, and add your Wisdom modifier (minimum +1) to your Intelligence (Arcana or Religion) checks."
+       }
+      ]
+     }
     },
     {
      "level": 2,
@@ -778,7 +831,28 @@
     {
      "level": 1,
      "name": "Primal Order",
-     "summary": "You have dedicated yourself to one of the following sacred roles of your choice.\n\n_Magician._ You know one extra cantrip from the Druid spell list. In addition, your mystical connection to nature gives you a bonus to your Intelligence (Arcana or Nature) checks. The bonus equals your Wisdom modifier (minimum bonus of +1).\n\n_Warden._ Trained for battle, you gain proficiency with Martial weapons and training with Medium armor."
+     "summary": "You have dedicated yourself to one of the following sacred roles of your choice.\n\n_Magician._ You know one extra cantrip from the Druid spell list. In addition, your mystical connection to nature gives you a bonus to your Intelligence (Arcana or Nature) checks. The bonus equals your Wisdom modifier (minimum bonus of +1).\n\n_Warden._ Trained for battle, you gain proficiency with Martial weapons and training with Medium armor.",
+     "choice": {
+      "id": "primal-order",
+      "type": "option",
+      "choose": 1,
+      "options": [
+       {
+        "name": "Magician",
+        "summary": "You know one extra cantrip from the Druid spell list, and add your Wisdom modifier (minimum +1) to your Intelligence (Arcana or Nature) checks."
+       },
+       {
+        "name": "Warden",
+        "summary": "Trained for battle, you gain proficiency with Martial weapons and training with Medium armor.",
+        "weapons": [
+         "Martial"
+        ],
+        "armor": [
+         "Medium"
+        ]
+       }
+      ]
+     }
     },
     {
      "level": 2,
@@ -1054,7 +1128,14 @@
     {
      "level": 1,
      "name": "Fighting Style",
-     "summary": "You have honed your martial prowess and gain a Fighting Style feat of your choice (see \"Feats\"). Defense is recommended.\n\nWhenever you gain a Fighter level, you can replace the feat you chose with a different Fighting Style feat."
+     "summary": "You have honed your martial prowess and gain a Fighting Style feat of your choice (see \"Feats\"). Defense is recommended.\n\nWhenever you gain a Fighter level, you can replace the feat you chose with a different Fighting Style feat.",
+     "choice": {
+      "id": "fighting-style",
+      "type": "feat",
+      "from": "fighting-style",
+      "choose": 1,
+      "swap": "levelup"
+     }
     },
     {
      "level": 1,
@@ -1064,7 +1145,13 @@
     {
      "level": 1,
      "name": "Weapon Mastery",
-     "summary": "Your training with weapons allows you to use the mastery properties of three kinds of Simple or Martial weapons of your choice. Whenever you finish a Long Rest, you can practice weapon drills and change one of those weapon choices.\n\nWhen you reach certain Fighter levels, you gain the ability to use the mastery properties of more kinds of weapons, as shown in the Weapon Mastery column of the Fighter Features table."
+     "summary": "Your training with weapons allows you to use the mastery properties of three kinds of Simple or Martial weapons of your choice. Whenever you finish a Long Rest, you can practice weapon drills and change one of those weapon choices.\n\nWhen you reach certain Fighter levels, you gain the ability to use the mastery properties of more kinds of weapons, as shown in the Weapon Mastery column of the Fighter Features table.",
+     "choice": {
+      "id": "weapon-mastery",
+      "type": "mastery",
+      "chooseTable": "Weapon Mastery",
+      "swap": "rest"
+     }
     },
     {
      "level": 2,
@@ -1311,7 +1398,10 @@
     {
      "level": 1,
      "name": "Martial Arts",
-     "summary": "Your practice of martial arts gives you mastery of combat styles that use your Unarmed Strike and Monk weapons, which are the following:\n\n- Simple Melee weapons\n- Martial Melee weapons that have the Light property\n\nYou gain the following benefits while you are unarmed or wielding only Monk weapons and you aren't wearing armor or wielding a Shield.\n\n_Bonus Unarmed Strike._ You can make an Unarmed Strike as a Bonus Action.\n\n_Martial Arts Die._ You can roll 1d6 in place of the normal damage of your Unarmed Strike or Monk weapons. This die changes as you gain Monk levels, as shown in the Martial Arts column of the Monk Features table.\n\n_Dexterous Attacks._ You can use your Dexterity modifier instead of your Strength modifier for the attack and damage rolls of your Unarmed Strikes and Monk weapons. In addition, when you use the Grapple or Shove option of your Unarmed Strike, you can use your Dexterity modifier instead of your Strength modifier to determine the save DC."
+     "summary": "Your practice of martial arts gives you mastery of combat styles that use your Unarmed Strike and Monk weapons, which are the following:\n\n• Simple Melee weapons\n\n• Martial Melee weapons that have the Light property\n\nYou gain the following benefits while you are unarmed or wielding only Monk weapons and you aren't wearing armor or wielding a Shield.\n\n_Bonus Unarmed Strike._ You can make an Unarmed Strike as a Bonus Action.\n\n_Martial Arts Die._ You can roll 1d6 in place of the normal damage of your Unarmed Strike or Monk weapons. This die changes as you gain Monk levels, as shown in the Martial Arts column of the Monk Features table.\n\n_Dexterous Attacks._ You can use your Dexterity modifier instead of your Strength modifier for the attack and damage rolls of your Unarmed Strikes and Monk weapons. In addition, when you use the Grapple or Shove option of your Unarmed Strike, you can use your Dexterity modifier instead of your Strength modifier to determine the save DC.",
+     "martialArts": {
+      "table": "Martial Arts"
+     }
     },
     {
      "level": 1,
@@ -1614,12 +1704,31 @@
     {
      "level": 1,
      "name": "Weapon Mastery",
-     "summary": "Your training with weapons allows you to use the mastery properties of two kinds of weapons of your choice with which you have proficiency, such as Longswords and Javelins.\n\nWhenever you finish a Long Rest, you can change the kinds of weapons you chose. For example, you could switch to using the mastery properties of Halberds and Flails."
+     "summary": "Your training with weapons allows you to use the mastery properties of two kinds of weapons of your choice with which you have proficiency, such as Longswords and Javelins.\n\nWhenever you finish a Long Rest, you can change the kinds of weapons you chose. For example, you could switch to using the mastery properties of Halberds and Flails.",
+     "choice": {
+      "id": "weapon-mastery",
+      "type": "mastery",
+      "choose": 2,
+      "swap": "rest"
+     }
     },
     {
      "level": 2,
      "name": "Fighting Style",
-     "summary": "You gain a Fighting Style feat of your choice (see \"Feats\" for feats). Instead of choosing one of those feats, you can choose the option below.\n\n_Blessed Warrior._ You learn two Cleric cantrips of your choice (see the Cleric class's section for a list of Cleric spells). _Guidance_ and _Sacred Flame_ are recommended. The chosen cantrips count as Paladin spells for you, and Charisma is your spellcasting ability for them. Whenever you gain a Paladin level, you can replace one of these cantrips with another Cleric cantrip."
+     "summary": "You gain a Fighting Style feat of your choice (see \"Feats\" for feats). Instead of choosing one of those feats, you can choose the option below.\n\n_Blessed Warrior._ You learn two Cleric cantrips of your choice (see the Cleric class's section for a list of Cleric spells). _Guidance_ and _Sacred Flame_ are recommended. The chosen cantrips count as Paladin spells for you, and Charisma is your spellcasting ability for them. Whenever you gain a Paladin level, you can replace one of these cantrips with another Cleric cantrip.",
+     "choice": {
+      "id": "fighting-style",
+      "type": "feat",
+      "from": "fighting-style",
+      "choose": 1,
+      "swap": "levelup",
+      "options": [
+       {
+        "name": "Blessed Warrior",
+        "summary": "You learn two Cleric cantrips of your choice. They count as Paladin spells for you, and Charisma is your spellcasting ability for them."
+       }
+      ]
+     }
     },
     {
      "level": 2,
@@ -1890,17 +1999,42 @@
     {
      "level": 1,
      "name": "Weapon Mastery",
-     "summary": "Your training with weapons allows you to use the mastery properties of two kinds of weapons of your\nchoice with which you have proficiency, such as Longbows and Shortswords.\n\nWhenever you finish a Long Rest, you can change the kinds of weapons you chose. For example, you could switch to using the mastery properties of Scimitars and Longswords."
+     "summary": "Your training with weapons allows you to use the mastery properties of two kinds of weapons of your\nchoice with which you have proficiency, such as Longbows and Shortswords.\n\nWhenever you finish a Long Rest, you can change the kinds of weapons you chose. For example, you could switch to using the mastery properties of Scimitars and Longswords.",
+     "choice": {
+      "id": "weapon-mastery",
+      "type": "mastery",
+      "choose": 2,
+      "swap": "rest"
+     }
     },
     {
      "level": 2,
      "name": "Deft Explorer",
-     "summary": "Thanks to your travels, you gain the following benefits.\n\n_Expertise._ Choose one of your skill proficiencies with which you lack Expertise. You gain Expertise in that skill.\n\n_Languages._ You know two languages of your choice from the language tables in \"Character Creation.\""
+     "summary": "Thanks to your travels, you gain the following benefits.\n\n_Expertise._ Choose one of your skill proficiencies with which you lack Expertise. You gain Expertise in that skill.\n\n_Languages._ You know two languages of your choice from the language tables in \"Character Creation.\"",
+     "choice": {
+      "id": "deft-explorer",
+      "name": "Expertise",
+      "type": "expertise",
+      "choose": 1
+     }
     },
     {
      "level": 2,
      "name": "Fighting Style",
-     "summary": "You gain a Fighting Style feat of your choice (see \"Feats\"). Instead of choosing one of those feats, you can choose the option below.\n\n_Druidic Warrior._ You learn two Druid cantrips of your choice (see the Druid class's section for a list of Druid spells). _Guidance_ and _Starry Wisp_ are recommended. The chosen cantrips count as Ranger spells for you, and Wisdom is your spellcasting ability for them. Whenever you gain a Ranger level, you can replace one of these cantrips with another Druid cantrip."
+     "summary": "You gain a Fighting Style feat of your choice (see \"Feats\"). Instead of choosing one of those feats, you can choose the option below.\n\n_Druidic Warrior._ You learn two Druid cantrips of your choice (see the Druid class's section for a list of Druid spells). _Guidance_ and _Starry Wisp_ are recommended. The chosen cantrips count as Ranger spells for you, and Wisdom is your spellcasting ability for them. Whenever you gain a Ranger level, you can replace one of these cantrips with another Druid cantrip.",
+     "choice": {
+      "id": "fighting-style",
+      "type": "feat",
+      "from": "fighting-style",
+      "choose": 1,
+      "swap": "levelup",
+      "options": [
+       {
+        "name": "Druidic Warrior",
+        "summary": "You learn two Druid cantrips of your choice. They count as Ranger spells for you, and Wisdom is your spellcasting ability for them."
+       }
+      ]
+     }
     },
     {
      "level": 3,
@@ -1925,7 +2059,12 @@
     {
      "level": 9,
      "name": "Expertise",
-     "summary": "Choose two of your skill proficiencies with which you lack Expertise. You gain Expertise in those skills."
+     "summary": "Choose two of your skill proficiencies with which you lack Expertise. You gain Expertise in those skills.",
+     "choice": {
+      "id": "expertise",
+      "type": "expertise",
+      "choose": 2
+     }
     },
     {
      "level": 10,
@@ -2155,7 +2294,33 @@
     {
      "level": 1,
      "name": "Expertise",
-     "summary": "You gain Expertise in two of your skill proficiencies of your choice. Sleight of Hand and Stealth are recommended if you have proficiency in them.\n\nAt Rogue level 6, you gain Expertise in two more of your skill proficiencies of your choice."
+     "summary": "You gain Expertise in two of your skill proficiencies of your choice. Sleight of Hand and Stealth are recommended if you have proficiency in them.\n\nAt Rogue level 6, you gain Expertise in two more of your skill proficiencies of your choice.",
+     "choice": {
+      "id": "expertise",
+      "type": "expertise",
+      "choose": [
+       2,
+       2,
+       2,
+       2,
+       2,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4,
+       4
+      ]
+     }
     },
     {
      "level": 1,
@@ -2170,7 +2335,13 @@
     {
      "level": 1,
      "name": "Weapon Mastery",
-     "summary": "Your training with weapons allows you to use the mastery properties of two kinds of weapons of your choice with which you have proficiency, such as Daggers and Shortbows.\n\nWhenever you finish a Long Rest, you can change the kinds of weapons you chose. For example, you could switch to using the mastery properties of Scimitars and Shortswords."
+     "summary": "Your training with weapons allows you to use the mastery properties of two kinds of weapons of your choice with which you have proficiency, such as Daggers and Shortbows.\n\nWhenever you finish a Long Rest, you can change the kinds of weapons you chose. For example, you could switch to using the mastery properties of Scimitars and Shortswords.",
+     "choice": {
+      "id": "weapon-mastery",
+      "type": "mastery",
+      "choose": 2,
+      "swap": "rest"
+     }
     },
     {
      "level": 2,
@@ -2837,7 +3008,32 @@
     {
      "level": 2,
      "name": "Scholar",
-     "summary": "While studying magic, you also specialized in another field of study. Choose one of the following skills in which you have proficiency: Arcana, History, Investigation, Medicine, Nature, or Religion. You have Expertise in the chosen skill."
+     "summary": "While studying magic, you also specialized in another field of study. Choose one of the following skills in which you have proficiency: Arcana, History, Investigation, Medicine, Nature, or Religion. You have Expertise in the chosen skill.",
+     "choice": {
+      "id": "scholar",
+      "type": "expertise",
+      "choose": 1,
+      "options": [
+       {
+        "name": "Arcana"
+       },
+       {
+        "name": "History"
+       },
+       {
+        "name": "Investigation"
+       },
+       {
+        "name": "Medicine"
+       },
+       {
+        "name": "Nature"
+       },
+       {
+        "name": "Religion"
+       }
+      ]
+     }
     },
     {
      "level": 3,

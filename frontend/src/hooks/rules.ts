@@ -134,6 +134,33 @@ export function useSetPools(characterId: string) {
 }
 
 /**
+ * Answer a class feature's choice — a Fighting Style, an Expertise, a Divine
+ * Order (#382). `picks` is the whole answer, exactly the choice's count; the
+ * server says why when it will not take it.
+ */
+export function useSetFeatureChoice(characterId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    // The Forge has no hero to name until the forge itself lands, so the id
+    // may also ride with the call.
+    mutationFn: async (vars: { key: string; picks: string[]; characterId?: string }) => {
+      const id = vars.characterId ?? characterId ?? "";
+      const { data, error } = await api.PUT("/characters/{characterId}/choices", {
+        params: { path: { characterId: id } },
+        body: { key: vars.key, picks: vars.picks },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (hero) => {
+      qc.invalidateQueries({ queryKey: ["character-detail", hero?.id ?? characterId] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+    },
+  });
+}
+
+/**
  * Trade prepared spells after a Long Rest. The server is the authority on
  * whether this hero's class may do it at all and how many — see the class
  * data's spellChanges rule.

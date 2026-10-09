@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { AbilityScores, RulesContent } from "../api/client";
-import { useCampaigns, useCodex, useForgeCharacter, useRules } from "../hooks";
+import { useCampaigns, useCodex, useForgeCharacter, useRules, useSetFeatureChoice } from "../hooks";
+import { choicesOf, poolFor } from "../lib/featureChoices";
+import { FeatureChoicePicker } from "./sheet/FeatureChoicePicker";
 import {
   codexLegality,
   legalityReason,
@@ -56,6 +58,8 @@ export default function ForgeWizard() {
   const { data: species } = useRules("species");
   const { data: backgrounds } = useRules("background");
   const forge = useForgeCharacter();
+  const setChoice = useSetFeatureChoice();
+  const { data: items } = useRules("item");
 
   // A draft from a previous visit, read once. #130: the deadline stopped players
   // needing to reload; this stops the reload costing them the whole hero.
@@ -191,7 +195,22 @@ export default function ForgeWizard() {
 
   const gearOptions = classData?.startingEquipment ?? [];
 
+  /*
+    What the class asks at level 1 (#382) — a Fighter's style and masteries, a
+    Rogue's Expertise, a Cleric's Order. Saved straight after the hero lands;
+    one that will not take stays owed on the sheet rather than costing the hero.
+  */
+  const levelOneChoices = useMemo(() => choicesOf(chosenClass, 1), [chosenClass]);
+  const [featurePicks, setFeaturePicks] = useState<Record<string, string[]>>({});
+  const heroSkills = [...new Set([...skills, ...bgSkills, ...grantedSkills(spData, speciesPicks)])];
+  const poolOf = (c: (typeof levelOneChoices)[number]) =>
+    poolFor(c, { feats: allFeats, items, skills: heroSkills, heldFeats: bgData?.feat ? [bgData.feat] : [] });
+  const choicesValid = levelOneChoices.every(
+    (c) => (featurePicks[c.key] ?? []).length === c.count || poolOf(c).length < c.count,
+  );
+
   const steps: StepName[] = ["Class", "Background", "Species", "Abilities"];
+  if (levelOneChoices.length > 0) steps.push("Choices");
   if (casting) steps.push("Spells");
   if (gearOptions.length > 0) steps.push("Gear");
   steps.push("Name");
@@ -311,12 +330,13 @@ export default function ForgeWizard() {
   const speciesSkills = grantedSkills(spData, speciesPicks);
   const speciesFeats = grantedFeats(spData, speciesPicks);
   const allValid =
-    skillsValid && !!backgroundId && speciesValid && abilitiesValid && spellsValid && gearValid;
+    skillsValid && !!backgroundId && speciesValid && abilitiesValid && choicesValid && spellsValid && gearValid;
   const validity: Record<StepName, boolean> = {
     Class: skillsValid,
     Background: !!backgroundId,
     Species: speciesValid,
     Abilities: abilitiesValid,
+    Choices: choicesValid,
     Spells: spellsValid,
     Gear: gearValid,
     Name: name.trim().length > 0 && allValid,
@@ -410,7 +430,15 @@ export default function ForgeWizard() {
         speciesChoices: speciesChoices.length > 0 ? speciesPicks : undefined,
       },
       {
-        onSuccess: () => {
+        onSuccess: async (hero) => {
+          for (const c of levelOneChoices) {
+            const picks = featurePicks[c.key] ?? [];
+            if (hero?.id && picks.length === c.count) {
+              await setChoice
+                .mutateAsync({ characterId: hero.id, key: c.key, picks })
+                .catch(() => undefined);
+            }
+          }
           // The hero landed; the draft is no longer anybody's unfinished work.
           clearDraft();
           navigate("/questboard/profile");
@@ -713,6 +741,22 @@ export default function ForgeWizard() {
               finalScores={finalScores}
               input={input}
             />
+          )}
+
+          {current === "Choices" && (
+            <div className="parchment flex flex-col gap-5 px-4 py-4">
+              {levelOneChoices.map((c) => (
+                <div key={c.key}>
+                  <div className="font-heading mb-1 text-[15px] font-bold text-ink">{c.name}</div>
+                  <FeatureChoicePicker
+                    choice={c}
+                    pool={poolOf(c)}
+                    value={featurePicks[c.key] ?? []}
+                    onChange={(picks) => setFeaturePicks((prev) => ({ ...prev, [c.key]: picks }))}
+                  />
+                </div>
+              ))}
+            </div>
           )}
 
           {current === "Spells" && casting && (
