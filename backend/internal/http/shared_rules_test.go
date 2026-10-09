@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
@@ -185,6 +186,38 @@ func TestLevelUpGatesMatchTheSharedFixture(t *testing.T) {
 		got := levelUpHold(c.Level, c.PendingLevels, db.ProgressionMode(c.Progression), c.MaxLevel)
 		if got != c.Hold {
 			t.Errorf("%s: hold = %q, fixture says %q", c.Name, got, c.Hold)
+		}
+	}
+}
+
+// --- feat prerequisites -----------------------------------------------------
+
+func TestFeatPrerequisitesMatchTheSharedFixture(t *testing.T) {
+	var doc struct {
+		Cases []struct {
+			Name         string         `json:"name"`
+			Prerequisite string         `json:"prerequisite"`
+			Levels       map[string]int `json:"levels"`
+			Total        int            `json:"total"`
+			Has          []string       `json:"has"`
+			Unmet        string         `json:"unmet"`
+		} `json:"cases"`
+	}
+	loadFixture(t, "feat-prerequisites.json", &doc)
+	if len(doc.Cases) == 0 {
+		t.Fatal("fixture has no cases")
+	}
+	for _, c := range doc.Cases {
+		has := func(name string) bool {
+			for _, h := range c.Has {
+				if strings.EqualFold(h, name) {
+					return true
+				}
+			}
+			return false
+		}
+		if got := parseFeatPrereq(c.Prerequisite).unmet(c.Levels, c.Total, has); got != c.Unmet {
+			t.Errorf("%s: unmet = %q, fixture says %q", c.Name, got, c.Unmet)
 		}
 	}
 }

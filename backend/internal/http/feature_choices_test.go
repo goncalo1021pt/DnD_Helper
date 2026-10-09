@@ -200,3 +200,66 @@ func TestFeatureChoiceValidation(t *testing.T) {
 		t.Errorf("a good declaration is refused: %s", msg)
 	}
 }
+
+// Invocations count off the Warlock's table; Metamagic arrives at Sorcerer 2
+// and grows by two at 10 and 17 (#384).
+func TestInvocationsAndMetamagicAreAsked(t *testing.T) {
+	warlock := heroClass{ClassID: uuid.New(), ClassName: "Warlock", ClassData: srdClass(t, "Warlock"), Level: 1}
+	for level, want := range map[int16]int{1: 1, 2: 3, 5: 5, 20: 10} {
+		warlock.Level = level
+		inv := choiceByName(featureChoicesFor([]heroClass{warlock}, nil), "Eldritch Invocations")
+		if inv == nil || inv.Count != want || inv.From == nil || *inv.From != "invocation" {
+			t.Errorf("Warlock %d: want %d invocations, got %+v", level, want, inv)
+		}
+	}
+	sorcerer := heroClass{ClassID: uuid.New(), ClassName: "Sorcerer", ClassData: srdClass(t, "Sorcerer"), Level: 1}
+	if choiceByName(featureChoicesFor([]heroClass{sorcerer}, nil), "Metamagic") != nil {
+		t.Error("Metamagic waits for Sorcerer 2")
+	}
+	for level, want := range map[int16]int{2: 2, 9: 2, 10: 4, 17: 6} {
+		sorcerer.Level = level
+		if m := choiceByName(featureChoicesFor([]heroClass{sorcerer}, nil), "Metamagic"); m == nil || m.Count != want {
+			t.Errorf("Sorcerer %d: want %d Metamagic options, got %+v", level, want, m)
+		}
+	}
+}
+
+// The bookkeeping of a feat choice's answer (#384): adopt what no choice
+// claims, refuse what another choice holds, repeat only what says it may.
+func TestPlacingFeatPicks(t *testing.T) {
+	rep := map[string]bool{"agonizing blast": true}
+
+	// A Warlock who took Agonizing Blast at an ASI before the feature asked:
+	// picking it claims that copy rather than adding a second.
+	got, refused := placeFeatPicks([]string{"Alert", "Agonizing Blast"}, nil, nil, []string{"Agonizing Blast", "Pact of the Blade"}, rep)
+	if refused != "" || len(got) != 1 || got[0] != "Pact of the Blade" {
+		t.Errorf("adopt the orphan, append the rest: got %v %q", got, refused)
+	}
+	if feats := nextFeats([]string{"Alert", "Agonizing Blast"}, nil, got); len(feats) != 3 {
+		t.Errorf("one copy each, got %v", feats)
+	}
+
+	// Another choice already holds Defense: the Champion may not take it twice.
+	if _, refused := placeFeatPicks([]string{"Defense"}, nil, []string{"Defense"}, []string{"Defense"}, nil); refused != "Defense" {
+		t.Errorf("a feat another choice holds is refused, got %q", refused)
+	}
+
+	// Repeatable: twice in one answer, both appended.
+	got, refused = placeFeatPicks(nil, nil, nil, []string{"Agonizing Blast", "Agonizing Blast"}, rep)
+	if refused != "" || len(got) != 2 {
+		t.Errorf("a repeatable invocation sits twice, got %v %q", got, refused)
+	}
+
+	// A swap: the old answer leaves, the new one arrives, a kept pick stays once.
+	old := []string{"Pact of the Blade", "Agonizing Blast", "Agonizing Blast"}
+	hero := []string{"Alert", "Pact of the Blade", "Agonizing Blast", "Agonizing Blast"}
+	got, _ = placeFeatPicks(hero, old, nil, []string{"Pact of the Blade", "Agonizing Blast", "Devil's Sight"}, rep)
+	feats := nextFeats(hero, old, got)
+	count := map[string]int{}
+	for _, f := range feats {
+		count[f]++
+	}
+	if count["Alert"] != 1 || count["Pact of the Blade"] != 1 || count["Agonizing Blast"] != 1 || count["Devil's Sight"] != 1 || len(feats) != 4 {
+		t.Errorf("after the swap: %v", feats)
+	}
+}

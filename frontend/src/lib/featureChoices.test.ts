@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { FeatureChoice, RulesContent } from "../api/client";
-import { choicesGrowingAt, choicesOf, owed, poolFor, trainingFromChoices } from "./featureChoices";
+import { readFileSync } from "node:fs";
+import {
+  choicesGrowingAt,
+  choicesOf,
+  owed,
+  poolFor,
+  prereqUnmet,
+  trainingFromChoices,
+} from "./featureChoices";
 
 /*
 The client's half of feature choices (#382): previewing what a level brings,
@@ -51,7 +59,7 @@ describe("feature choices", () => {
       { name: "Archery", data: { category: "fighting-style" } },
       { name: "Alert", data: { category: "origin" } },
     ] as unknown as RulesContent[];
-    const pool = poolFor({ ...style, options: [{ name: "Blessed Warrior" }] }, { feats, heldFeats: ["Archery"] });
+    const pool = poolFor({ ...style, options: [{ name: "Blessed Warrior" }] }, { feats, claimed: ["Archery"] });
     expect(pool.map((p) => p.name)).toEqual(["Archery", "Defense", "Blessed Warrior"]);
     expect(pool[0].disabled).toBe("already taken");
   });
@@ -70,5 +78,43 @@ describe("feature choices", () => {
     } as unknown as FeatureChoice;
     expect(trainingFromChoices([order])).toEqual([{ data: { weapons: ["Martial"] } }]);
     expect(trainingFromChoices([{ ...order, picked: ["Thaumaturge"] }])).toEqual([]);
+  });
+});
+
+describe("feat prerequisites", () => {
+  const cases: Array<{
+    name: string;
+    prerequisite: string;
+    levels: Record<string, number>;
+    total: number;
+    has: string[];
+    unmet: string;
+  }> = JSON.parse(
+    readFileSync(new URL("../../../fixtures/rules/feat-prerequisites.json", import.meta.url), "utf8"),
+  ).cases;
+
+  it("agrees with feat_prereqs.go on every case", () => {
+    expect(cases.length).toBeGreaterThan(0);
+    for (const c of cases) {
+      const has = (f: string) => c.has.some((h) => h.toLowerCase() === f.toLowerCase());
+      expect(prereqUnmet(c.prerequisite, c.levels, c.total, has), c.name).toBe(c.unmet);
+    }
+  });
+
+  it("an invocation's level blocks it now; a needed invocation travels to the picker", () => {
+    const choice = {
+      key: "w:eldritch-invocations", type: "feat", from: "invocation", count: 3, picked: [], options: [],
+    } as unknown as FeatureChoice;
+    const feats = [
+      { name: "Pact of the Blade", data: { category: "invocation" } },
+      { name: "Thirsting Blade", data: { category: "invocation", prerequisite: "Level 5+ Warlock, Pact of the Blade Invocation" } },
+      { name: "Agonizing Blast", data: { category: "invocation", prerequisite: "Level 2+ Warlock, a Warlock Cantrip That Deals Damage", repeatable: true } },
+    ] as unknown as RulesContent[];
+    const at = (level: number) => poolFor(choice, { feats, levels: { warlock: level }, total: level, owned: [] });
+    const thirsting = (level: number) => at(level).find((p) => p.name === "Thirsting Blade")!;
+    expect(thirsting(4).disabled).toBe("needs Warlock level 5");
+    expect(thirsting(5).disabled).toBeUndefined();
+    expect(thirsting(5).needs).toEqual(["Pact of the Blade"]);
+    expect(at(2).find((p) => p.name === "Agonizing Blast")).toMatchObject({ repeatable: true, disabled: undefined });
   });
 });

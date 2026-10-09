@@ -39,10 +39,27 @@ export function FeatureChoicePicker({
   locked?: string[];
 }) {
   const [filter, setFilter] = useState("");
+  // Giving a pick up also gives up what stood on it: Thirsting Blade does not
+  // outlive the Pact of the Blade it needs (#384).
+  const without = (name: string, from: string[]) => {
+    const gone = new Set([name]);
+    let next = from.filter((v) => v !== name);
+    for (;;) {
+      const dropped = next.filter((v) => pool.find((p) => p.name === v)?.needs?.some((n) => gone.has(n)));
+      if (dropped.length === 0) return next;
+      dropped.forEach((d) => gone.add(d));
+      next = next.filter((v) => !gone.has(v));
+    }
+  };
   const toggle = (name: string) => {
     if (locked.includes(name)) return;
-    if (value.includes(name)) return onChange(value.filter((v) => v !== name));
+    if (value.includes(name)) return onChange(without(name, value));
     if (choice.count === 1 && locked.length === 0) return onChange([name]);
+    if (value.length < choice.count) onChange([...value, name]);
+  };
+  // A repeatable pick (Agonizing Blast, one cantrip at a time) takes another
+  // copy rather than toggling.
+  const again = (name: string) => {
     if (value.length < choice.count) onChange([...value, name]);
   };
   const q = filter.trim().toLowerCase();
@@ -68,31 +85,52 @@ export function FeatureChoicePicker({
       )}
       <div className="flex max-h-[40vh] flex-col gap-1 overflow-y-auto pr-1">
         {shown.map((p) => {
-          const on = value.includes(p.name);
-          const blocked = !on && (!!p.disabled || value.length >= choice.count && choice.count > 1);
+          const copies = value.filter((v) => v === p.name).length;
+          const on = copies > 0;
+          const full = value.length >= choice.count && choice.count > 1;
+          const missing = (p.needs ?? []).filter((n) => !value.includes(n));
+          const why = p.disabled ?? (missing.length ? `needs ${missing.join(", ")}` : undefined);
+          const blocked = !on && (!!why || full);
           return (
-            <button
-              key={p.name}
-              type="button"
-              role="checkbox"
-              aria-checked={on}
-              disabled={blocked || locked.includes(p.name)}
-              onClick={() => toggle(p.name)}
-              className="cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-left text-[12.5px] text-ink-body disabled:cursor-default"
-              style={{
-                background: on ? "rgba(139,37,32,.12)" : "rgba(120,86,42,.08)",
-                boxShadow: `inset 0 0 0 1px ${on ? "rgba(139,37,32,.45)" : "rgba(120,80,30,.2)"}`,
-                opacity: blocked ? 0.45 : 1,
-              }}
-            >
-              <strong className="font-heading text-ink">{p.name}</strong>
-              {(p.disabled || locked.includes(p.name)) && (
-                <span className="label-stamp ml-2 text-[8.5px] tracking-[1px] text-ink-label">
-                  {locked.includes(p.name) ? "chosen" : p.disabled}
-                </span>
+            <div key={p.name} className="flex items-stretch gap-1">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                disabled={blocked || locked.includes(p.name)}
+                onClick={() => toggle(p.name)}
+                className="min-w-0 flex-1 cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-left text-[12.5px] text-ink-body disabled:cursor-default"
+                style={{
+                  background: on ? "rgba(139,37,32,.12)" : "rgba(120,86,42,.08)",
+                  boxShadow: `inset 0 0 0 1px ${on ? "rgba(139,37,32,.45)" : "rgba(120,80,30,.2)"}`,
+                  opacity: blocked ? 0.45 : 1,
+                }}
+              >
+                <strong className="font-heading text-ink">{p.name}</strong>
+                {copies > 1 && <span className="font-heading ml-1.5 text-ink">×{copies}</span>}
+                {(why || locked.includes(p.name)) && !on && (
+                  <span className="label-stamp ml-2 text-[8.5px] tracking-[1px] text-ink-label">{why}</span>
+                )}
+                {locked.includes(p.name) && (
+                  <span className="label-stamp ml-2 text-[8.5px] tracking-[1px] text-ink-label">chosen</span>
+                )}
+                {p.summary && <div className="line-clamp-2 text-[11.5px] italic">{p.summary}</div>}
+                {p.prerequisite && (
+                  <div className="text-[10.5px] text-ink-label">Prerequisite: {p.prerequisite}</div>
+                )}
+              </button>
+              {p.repeatable && on && (
+                <button
+                  type="button"
+                  onClick={() => again(p.name)}
+                  disabled={value.length >= choice.count}
+                  aria-label={`Take ${p.name} again`}
+                  className="btn-base btn-ghost-ink px-2.5 text-[12px] disabled:opacity-40"
+                >
+                  +
+                </button>
               )}
-              {p.summary && <div className="line-clamp-2 text-[11.5px] italic">{p.summary}</div>}
-            </button>
+            </div>
           );
         })}
         {pool.length === 0 && (

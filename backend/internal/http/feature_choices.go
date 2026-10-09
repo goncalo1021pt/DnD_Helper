@@ -386,7 +386,11 @@ func (s *Server) SetFeatureChoice(ctx context.Context, request api.SetFeatureCho
 		return badRequest(character.Name + " has no choice to make called " + request.Body.Key)
 	}
 
+	// A pick may appear twice only when it is a feat that says it may be taken
+	// more than once (Agonizing Blast, one cantrip at a time) — checked with
+	// the feat below; every other kind of pick is made once.
 	picks := make([]string, 0, len(request.Body.Picks))
+	twice := map[string]bool{}
 	seen := map[string]bool{}
 	for _, p := range request.Body.Picks {
 		p = strings.TrimSpace(p)
@@ -394,7 +398,10 @@ func (s *Server) SetFeatureChoice(ctx context.Context, request api.SetFeatureCho
 			return badRequest(slot.Name + " needs a choice")
 		}
 		if seen[strings.ToLower(p)] {
-			return badRequest(slot.Name + ": " + p + " is chosen twice")
+			if slot.Type != api.FeatureChoiceTypeFeat {
+				return badRequest(slot.Name + ": " + p + " is chosen twice")
+			}
+			twice[strings.ToLower(p)] = true
 		}
 		seen[strings.ToLower(p)] = true
 		picks = append(picks, p)
@@ -473,28 +480,63 @@ func (s *Server) SetFeatureChoice(ctx context.Context, request api.SetFeatureCho
 		if slot.From != nil {
 			from = *slot.From
 		}
-		held := map[string]bool{}
+		var otherPicks []string
+		for _, other := range slots {
+			if other.Key != slot.Key && other.Type == api.FeatureChoiceTypeFeat {
+				otherPicks = append(otherPicks, other.Picked...)
+			}
+		}
+		held := map[string]int{}
 		for _, f := range character.Feats {
-			held[strings.ToLower(f)] = true
+			held[strings.ToLower(f)]++
 		}
 		for _, old := range slot.Picked {
-			delete(held, strings.ToLower(old))
+			held[strings.ToLower(old)]--
 		}
+
+		// The levels a prerequisite is read against, and what counts as held:
+		// the hero's feats, or a pick made in this same answer.
+		levels := map[string]int{}
+		for _, k := range s.classesFor(ctx, character) {
+			levels[strings.ToLower(k.ClassName)] = int(k.Level)
+		}
+		has := func(name string) bool {
+			name = strings.ToLower(name)
+			if held[name] > 0 || seen[name] {
+				return true
+			}
+			return false
+		}
+
+		repeatable := map[string]bool{}
+		var libraryPicks []string
 		for i, p := range picks {
 			if options[p] {
 				continue // a feature's own alternative, like Blessed Warrior
 			}
-			row, ok := feats[strings.ToLower(p)]
+			key := strings.ToLower(p)
+			row, ok := feats[key]
 			if !ok || from == "" || !strings.EqualFold(featCategory(row.Data), from) {
 				return badRequest(p + " is not a choice for " + slot.Name)
 			}
-			if held[strings.ToLower(row.Name)] {
-				return badRequest(character.Name + " already has " + row.Name)
+			if twice[key] && !featRepeatable(row.Data) {
+				return badRequest(slot.Name + ": " + row.Name + " is chosen twice")
+			}
+			if why := parseFeatPrereq(featPrerequisite(row.Data)).unmet(levels, int(character.Level), has); why != "" {
+				return badRequest(row.Name + " " + why)
 			}
 			picks[i] = row.Name
 			featIDs = append(featIDs, row.ID)
-			featPicks = append(featPicks, row.Name)
+			if featRepeatable(row.Data) {
+				repeatable[key] = true
+			}
+			libraryPicks = append(libraryPicks, row.Name)
 		}
+		appended, refused := placeFeatPicks(character.Feats, slot.Picked, otherPicks, libraryPicks, repeatable)
+		if refused != "" {
+			return badRequest(character.Name + " already has " + refused)
+		}
+		featPicks = appended
 	}
 
 	// A seated hero's feat answers to the table's codex, as at level-up.
@@ -509,19 +551,8 @@ func (s *Server) SetFeatureChoice(ctx context.Context, request api.SetFeatureCho
 	}
 
 	// Feats move with the choice: the old picks leave, the new ones arrive.
-	feats := []string{}
-	dropped := map[string]bool{}
-	for _, old := range slot.Picked {
-		dropped[strings.ToLower(old)] = true
-	}
-	for _, f := range character.Feats {
-		if dropped[strings.ToLower(f)] {
-			delete(dropped, strings.ToLower(f)) // one copy only
-			continue
-		}
-		feats = append(feats, f)
-	}
-	feats = append(feats, featPicks...)
+	// Feats move with the choice: the old picks leave, the new ones arrive.
+	feats := nextFeats(character.Feats, slot.Picked, featPicks)
 
 	stored[slot.Key] = picks
 	raw, err := json.Marshal(stored)
@@ -580,6 +611,22 @@ func grantsFeatCategory(classes []heroClass, category string) bool {
 	return false
 }
 
+func featPrerequisite(data []byte) string {
+	var d struct {
+		Prerequisite string `json:"prerequisite"`
+	}
+	_ = json.Unmarshal(data, &d)
+	return d.Prerequisite
+}
+
+func featRepeatable(data []byte) bool {
+	var d struct {
+		Repeatable bool `json:"repeatable"`
+	}
+	_ = json.Unmarshal(data, &d)
+	return d.Repeatable
+}
+
 func featCategory(data []byte) string {
 	var d struct {
 		Category string `json:"category"`
@@ -597,4 +644,63 @@ func isWeaponKind(data []byte) bool {
 	}
 	_ = json.Unmarshal(data, &d)
 	return d.Type == "weapon" && d.Rarity == ""
+}
+
+/*
+placeFeatPicks decides, for a feat choice's new answer, which picks join the
+hero's feats (#384). Everything is counted, because a repeatable invocation sits
+on the sheet twice.
+
+What the hero holds outside this choice splits in two. A feat another choice
+picked is taken — refused, unless it is repeatable. A feat no choice picked — an
+invocation a Warlock took at an Ability Score Improvement before their feature
+asked — is adopted: this choice claims the copy already on the sheet instead of
+refusing it as held or adding a second one. Anything else is appended.
+
+It answers the names to append, or the name refused.
+*/
+func placeFeatPicks(heroFeats, oldPicks, otherPicks, picks []string, repeatable map[string]bool) ([]string, string) {
+	held := map[string]int{}
+	for _, f := range heroFeats {
+		held[strings.ToLower(f)]++
+	}
+	for _, old := range oldPicks {
+		held[strings.ToLower(old)]--
+	}
+	claimed := map[string]int{}
+	for _, p := range otherPicks {
+		claimed[strings.ToLower(p)]++
+	}
+	var appended []string
+	for _, p := range picks {
+		key := strings.ToLower(p)
+		if held[key]-claimed[key] > 0 {
+			held[key]-- // an orphan on the sheet: this choice claims it
+			continue
+		}
+		if claimed[key] > 0 && !repeatable[key] {
+			return nil, p
+		}
+		appended = append(appended, p)
+	}
+	return appended, ""
+}
+
+// nextFeats is the hero's feats once a choice's old picks leave and its new
+// ones arrive — one copy per pick, since a repeatable one may sit twice.
+// Adopted picks were never appended and were never removed, so they stay.
+func nextFeats(heroFeats, oldPicks, appended []string) []string {
+	out := []string{}
+	dropped := map[string]int{}
+	for _, old := range oldPicks {
+		dropped[strings.ToLower(old)]++
+	}
+	for _, f := range heroFeats {
+		if dropped[strings.ToLower(f)] > 0 {
+			dropped[strings.ToLower(f)]--
+			continue
+		}
+		out = append(out, f)
+	}
+	return append(out, appended...)
 }
