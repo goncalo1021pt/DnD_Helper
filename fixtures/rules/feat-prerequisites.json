@@ -1,0 +1,27 @@
+{
+  "_note": [
+    "A feat's prerequisite as a class feature's choice reads it (#384).",
+    "",
+    "Invocations write theirs in prose. Two shapes are enforced: \"Level N+",
+    "<Class>\" is the level in that class (\"Level N+\" alone, the total), and",
+    "\"<Name> Invocation\" is a feat held or picked in the same answer. The rest",
+    "(\"a Warlock Cantrip That Deals Damage\") is shown and never judged.",
+    "",
+    "Go has the rule in internal/http/feat_prereqs.go, TypeScript in",
+    "lib/featureChoices.ts (prereqUnmet); both answer these cases. `levels` are",
+    "by lowercased class name, `has` the feats counted as held, and `unmet` the",
+    "reason, empty when the readable part holds."
+  ],
+  "cases": [
+    { "name": "no prerequisite", "prerequisite": "", "levels": {}, "total": 1, "has": [], "unmet": "" },
+    { "name": "a level in the class, reached", "prerequisite": "Level 5+ Warlock", "levels": { "warlock": 5 }, "total": 5, "has": [], "unmet": "" },
+    { "name": "a level in the class, short", "prerequisite": "Level 5+ Warlock", "levels": { "warlock": 3 }, "total": 9, "has": [], "unmet": "needs Warlock level 5" },
+    { "name": "the total does not stand in for the class", "prerequisite": "Level 2+ Warlock", "levels": { "fighter": 6 }, "total": 6, "has": [], "unmet": "needs Warlock level 2" },
+    { "name": "a level alone is the total", "prerequisite": "Level 4+", "levels": { "fighter": 4 }, "total": 4, "has": [], "unmet": "" },
+    { "name": "an invocation held", "prerequisite": "Level 5+ Warlock, Pact of the Blade Invocation", "levels": { "warlock": 5 }, "total": 5, "has": ["Pact of the Blade"], "unmet": "" },
+    { "name": "an invocation missing", "prerequisite": "Level 5+ Warlock, Pact of the Blade Invocation", "levels": { "warlock": 5 }, "total": 5, "has": ["Pact of the Tome"], "unmet": "needs Pact of the Blade" },
+    { "name": "the level is asked first", "prerequisite": "Level 12+ Warlock, Thirsting Blade Invocation", "levels": { "warlock": 5 }, "total": 5, "has": [], "unmet": "needs Warlock level 12" },
+    { "name": "prose nobody can read is not judged", "prerequisite": "Level 2+ Warlock, a Warlock Cantrip That Deals Damage", "levels": { "warlock": 2 }, "total": 2, "has": [], "unmet": "" },
+    { "name": "a feature named, not a feat", "prerequisite": "Fighting Style Feature", "levels": {}, "total": 1, "has": [], "unmet": "" }
+  ]
+}

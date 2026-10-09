@@ -204,7 +204,14 @@ export default function ForgeWizard() {
   const [featurePicks, setFeaturePicks] = useState<Record<string, string[]>>({});
   const heroSkills = [...new Set([...skills, ...bgSkills, ...grantedSkills(spData, speciesPicks)])];
   const poolOf = (c: (typeof levelOneChoices)[number]) =>
-    poolFor(c, { feats: allFeats, items, skills: heroSkills, heldFeats: bgData?.feat ? [bgData.feat] : [] });
+    poolFor(c, {
+      feats: allFeats,
+      items,
+      skills: heroSkills,
+      owned: bgData?.feat ? [bgData.feat] : [],
+      levels: { [chosenClass?.name.toLowerCase() ?? ""]: 1 },
+      total: 1,
+    });
   const choicesValid = levelOneChoices.every(
     (c) => (featurePicks[c.key] ?? []).length === c.count || poolOf(c).length < c.count,
   );

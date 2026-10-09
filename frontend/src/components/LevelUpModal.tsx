@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { AbilityScores, Character, LevelUpRequest } from "../api/client";
 import { useCharacterDetail, useCodex, useLevelUp, useRules, useSetFeatureChoice } from "../hooks";
-import { choicesGrowingAt, poolFor } from "../lib/featureChoices";
+import { choicesGrowingAt, claimedElsewhere, levelsByClass, poolFor } from "../lib/featureChoices";
 import { FeatureChoicePicker } from "./sheet/FeatureChoicePicker";
 import {
   casterSourceFor,
@@ -182,9 +182,9 @@ export default function LevelUpModal({
         // choice next door; epic boons wait for level 19.
         if (d.category === "origin" || f.name === "Ability Score Improvement") return false;
         if (d.category === "epic-boon" && newLevel < 19) return false;
-        // A Fighting Style feat only to a hero whose features already grant
-        // one (#382). Invocations and Metamagic stay here until their own
-        // features ask for them (#384).
+        // A feature hands these out, not an ASI (#384) — and a Fighting Style
+        // feat only to a hero whose features already grant one (#382).
+        if (d.category === "invocation" || d.category === "metamagic") return false;
         if (d.category === "fighting-style" && !hasFightingStyle) return false;
         return !sheet.feats?.includes(f.name) && codexLegal(f);
       }),
@@ -626,7 +626,11 @@ export default function LevelUpModal({
                 feats: (feats ?? []).filter(codexLegal),
                 items,
                 skills: sheet.skills,
-                heldFeats: sheet.feats,
+                claimed: claimedElsewhere(made, c.key),
+                owned: sheet.feats,
+                // Read at the level being reached in the class taking it.
+                levels: { ...levelsByClass(sheet.classes), [klass?.name.toLowerCase() ?? ""]: classLevel },
+                total: newLevel,
                 expertise: sheet.expertise,
               })}
               value={picksFor(c.key)}

@@ -100,12 +100,72 @@ export interface PoolEntry {
   summary?: string;
   /** Why it is offered but cannot be taken — already held, say. */
   disabled?: string;
+  /** Feats that must be picked alongside it (Pact of the Blade before
+   * Thirsting Blade) when the hero does not hold them yet (#384). */
+  needs?: string[];
+  /** May be taken more than once (Agonizing Blast, a cantrip at a time). */
+  repeatable?: boolean;
+  /** The prerequisite as written, for what the app does not judge. */
+  prerequisite?: string;
+}
+
+/*
+A feat's prerequisite (#384), mirroring feat_prereqs.go and held to it by
+fixtures/rules/feat-prerequisites.json. "Level N+ <Class>" is the level in that
+class ("Level N+" alone, the total); "<Name> Invocation" is a feat held or
+picked alongside. Anything else is shown and not judged.
+*/
+export function parsePrereq(text: string | undefined): { cls: string; level: number; feats: string[] } {
+  const out = { cls: "", level: 0, feats: [] as string[] };
+  for (const raw of (text ?? "").split(",")) {
+    const part = raw.trim();
+    const lvl = part.match(/^level\s+(\d+)\+(?:\s+(.+))?$/i);
+    if (lvl) {
+      out.level = Number(lvl[1]);
+      out.cls = (lvl[2] ?? "").trim();
+      continue;
+    }
+    const feat = part.match(/^(.+?)\s+invocation$/i);
+    if (feat) out.feats.push(feat[1].trim());
+  }
+  return out;
+}
+
+export function prereqUnmet(
+  text: string | undefined,
+  levels: Record<string, number>,
+  total: number,
+  has: (feat: string) => boolean,
+): string {
+  const p = parsePrereq(text);
+  if (p.level > 0) {
+    const at = p.cls ? (levels[p.cls.toLowerCase()] ?? 0) : total;
+    if (at < p.level) return p.cls ? `needs ${p.cls} level ${p.level}` : `needs level ${p.level}`;
+  }
+  for (const f of p.feats) if (!has(f)) return `needs ${f}`;
+  return "";
+}
+
+/** A hero's levels by lowercased class name, what a prerequisite reads. */
+export function levelsByClass(classes: Array<{ className: string; level: number }> | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const k of classes ?? []) out[k.className.toLowerCase()] = k.level;
+  return out;
+}
+
+/** The feats other feature choices have picked — taken, where a feat on the
+ * sheet no choice claims (an invocation taken at an ASI before) is free to be
+ * adopted by this one. */
+export function claimedElsewhere(choices: FeatureChoice[] | undefined, key: string): string[] {
+  return (choices ?? []).filter((c) => c.key !== key && c.type === "feat").flatMap((c) => c.picked);
 }
 
 /**
  * Everything a pick may be. `skills` are the hero's proficiencies (expertise
- * needs one), `expertise` what other choices already doubled, `feats` the
- * hero's feats (a style already held is not offered twice).
+ * needs one), `expertise` what other choices already doubled, `claimed` the
+ * feats other choices hold (a style already taken is not offered twice).
+ * For a feat, `levels` (by lowercased class) and `total` read its
+ * prerequisite, and `owned` are the hero's feats that satisfy one.
  */
 export function poolFor(
   choice: FeatureChoice,
@@ -113,8 +173,11 @@ export function poolFor(
     feats?: RulesContent[];
     items?: RulesContent[];
     skills?: string[];
-    heldFeats?: string[];
+    claimed?: string[];
     expertise?: string[];
+    levels?: Record<string, number>;
+    total?: number;
+    owned?: string[];
   },
 ): PoolEntry[] {
   const own: PoolEntry[] = choice.options.map((o) => ({ name: o.name, summary: o.summary }));
@@ -122,14 +185,27 @@ export function poolFor(
     case "option":
       return own;
     case "feat": {
-      const held = new Set((libs.heldFeats ?? []).filter((f) => !choice.picked.includes(f)));
+      const claimed = new Set(libs.claimed ?? []);
+      const owned = new Set(libs.owned ?? []);
       const feats = (libs.feats ?? [])
         .filter((f) => (f.data as { category?: string }).category === choice.from)
-        .map((f) => ({
-          name: f.name,
-          summary: f.summary,
-          disabled: held.has(f.name) ? "already taken" : undefined,
-        }))
+        .map((f) => {
+          const d = f.data as { prerequisite?: string; repeatable?: boolean };
+          // The level is read now; a needed invocation may still be picked
+          // alongside, so it travels to the picker rather than blocking here.
+          const short = libs.levels
+            ? prereqUnmet(d.prerequisite, libs.levels, libs.total ?? 0, () => true)
+            : "";
+          const needs = parsePrereq(d.prerequisite).feats.filter((n) => !owned.has(n));
+          return {
+            name: f.name,
+            summary: f.summary,
+            prerequisite: d.prerequisite,
+            repeatable: !!d.repeatable,
+            needs: needs.length ? needs : undefined,
+            disabled: claimed.has(f.name) && !d.repeatable ? "already taken" : short || undefined,
+          };
+        })
         .sort((a, b) => a.name.localeCompare(b.name));
       return [...feats, ...own];
     }

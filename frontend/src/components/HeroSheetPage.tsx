@@ -49,7 +49,7 @@ import SkillsPanel from "./sheet/SkillsPanel";
 import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
 import { FeatureChoiceModal } from "./sheet/FeatureChoicePicker";
-import { poolFor, trainingFromChoices } from "../lib/featureChoices";
+import { claimedElsewhere, levelsByClass, poolFor, trainingFromChoices } from "../lib/featureChoices";
 import PoolsPanel from "./sheet/PoolsPanel";
 import CreaturesPanel from "./sheet/CreaturesPanel";
 import Person from "./ui/Person";
@@ -1084,7 +1084,10 @@ export default function HeroSheetPage() {
             feats,
             items: itemLibrary,
             skills: sheet?.skills,
-            heldFeats: sheet?.feats,
+            claimed: claimedElsewhere(sheet?.featureChoices, choosing.key),
+            owned: sheet?.feats,
+            levels: levelsByClass(sheet?.classes),
+            total: character.level,
             expertise: sheet?.expertise,
           })}
           onClose={() => setChoosing(null)}
