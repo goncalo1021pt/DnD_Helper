@@ -76,8 +76,6 @@ procedure regardless of which machine or tool you run on.
 - Label meanings beyond the GitHub defaults: `from-the-table` = feedback or
   asks from a real session; `ops` = deployment/backups/monitoring;
   `tech-debt` = no user-visible change; `Release` = the issue that closes a milestone by cutting its release.
-  The `claude` label **hands the issue to the hosted Claude agent** — apply it
-  only when that is the intent.
 - Issue bodies say *what happens today / how it should work / what it depends
   on* — enough that someone (human or agent) can pick it up cold.
 - **Issues from other people** are feature requests: label `enhancement`
@@ -85,8 +83,7 @@ procedure regardless of which machine or tool you run on.
   They run in a fixed order — **pull the issue and discuss it first** with
   the maintainer, asking the author on the issue when the ask is too vague to
   shape; **plan it on the issue** in the body shape above, with milestone and
-  assignee; only then start development. Never apply `claude` to one that has
-  not been planned. An unlabeled issue is the triage queue.
+  assignee; only then start development. An unlabeled issue is the triage queue.
 
 ### Pull requests
 
