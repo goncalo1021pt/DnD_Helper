@@ -33,6 +33,7 @@ const (
 	SessionMoved     Name = "session.moved"     // the next gathering changed date
 	HeroLevelled     Name = "hero.levelled"     // a seated hero rose a level
 	HeroXPAwarded    Name = "hero.xp_awarded"   // the DM granted (or docked) XP
+	HeroGifted       Name = "hero.gifted"       // the DM put items or coin in a hero's pack
 	EncounterStarted Name = "encounter.started" // a fight went live
 	EncounterEnded   Name = "encounter.ended"   // a fight stood down
 	ChronicleWritten Name = "chronicle.written" // somebody wrote in the chronicle
@@ -45,7 +46,7 @@ var All = []Name{
 	QuestPosted, QuestClaimed, QuestCompleted,
 	HandoutGiven,
 	SessionScheduled, SessionMoved,
-	HeroLevelled, HeroXPAwarded,
+	HeroLevelled, HeroXPAwarded, HeroGifted,
 	EncounterStarted, EncounterEnded,
 	ChronicleWritten,
 	MemberJoined,

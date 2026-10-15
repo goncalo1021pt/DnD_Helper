@@ -31,6 +31,7 @@ export const EVENTS: EventEntry[] = [
   { name: "session.moved", group: "The table", label: "The next gathering changes date" },
   { name: "hero.levelled", group: "Your hero", label: "A hero rises a level" },
   { name: "hero.xp_awarded", group: "Your hero", label: "XP is granted or docked" },
+  { name: "hero.gifted", group: "Your hero", label: "The DM gives a hero items or coin" },
   { name: "encounter.started", group: "Fights", label: "A fight goes live" },
   { name: "encounter.ended", group: "Fights", label: "A fight stands down" },
   { name: "chronicle.written", group: "The table", label: "Somebody writes in the chronicle" },
@@ -50,7 +51,7 @@ export const EMAIL_EVENTS = EVENTS.filter((e) => e.name !== "chronicle.written")
  * picker does not list them — the server would drop them anyway.
  */
 export const TABLE_EVENTS = EVENTS.filter(
-  (e) => !["hero.levelled", "hero.xp_awarded", "seat.requested"].includes(e.name),
+  (e) => !["hero.levelled", "hero.xp_awarded", "hero.gifted", "seat.requested"].includes(e.name),
 );
 
 /** A Discord incoming-webhook URL, by its shape. */

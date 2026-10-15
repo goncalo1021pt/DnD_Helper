@@ -98,3 +98,58 @@ RollResult:
     fail:
       type: boolean
       description: A lone d20 that landed on 1.
+
+GiftItem:
+  type: object
+  description: One line of a gift — a library item or a written-in name.
+  properties:
+    contentId:
+      type: string
+      format: uuid
+      description: An armory item. Homebrew must be admitted by the table's codex.
+    name:
+      type: string
+      maxLength: 80
+      description: A written-in item, when there is no `contentId`.
+    qty:
+      type: integer
+      minimum: 1
+      maximum: 999
+      description: How many; one when left out.
+
+GiftRequest:
+  type: object
+  required: [heroIds]
+  description: At least one of `items` and `coin` must be given.
+  properties:
+    heroIds:
+      type: array
+      minItems: 1
+      maxItems: 50
+      items:
+        type: string
+        format: uuid
+      description: Seated heroes. Every one receives the whole gift.
+    items:
+      type: array
+      maxItems: 30
+      items:
+        $ref: "../openapi.yaml#/components/schemas/GiftItem"
+    coin:
+      type: string
+      maxLength: 80
+      description: >-
+        An amount in the table's coin, such as "50 gp" or "2 gp, 5 sp" — parts
+        separated by commas, each a number and one of the ladder's coins. A
+        remainder below the smallest coin rounds up.
+    note:
+      type: string
+      maxLength: 200
+      description: A line of colour for the chronicle ("found in the vault").
+    announce:
+      type: boolean
+      description: >-
+        Whether the table reads the gift in the chronicle — it does when left
+        out. The hero's owner is
+        always told, so a ring slipped to the rogue can stay between the two.
+
