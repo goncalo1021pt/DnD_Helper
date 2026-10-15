@@ -37,6 +37,7 @@ import FloatingDiceTray from "./ui/DiceTray";
 import ContentEntry from "./ui/ContentEntry";
 import ParchmentModal from "./ui/ParchmentModal";
 import SeatConflictModal from "./ui/SeatConflictModal";
+import GiftModal from "./dm/GiftModal";
 import {
   IconPencil,
   IconPlus,
@@ -332,6 +333,7 @@ function CharacterCard({
   veiled,
   progression,
   parties = [],
+  onGive,
 }: {
   character: Character;
   canEdit: boolean;
@@ -340,6 +342,8 @@ function CharacterCard({
   veiled: boolean;
   progression: string;
   parties?: Party[];
+  /** The DM's Give, opened on this hero (#394). */
+  onGive?: (heroId: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const update = useUpdateCharacter(campaignId);
@@ -523,6 +527,15 @@ function CharacterCard({
             +
           </button>
           <span className="flex-1" />
+          {isDM && onGive && (
+            <button
+              onClick={() => onGive(character.id)}
+              title="Give items or coin to this hero"
+              className="btn-base btn-ghost-ink px-3 py-[9px] text-[10px]"
+            >
+              Give
+            </button>
+          )}
           {canAmend && (
             <button
               onClick={() => setEditing(true)}
@@ -1161,6 +1174,9 @@ export default function PartyRoster() {
   })();
   const create = useCreateCharacter(campaign.id);
   const [adding, setAdding] = useState(false);
+  // The DM's Give (#394): opened for one hero from a card, or for anyone from
+  // the header. `null` is closed; an empty list is open with nobody chosen.
+  const [giving, setGiving] = useState<string[] | null>(null);
 
   return (
     <div className="panel-hall px-5 pb-28 pt-8 sm:px-[30px] sm:pb-11">
@@ -1208,6 +1224,15 @@ export default function PartyRoster() {
             The Skill Trees →
           </Link>
           <SummonControl campaignId={campaign.id} campaignName={campaign.name} />
+          {isDM && (characters ?? []).length > 0 && (
+            <button
+              onClick={() => setGiving([])}
+              title="Give items or coin to heroes at the table"
+              className="btn-base btn-ghost-gold h-10 px-5 text-[13px]"
+            >
+              Give
+            </button>
+          )}
           {isDM && (
             <button
               onClick={() => setAdding(true)}
@@ -1257,6 +1282,7 @@ export default function PartyRoster() {
                       character={c}
                       canEdit={c.mine || isDM}
                       isDM={isDM}
+                      onGive={(id) => setGiving([id])}
                       campaignId={campaign.id}
                       veiled={campaign.hiddenSheets ?? false}
                       progression={campaign.progression ?? "milestone"}
@@ -1285,6 +1311,16 @@ export default function PartyRoster() {
       <PregenPool campaignId={campaign.id} isDM={isDM} />
 
       <TravelingSection campaignId={campaign.id} allies={allies} />
+
+      {giving && (
+        <GiftModal
+          campaignId={campaign.id}
+          coinage={campaign.coinage}
+          heroes={(characters ?? []).filter((c) => !c.concealed)}
+          preselect={giving}
+          onClose={() => setGiving(null)}
+        />
+      )}
 
       {adding && (
         <ParchmentModal onClose={() => setAdding(false)} maxWidth="max-w-[480px]">

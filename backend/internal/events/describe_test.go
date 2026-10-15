@@ -24,6 +24,8 @@ func TestDescribeSaysWhatHappened(t *testing.T) {
 		{SessionMoved, map[string]any{"at": "2026-10-10T19:00:00Z", "previousAt": "2026-10-03T19:00:00Z"}, []string{"moved to <2026-10-10 19:00>", "was <2026-10-03 19:00>"}},
 		{HeroLevelled, map[string]any{"heroName": "Brann", "level": float64(5), "className": "Fighter"}, []string{"Brann rises to level 5 (Fighter)"}},
 		{HeroXPAwarded, map[string]any{"heroName": "Brann", "amount": float64(-50), "total": float64(900), "reason": "Fled."}, []string{"Brann loses 50 XP", "900 in all", "Fled."}},
+		{HeroGifted, map[string]any{"heroName": "Brann", "coin": "50 gp", "items": []any{map[string]any{"name": "Torch", "qty": float64(2)}, map[string]any{"name": "Rope", "qty": float64(1)}}, "note": "From the vault."}, []string{"Brann is given 2× Torch, Rope and 50 gp", "From the vault."}},
+		{HeroGifted, map[string]any{"heroName": "Brann", "coin": "5 sp", "items": []any{}}, []string{"Brann is given 5 sp"}},
 		{EncounterStarted, map[string]any{"name": "The bridge"}, []string{"A fight begins", "The bridge"}},
 		{EncounterEnded, map[string]any{"name": "The bridge"}, []string{"The bridge stands down"}},
 		{ChronicleWritten, map[string]any{"author": "Nadia", "excerpt": "We crossed."}, []string{"Nadia writes in the chronicle", "We crossed."}},

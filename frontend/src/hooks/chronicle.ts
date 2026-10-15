@@ -52,6 +52,36 @@ export function useGrantXP(campaignId: string) {
   });
 }
 
+/**
+ * The DM gives items and coin to seated heroes (#394). The packs of every hero
+ * named change, so the sheets and the roster are refetched.
+ */
+export function useGiveGift(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: {
+      heroIds: string[];
+      items?: Array<{ contentId?: string; name?: string; qty?: number }>;
+      coin?: string;
+      note?: string;
+      announce?: boolean;
+    }) => {
+      const { data, error } = await api.POST("/campaigns/{campaignId}/gifts", {
+        params: { path: { campaignId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (heroes) => {
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+      for (const h of heroes ?? []) qc.invalidateQueries({ queryKey: ["character-detail", h.id] });
+    },
+  });
+}
+
 export function useDeclareMilestone(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({

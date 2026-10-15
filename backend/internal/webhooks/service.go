@@ -101,7 +101,7 @@ type EnvelopeActor struct {
 // a table is campaigns:read.
 func ReadScopeOf(name events.Name) auth.Scope {
 	switch name {
-	case events.HeroLevelled, events.HeroXPAwarded:
+	case events.HeroLevelled, events.HeroXPAwarded, events.HeroGifted:
 		return auth.HeroesRead
 	default:
 		return auth.CampaignsRead

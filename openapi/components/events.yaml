@@ -14,6 +14,7 @@ EventName:
     - session.moved
     - hero.levelled
     - hero.xp_awarded
+    - hero.gifted
     - encounter.started
     - encounter.ended
     - chronicle.written
@@ -137,6 +138,34 @@ HeroXpEventPayload:
     total:
       type: integer
     reason:
+      type: string
+
+HeroGiftEventPayload:
+  type: object
+  description: >-
+    The payload of hero.gifted — one event per hero, so its audience is that
+    hero's owner and the DMs.
+  required: [heroId, heroName, items]
+  properties:
+    heroId:
+      type: string
+      format: uuid
+    heroName:
+      type: string
+    items:
+      type: array
+      items:
+        type: object
+        required: [name, qty]
+        properties:
+          name:
+            type: string
+          qty:
+            type: integer
+    coin:
+      type: string
+      description: What was given in coin, in the table's own coins ("50 gp").
+    note:
       type: string
 
 EncounterEventPayload:

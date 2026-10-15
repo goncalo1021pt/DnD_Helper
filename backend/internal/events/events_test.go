@@ -48,7 +48,7 @@ func TestAllIsTheWholeVocabulary(t *testing.T) {
 			t.Fatal("an empty name")
 		}
 	}
-	if len(All) != 13 {
-		t.Fatalf("the first list is thirteen events; %d listed — if you added one, the spec enum and docs/API.md need it too", len(All))
+	if len(All) != 14 {
+		t.Fatalf("the first list is fourteen events; %d listed — if you added one, the spec enum and docs/API.md need it too", len(All))
 	}
 }

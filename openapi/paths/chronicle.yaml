@@ -120,6 +120,41 @@
       "403":
         $ref: "../openapi.yaml#/components/responses/Forbidden"
 
+/campaigns/{campaignId}/gifts:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  post:
+    operationId: giveGift
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: >-
+      Give items and coin to seated heroes (DM only, #394). Items stack onto a
+      matching row or arrive as a new one; coin lands in the purse, which is
+      made when the hero has none. Written to the chronicle unless `announce`
+      is false, and told to each hero's owner as `hero.gifted`.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/GiftRequest"
+    responses:
+      "200":
+        description: The heroes after the gift
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/Character"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
 /campaigns/{campaignId}/milestone:
   parameters:
     - $ref: "../openapi.yaml#/components/parameters/CampaignId"

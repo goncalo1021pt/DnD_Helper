@@ -1126,6 +1126,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/gifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Give items and coin to seated heroes (DM only, #394). Items stack onto a matching row or arrive as a new one; coin lands in the purse, which is made when the hero has none. Written to the chronicle unless `announce` is false, and told to each hero's owner as `hero.gifted`. */
+        post: operations["giveGift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/milestone": {
         parameters: {
             query?: never;
@@ -4441,6 +4460,30 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        /** @description One line of a gift — a library item or a written-in name. */
+        GiftItem: {
+            /**
+             * Format: uuid
+             * @description An armory item. Homebrew must be admitted by the table's codex.
+             */
+            contentId?: string;
+            /** @description A written-in item, when there is no `contentId`. */
+            name?: string;
+            /** @description How many; one when left out. */
+            qty?: number;
+        };
+        /** @description At least one of `items` and `coin` must be given. */
+        GiftRequest: {
+            /** @description Seated heroes. Every one receives the whole gift. */
+            heroIds: string[];
+            items?: components["schemas"]["GiftItem"][];
+            /** @description An amount in the table's coin, such as "50 gp" or "2 gp, 5 sp" — parts separated by commas, each a number and one of the ladder's coins. A remainder below the smallest coin rounds up. */
+            coin?: string;
+            /** @description A line of colour for the chronicle ("found in the vault"). */
+            note?: string;
+            /** @description Whether the table reads the gift in the chronicle — it does when left out. The hero's owner is always told, so a ring slipped to the rogue can stay between the two. */
+            announce?: boolean;
+        };
         DieGroup: {
             /** @description How many of this die are in the pool. */
             count: number;
@@ -5015,7 +5058,7 @@ export interface components {
          * @description What happened (#315). The catalogue in one place: a webhook subscriber picks from this list, and each name's payload is the matching *EventPayload schema. Mirrored by `events.All` in the server, and a test holds the two together.
          * @enum {string}
          */
-        EventName: "quest.posted" | "quest.claimed" | "quest.completed" | "handout.given" | "session.scheduled" | "session.moved" | "hero.levelled" | "hero.xp_awarded" | "encounter.started" | "encounter.ended" | "chronicle.written" | "member.joined" | "seat.requested";
+        EventName: "quest.posted" | "quest.claimed" | "quest.completed" | "handout.given" | "session.scheduled" | "session.moved" | "hero.levelled" | "hero.xp_awarded" | "hero.gifted" | "encounter.started" | "encounter.ended" | "chronicle.written" | "member.joined" | "seat.requested";
         EventActor: {
             /** Format: uuid */
             id: string;
@@ -5080,6 +5123,19 @@ export interface components {
             amount: number;
             total: number;
             reason?: string;
+        };
+        /** @description The payload of hero.gifted — one event per hero, so its audience is that hero's owner and the DMs. */
+        HeroGiftEventPayload: {
+            /** Format: uuid */
+            heroId: string;
+            heroName: string;
+            items: {
+                name: string;
+                qty: number;
+            }[];
+            /** @description What was given in coin, in the table's own coins ("50 gp"). */
+            coin?: string;
+            note?: string;
         };
         /** @description The payload of encounter.started and encounter.ended. */
         EncounterEventPayload: {
@@ -7413,6 +7469,35 @@ export interface operations {
         };
         responses: {
             /** @description The heroes after the grant */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Character"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    giveGift: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GiftRequest"];
+            };
+        };
+        responses: {
+            /** @description The heroes after the gift */
             200: {
                 headers: {
                     [name: string]: unknown;

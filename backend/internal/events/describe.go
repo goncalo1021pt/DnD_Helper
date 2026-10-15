@@ -107,6 +107,12 @@ func Describe(h Happening, when func(time.Time) string) string {
 			line += " " + r
 		}
 		return line
+	case HeroGifted:
+		line := fmt.Sprintf("%s is given %s at %s.", str("heroName"), giftGoods(p), c)
+		if n := strings.TrimSpace(str("note")); n != "" {
+			line += " " + n
+		}
+		return line
 	case EncounterStarted:
 		return fmt.Sprintf("A fight begins at %s: %s.", c, str("name"))
 	case EncounterEnded:
@@ -126,4 +132,35 @@ func Describe(h Happening, when func(time.Time) string) string {
 		return fmt.Sprintf("%s asks for a seat at %s for %s.", str("userName"), c, str("heroName"))
 	}
 	return fmt.Sprintf("%s at %s.", h.Name, c)
+}
+
+// giftGoods reads what a gift held — "2× Torch, Rope and 50 gp" — out of the
+// payload a hero.gifted event carries.
+func giftGoods(payload map[string]any) string {
+	var parts []string
+	if list, ok := payload["items"].([]any); ok {
+		for _, raw := range list {
+			it, _ := raw.(map[string]any)
+			name, _ := it["name"].(string)
+			qty, _ := it["qty"].(float64)
+			if name == "" {
+				continue
+			}
+			if qty > 1 {
+				name = fmt.Sprintf("%d× %s", int(qty), name)
+			}
+			parts = append(parts, name)
+		}
+	}
+	if coin, _ := payload["coin"].(string); strings.TrimSpace(coin) != "" {
+		parts = append(parts, coin)
+	}
+	switch len(parts) {
+	case 0:
+		return "something"
+	case 1:
+		return parts[0]
+	default:
+		return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
+	}
 }
