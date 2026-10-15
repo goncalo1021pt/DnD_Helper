@@ -193,8 +193,9 @@ test("a purse reads in gold and change, never up into platinum", async ({ browse
       })
     ).json()
   ).id as string;
-  await seatHero(page.request, hero, campaign.id);
+  // Funded before sitting down (#394): at a table a purse is only spent.
   await fundHero(page.request, hero, 40);
+  await seatHero(page.request, hero, campaign.id);
 
   await page.goto(`/questboard/campaigns/${campaign.id}/vendors`);
   // Forty gold is forty gold. Four platinum is arithmetically the same number

@@ -70,8 +70,10 @@ test("coin for goods, sold-out shelves, and the till's refusals", async ({ brows
     abilities: { str: 16, dex: 10, con: 14, int: 8, wis: 12, cha: 10 },
     skills: ["Athletics", "Perception"],
   });
-  await seatHero(player.request, heroId, campaign.id);
+  // Funded BEFORE sitting down: at a table coin comes from the DM, the shop or
+  // a quest (#394), and an unseated hero's purse is the owner's own.
   await fundHero(player.request, heroId, 40);
+  await seatHero(player.request, heroId, campaign.id);
 
   await player.goto(`/questboard/campaigns/${campaign.id}/vendors`);
   await expect(player.getByText("40 gp", { exact: true })).toBeVisible();
