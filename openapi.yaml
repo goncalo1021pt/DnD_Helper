@@ -360,6 +360,7 @@ info:
     | `GET /api/handouts/{handoutId}/image` | `campaigns:read` | a handout's picture, if the handout reaches you |
     | `GET /api/campaigns/{campaignId}/events/stream` | `campaigns:read` | Server-Sent Events for the table: a topic name per nudge and no payload — refetch what it names |
     | `GET /api/me/events/stream` | `account:read` | the same for your own account: friendships, messages, your seats |
+    | `POST /api/mcp` | per tool, see below | the MCP server: question-shaped tools for an assistant |
 
     And these answer to no token: `/api/auth/*` (session-only, above),
     `/api/notifications/unsubscribe` (the link in an email is its own proof), and
@@ -383,6 +384,88 @@ info:
     the service-token headers that get a script through.
 
     ## Reading it as an assistant
+
+    An assistant that speaks the Model Context Protocol connects to
+    **`/api/mcp`** and is handed a few tools shaped like questions instead of the
+    whole contract. Each answers in a few lines of markdown, with ids so the next
+    question can name what the last one read. It is meant for preparing a session
+    (*what does the party know about Barovia, which threads are open, how hard is
+    this fight*) and for a player between sessions (*I hit level 5, what
+    changes*).
+
+    | Tool | Needs | Answers |
+    |---|---|---|
+    | `my_tables` | `campaigns:read` | the tables you sit at, your role, the next session |
+    | `my_heroes` | `heroes:read` | your heroes, their classes and where they sit |
+    | `hero_sheet` | `heroes:read`, `campaigns:read` | a sheet with the numbers worked out: AC, HP, slots, pools, spells, features, gear |
+    | `lookup` | `rules:read` | a codex entry by name: SRD or homebrew you can see; monsters for a DM |
+    | `table_board` | `campaigns:read` | the next session, the quests, the latest chronicle lines |
+    | `chronicle` | `campaigns:read` | the chronicle read back, by category or from a date |
+    | `whats_known` | `campaigns:read` | the places as a tree and the people under them; one place in full |
+    | `party` | `campaigns:read` | who runs the table, the heroes, the allies traveling with them |
+    | `den_search` | `rules:read`, `campaigns:run` | Den monsters by words, type and challenge rating |
+    | `encounter_check` | `rules:read`, `campaigns:run` | a proposed fight's XP against the party's budgets, by the 2024 rules the builder uses |
+
+    What holds it together:
+
+    - **A token, never a cookie.** The door refuses a browser's session, so no
+      page you visit can drive it. The token's table restriction and its limits
+      apply as at any other door; every call costs 5 against the ceiling.
+    - **A tool you could not use is not shown.** The list is built for each
+      request from the token's scopes, so a player's key never learns the DM's
+      tools exist. Mint one for the purpose — `heroes:read`, `campaigns:read` and
+      `rules:read` for a player; `campaigns:run` in place of `campaigns:read` for
+      a DM.
+    - **It reads what the screen reads.** Every answer is composed from the same
+      doors the app uses, so a veiled place, a draft notice or a hidden sheet is
+      absent for a player exactly as it is in the browser. A DM sees their hidden
+      things, marked *hidden from the party*.
+    - **Read only.** No tool writes. The chronicle, notes and notices are other
+      people's words in the assistant's context, and a tool that could write is
+      what those words could steer.
+
+    Tables and heroes may be named by id or by name, and a table may be left out
+    when you sit at only one.
+
+    **Claude Code:**
+
+    ```bash
+    claude mcp add --transport http questboard https://dnd.fontao.net/api/mcp \
+      --header "Authorization: Bearer qb_…"
+    ```
+
+    **Cursor** (`~/.cursor/mcp.json`) and any client that takes a URL and headers:
+
+    ```json
+    {
+      "mcpServers": {
+        "questboard": {
+          "url": "https://dnd.fontao.net/api/mcp",
+          "headers": { "Authorization": "Bearer qb_…" }
+        }
+      }
+    }
+    ```
+
+    **Claude Desktop** reaches a remote server through the `mcp-remote` bridge
+    (`claude_desktop_config.json`):
+
+    ```json
+    {
+      "mcpServers": {
+        "questboard": {
+          "command": "npx",
+          "args": ["mcp-remote", "https://dnd.fontao.net/api/mcp", "--header", "Authorization:${QB_AUTH}"],
+          "env": { "QB_AUTH": "Bearer qb_…" }
+        }
+      }
+    }
+    ```
+
+    Connectors that sign in through OAuth (claude.ai, ChatGPT, the phone apps)
+    are not supported yet; they cannot be handed a token.
+
+    ### Without MCP
 
     The bundled contract is the whole vocabulary. A workable first prompt:
 

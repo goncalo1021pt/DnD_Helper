@@ -98,6 +98,11 @@ func NewRouter(deps Deps) http.Handler {
 			// person rather than to a table, so they travel in a room of their own.
 			g.With(srv.rateLimit, withScope(auth.AccountRead)).Get("/me/events/stream", srv.ServeMeStream)
 
+			// The MCP server (#318): a token only, and no scope of its own —
+			// each tool declares the scopes its reads need, and a token that
+			// lacks one never sees the tool.
+			g.With(srv.rateLimit).Handle("/mcp", srv.ServeMCP())
+
 			// Register the generated, type-checked operation handlers onto this
 			// subrouter (paths: /health, /me, /campaigns).
 			mountAPI(g, strict, srv.rateLimit)

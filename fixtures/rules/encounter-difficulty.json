@@ -1,0 +1,44 @@
+{
+  "_note": [
+    "The 2024 encounter maths (#110), implemented twice: frontend/src/lib/",
+    "encounterDifficulty.ts for the builder's meter, backend/internal/rules/",
+    "encounter.go for the MCP server's encounter_check (#318). This file keeps",
+    "them honest — both test suites read it, and neither may drift alone.",
+    "",
+    "xp: a creature's data in, its XP out. The creature's own cr string wins",
+    "over the CR table; a lair's second number is ignored; crValue is only the",
+    "fallback for homebrew that states no XP.",
+    "budgets: party levels in, the summed per-character budget out; levels off",
+    "the end of the table clamp to it.",
+    "bands: a total against a party's levels; the bands are floors."
+  ],
+  "xp": [
+    { "name": "XP after", "data": { "cr": "1/4 (XP 50; PB +2)", "crValue": 0.25 }, "xp": 50 },
+    { "name": "XP before", "data": { "cr": "3 (700 XP; PB +2)", "crValue": 3 }, "xp": 700 },
+    { "name": "lair ignored", "data": { "cr": "17 (XP 18,000, or 20,000 in lair; PB +6)", "crValue": 17 }, "xp": 18000 },
+    { "name": "creature over table", "data": { "cr": "12 (XP 8,000; PB +4)", "crValue": 12 }, "xp": 8000 },
+    { "name": "worthless CR 0", "data": { "cr": "0 (XP 0; PB +2)", "crValue": 0 }, "xp": 0 },
+    { "name": "CR only", "data": { "cr": "5", "crValue": 5 }, "xp": 1800 },
+    { "name": "crValue only", "data": { "crValue": 0.25 }, "xp": 50 },
+    { "name": "nothing", "data": {}, "xp": 0 }
+  ],
+  "budgets": [
+    { "levels": [5, 5, 5, 5], "budget": { "low": 2000, "moderate": 3000, "high": 4400 } },
+    { "levels": [1, 5], "budget": { "low": 550, "moderate": 825, "high": 1200 } },
+    { "levels": [3, 3, 3], "budget": { "low": 450, "moderate": 675, "high": 1200 } },
+    { "levels": [], "budget": { "low": 0, "moderate": 0, "high": 0 } },
+    { "levels": [0], "budget": { "low": 50, "moderate": 75, "high": 100 } },
+    { "levels": [99], "budget": { "low": 6400, "moderate": 13200, "high": 22000 } }
+  ],
+  "bands": [
+    { "levels": [5, 5, 5, 5], "xp": 1999, "band": "trivial" },
+    { "levels": [5, 5, 5, 5], "xp": 2000, "band": "low" },
+    { "levels": [5, 5, 5, 5], "xp": 2999, "band": "low" },
+    { "levels": [5, 5, 5, 5], "xp": 3000, "band": "moderate" },
+    { "levels": [5, 5, 5, 5], "xp": 4400, "band": "high" },
+    { "levels": [5, 5, 5, 5], "xp": 999999, "band": "high" },
+    { "levels": [1, 1, 1, 1], "xp": 400, "band": "high" },
+    { "levels": [], "xp": 5000, "band": "trivial" },
+    { "levels": [5], "xp": 0, "band": "trivial" }
+  ]
+}
