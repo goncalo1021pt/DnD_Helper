@@ -67,14 +67,13 @@ async function walkTheWizard(page: Page, heroName: string): Promise<void> {
   await expect(nextStep(page)).toBeEnabled();
   await nextStep(page).click();
 
-  // --- Gear: one of the class's starting kits ------------------------------
-  await expect(page.getByText(/Starting equipment/i)).toBeVisible();
-  await page.getByRole("button", { name: /Chain Mail/ }).click();
-  await expect(nextStep(page)).toBeEnabled();
-  await nextStep(page).click();
+  // --- No Gear step (#390): a hero begins with an empty pack, and the DM hands
+  // out their start at the table.
+  await expect(page.getByRole("button", { name: /^Gear/ })).toHaveCount(0);
 
   // --- Name and forge -----------------------------------------------------
   await expect(page.getByText(/The hero's name/i)).toBeVisible();
+  await expect(page.getByText(/starting gear is handed out by your DM/i)).toBeVisible();
   await page.getByRole("textbox").last().fill(heroName);
 
   await expect(forgeButton(page)).toBeEnabled();
@@ -101,10 +100,14 @@ test("forges a hero through every step and lands on their sheet", async ({ page 
 
   // And the Forge's choices were made on them, not left owed (#382).
   const mine = (await (await page.request.get("/api/me/characters")).json()) as Array<{
+    id: string;
     name: string;
     sheet?: { feats?: string[]; featureChoices?: Array<{ feature: string; picked: string[] }> };
   }>;
   const forged = mine.find((h) => h.name === heroName);
+  // ...and begins with nothing in the pack, not a kit nobody asked for.
+  const pack = (await (await page.request.get(`/api/characters/${forged!.id}`)).json()) as { items: unknown[] };
+  expect(pack.items).toHaveLength(0);
   expect(forged?.sheet?.feats).toContain("Defense");
   const mastery = forged?.sheet?.featureChoices?.find((c) => c.feature === "Weapon Mastery");
   expect(mastery?.picked).toEqual(["Longsword", "Handaxe", "Javelin"]);

@@ -8,18 +8,12 @@ or a written-in name, and says whether the table reads about it: the hero's
 owner is always told, so a ring slipped to the rogue can stay between the two.
 */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { Character } from "../../api/client";
-import { useGiveGift, useRules } from "../../hooks";
+import { useGiveGift } from "../../hooks";
 import { coinageOf, goldRung, type Coin } from "../../lib/money";
+import ItemLinesEditor, { type Line } from "./ItemLinesEditor";
 import ParchmentModal from "../ui/ParchmentModal";
-
-interface Line {
-  key: string;
-  contentId?: string;
-  name: string;
-  qty: number;
-}
 
 const field = "input-parchment input-compact";
 
@@ -38,31 +32,13 @@ export default function GiftModal({
   onClose: () => void;
 }) {
   const give = useGiveGift(campaignId);
-  const { data: armory } = useRules("item");
   const ladder = coinageOf(coinage);
   const [chosen, setChosen] = useState<string[]>(preselect);
   const [lines, setLines] = useState<Line[]>([]);
-  const [search, setSearch] = useState("");
-  const [written, setWritten] = useState("");
   const [amount, setAmount] = useState("");
   const [coinIdx, setCoinIdx] = useState(goldRung(ladder));
   const [note, setNote] = useState("");
   const [announce, setAnnounce] = useState(true);
-
-  const found = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return (armory ?? []).filter((i) => i.name.toLowerCase().includes(q)).slice(0, 8);
-  }, [armory, search]);
-
-  const addLine = (line: Omit<Line, "key" | "qty">) =>
-    setLines((prev) => {
-      const same = prev.find((l) => (line.contentId ? l.contentId === line.contentId : !l.contentId && l.name === line.name));
-      if (same) return prev.map((l) => (l === same ? { ...l, qty: Math.min(l.qty + 1, 999) } : l));
-      return [...prev, { ...line, key: `${line.contentId ?? line.name}-${prev.length}`, qty: 1 }];
-    });
-  const setQty = (key: string, qty: number) =>
-    setLines((prev) => prev.flatMap((l) => (l.key !== key ? [l] : qty < 1 ? [] : [{ ...l, qty: Math.min(qty, 999) }])));
 
   const toggle = (id: string) =>
     setChosen((prev) => (prev.includes(id) ? prev.filter((h) => h !== id) : [...prev, id]));
@@ -130,69 +106,7 @@ export default function GiftModal({
 
       <div className="mb-3">
         <div className="field-label mb-1.5">Items</div>
-        <input
-          className={`${field} w-full`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search the armory…"
-        />
-        {found.length > 0 && (
-          <div className="mt-1 flex flex-col gap-1">
-            {found.map((i) => (
-              <button
-                key={i.id}
-                type="button"
-                onClick={() => {
-                  addLine({ contentId: i.id, name: i.name });
-                  setSearch("");
-                }}
-                className="cursor-pointer rounded-[2px] border-none px-2.5 py-1.5 text-left text-[12.5px] text-ink-body"
-                style={{ background: "rgba(120,86,42,.08)", boxShadow: "inset 0 0 0 1px rgba(120,80,30,.2)" }}
-              >
-                <strong className="font-heading text-ink">{i.name}</strong>
-                {i.summary && <span className="ml-2 text-[11.5px] italic">{i.summary}</span>}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="mt-1.5 flex gap-2">
-          <input
-            className={`${field} min-w-0 flex-1`}
-            value={written}
-            onChange={(e) => setWritten(e.target.value)}
-            maxLength={80}
-            placeholder="…or write one in"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && written.trim()) {
-                addLine({ name: written.trim() });
-                setWritten("");
-              }
-            }}
-          />
-          <button
-            type="button"
-            disabled={!written.trim()}
-            onClick={() => {
-              addLine({ name: written.trim() });
-              setWritten("");
-            }}
-            className="btn-base btn-ghost-ink px-3 text-[11px]"
-          >
-            Add
-          </button>
-        </div>
-        {lines.length > 0 && (
-          <ul className="m-0 mt-2 flex list-none flex-col gap-1 p-0">
-            {lines.map((l) => (
-              <li key={l.key} className="flex items-center gap-2 text-[12.5px] text-ink">
-                <span className="min-w-0 flex-1 truncate font-heading font-bold">{l.name}</span>
-                <button type="button" aria-label={`One fewer ${l.name}`} onClick={() => setQty(l.key, l.qty - 1)} className="btn-base btn-ghost-ink h-7 w-7 text-sm">−</button>
-                <span className="w-7 text-center tabular-nums">{l.qty}</span>
-                <button type="button" aria-label={`One more ${l.name}`} onClick={() => setQty(l.key, l.qty + 1)} className="btn-base btn-ghost-ink h-7 w-7 text-sm">+</button>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ItemLinesEditor lines={lines} onChange={setLines} />
       </div>
 
       <div className="mb-3">

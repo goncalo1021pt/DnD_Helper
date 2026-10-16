@@ -665,6 +665,950 @@
   }
  },
  {
+  "name": "Alchemist's Supplies",
+  "summary": "Glass, burner and reagents.",
+  "data": {
+   "type": "gear",
+   "cost": "50 gp",
+   "weight": 8
+  }
+ },
+ {
+  "name": "Arcane Focus (Crystal)",
+  "summary": "A crystal a sorcerer or wizard casts through.",
+  "data": {
+   "type": "gear",
+   "cost": "10 gp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Arcane Focus (Orb)",
+  "summary": "An orb a sorcerer or wizard casts through.",
+  "data": {
+   "type": "gear",
+   "cost": "20 gp",
+   "weight": 3
+  }
+ },
+ {
+  "name": "Arcane Focus (Staff)",
+  "summary": "A staff a sorcerer or wizard casts through.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 4
+  }
+ },
+ {
+  "name": "Backpack",
+  "summary": "Holds a hero's whole life, badly distributed.",
+  "data": {
+   "type": "gear",
+   "cost": "2 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Bagpipes",
+  "summary": "A droning instrument of bag and reeds.",
+  "data": {
+   "type": "gear",
+   "cost": "30 gp",
+   "weight": 6
+  }
+ },
+ {
+  "name": "Ball Bearings",
+  "summary": "A pouch of 1,000 steel balls; scattered, they spill the unwary.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Bedroll",
+  "summary": "A night under the stars, and a morning in the dew.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 7
+  }
+ },
+ {
+  "name": "Bell",
+  "summary": "A small brass bell for tripwires and cattle.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp"
+  }
+ },
+ {
+  "name": "Blanket",
+  "summary": "Warm, and not much more.",
+  "data": {
+   "type": "gear",
+   "cost": "5 sp",
+   "weight": 3
+  }
+ },
+ {
+  "name": "Book",
+  "summary": "A tome of lore, prayer or history.",
+  "data": {
+   "type": "gear",
+   "cost": "25 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Brewer's Supplies",
+  "summary": "A vat, a siphon and a nose.",
+  "data": {
+   "type": "gear",
+   "cost": "20 gp",
+   "weight": 9
+  }
+ },
+ {
+  "name": "Bullseye Lantern",
+  "summary": "A narrow, far-reaching beam.",
+  "data": {
+   "type": "gear",
+   "cost": "10 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Burglar's Pack",
+  "summary": "A burglar's kit for getting in, and out.",
+  "data": {
+   "type": "gear",
+   "cost": "16 gp",
+   "contents": [
+    {
+     "name": "Backpack",
+     "qty": 1
+    },
+    {
+     "name": "Ball Bearings",
+     "qty": 1
+    },
+    {
+     "name": "Bell",
+     "qty": 1
+    },
+    {
+     "name": "Candle",
+     "qty": 10
+    },
+    {
+     "name": "Crowbar",
+     "qty": 1
+    },
+    {
+     "name": "Hooded Lantern",
+     "qty": 1
+    },
+    {
+     "name": "Oil",
+     "qty": 7
+    },
+    {
+     "name": "Rations",
+     "qty": 5
+    },
+    {
+     "name": "Rope (50 ft)",
+     "qty": 1
+    },
+    {
+     "name": "Tinderbox",
+     "qty": 1
+    },
+    {
+     "name": "Waterskin",
+     "qty": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "Calligrapher's Supplies",
+  "summary": "Pens, inks and paper for a fine hand.",
+  "data": {
+   "type": "gear",
+   "cost": "10 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Caltrops",
+  "summary": "A bag of 20; scattered, they bite whoever steps on them.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Candle",
+  "summary": "A little light for an hour.",
+  "data": {
+   "type": "gear",
+   "cost": "1 cp"
+  }
+ },
+ {
+  "name": "Carpenter's Tools",
+  "summary": "Saw, hammer, chisel and plane.",
+  "data": {
+   "type": "gear",
+   "cost": "8 gp",
+   "weight": 6
+  }
+ },
+ {
+  "name": "Cartographer's Tools",
+  "summary": "Pens, ink, parchment and a compass.",
+  "data": {
+   "type": "gear",
+   "cost": "15 gp",
+   "weight": 6
+  }
+ },
+ {
+  "name": "Chest",
+  "summary": "Holds a great deal, and weighs a great deal.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 25
+  }
+ },
+ {
+  "name": "Cobbler's Tools",
+  "summary": "Hammer, awl and lasts.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Cook's Utensils",
+  "summary": "Pots, knives and a good ladle.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 8
+  }
+ },
+ {
+  "name": "Costume",
+  "summary": "Dress for a role, and a way to become someone else.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 4
+  }
+ },
+ {
+  "name": "Crowbar",
+  "summary": "Leverage for doors, lids and arguments.",
+  "data": {
+   "type": "gear",
+   "cost": "2 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Dice Set",
+  "summary": "Bones, for a gamble.",
+  "data": {
+   "type": "gear",
+   "cost": "1 sp"
+  }
+ },
+ {
+  "name": "Diplomat's Pack",
+  "summary": "A courtier's baggage, for talking rather than fighting.",
+  "data": {
+   "type": "gear",
+   "cost": "39 gp",
+   "contents": [
+    {
+     "name": "Chest",
+     "qty": 1
+    },
+    {
+     "name": "Fine Clothes",
+     "qty": 1
+    },
+    {
+     "name": "Ink",
+     "qty": 1
+    },
+    {
+     "name": "Ink Pen",
+     "qty": 5
+    },
+    {
+     "name": "Lamp",
+     "qty": 1
+    },
+    {
+     "name": "Map or Scroll Case",
+     "qty": 2
+    },
+    {
+     "name": "Oil",
+     "qty": 4
+    },
+    {
+     "name": "Paper",
+     "qty": 5
+    },
+    {
+     "name": "Parchment",
+     "qty": 5
+    },
+    {
+     "name": "Perfume",
+     "qty": 1
+    },
+    {
+     "name": "Tinderbox",
+     "qty": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "Dragonchess Set",
+  "summary": "A three-tiered board game of dragons and strategy.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp"
+  }
+ },
+ {
+  "name": "Druidic Focus (Sprig of Mistletoe)",
+  "summary": "A sprig a druid or ranger casts through.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp"
+  }
+ },
+ {
+  "name": "Druidic Focus (Wooden Staff)",
+  "summary": "A staff a druid casts through.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 4
+  }
+ },
+ {
+  "name": "Drum",
+  "summary": "A skin stretched over a frame.",
+  "data": {
+   "type": "gear",
+   "cost": "6 gp",
+   "weight": 3
+  }
+ },
+ {
+  "name": "Dulcimer",
+  "summary": "A hammered, stringed instrument.",
+  "data": {
+   "type": "gear",
+   "cost": "25 gp",
+   "weight": 10
+  }
+ },
+ {
+  "name": "Dungeoneer's Pack",
+  "summary": "What a delver packs for the dark.",
+  "data": {
+   "type": "gear",
+   "cost": "12 gp",
+   "contents": [
+    {
+     "name": "Backpack",
+     "qty": 1
+    },
+    {
+     "name": "Caltrops",
+     "qty": 1
+    },
+    {
+     "name": "Crowbar",
+     "qty": 1
+    },
+    {
+     "name": "Oil",
+     "qty": 2
+    },
+    {
+     "name": "Rations",
+     "qty": 10
+    },
+    {
+     "name": "Rope (50 ft)",
+     "qty": 1
+    },
+    {
+     "name": "Tinderbox",
+     "qty": 1
+    },
+    {
+     "name": "Torch",
+     "qty": 10
+    },
+    {
+     "name": "Waterskin",
+     "qty": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "Entertainer's Pack",
+  "summary": "An entertainer's kit for the road and the stage.",
+  "data": {
+   "type": "gear",
+   "cost": "40 gp",
+   "contents": [
+    {
+     "name": "Backpack",
+     "qty": 1
+    },
+    {
+     "name": "Bedroll",
+     "qty": 1
+    },
+    {
+     "name": "Bell",
+     "qty": 1
+    },
+    {
+     "name": "Bullseye Lantern",
+     "qty": 1
+    },
+    {
+     "name": "Costume",
+     "qty": 3
+    },
+    {
+     "name": "Mirror",
+     "qty": 1
+    },
+    {
+     "name": "Oil",
+     "qty": 8
+    },
+    {
+     "name": "Rations",
+     "qty": 9
+    },
+    {
+     "name": "Tinderbox",
+     "qty": 1
+    },
+    {
+     "name": "Waterskin",
+     "qty": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "Explorer's Pack",
+  "summary": "The road's essentials in a bundle.",
+  "data": {
+   "type": "gear",
+   "cost": "10 gp",
+   "contents": [
+    {
+     "name": "Backpack",
+     "qty": 1
+    },
+    {
+     "name": "Bedroll",
+     "qty": 1
+    },
+    {
+     "name": "Oil",
+     "qty": 2
+    },
+    {
+     "name": "Rations",
+     "qty": 10
+    },
+    {
+     "name": "Rope (50 ft)",
+     "qty": 1
+    },
+    {
+     "name": "Tinderbox",
+     "qty": 1
+    },
+    {
+     "name": "Torch",
+     "qty": 10
+    },
+    {
+     "name": "Waterskin",
+     "qty": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "Fine Clothes",
+  "summary": "Cut for a court rather than a road.",
+  "data": {
+   "type": "gear",
+   "cost": "15 gp",
+   "weight": 6
+  }
+ },
+ {
+  "name": "Flute",
+  "summary": "A simple woodwind.",
+  "data": {
+   "type": "gear",
+   "cost": "2 gp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Glassblower's Tools",
+  "summary": "A blowpipe, tongs and a mould.",
+  "data": {
+   "type": "gear",
+   "cost": "30 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Herbalism Kit",
+  "summary": "Pouches, a mortar and a sickle for herbs.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 3
+  }
+ },
+ {
+  "name": "Holy Symbol",
+  "summary": "An amulet, an emblem or a reliquary: a cleric's focus.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Holy Water",
+  "summary": "A flask, blessed, and unkind to the undead.",
+  "data": {
+   "type": "gear",
+   "cost": "25 gp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Hooded Lantern",
+  "summary": "Throws a cone of light, or shuts to a sliver.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Horn",
+  "summary": "A curved horn of brass or bone.",
+  "data": {
+   "type": "gear",
+   "cost": "3 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Ink",
+  "summary": "A bottle of ink, a one-ounce pot.",
+  "data": {
+   "type": "gear",
+   "cost": "10 gp"
+  }
+ },
+ {
+  "name": "Ink Pen",
+  "summary": "A quill or a nib, dipped in ink.",
+  "data": {
+   "type": "gear",
+   "cost": "2 cp"
+  }
+ },
+ {
+  "name": "Jeweler's Tools",
+  "summary": "A loupe, files and tweezers.",
+  "data": {
+   "type": "gear",
+   "cost": "25 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Lamp",
+  "summary": "Burns oil for light in a small room.",
+  "data": {
+   "type": "gear",
+   "cost": "5 sp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Leatherworker's Tools",
+  "summary": "Knife, awl and thread.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Lute",
+  "summary": "A bard's stringed companion.",
+  "data": {
+   "type": "gear",
+   "cost": "35 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Lyre",
+  "summary": "A small harp of the old songs.",
+  "data": {
+   "type": "gear",
+   "cost": "30 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Map or Scroll Case",
+  "summary": "Keeps a map, or a scroll, dry.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Mason's Tools",
+  "summary": "Trowel, chisel and a plumb line.",
+  "data": {
+   "type": "gear",
+   "cost": "10 gp",
+   "weight": 8
+  }
+ },
+ {
+  "name": "Mirror",
+  "summary": "A small steel mirror, to see round a corner.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp",
+   "weight": 0.5
+  }
+ },
+ {
+  "name": "Oil",
+  "summary": "A flask of lamp oil: a lantern's drink, or a fuse.",
+  "data": {
+   "type": "gear",
+   "cost": "1 sp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Painter's Supplies",
+  "summary": "Easel, brushes and pigments.",
+  "data": {
+   "type": "gear",
+   "cost": "10 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Pan Flute",
+  "summary": "Reeds bound in a row.",
+  "data": {
+   "type": "gear",
+   "cost": "12 gp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Paper",
+  "summary": "One sheet, for a letter that will not be burned.",
+  "data": {
+   "type": "gear",
+   "cost": "2 sp"
+  }
+ },
+ {
+  "name": "Parchment",
+  "summary": "One sheet, for a letter that must last.",
+  "data": {
+   "type": "gear",
+   "cost": "1 sp"
+  }
+ },
+ {
+  "name": "Perfume",
+  "summary": "A vial, for a court, or a cover.",
+  "data": {
+   "type": "gear",
+   "cost": "5 gp"
+  }
+ },
+ {
+  "name": "Playing Cards",
+  "summary": "A deck, for a game or a trick.",
+  "data": {
+   "type": "gear",
+   "cost": "5 sp"
+  }
+ },
+ {
+  "name": "Potter's Tools",
+  "summary": "Wheel, knife and glaze.",
+  "data": {
+   "type": "gear",
+   "cost": "10 gp",
+   "weight": 3
+  }
+ },
+ {
+  "name": "Pouch",
+  "summary": "Holds coin, or something more suspicious.",
+  "data": {
+   "type": "gear",
+   "cost": "5 sp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Priest's Pack",
+  "summary": "A priest's travelling temple.",
+  "data": {
+   "type": "gear",
+   "cost": "33 gp",
+   "contents": [
+    {
+     "name": "Backpack",
+     "qty": 1
+    },
+    {
+     "name": "Blanket",
+     "qty": 1
+    },
+    {
+     "name": "Holy Water",
+     "qty": 1
+    },
+    {
+     "name": "Lamp",
+     "qty": 1
+    },
+    {
+     "name": "Rations",
+     "qty": 7
+    },
+    {
+     "name": "Robe",
+     "qty": 1
+    },
+    {
+     "name": "Tinderbox",
+     "qty": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "Quiver",
+  "summary": "Holds twenty arrows, and a spare.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Rations",
+  "summary": "One day's dried food.",
+  "data": {
+   "type": "gear",
+   "cost": "5 sp",
+   "weight": 2
+  }
+ },
+ {
+  "name": "Robe",
+  "summary": "A long garment of a scholar or a cleric.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 4
+  }
+ },
+ {
+  "name": "Scholar's Pack",
+  "summary": "A scholar's study, folded into a pack.",
+  "data": {
+   "type": "gear",
+   "cost": "40 gp",
+   "contents": [
+    {
+     "name": "Backpack",
+     "qty": 1
+    },
+    {
+     "name": "Book",
+     "qty": 1
+    },
+    {
+     "name": "Ink",
+     "qty": 1
+    },
+    {
+     "name": "Ink Pen",
+     "qty": 1
+    },
+    {
+     "name": "Lamp",
+     "qty": 1
+    },
+    {
+     "name": "Oil",
+     "qty": 10
+    },
+    {
+     "name": "Parchment",
+     "qty": 10
+    },
+    {
+     "name": "Tinderbox",
+     "qty": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "Shawm",
+  "summary": "A reedy double-reed pipe.",
+  "data": {
+   "type": "gear",
+   "cost": "2 gp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Smith's Tools",
+  "summary": "Hammers, tongs and a small anvil.",
+  "data": {
+   "type": "gear",
+   "cost": "20 gp",
+   "weight": 8
+  }
+ },
+ {
+  "name": "Spellbook",
+  "summary": "A wizard's life, written down.",
+  "data": {
+   "type": "gear",
+   "cost": "50 gp",
+   "weight": 3
+  }
+ },
+ {
+  "name": "Three-Dragon Ante Set",
+  "summary": "A deck for a game of bluff and betrayal.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp"
+  }
+ },
+ {
+  "name": "Tinderbox",
+  "summary": "Flint, steel and tinder, for a fire in any weather.",
+  "data": {
+   "type": "gear",
+   "cost": "5 sp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Tinker's Tools",
+  "summary": "Pliers, files, springs and gears.",
+  "data": {
+   "type": "gear",
+   "cost": "50 gp",
+   "weight": 10
+  }
+ },
+ {
+  "name": "Traveler's Clothes",
+  "summary": "Sturdy, plain, and used to the weather.",
+  "data": {
+   "type": "gear",
+   "cost": "2 gp",
+   "weight": 4
+  }
+ },
+ {
+  "name": "Viol",
+  "summary": "A bowed, stringed instrument.",
+  "data": {
+   "type": "gear",
+   "cost": "30 gp",
+   "weight": 1
+  }
+ },
+ {
+  "name": "Waterskin",
+  "summary": "Holds four pints, which is rarely enough.",
+  "data": {
+   "type": "gear",
+   "cost": "2 sp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Weaver's Tools",
+  "summary": "Needles, shuttle and a small loom.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 5
+  }
+ },
+ {
+  "name": "Woodcarver's Tools",
+  "summary": "Knives and gouges.",
+  "data": {
+   "type": "gear",
+   "cost": "1 gp",
+   "weight": 5
+  }
+ },
+ {
   "name": "+1 Battleaxe",
   "summary": "A battleaxe with a +1 enchantment worked into it.",
   "data": {

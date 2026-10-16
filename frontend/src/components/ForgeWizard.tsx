@@ -38,10 +38,8 @@ import {
   POINT_COST,
   STANDARD_ARRAY,
   STEP_NOUN,
-  gearLine,
   type AbilityKey,
   type BonusMode,
-  type GearOption,
   type Method,
   type StepName,
 } from "./forge/constants";
@@ -68,7 +66,6 @@ export default function ForgeWizard() {
 
   const [step, setStep] = useState(restored?.step ?? 0);
   const [classId, setClassId] = useState<string>(restored?.classId ?? "");
-  const [gear, setGear] = useState<string>(restored?.gear ?? "");
   const [skills, setSkills] = useState<string[]>(restored?.skills ?? []);
   const [spellIds, setSpellIds] = useState<string[]>(restored?.spellIds ?? []);
   const [backgroundId, setBackgroundId] = useState<string>(restored?.backgroundId ?? "");
@@ -102,10 +99,10 @@ export default function ForgeWizard() {
   // should not grow one — the point is that nothing is ever pending.
   useEffect(() => {
     saveDraft({
-      step, classId, gear, skills, spellIds, backgroundId, speciesId,
+      step, classId, skills, spellIds, backgroundId, speciesId,
       speciesPicks, method, base, bonusMode, bonus2, bonus1, name, tableId,
     } as ForgeDraft);
-  }, [step, classId, gear, skills, spellIds, backgroundId, speciesId,
+  }, [step, classId, skills, spellIds, backgroundId, speciesId,
       speciesPicks, method, base, bonusMode, bonus2, bonus1, name, tableId]);
 
   const { data: memberships } = useCampaigns();
@@ -122,7 +119,7 @@ export default function ForgeWizard() {
   const chosenSpecies = species?.find((s) => s.id === speciesId);
 
   const classData = chosenClass?.data as
-    | { hitDie?: number; saves?: string[]; primaryAbility?: string[]; skillChoices?: { choose: number; from: string[] }; features?: Array<{ name: string; summary: string }>; startingEquipment?: GearOption[] }
+    | { hitDie?: number; saves?: string[]; primaryAbility?: string[]; skillChoices?: { choose: number; from: string[] }; features?: Array<{ name: string; summary: string }>}
     | undefined;
   const bgData = chosenBackground?.data as
     | { abilityScores?: string[]; feat?: string; skills?: string[]; tool?: string; equipment?: string }
@@ -193,7 +190,6 @@ export default function ForgeWizard() {
   const spellsValid =
     !casting || (pickedCantrips <= cantripsMax && pickedLeveled <= preparedMax);
 
-  const gearOptions = classData?.startingEquipment ?? [];
 
   /*
     What the class asks at level 1 (#382) — a Fighter's style and masteries, a
@@ -219,7 +215,6 @@ export default function ForgeWizard() {
   const steps: StepName[] = ["Class", "Background", "Species", "Abilities"];
   if (levelOneChoices.length > 0) steps.push("Choices");
   if (casting) steps.push("Spells");
-  if (gearOptions.length > 0) steps.push("Gear");
   steps.push("Name");
   const safeStep = Math.min(step, steps.length - 1);
   const current = steps[safeStep];
@@ -328,7 +323,6 @@ export default function ForgeWizard() {
     }
     return { tone: "info", text: `You still need to choose ${skillsRemaining} class skill${skillsRemaining === 1 ? "" : "s"}.` };
   })();
-  const gearValid = gearOptions.length === 0 || gear !== "";
   // A half-answered species is not a legal hero: a Gnome without a lineage is
   // missing two cantrips. Every choice the species offers must be made.
   const speciesValid = !!speciesId && picksComplete(spData, speciesPicks);
@@ -337,7 +331,7 @@ export default function ForgeWizard() {
   const speciesSkills = grantedSkills(spData, speciesPicks);
   const speciesFeats = grantedFeats(spData, speciesPicks);
   const allValid =
-    skillsValid && !!backgroundId && speciesValid && abilitiesValid && choicesValid && spellsValid && gearValid;
+    skillsValid && !!backgroundId && speciesValid && abilitiesValid && choicesValid && spellsValid;
   const validity: Record<StepName, boolean> = {
     Class: skillsValid,
     Background: !!backgroundId,
@@ -345,7 +339,6 @@ export default function ForgeWizard() {
     Abilities: abilitiesValid,
     Choices: choicesValid,
     Spells: spellsValid,
-    Gear: gearValid,
     Name: name.trim().length > 0 && allValid,
   };
   const stepValid = validity[current];
@@ -433,7 +426,6 @@ export default function ForgeWizard() {
         abilities: finalScores,
         skills,
         spells: casting ? spellIds : undefined,
-        gear: gearOptions.length > 0 ? gear : undefined,
         speciesChoices: speciesChoices.length > 0 ? speciesPicks : undefined,
       },
       {
@@ -586,7 +578,6 @@ export default function ForgeWizard() {
                           setSkills([]);
                           setRetracted([]);
                           setSpellIds([]);
-                          setGear("");
                         }
                         setClassId(c.id);
                       }}
@@ -833,45 +824,6 @@ export default function ForgeWizard() {
             </div>
           )}
 
-          {current === "Gear" && gearOptions.length > 0 && (
-            <div className="parchment px-6 py-5">
-              <div className="label-stamp mb-3 text-[10px] tracking-[2px] text-gold-muted">
-                Starting equipment — choose one kit
-              </div>
-              <div className="flex flex-col gap-2.5">
-                {gearOptions.map((o) => {
-                  const active = gear === o.label;
-                  return (
-                    <button
-                      key={o.label}
-                      onClick={() => setGear(o.label)}
-                      className="flex cursor-pointer items-start gap-3 rounded-[3px] border-none px-4 py-3 text-left transition"
-                      style={{
-                        background: active ? "rgba(139,37,32,.14)" : "rgba(120,86,42,.10)",
-                        boxShadow: `inset 0 0 0 ${active ? "2px #8b2520" : "1px rgba(120,80,30,.4)"}`,
-                      }}
-                    >
-                      <span
-                        className="font-display mt-0.5 text-[15px] font-black"
-                        style={{ color: active ? "#8b2520" : "#4a3620" }}
-                      >
-                        {o.label}
-                      </span>
-                      <span className="font-body text-[13px] leading-snug text-ink-strong">
-                        {gearLine(o)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {bgData?.equipment && (
-                <div className="font-accent mt-4 text-[12px] italic text-ink-body">
-                  Your {chosenBackground?.name} past adds: {bgData.equipment}
-                </div>
-              )}
-            </div>
-          )}
-
           {current === "Name" && (
             <div className="parchment px-6 py-6">
               <label className="flex flex-col gap-1.5">
@@ -885,6 +837,11 @@ export default function ForgeWizard() {
                   autoFocus
                 />
               </label>
+              {/* Starting gear is the DM's to hand out at the table (#390). */}
+              <p className="font-accent m-0 mt-4 text-[12.5px] italic text-ink-body">
+                You begin with an empty pack: your starting gear is handed out
+                by your DM at the table.
+              </p>
               {skillIssue && (
                 <ForgeAlert
                   text={skillIssue.text}

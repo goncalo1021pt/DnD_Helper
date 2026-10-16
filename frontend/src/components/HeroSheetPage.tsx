@@ -51,6 +51,7 @@ import FeaturesPanel from "./sheet/FeaturesPanel";
 import { FeatureChoiceModal } from "./sheet/FeatureChoicePicker";
 import PurseControls from "./sheet/PurseControls";
 import GiftModal from "./dm/GiftModal";
+import StartingPackModal from "./dm/StartingPackModal";
 import { claimedElsewhere, levelsByClass, poolFor, trainingFromChoices } from "../lib/featureChoices";
 import PoolsPanel from "./sheet/PoolsPanel";
 import CreaturesPanel from "./sheet/CreaturesPanel";
@@ -88,6 +89,7 @@ export default function HeroSheetPage() {
   const [itemType, setItemType] = useState("");
   const [choosing, setChoosing] = useState<FeatureChoice | null>(null);
   const [giving, setGiving] = useState(false);
+  const [startingPack, setStartingPack] = useState(false);
 
   const character = detail?.character;
   const sheet = character?.sheet;
@@ -804,13 +806,22 @@ export default function HeroSheetPage() {
               <div className="mb-1.5 flex items-center justify-between">
                 <SectionLabel>The Pack</SectionLabel>
                 {dmHere && (
-                  <button
-                    onClick={() => setGiving(true)}
-                    title="Give this hero items or coin"
-                    className="label-stamp btn-ghost-gold mb-2.5 flex cursor-pointer items-center gap-1 border-none px-2.5 py-1 text-[9px] tracking-[1px]"
-                  >
-                    <IconPlus size={11} strokeWidth={2} /> Give
-                  </button>
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <button
+                      onClick={() => setStartingPack(true)}
+                      title="Hand this hero their starting gear"
+                      className="label-stamp btn-ghost-gold flex cursor-pointer items-center gap-1 border-none px-2.5 py-1 text-[9px] tracking-[1px]"
+                    >
+                      Starting pack
+                    </button>
+                    <button
+                      onClick={() => setGiving(true)}
+                      title="Give this hero items or coin"
+                      className="label-stamp btn-ghost-gold flex cursor-pointer items-center gap-1 border-none px-2.5 py-1 text-[9px] tracking-[1px]"
+                    >
+                      <IconPlus size={11} strokeWidth={2} /> Give
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="parchment px-4 py-4">
@@ -1054,6 +1065,10 @@ export default function HeroSheetPage() {
             </div>
           )}
         </ParchmentModal>
+      )}
+
+      {startingPack && character && (
+        <StartingPackModal campaignId={character.campaignId!} hero={character} onClose={() => setStartingPack(false)} />
       )}
 
       {giving && character && (

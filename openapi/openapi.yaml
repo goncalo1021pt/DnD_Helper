@@ -134,6 +134,12 @@ paths:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1rolls"
   /campaigns/{campaignId}/xp:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1xp"
+  /campaigns/{campaignId}/packs:
+    $ref: "./paths/packs.yaml#/~1campaigns~1{campaignId}~1packs"
+  /campaigns/{campaignId}/packs/{packId}:
+    $ref: "./paths/packs.yaml#/~1campaigns~1{campaignId}~1packs~1{packId}"
+  /characters/{characterId}/starting-packs:
+    $ref: "./paths/packs.yaml#/~1characters~1{characterId}~1starting-packs"
   /campaigns/{campaignId}/gifts:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1gifts"
   /campaigns/{campaignId}/milestone:
@@ -728,6 +734,18 @@ components:
 
     ChronicleEvent:
       $ref: "./components/chronicle.yaml#/ChronicleEvent"
+    PackChoice:
+      $ref: "./components/packs.yaml#/PackChoice"
+    PackLine:
+      $ref: "./components/packs.yaml#/PackLine"
+    StartingPackOption:
+      $ref: "./components/packs.yaml#/StartingPackOption"
+    CustomPack:
+      $ref: "./components/packs.yaml#/CustomPack"
+    CustomPackInput:
+      $ref: "./components/packs.yaml#/CustomPackInput"
+    StartingPacks:
+      $ref: "./components/packs.yaml#/StartingPacks"
     GiftItem:
       $ref: "./components/chronicle.yaml#/GiftItem"
     GiftRequest:

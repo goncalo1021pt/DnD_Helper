@@ -89,6 +89,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 		if msg := validateFeatureChoices(data); msg != "" {
 			return msg
 		}
+		if msg := validateStartingEquipment(data); msg != "" {
+			return msg
+		}
 	case db.ContentKindSpecies:
 		if size, ok := getStr(data, "size"); !ok || strings.TrimSpace(size) == "" {
 			return "species data needs a size (e.g. \"Medium\")"
@@ -117,6 +120,9 @@ func validateContentData(kind db.ContentKind, data map[string]interface{}) strin
 		}
 		if feat, ok := getStr(data, "feat"); !ok || strings.TrimSpace(feat) == "" {
 			return "background data needs its origin feat name"
+		}
+		if msg := validateStartingEquipment(data); msg != "" {
+			return msg
 		}
 	case db.ContentKindSubclass:
 		if class, ok := getStr(data, "class"); !ok || strings.TrimSpace(class) == "" {
@@ -494,6 +500,9 @@ func validateMagicItem(data map[string]interface{}) string {
 }
 
 func validateItemTrappings(data map[string]interface{}) string {
+	if msg := validatePackContents(data); msg != "" {
+		return msg
+	}
 	if rarity, _ := getStr(data, "rarity"); !itemRarities[strings.ToLower(strings.TrimSpace(rarity))] {
 		return "rarity must be common, uncommon, rare, very rare, legendary or artifact"
 	}

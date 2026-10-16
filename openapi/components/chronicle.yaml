@@ -146,6 +146,13 @@ GiftRequest:
       type: string
       maxLength: 200
       description: A line of colour for the chronicle ("found in the vault").
+    startingPack:
+      type: string
+      maxLength: 80
+      description: >-
+        Set when the gift is a hero's starting pack (#390), naming it ("Fighter
+        A + Soldier"). It stamps the heroes as having been given one and says so
+        in the chronicle line.
     announce:
       type: boolean
       description: >-

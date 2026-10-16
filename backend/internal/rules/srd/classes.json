@@ -462,7 +462,20 @@
        "qty": 2
       },
       {
-       "name": "Musical Instrument of your choice"
+       "name": "Musical Instrument",
+       "qty": 1,
+       "choose": [
+        "Bagpipes",
+        "Drum",
+        "Dulcimer",
+        "Flute",
+        "Horn",
+        "Lute",
+        "Lyre",
+        "Pan Flute",
+        "Shawm",
+        "Viol"
+       ]
       },
       {
        "name": "Entertainer's Pack"
@@ -966,7 +979,8 @@
        "name": "Sickle"
       },
       {
-       "name": "Druidic Focus (Quarterstaff)"
+       "name": "Druidic Focus (Wooden Staff)",
+       "qty": 1
       },
       {
        "name": "Explorer's Pack"
@@ -1262,8 +1276,8 @@
        "name": "Longbow"
       },
       {
-       "name": "Arrow",
-       "qty": 20
+       "name": "Arrows (20)",
+       "qty": 1
       },
       {
        "name": "Quiver"
@@ -1528,7 +1542,37 @@
        "qty": 5
       },
       {
-       "name": "Artisan's Tools or Musical Instrument (your tool proficiency)"
+       "name": "Artisan's Tools or Musical Instrument",
+       "qty": 1,
+       "choose": [
+        "Alchemist's Supplies",
+        "Brewer's Supplies",
+        "Calligrapher's Supplies",
+        "Carpenter's Tools",
+        "Cartographer's Tools",
+        "Cobbler's Tools",
+        "Cook's Utensils",
+        "Glassblower's Tools",
+        "Jeweler's Tools",
+        "Leatherworker's Tools",
+        "Mason's Tools",
+        "Painter's Supplies",
+        "Potter's Tools",
+        "Smith's Tools",
+        "Tinker's Tools",
+        "Weaver's Tools",
+        "Woodcarver's Tools",
+        "Bagpipes",
+        "Drum",
+        "Dulcimer",
+        "Flute",
+        "Horn",
+        "Lute",
+        "Lyre",
+        "Pan Flute",
+        "Shawm",
+        "Viol"
+       ]
       },
       {
        "name": "Explorer's Pack"
@@ -2166,14 +2210,15 @@
        "name": "Longbow"
       },
       {
-       "name": "Arrow",
-       "qty": 20
+       "name": "Arrows (20)",
+       "qty": 1
       },
       {
        "name": "Quiver"
       },
       {
-       "name": "Druidic Focus (sprig of mistletoe)"
+       "name": "Druidic Focus (Sprig of Mistletoe)",
+       "qty": 1
       },
       {
        "name": "Explorer's Pack"
@@ -2440,8 +2485,8 @@
        "name": "Shortbow"
       },
       {
-       "name": "Arrow",
-       "qty": 20
+       "name": "Arrows (20)",
+       "qty": 1
       },
       {
        "name": "Quiver"
@@ -2660,7 +2705,8 @@
        "qty": 2
       },
       {
-       "name": "Arcane Focus (crystal)"
+       "name": "Arcane Focus (Crystal)",
+       "qty": 1
       },
       {
        "name": "Dungeoneer's Pack"
@@ -2892,10 +2938,12 @@
        "qty": 2
       },
       {
-       "name": "Arcane Focus (orb)"
+       "name": "Arcane Focus (Orb)",
+       "qty": 1
       },
       {
-       "name": "Book (occult lore)"
+       "name": "Book",
+       "qty": 1
       },
       {
        "name": "Scholar's Pack"
@@ -3157,7 +3205,8 @@
        "qty": 2
       },
       {
-       "name": "Arcane Focus (Quarterstaff)"
+       "name": "Arcane Focus (Staff)",
+       "qty": 1
       },
       {
        "name": "Robe"

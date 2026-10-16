@@ -134,6 +134,15 @@ export type SpellSlot = NonNullable<
 export type ResourcePool = NonNullable<
   NonNullable<Character["sheet"]>["pools"]
 >[number];
+export type StartingPacks = NonNullable<
+  paths["/characters/{characterId}/starting-packs"]["get"]["responses"]["200"]["content"]["application/json"]
+>;
+export type StartingPackOption = StartingPacks["classOptions"][number];
+export type PackLine = StartingPackOption["lines"][number];
+export type CustomPack = StartingPacks["custom"][number];
+export type CustomPackInput = NonNullable<
+  paths["/campaigns/{campaignId}/packs"]["post"]["requestBody"]
+>["content"]["application/json"];
 export type FeatureChoice = NonNullable<
   NonNullable<Character["sheet"]>["featureChoices"]
 >[number];

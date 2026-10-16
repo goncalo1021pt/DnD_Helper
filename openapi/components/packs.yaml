@@ -1,0 +1,116 @@
+PackChoice:
+  type: object
+  description: One thing a choose-one line may be (a lute, a flute, a set of dice).
+  required: [name]
+  properties:
+    name:
+      type: string
+    contentId:
+      type: string
+      format: uuid
+      description: The armory entry, when the name resolves to one.
+
+PackLine:
+  type: object
+  description: One line of a book kit, already matched against the armory.
+  required: [name, qty]
+  properties:
+    name:
+      type: string
+    qty:
+      type: integer
+      minimum: 1
+    contentId:
+      type: string
+      format: uuid
+      description: >-
+        The armory entry, when the name resolves to one. An equipment pack
+        resolves to its own entry and is unpacked when it is given.
+    choose:
+      type: array
+      description: >-
+        A choose-one line ("a musical instrument of your choice"): the options
+        it may become. Absent on a fixed line.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/PackChoice"
+
+StartingPackOption:
+  type: object
+  description: One of a class's or a background's starting options — "A", "B", "C".
+  required: [label, lines]
+  properties:
+    label:
+      type: string
+    lines:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/PackLine"
+    coin:
+      type: string
+      description: The option's coin in the table's own money ("155 gp"), absent when none.
+
+CustomPack:
+  type: object
+  description: A pack a DM wrote for their table (#390).
+  required: [id, name, items]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    items:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/GiftItem"
+    coin:
+      type: string
+      description: In the table's own money ("25 gp"), absent when none.
+
+CustomPackInput:
+  type: object
+  required: [name]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 60
+    items:
+      type: array
+      maxItems: 30
+      items:
+        $ref: "../openapi.yaml#/components/schemas/GiftItem"
+    coin:
+      type: string
+      maxLength: 80
+      description: >-
+        An amount in the table's coin, read as a gift's is — "50 gp" or
+        "2 gp, 5 sp".
+
+StartingPacks:
+  type: object
+  description: >-
+    What a DM may hand a hero as starting gear: the books' options for the class
+    they started as and for their background, and the table's own packs.
+  required: [className, classOptions, backgroundOptions, custom]
+  properties:
+    className:
+      type: string
+    backgroundName:
+      type: string
+    classOptions:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/StartingPackOption"
+    backgroundOptions:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/StartingPackOption"
+    custom:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/CustomPack"
+    givenAt:
+      type: string
+      format: date-time
+      description: When the hero was last given a starting pack, if ever.

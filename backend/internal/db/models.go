@@ -616,6 +616,15 @@ type CampaignEvent struct {
 	HandoutID   pgtype.UUID        `json:"handout_id"`
 }
 
+type CampaignPack struct {
+	ID         uuid.UUID          `json:"id"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
+	Name       string             `json:"name"`
+	Items      []byte             `json:"items"`
+	Coin       string             `json:"coin"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Character struct {
 	ID             uuid.UUID          `json:"id"`
 	CampaignID     pgtype.UUID        `json:"campaign_id"`
@@ -652,6 +661,7 @@ type Character struct {
 	PartyID        pgtype.UUID        `json:"party_id"`
 	PregenBy       pgtype.UUID        `json:"pregen_by"`
 	ClassChoices   []byte             `json:"class_choices"`
+	StartingPackAt pgtype.Timestamptz `json:"starting_pack_at"`
 }
 
 type CharacterClass struct {
