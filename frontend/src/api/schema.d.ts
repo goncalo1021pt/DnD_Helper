@@ -1126,6 +1126,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** The table's own starting packs (DM only, */
+        get: operations["listCampaignPacks"];
+        put?: never;
+        /** Write a starting pack for the table (DM only) */
+        post: operations["createCampaignPack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/packs/{packId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                packId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Rewrite one of the table's starting packs (DM only) */
+        put: operations["updateCampaignPack"];
+        post?: never;
+        /** Strike one of the table's starting packs (DM only) */
+        delete: operations["deleteCampaignPack"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/characters/{characterId}/starting-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        /** What the DM may hand this hero as starting gear (DM of the hero's table, #390): the books' options for their starting class and their background, and the table's own packs. 404 to anyone else. */
+        get: operations["getStartingPacks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/gifts": {
         parameters: {
             query?: never;
@@ -4460,6 +4520,62 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        /** @description One thing a choose-one line may be (a lute, a flute, a set of dice). */
+        PackChoice: {
+            name: string;
+            /**
+             * Format: uuid
+             * @description The armory entry, when the name resolves to one.
+             */
+            contentId?: string;
+        };
+        /** @description One line of a book kit, already matched against the armory. */
+        PackLine: {
+            name: string;
+            qty: number;
+            /**
+             * Format: uuid
+             * @description The armory entry, when the name resolves to one. An equipment pack resolves to its own entry and is unpacked when it is given.
+             */
+            contentId?: string;
+            /** @description A choose-one line ("a musical instrument of your choice"): the options it may become. Absent on a fixed line. */
+            choose?: components["schemas"]["PackChoice"][];
+        };
+        /** @description One of a class's or a background's starting options — "A", "B", "C". */
+        StartingPackOption: {
+            label: string;
+            lines: components["schemas"]["PackLine"][];
+            /** @description The option's coin in the table's own money ("155 gp"), absent when none. */
+            coin?: string;
+        };
+        /** @description A pack a DM wrote for their table (#390). */
+        CustomPack: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            items: components["schemas"]["GiftItem"][];
+            /** @description In the table's own money ("25 gp"), absent when none. */
+            coin?: string;
+        };
+        CustomPackInput: {
+            name: string;
+            items?: components["schemas"]["GiftItem"][];
+            /** @description An amount in the table's coin, read as a gift's is — "50 gp" or "2 gp, 5 sp". */
+            coin?: string;
+        };
+        /** @description What a DM may hand a hero as starting gear: the books' options for the class they started as and for their background, and the table's own packs. */
+        StartingPacks: {
+            className: string;
+            backgroundName?: string;
+            classOptions: components["schemas"]["StartingPackOption"][];
+            backgroundOptions: components["schemas"]["StartingPackOption"][];
+            custom: components["schemas"]["CustomPack"][];
+            /**
+             * Format: date-time
+             * @description When the hero was last given a starting pack, if ever.
+             */
+            givenAt?: string;
+        };
         /** @description One line of a gift — a library item or a written-in name. */
         GiftItem: {
             /**
@@ -4481,6 +4597,8 @@ export interface components {
             coin?: string;
             /** @description A line of colour for the chronicle ("found in the vault"). */
             note?: string;
+            /** @description Set when the gift is a hero's starting pack (#390), naming it ("Fighter A + Soldier"). It stamps the heroes as having been given one and says so in the chronicle line. */
+            startingPack?: string;
             /** @description Whether the table reads the gift in the chronicle — it does when left out. The hero's owner is always told, so a ring slipped to the rogue can stay between the two. */
             announce?: boolean;
         };
@@ -7480,6 +7598,138 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    listCampaignPacks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The packs, by name */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomPack"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createCampaignPack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomPackInput"];
+            };
+        };
+        responses: {
+            /** @description The pack */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomPack"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateCampaignPack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                packId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomPackInput"];
+            };
+        };
+        responses: {
+            /** @description The pack */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomPack"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCampaignPack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                packId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Gone. Heroes already given it keep what they were given. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getStartingPacks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                characterId: components["parameters"]["CharacterId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The options, matched against the armory */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartingPacks"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     giveGift: {

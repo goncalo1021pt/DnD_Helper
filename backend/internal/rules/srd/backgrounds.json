@@ -7,7 +7,11 @@
       "feat": "Magic Initiate (Cleric)",
       "skills": ["Insight", "Religion"],
       "tool": "Calligrapher's Supplies",
-      "equipment": "Calligrapher's supplies, book of prayers, holy symbol, parchment, robe, 8 gp"
+      "equipment": "Calligrapher's supplies, book of prayers, holy symbol, parchment, robe, 8 gp",
+      "startingEquipment": [
+        {"label": "A", "items": [{"name": "Book", "qty": 1}, {"name": "Calligrapher's Supplies", "qty": 1}, {"name": "Holy Symbol", "qty": 1}, {"name": "Parchment", "qty": 10}, {"name": "Robe", "qty": 1}], "gold": 8},
+        {"label": "B", "gold": 50}
+      ]
     }
   },
   {
@@ -18,7 +22,11 @@
       "feat": "Alert",
       "skills": ["Sleight of Hand", "Stealth"],
       "tool": "Thieves' Tools",
-      "equipment": "Two daggers, thieves' tools, crowbar, two pouches, traveler's clothes, 16 gp"
+      "equipment": "Two daggers, thieves' tools, crowbar, two pouches, traveler's clothes, 16 gp",
+      "startingEquipment": [
+        {"label": "A", "items": [{"name": "Dagger", "qty": 2}, {"name": "Thieves' Tools", "qty": 1}, {"name": "Crowbar", "qty": 1}, {"name": "Pouch", "qty": 2}, {"name": "Traveler's Clothes", "qty": 1}], "gold": 16},
+        {"label": "B", "gold": 50}
+      ]
     }
   },
   {
@@ -29,7 +37,11 @@
       "feat": "Magic Initiate (Wizard)",
       "skills": ["Arcana", "History"],
       "tool": "Calligrapher's Supplies",
-      "equipment": "Quarterstaff, calligrapher's supplies, book of lore, parchment, robe, 8 gp"
+      "equipment": "Quarterstaff, calligrapher's supplies, book of lore, parchment, robe, 8 gp",
+      "startingEquipment": [
+        {"label": "A", "items": [{"name": "Quarterstaff", "qty": 1}, {"name": "Calligrapher's Supplies", "qty": 1}, {"name": "Book", "qty": 1}, {"name": "Parchment", "qty": 8}, {"name": "Robe", "qty": 1}], "gold": 8},
+        {"label": "B", "gold": 50}
+      ]
     }
   },
   {
@@ -40,7 +52,11 @@
       "feat": "Savage Attacker",
       "skills": ["Athletics", "Intimidation"],
       "tool": "Gaming Set (choice)",
-      "equipment": "Spear, shortbow with 20 arrows, gaming set, healer's kit, quiver, traveler's clothes, 14 gp"
+      "equipment": "Spear, shortbow with 20 arrows, gaming set, healer's kit, quiver, traveler's clothes, 14 gp",
+      "startingEquipment": [
+        {"label": "A", "items": [{"name": "Spear", "qty": 1}, {"name": "Shortbow", "qty": 1}, {"name": "Arrows (20)", "qty": 1}, {"name": "Gaming Set", "qty": 1, "choose": ["Dice Set", "Playing Cards", "Dragonchess Set", "Three-Dragon Ante Set"]}, {"name": "Healer's Kit", "qty": 1}, {"name": "Quiver", "qty": 1}, {"name": "Traveler's Clothes", "qty": 1}], "gold": 14},
+        {"label": "B", "gold": 50}
+      ]
     }
   }
 ]

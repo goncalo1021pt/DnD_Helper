@@ -2661,6 +2661,139 @@ paths:
           $ref: "#/components/responses/Forbidden"
       tags:
         - Chronicle
+  /campaigns/{campaignId}/packs:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: listCampaignPacks
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
+      summary: The table's own starting packs (DM only,
+      responses:
+        "200":
+          description: The packs, by name
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomPack"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+      tags:
+        - Packs
+    post:
+      operationId: createCampaignPack
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
+      summary: Write a starting pack for the table (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomPackInput"
+      responses:
+        "201":
+          description: The pack
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomPack"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+      tags:
+        - Packs
+  /campaigns/{campaignId}/packs/{packId}:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - name: packId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: updateCampaignPack
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
+      summary: Rewrite one of the table's starting packs (DM only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomPackInput"
+      responses:
+        "200":
+          description: The pack
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomPack"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - Packs
+    delete:
+      operationId: deleteCampaignPack
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
+      summary: Strike one of the table's starting packs (DM only)
+      responses:
+        "204":
+          description: Gone. Heroes already given it keep what they were given.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - Packs
+  /characters/{characterId}/starting-packs:
+    parameters:
+      - $ref: "#/components/parameters/CharacterId"
+    get:
+      operationId: getStartingPacks
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
+      summary: "What the DM may hand this hero as starting gear (DM of the hero's table, #390): the books' options for their starting class and their background, and the table's own packs. 404 to anyone else."
+      responses:
+        "200":
+          description: The options, matched against the armory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartingPacks"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - Packs
   /campaigns/{campaignId}/gifts:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -9713,6 +9846,122 @@ components:
         createdAt:
           type: string
           format: date-time
+    PackChoice:
+      type: object
+      description: One thing a choose-one line may be (a lute, a flute, a set of dice).
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        contentId:
+          type: string
+          format: uuid
+          description: The armory entry, when the name resolves to one.
+    PackLine:
+      type: object
+      description: One line of a book kit, already matched against the armory.
+      required:
+        - name
+        - qty
+      properties:
+        name:
+          type: string
+        qty:
+          type: integer
+          minimum: 1
+        contentId:
+          type: string
+          format: uuid
+          description: The armory entry, when the name resolves to one. An equipment pack resolves to its own entry and is unpacked when it is given.
+        choose:
+          type: array
+          description: "A choose-one line (\"a musical instrument of your choice\"): the options it may become. Absent on a fixed line."
+          items:
+            $ref: "#/components/schemas/PackChoice"
+    StartingPackOption:
+      type: object
+      description: One of a class's or a background's starting options — "A", "B", "C".
+      required:
+        - label
+        - lines
+      properties:
+        label:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackLine"
+        coin:
+          type: string
+          description: The option's coin in the table's own money ("155 gp"), absent when none.
+    CustomPack:
+      type: object
+      description: A pack a DM wrote for their table (#390).
+      required:
+        - id
+        - name
+        - items
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/GiftItem"
+        coin:
+          type: string
+          description: In the table's own money ("25 gp"), absent when none.
+    CustomPackInput:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        items:
+          type: array
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/GiftItem"
+        coin:
+          type: string
+          maxLength: 80
+          description: An amount in the table's coin, read as a gift's is — "50 gp" or "2 gp, 5 sp".
+    StartingPacks:
+      type: object
+      description: "What a DM may hand a hero as starting gear: the books' options for the class they started as and for their background, and the table's own packs."
+      required:
+        - className
+        - classOptions
+        - backgroundOptions
+        - custom
+      properties:
+        className:
+          type: string
+        backgroundName:
+          type: string
+        classOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StartingPackOption"
+        backgroundOptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StartingPackOption"
+        custom:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomPack"
+        givenAt:
+          type: string
+          format: date-time
+          description: When the hero was last given a starting pack, if ever.
     GiftItem:
       type: object
       description: One line of a gift — a library item or a written-in name.
@@ -9757,6 +10006,10 @@ components:
           type: string
           maxLength: 200
           description: A line of colour for the chronicle ("found in the vault").
+        startingPack:
+          type: string
+          maxLength: 80
+          description: Set when the gift is a hero's starting pack (#390), naming it ("Fighter A + Soldier"). It stamps the heroes as having been given one and says so in the chronicle line.
         announce:
           type: boolean
           description: Whether the table reads the gift in the chronicle — it does when left out. The hero's owner is always told, so a ring slipped to the rogue can stay between the two.
@@ -11506,6 +11759,7 @@ tags:
   - name: Creatures
   - name: Chronicle
   - name: Feed
+  - name: Packs
   - name: Skill trees
   - name: Locations
   - name: Vendors

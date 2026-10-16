@@ -65,6 +65,8 @@ export function useGiveGift(campaignId: string) {
       coin?: string;
       note?: string;
       announce?: boolean;
+      /** Names a hero's starting pack (#390): it stamps them and shapes the line. */
+      startingPack?: string;
     }) => {
       const { data, error } = await api.POST("/campaigns/{campaignId}/gifts", {
         params: { path: { campaignId } },
@@ -77,6 +79,7 @@ export function useGiveGift(campaignId: string) {
       qc.invalidateQueries({ queryKey: ["characters", campaignId] });
       qc.invalidateQueries({ queryKey: ["my-characters"] });
       qc.invalidateQueries({ queryKey: ["events", campaignId] });
+      qc.invalidateQueries({ queryKey: ["starting-packs"] });
       for (const h of heroes ?? []) qc.invalidateQueries({ queryKey: ["character-detail", h.id] });
     },
   });

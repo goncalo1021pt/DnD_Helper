@@ -580,9 +580,15 @@ func (s *Server) SetFeatureChoice(ctx context.Context, request api.SetFeatureCho
 // libraryByName is the content of one kind the hero's owner may draw on, by
 // lowercased name — SRD, their homebrew, and homebrew their tables admit.
 func (s *Server) libraryByName(ctx context.Context, c db.Character, kind db.ContentKind) (map[string]db.ListContentByKindRow, error) {
+	return s.libraryByNameFor(ctx, c.OwnerUserID, kind)
+}
+
+// libraryByNameFor is the same library as one person sees it (#390: a DM
+// matching a kit reads the armory as the DM sees it, not as a player does).
+func (s *Server) libraryByNameFor(ctx context.Context, uid uuid.UUID, kind db.ContentKind) (map[string]db.ListContentByKindRow, error) {
 	rows, err := s.queries.ListContentByKind(ctx, db.ListContentByKindParams{
 		Kind:      kind,
-		CreatedBy: pgUUID(c.OwnerUserID),
+		CreatedBy: pgUUID(uid),
 	})
 	if err != nil {
 		return nil, err

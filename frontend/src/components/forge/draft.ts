@@ -19,7 +19,7 @@ no way to notice.
 */
 
 /** Bumped whenever the wizard's state shape changes. Older drafts are discarded. */
-const VERSION = 1;
+const VERSION = 2;
 const KEY = "questboard.forge.draft";
 
 /** A draft older than this is not what the player was doing. */
@@ -28,7 +28,6 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export interface ForgeDraft {
   step: number;
   classId: string;
-  gear: string;
   skills: string[];
   spellIds: string[];
   backgroundId: string;

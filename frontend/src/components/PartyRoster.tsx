@@ -38,6 +38,7 @@ import ContentEntry from "./ui/ContentEntry";
 import ParchmentModal from "./ui/ParchmentModal";
 import SeatConflictModal from "./ui/SeatConflictModal";
 import GiftModal from "./dm/GiftModal";
+import StartingPackModal from "./dm/StartingPackModal";
 import {
   IconPencil,
   IconPlus,
@@ -334,6 +335,7 @@ function CharacterCard({
   progression,
   parties = [],
   onGive,
+  onStartingPack,
 }: {
   character: Character;
   canEdit: boolean;
@@ -344,6 +346,8 @@ function CharacterCard({
   parties?: Party[];
   /** The DM's Give, opened on this hero (#394). */
   onGive?: (heroId: string) => void;
+  /** The DM's starting pack, opened on this hero (#390). */
+  onStartingPack?: (hero: Character) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const update = useUpdateCharacter(campaignId);
@@ -534,6 +538,15 @@ function CharacterCard({
               className="btn-base btn-ghost-ink px-3 py-[9px] text-[10px]"
             >
               Give
+            </button>
+          )}
+          {isDM && onStartingPack && (
+            <button
+              onClick={() => onStartingPack(character)}
+              title="Hand this hero their starting gear"
+              className="btn-base btn-ghost-ink px-3 py-[9px] text-[10px]"
+            >
+              Starting pack
             </button>
           )}
           {canAmend && (
@@ -1177,6 +1190,7 @@ export default function PartyRoster() {
   // The DM's Give (#394): opened for one hero from a card, or for anyone from
   // the header. `null` is closed; an empty list is open with nobody chosen.
   const [giving, setGiving] = useState<string[] | null>(null);
+  const [startingFor, setStartingFor] = useState<Character | null>(null);
 
   return (
     <div className="panel-hall px-5 pb-28 pt-8 sm:px-[30px] sm:pb-11">
@@ -1283,6 +1297,7 @@ export default function PartyRoster() {
                       canEdit={c.mine || isDM}
                       isDM={isDM}
                       onGive={(id) => setGiving([id])}
+                      onStartingPack={setStartingFor}
                       campaignId={campaign.id}
                       veiled={campaign.hiddenSheets ?? false}
                       progression={campaign.progression ?? "milestone"}
@@ -1311,6 +1326,10 @@ export default function PartyRoster() {
       <PregenPool campaignId={campaign.id} isDM={isDM} />
 
       <TravelingSection campaignId={campaign.id} allies={allies} />
+
+      {startingFor && (
+        <StartingPackModal campaignId={campaign.id} hero={startingFor} onClose={() => setStartingFor(null)} />
+      )}
 
       {giving && (
         <GiftModal

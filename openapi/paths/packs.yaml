@@ -1,0 +1,123 @@
+/campaigns/{campaignId}/packs:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+  get:
+    operationId: listCampaignPacks
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
+    summary: The table's own starting packs (DM only, #390)
+    responses:
+      "200":
+        description: The packs, by name
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "../openapi.yaml#/components/schemas/CustomPack"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+  post:
+    operationId: createCampaignPack
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Write a starting pack for the table (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CustomPackInput"
+    responses:
+      "201":
+        description: The pack
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CustomPack"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/campaigns/{campaignId}/packs/{packId}:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CampaignId"
+    - name: packId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  put:
+    operationId: updateCampaignPack
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Rewrite one of the table's starting packs (DM only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/CustomPackInput"
+    responses:
+      "200":
+        description: The pack
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/CustomPack"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteCampaignPack
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: Strike one of the table's starting packs (DM only)
+    responses:
+      "204":
+        description: Gone. Heroes already given it keep what they were given.
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/characters/{characterId}/starting-packs:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/CharacterId"
+  get:
+    operationId: getStartingPacks
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:read]
+    summary: >-
+      What the DM may hand this hero as starting gear (DM of the hero's table,
+      #390): the books' options for their starting class and their background,
+      and the table's own packs. 404 to anyone else.
+    responses:
+      "200":
+        description: The options, matched against the armory
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/StartingPacks"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"

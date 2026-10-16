@@ -21,6 +21,7 @@ import HandOverSection from "./dm/HandOverSection";
 import Face from "./dm/Face";
 import TableRulesSection from "./dm/TableRulesSection";
 import CoinageSection from "./dm/CoinageSection";
+import StartingPacksSection from "./dm/StartingPacksSection";
 import TheVeilSection from "./dm/TheVeilSection";
 import HeraldSection from "./dm/HeraldSection";
 
@@ -70,6 +71,7 @@ export default function DMMenuPage() {
     <div className="grid gap-7">
       <TableRulesSection campaign={campaign} />
       <CoinageSection campaign={campaign} />
+      <StartingPacksSection campaign={campaign} />
 
       <TheVeilSection campaign={campaign} />
 

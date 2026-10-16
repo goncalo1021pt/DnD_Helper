@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -35,64 +33,12 @@ type classRules struct {
 		Choose int      `json:"choose"`
 		From   []string `json:"from"`
 	} `json:"skillChoices"`
-	StartingEquipment []gearOption `json:"startingEquipment"`
 }
 
 type backgroundRules struct {
 	Skills    []string `json:"skills"`
 	Equipment string   `json:"equipment"`
 	Feat      string   `json:"feat"`
-}
-
-type gearItem struct {
-	Name string `json:"name"`
-	Qty  int    `json:"qty"`
-	// Coin, rather than a thing carried. Never comes from content JSON — the
-	// stocking code sets it — so it stays off the wire.
-	purse bool `json:"-"`
-}
-
-type gearOption struct {
-	Label string     `json:"label"`
-	Items []gearItem `json:"items"`
-	Gold  int        `json:"gold"`
-}
-
-var wordQty = map[string]int{
-	"two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
-	"seven": 7, "eight": 8, "nine": 9, "ten": 10,
-}
-
-var (
-	goldToken = regexp.MustCompile(`^(\d+)\s*gp$`)
-	qtyToken  = regexp.MustCompile(`^(\d+)\s+(.+)$`)
-)
-
-// parseEquipmentLine turns a background's prose equipment list ("Two daggers,
-// thieves' tools, 16 gp") into inventory rows plus gold.
-func parseEquipmentLine(line string) (items []gearItem, gold int) {
-	for _, tok := range strings.Split(line, ",") {
-		tok = strings.TrimSpace(tok)
-		if tok == "" {
-			continue
-		}
-		if m := goldToken.FindStringSubmatch(strings.ToLower(tok)); m != nil {
-			g, _ := strconv.Atoi(m[1])
-			gold += g
-			continue
-		}
-		qty := 1
-		if m := qtyToken.FindStringSubmatch(tok); m != nil {
-			qty, _ = strconv.Atoi(m[1])
-			tok = m[2]
-		} else if fields := strings.SplitN(tok, " ", 2); len(fields) == 2 {
-			if n, ok := wordQty[strings.ToLower(fields[0])]; ok {
-				qty, tok = n, fields[1]
-			}
-		}
-		items = append(items, gearItem{Name: tok, Qty: qty})
-	}
-	return items, gold
 }
 
 func abilityMod(score int) int {
@@ -327,21 +273,6 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 		return nil, err
 	}
 
-	// Starting equipment: an option label from the class's data. Optional so
-	// classes without gear data (older homebrew) still forge.
-	var chosenGear *gearOption
-	if body.Gear != nil && *body.Gear != "" {
-		for i := range cr.StartingEquipment {
-			if strings.EqualFold(cr.StartingEquipment[i].Label, *body.Gear) {
-				chosenGear = &cr.StartingEquipment[i]
-				break
-			}
-		}
-		if chosenGear == nil {
-			return badRequest(class.Name + " has no starting-equipment option " + *body.Gear)
-		}
-	}
-
 	// Spell picks (casters only) — validated against the class list and caps.
 	var spellIDs []uuid.UUID
 	if body.Spells != nil {
@@ -428,73 +359,6 @@ func (s *Server) ForgeCharacter(ctx context.Context, request api.ForgeCharacterR
 			ClassID: pgUUID(class.ID),
 		}); err != nil {
 			return nil, err
-		}
-	}
-
-	// Stock the inventory: the chosen class option plus the background's kit.
-	// Rows link to armory content where names match; the rest ride as
-	// free-text, and coin becomes the purse.
-	//
-	// A class's starting coin is written in gold, and a purse counts BASE
-	// units (#195) — so it is multiplied up by what a gold is worth at this
-	// table. On the standard ladder that is a hundred coppers, which is the
-	// same worth the hero always started with.
-	if chosenGear != nil {
-		stock := append([]gearItem{}, chosenGear.Items...)
-		gold := chosenGear.Gold
-		bgItems, bgGold := parseEquipmentLine(br.Equipment)
-		stock = append(stock, bgItems...)
-		gold += bgGold
-		ladder := standardCoinage
-		if seatedAt, seated := seatedCampaign(hero); seated {
-			if c, err := qtx.GetCampaign(ctx, seatedAt); err == nil {
-				ladder = coinageOf(c.Coinage)
-			}
-		}
-		if gold > 0 {
-			stock = append(stock, gearItem{
-				Name: ladder.purseName(), Qty: gold * int(goldWorth(ladder)), purse: true,
-			})
-		}
-
-		armory, err := qtx.ListContentByKind(ctx, db.ListContentByKindParams{
-			Kind:      db.ContentKindItem,
-			CreatedBy: pgUUID(uid),
-		})
-		if err != nil {
-			return nil, err
-		}
-		byName := map[string]uuid.UUID{}
-		for _, it := range armory {
-			byName[strings.ToLower(it.Name)] = it.ID
-		}
-		for _, row := range stock {
-			qty := row.Qty
-			if qty < 1 {
-				qty = 1
-			}
-			contentID := pgtype.UUID{}
-			lower := strings.ToLower(row.Name)
-			for _, candidate := range []string{
-				lower,
-				strings.TrimSuffix(lower, " armor"),
-				lower + " armor",
-				strings.TrimSuffix(lower, "s"),
-			} {
-				if id, ok := byName[candidate]; ok {
-					contentID = pgUUID(id)
-					break
-				}
-			}
-			if _, err := qtx.AddCharacterItem(ctx, db.AddCharacterItemParams{
-				CharacterID: hero.ID,
-				ContentID:   contentID,
-				Name:        row.Name,
-				Qty:         int32(qty),
-				IsPurse:     row.purse,
-			}); err != nil {
-				return nil, err
-			}
 		}
 	}
 

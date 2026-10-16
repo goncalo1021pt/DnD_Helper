@@ -599,20 +599,30 @@ func (s *Server) BuyStock(ctx context.Context, request api.BuyStockRequestObject
 	// No codex check, deliberately: the DM shelving this line IS the world
 	// admitting the item (contrast AddInventoryItem, where the player brings
 	// something in from outside).
-	purseID := uuid.Nil
-	if purse != nil {
-		purseID = purse.ID
-	}
-	if target := pickMergeTarget(items, row.ContentID, row.Name, purseID); target != nil {
-		if _, err := qtx.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
-			ID: target.ID, Qty: target.Qty + 1,
-			Equipped: target.Equipped, Slot: target.Slot, Attuned: target.Attuned,
-		}); err != nil {
-			return nil, err
+	// What was bought: the thing itself, or — for an equipment pack — what is
+	// in it (#390). A pack arrives as its contents at every door; the price
+	// the shelf asks stays the pack's.
+	bought := []giftLine{{contentID: row.ContentID, name: row.Name, qty: 1}}
+	if row.ContentID.Valid {
+		if entry, err := qtx.GetContent(ctx, uuid.UUID(row.ContentID.Bytes)); err == nil {
+			if contents := contentsOf(entry.Data); len(contents) > 0 {
+				lib, err := s.itemLibraryFor(ctx, ch.OwnerUserID)
+				if err != nil {
+					return nil, err
+				}
+				bought = unpackedLines(lib, contents, 1)
+			}
 		}
-	} else if _, err := qtx.AddCharacterItem(ctx, db.AddCharacterItemParams{
-		CharacterID: ch.ID, ContentID: row.ContentID, Name: row.Name, Qty: 1,
-	}); err != nil {
+	}
+	// The purse is not a place to stack goods: a shelf line literally named
+	// "Gold Pieces" must not merge into the coin that just paid for it.
+	pack := make([]db.ListCharacterItemsRow, 0, len(items))
+	for _, it := range items {
+		if purse == nil || it.ID != purse.ID {
+			pack = append(pack, it)
+		}
+	}
+	if err := stockLines(ctx, qtx, ch.ID, &pack, bought); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {

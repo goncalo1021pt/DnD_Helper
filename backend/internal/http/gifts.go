@@ -40,6 +40,18 @@ type giftLine struct {
 	contentID pgtype.UUID
 	name      string
 	qty       int32
+	// stock is what a pack becomes (#390): an equipment pack is named in the
+	// chronicle and the event as itself, and arrives as its contents.
+	stock []giftLine
+}
+
+// toStock is what actually lands in the pack: the line itself, or what it
+// unpacks to.
+func (l giftLine) toStock() []giftLine {
+	if len(l.stock) > 0 {
+		return l.stock
+	}
+	return []giftLine{l}
 }
 
 func (l giftLine) text() string {
@@ -131,6 +143,7 @@ func (s *Server) GiveGift(ctx context.Context, request api.GiveGiftRequestObject
 	// table's codex — the DM giving it is not the same as the world admitting it.
 	var lines []giftLine
 	var contentIDs []uuid.UUID
+	var lib itemLibrary
 	if body.Items != nil {
 		for _, it := range *body.Items {
 			qty := int32(1)
@@ -150,7 +163,19 @@ func (s *Server) GiveGift(ctx context.Context, request api.GiveGiftRequestObject
 					return badRequest("that choice is not an item")
 				}
 				contentIDs = append(contentIDs, row.ID)
-				lines = append(lines, giftLine{contentID: pgUUID(row.ID), name: row.Name, qty: qty})
+				line := giftLine{contentID: pgUUID(row.ID), name: row.Name, qty: qty}
+				// A pack arrives as what is in it, at every door (#390).
+				if contents := contentsOf(row.Data); len(contents) > 0 {
+					if lib == nil {
+						l, err := s.itemLibraryFor(ctx, member.UserID)
+						if err != nil {
+							return nil, err
+						}
+						lib = l
+					}
+					line.stock = unpackedLines(lib, contents, qty)
+				}
+				lines = append(lines, line)
 			case it.Name != nil:
 				name := strings.TrimSpace(*it.Name)
 				if name == "" || len([]rune(name)) > 80 {
@@ -212,29 +237,12 @@ func (s *Server) GiveGift(ctx context.Context, request api.GiveGiftRequestObject
 		if err != nil {
 			return nil, err
 		}
+		var stock []giftLine
 		for _, line := range lines {
-			// Stack onto a matching row when it fits, otherwise a row of its own.
-			target := pickMergeTarget(items, line.contentID, line.name, uuid.Nil)
-			if target != nil && target.Qty+line.qty <= 999 {
-				if _, err := qtx.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
-					ID: target.ID, Qty: target.Qty + line.qty,
-					Equipped: target.Equipped, Slot: target.Slot, Attuned: target.Attuned,
-				}); err != nil {
-					return nil, err
-				}
-				target.Qty += line.qty // a second line for the same item stacks on it too
-				continue
-			}
-			created, err := qtx.AddCharacterItem(ctx, db.AddCharacterItemParams{
-				CharacterID: hero, ContentID: line.contentID, Name: line.name, Qty: line.qty,
-			})
-			if err != nil {
-				return nil, err
-			}
-			items = append(items, db.ListCharacterItemsRow{
-				ID: created.ID, CharacterID: created.CharacterID, ContentID: created.ContentID,
-				Name: created.Name, Qty: created.Qty,
-			})
+			stock = append(stock, line.toStock()...)
+		}
+		if err := stockLines(ctx, qtx, hero, &items, stock); err != nil {
+			return nil, err
 		}
 		if coin > 0 {
 			if purse := pickPurse(items); purse != nil {
@@ -262,9 +270,23 @@ func (s *Server) GiveGift(ctx context.Context, request api.GiveGiftRequestObject
 		return nil, err
 	}
 
+	// A starting pack stamps its heroes, so the dialog can warn the next time.
+	pack := ""
+	if body.StartingPack != nil {
+		pack = strings.TrimSpace(*body.StartingPack)
+		if len([]rune(pack)) > 80 {
+			pack = string([]rune(pack)[:80])
+		}
+	}
+	if pack != "" {
+		if err := s.queries.MarkStartingPack(ctx, targets); err != nil {
+			return nil, err
+		}
+	}
+
 	// What was said and who is told.
 	announce := body.Announce == nil || *body.Announce
-	s.sayGift(ctx, campaignID, member.UserID, targets, rows, lines, coin, ladder, body.Note, announce)
+	s.sayGift(ctx, campaignID, member.UserID, targets, rows, lines, coin, ladder, body.Note, announce, pack)
 
 	out := make([]api.Character, 0, len(targets))
 	for _, hero := range targets {
@@ -286,7 +308,7 @@ func (s *Server) GiveGift(ctx context.Context, request api.GiveGiftRequestObject
 func (s *Server) sayGift(
 	ctx context.Context, campaignID, actor uuid.UUID, targets []uuid.UUID,
 	rows []db.ListCharactersByCampaignRow, lines []giftLine, coin int64, ladder Coinage,
-	note *string, announce bool,
+	note *string, announce bool, pack string,
 ) {
 	names := map[uuid.UUID]string{}
 	owners := map[uuid.UUID]uuid.UUID{}
@@ -324,6 +346,9 @@ func (s *Server) sayGift(
 			heroNames = append(heroNames, names[t])
 		}
 		line := fmt.Sprintf("The DM gives %s %s", joinNames(heroNames), joinGoods(goods))
+		if pack != "" {
+			line = fmt.Sprintf("The DM gives %s their starting pack (%s): %s", joinNames(heroNames), pack, joinGoods(goods))
+		}
 		if noteText != nil {
 			line += " — " + *noteText
 		}
@@ -349,4 +374,35 @@ func joinGoods(goods []string) string {
 	default:
 		return strings.Join(goods[:len(goods)-1], ", ") + " and " + goods[len(goods)-1]
 	}
+}
+
+// stockLines puts lines in a hero's pack: each stacks onto a matching row when
+// the result still fits (999 a row), and otherwise becomes a row of its own.
+// `items` is the hero's pack as it stands and is kept current, so two lines
+// for the same thing stack on each other. Shared by a gift and the shop.
+func stockLines(ctx context.Context, qtx *db.Queries, hero uuid.UUID, items *[]db.ListCharacterItemsRow, lines []giftLine) error {
+	for _, line := range lines {
+		target := pickMergeTarget(*items, line.contentID, line.name, uuid.Nil)
+		if target != nil && target.Qty+line.qty <= 999 {
+			if _, err := qtx.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
+				ID: target.ID, Qty: target.Qty + line.qty,
+				Equipped: target.Equipped, Slot: target.Slot, Attuned: target.Attuned,
+			}); err != nil {
+				return err
+			}
+			target.Qty += line.qty
+			continue
+		}
+		created, err := qtx.AddCharacterItem(ctx, db.AddCharacterItemParams{
+			CharacterID: hero, ContentID: line.contentID, Name: line.name, Qty: line.qty,
+		})
+		if err != nil {
+			return err
+		}
+		*items = append(*items, db.ListCharacterItemsRow{
+			ID: created.ID, CharacterID: created.CharacterID, ContentID: created.ContentID,
+			Name: created.Name, Qty: created.Qty,
+		})
+	}
+	return nil
 }
