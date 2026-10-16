@@ -156,3 +156,31 @@ describe("a whole encounter", () => {
     expect(d.band).toBe("trivial");
   });
 });
+
+/*
+The contract the server's copy is held to as well (#318) — backend/internal/
+rules/encounter.go answers the MCP server's encounter_check, and both read
+fixtures/rules/encounter-difficulty.json.
+*/
+const contract = JSON.parse(
+  readFileSync(
+    new URL("../../../fixtures/rules/encounter-difficulty.json", import.meta.url),
+    "utf8",
+  ),
+) as {
+  xp: Array<{ name: string; data: Record<string, unknown>; xp: number }>;
+  budgets: Array<{ levels: number[]; budget: { low: number; moderate: number; high: number } }>;
+  bands: Array<{ levels: number[]; xp: number; band: string }>;
+};
+
+describe("the shared contract", () => {
+  it.each(contract.xp)("xp: $name", ({ data, xp }) => {
+    expect(monsterXP(fake(data))).toBe(xp);
+  });
+  it.each(contract.budgets)("budget: $levels", ({ levels, budget }) => {
+    expect(partyBudget(levels)).toEqual(budget);
+  });
+  it.each(contract.bands)("band: $levels at $xp", ({ levels, xp, band }) => {
+    expect(bandFor(xp, partyBudget(levels))).toBe(band);
+  });
+});
