@@ -7,6 +7,7 @@ import {
   useSetQuestVisibility,
   useUpdateQuest,
 } from "../hooks";
+import QuestPayoutModal from "./dm/QuestPayoutModal";
 import QuestForm, { type QuestFormValues } from "./QuestForm";
 import ParchmentModal from "./ui/ParchmentModal";
 import VisibilityControl from "./VisibilityControl";
@@ -104,6 +105,7 @@ export default function QuestCard({
   const isDM = role === "dm";
   const [editing, setEditing] = useState(false);
   const [veiling, setVeiling] = useState(false);
+  const [paying, setPaying] = useState(false);
   const claim = useClaimQuest(campaignId);
   const update = useUpdateQuest(campaignId);
   const del = useDeleteQuest(campaignId);
@@ -143,9 +145,11 @@ export default function QuestCard({
           type: r.type,
           label: r.label,
           value: r.value ?? "",
+          itemId: r.itemId ?? null,
+          qty: r.qty ?? 1,
         })),
       },
-    });
+    }, { onSuccess: () => offerPayout(next) });
   }
 
   const editInitial: QuestFormValues = {
@@ -161,7 +165,16 @@ export default function QuestCard({
       type: r.type,
       label: r.label,
       value: r.value ?? "",
+      itemId: r.itemId ?? null,
+      qty: r.qty ?? 1,
     })),
+  };
+
+  /* A completed quest with goods in it offers to pay them (#395). */
+  const hasGoods = quest.rewards.some((r) => r.payable);
+  const canPay = isDM && quest.status === "completed" && !quest.paidAt && hasGoods;
+  const offerPayout = (next: QuestStatus) => {
+    if (next === "completed" && quest.status !== "completed" && !quest.paidAt && hasGoods) setPaying(true);
   };
 
   return (
@@ -259,8 +272,17 @@ export default function QuestCard({
         {quest.rewards.length > 0 && (
           <>
             <div className="torn-divider mb-[13px]" />
-            <div className="label-stamp mb-2 text-[9.5px] text-ink-label">
+            <div className="label-stamp mb-2 flex items-center gap-2 text-[9.5px] text-ink-label">
               Reward
+              {quest.paidAt && (
+                <span
+                  className="rounded-[2px] px-2 py-[2px] text-[9px] text-[#f6ead0]"
+                  style={{ background: "rgba(63,90,48,.85)" }}
+                  title={`Paid out on ${new Date(quest.paidAt).toLocaleDateString()}`}
+                >
+                  Paid
+                </span>
+              )}
             </div>
             <div className="mb-4 flex flex-wrap gap-2">
               {quest.rewards.map((r) => (
@@ -344,6 +366,15 @@ export default function QuestCard({
             {isDM && (
               <>
                 <span className="flex-1" />
+                {canPay && (
+                  <button
+                    onClick={() => setPaying(true)}
+                    title="Pay the rewards into the heroes' packs"
+                    className="btn-base btn-gold px-3 py-[9px] text-[11px]"
+                  >
+                    Pay out
+                  </button>
+                )}
                 <button
                   onClick={() =>
                     setVisibility.mutate({
@@ -425,6 +456,15 @@ export default function QuestCard({
         )}
       </div>
 
+      {paying && (
+        <QuestPayoutModal
+          campaignId={campaignId}
+          quest={quest}
+          heroes={characters}
+          onClose={() => setPaying(false)}
+        />
+      )}
+
       {editing && (
         <ParchmentModal onClose={() => setEditing(false)} maxWidth="max-w-[560px]">
           <div className="label-stamp mb-1.5 text-center text-[11px] tracking-[4px] text-ink-label">
@@ -448,7 +488,12 @@ export default function QuestCard({
             onSubmit={(v) =>
               update.mutate(
                 { questId: quest.id, body: v },
-                { onSuccess: () => setEditing(false) },
+                {
+                  onSuccess: () => {
+                    setEditing(false);
+                    offerPayout(v.status);
+                  },
+                },
               )
             }
           />

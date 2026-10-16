@@ -82,6 +82,10 @@ export type CreateQuestInput =
 export type UpdateQuestInput =
   paths["/quests/{questId}"]["patch"]["requestBody"]["content"]["application/json"];
 export type RewardInput = NonNullable<CreateQuestInput["rewards"]>[number];
+export type QuestPayoutInput =
+  paths["/quests/{questId}/payout"]["post"]["requestBody"]["content"]["application/json"];
+export type QuestPayout =
+  paths["/quests/{questId}/payout"]["post"]["responses"]["200"]["content"]["application/json"];
 
 export type Location =
   paths["/campaigns/{campaignId}/locations"]["get"]["responses"]["200"]["content"]["application/json"][number];

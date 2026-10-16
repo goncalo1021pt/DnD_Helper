@@ -35,8 +35,8 @@ WHERE q.campaign_id = $1;
 SELECT * FROM quest_rewards WHERE quest_id = $1;
 
 -- name: AddReward :one
-INSERT INTO quest_rewards (quest_id, type, label, value)
-VALUES ($1, $2, $3, $4)
+INSERT INTO quest_rewards (quest_id, type, label, value, item_id, qty)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: DeleteRewardsForQuest :exec
@@ -92,3 +92,18 @@ FROM quest_visibility v
 JOIN quests q ON q.id = v.quest_id
 JOIN characters c ON c.id = v.character_id
 WHERE q.campaign_id = $1;
+
+-- name: MarkQuestPaid :one
+-- Pays once: the row is claimed by whoever sets paid_at first, so two DMs
+-- pressing Pay out at the same moment cannot both hand it over (#395).
+UPDATE quests SET paid_at = now()
+WHERE id = $1 AND paid_at IS NULL
+RETURNING *;
+
+-- name: ListClaimantHeroes :many
+-- The seated heroes of the quest's claimants (#395) — whom a payout offers.
+SELECT ch.id FROM characters ch
+JOIN quest_claims c ON c.user_id = ch.owner_user_id
+JOIN quests q ON q.id = c.quest_id
+WHERE c.quest_id = $1 AND ch.campaign_id = q.campaign_id
+  AND NOT ch.table_born AND ch.kind = 'hero';

@@ -458,6 +458,25 @@ export interface paths {
         patch: operations["updateQuest"];
         trace?: never;
     };
+    "/quests/{questId}/payout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay a completed quest's rewards into the pack (DM only, #395). One gift per hero through the gift door; a quest pays once. */
+        post: operations["payOutQuest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/tokens": {
         parameters: {
             query?: never;
@@ -3334,6 +3353,15 @@ export interface components {
             type: components["schemas"]["RewardType"];
             label: string;
             value?: string | null;
+            /**
+             * Format: uuid
+             * @description An `item` reward's armory entry; absent means a name written in.
+             */
+            itemId?: string | null;
+            /** @description How many of an `item` reward (1 when it is not said). */
+            qty?: number;
+            /** @description Whether a payout can hand this over (#395) — a `gold` reward whose value reads as an amount in the table's coin, or an `item` reward with a name. Everything else stays words on the notice. */
+            payable?: boolean;
         };
         QuestClaim: {
             /** Format: uuid */
@@ -3344,7 +3372,37 @@ export interface components {
             /** Format: date-time */
             claimedAt: string;
         };
+        /** @description How a completed quest's rewards reach the pack (#395). Gold is divided among `heroIds` (or given whole to each); every `item` reward is handed to the one hero named for it. */
+        QuestPayoutRequest: {
+            /** @description The seated heroes who share the gold reward(s). */
+            heroIds?: string[];
+            /**
+             * @description Divide the gold among them (rounded down — the remainder is not paid), or give each the full amount. Split when left out.
+             * @enum {string}
+             */
+            goldMode?: "split" | "each";
+            items?: components["schemas"]["QuestPayoutItem"][];
+            /** @description Whether the table reads it in the chronicle; it does when left out. */
+            announce?: boolean;
+        };
+        QuestPayoutItem: {
+            /** Format: uuid */
+            rewardId: string;
+            /** Format: uuid */
+            heroId: string;
+        };
+        QuestPayout: {
+            quest: components["schemas"]["Quest"];
+            heroes: components["schemas"]["Character"][];
+            /** @description Gold the split could not divide, in the table's coin; it was not paid. */
+            remainder?: string | null;
+        };
         Quest: {
+            /**
+             * Format: date-time
+             * @description When the rewards were paid out (#395); a quest pays once.
+             */
+            paidAt?: string | null;
             /** Format: uuid */
             id: string;
             /** Format: uuid */
@@ -4717,6 +4775,9 @@ export interface components {
             type: components["schemas"]["RewardType"];
             label: string;
             value?: string | null;
+            /** Format: uuid */
+            itemId?: string | null;
+            qty?: number;
         };
         CreateQuestRequest: {
             title: string;
@@ -6368,6 +6429,45 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    payOutQuest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questId: components["parameters"]["QuestId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestPayoutRequest"];
+            };
+        };
+        responses: {
+            /** @description The quest, marked paid, and the heroes after the payout */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestPayout"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The quest is not completed, or has already paid */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     listApiTokens: {

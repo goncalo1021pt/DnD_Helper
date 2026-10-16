@@ -13,16 +13,18 @@ import (
 )
 
 const addReward = `-- name: AddReward :one
-INSERT INTO quest_rewards (quest_id, type, label, value)
-VALUES ($1, $2, $3, $4)
-RETURNING id, quest_id, type, label, value
+INSERT INTO quest_rewards (quest_id, type, label, value, item_id, qty)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, quest_id, type, label, value, item_id, qty
 `
 
 type AddRewardParams struct {
-	QuestID uuid.UUID  `json:"quest_id"`
-	Type    RewardType `json:"type"`
-	Label   string     `json:"label"`
-	Value   *string    `json:"value"`
+	QuestID uuid.UUID   `json:"quest_id"`
+	Type    RewardType  `json:"type"`
+	Label   string      `json:"label"`
+	Value   *string     `json:"value"`
+	ItemID  pgtype.UUID `json:"item_id"`
+	Qty     int32       `json:"qty"`
 }
 
 func (q *Queries) AddReward(ctx context.Context, arg AddRewardParams) (QuestReward, error) {
@@ -31,6 +33,8 @@ func (q *Queries) AddReward(ctx context.Context, arg AddRewardParams) (QuestRewa
 		arg.Type,
 		arg.Label,
 		arg.Value,
+		arg.ItemID,
+		arg.Qty,
 	)
 	var i QuestReward
 	err := row.Scan(
@@ -39,6 +43,8 @@ func (q *Queries) AddReward(ctx context.Context, arg AddRewardParams) (QuestRewa
 		&i.Type,
 		&i.Label,
 		&i.Value,
+		&i.ItemID,
+		&i.Qty,
 	)
 	return i, err
 }
@@ -71,7 +77,7 @@ func (q *Queries) ClearQuestOverrides(ctx context.Context, questID uuid.UUID) er
 const createQuest = `-- name: CreateQuest :one
 INSERT INTO quests (campaign_id, title, description, giver, location, location_id, visible_to_party, difficulty, status, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party
+RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party, paid_at
 `
 
 type CreateQuestParams struct {
@@ -115,6 +121,7 @@ func (q *Queries) CreateQuest(ctx context.Context, arg CreateQuestParams) (Quest
 		&i.UpdatedAt,
 		&i.LocationID,
 		&i.VisibleToParty,
+		&i.PaidAt,
 	)
 	return i, err
 }
@@ -152,7 +159,7 @@ func (q *Queries) DeleteRewardsForQuest(ctx context.Context, questID uuid.UUID) 
 }
 
 const getQuest = `-- name: GetQuest :one
-SELECT id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party FROM quests WHERE id = $1
+SELECT id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party, paid_at FROM quests WHERE id = $1
 `
 
 func (q *Queries) GetQuest(ctx context.Context, id uuid.UUID) (Quest, error) {
@@ -172,8 +179,38 @@ func (q *Queries) GetQuest(ctx context.Context, id uuid.UUID) (Quest, error) {
 		&i.UpdatedAt,
 		&i.LocationID,
 		&i.VisibleToParty,
+		&i.PaidAt,
 	)
 	return i, err
+}
+
+const listClaimantHeroes = `-- name: ListClaimantHeroes :many
+SELECT ch.id FROM characters ch
+JOIN quest_claims c ON c.user_id = ch.owner_user_id
+JOIN quests q ON q.id = c.quest_id
+WHERE c.quest_id = $1 AND ch.campaign_id = q.campaign_id
+  AND NOT ch.table_born AND ch.kind = 'hero'
+`
+
+// The seated heroes of the quest's claimants (#395) — whom a payout offers.
+func (q *Queries) ListClaimantHeroes(ctx context.Context, questID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listClaimantHeroes, questID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listClaimsByCampaign = `-- name: ListClaimsByCampaign :many
@@ -267,7 +304,7 @@ func (q *Queries) ListQuestVisibilityByCampaign(ctx context.Context, campaignID 
 }
 
 const listQuestsByCampaign = `-- name: ListQuestsByCampaign :many
-SELECT id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party FROM quests WHERE campaign_id = $1 ORDER BY created_at DESC
+SELECT id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party, paid_at FROM quests WHERE campaign_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListQuestsByCampaign(ctx context.Context, campaignID uuid.UUID) ([]Quest, error) {
@@ -293,6 +330,7 @@ func (q *Queries) ListQuestsByCampaign(ctx context.Context, campaignID uuid.UUID
 			&i.UpdatedAt,
 			&i.LocationID,
 			&i.VisibleToParty,
+			&i.PaidAt,
 		); err != nil {
 			return nil, err
 		}
@@ -305,7 +343,7 @@ func (q *Queries) ListQuestsByCampaign(ctx context.Context, campaignID uuid.UUID
 }
 
 const listRewardsByCampaign = `-- name: ListRewardsByCampaign :many
-SELECT r.id, r.quest_id, r.type, r.label, r.value FROM quest_rewards r
+SELECT r.id, r.quest_id, r.type, r.label, r.value, r.item_id, r.qty FROM quest_rewards r
 JOIN quests q ON q.id = r.quest_id
 WHERE q.campaign_id = $1
 `
@@ -325,6 +363,8 @@ func (q *Queries) ListRewardsByCampaign(ctx context.Context, campaignID uuid.UUI
 			&i.Type,
 			&i.Label,
 			&i.Value,
+			&i.ItemID,
+			&i.Qty,
 		); err != nil {
 			return nil, err
 		}
@@ -337,7 +377,7 @@ func (q *Queries) ListRewardsByCampaign(ctx context.Context, campaignID uuid.UUI
 }
 
 const listRewardsForQuest = `-- name: ListRewardsForQuest :many
-SELECT id, quest_id, type, label, value FROM quest_rewards WHERE quest_id = $1
+SELECT id, quest_id, type, label, value, item_id, qty FROM quest_rewards WHERE quest_id = $1
 `
 
 func (q *Queries) ListRewardsForQuest(ctx context.Context, questID uuid.UUID) ([]QuestReward, error) {
@@ -355,6 +395,8 @@ func (q *Queries) ListRewardsForQuest(ctx context.Context, questID uuid.UUID) ([
 			&i.Type,
 			&i.Label,
 			&i.Value,
+			&i.ItemID,
+			&i.Qty,
 		); err != nil {
 			return nil, err
 		}
@@ -364,6 +406,36 @@ func (q *Queries) ListRewardsForQuest(ctx context.Context, questID uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const markQuestPaid = `-- name: MarkQuestPaid :one
+UPDATE quests SET paid_at = now()
+WHERE id = $1 AND paid_at IS NULL
+RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party, paid_at
+`
+
+// Pays once: the row is claimed by whoever sets paid_at first, so two DMs
+// pressing Pay out at the same moment cannot both hand it over (#395).
+func (q *Queries) MarkQuestPaid(ctx context.Context, id uuid.UUID) (Quest, error) {
+	row := q.db.QueryRow(ctx, markQuestPaid, id)
+	var i Quest
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.Title,
+		&i.Description,
+		&i.Giver,
+		&i.Location,
+		&i.Difficulty,
+		&i.Status,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LocationID,
+		&i.VisibleToParty,
+		&i.PaidAt,
+	)
+	return i, err
 }
 
 const setQuestOverride = `-- name: SetQuestOverride :exec
@@ -390,7 +462,7 @@ UPDATE quests
 SET visible_to_party = $2,
     updated_at       = now()
 WHERE id = $1
-RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party
+RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party, paid_at
 `
 
 type SetQuestPartyVisibilityParams struct {
@@ -416,6 +488,7 @@ func (q *Queries) SetQuestPartyVisibility(ctx context.Context, arg SetQuestParty
 		&i.UpdatedAt,
 		&i.LocationID,
 		&i.VisibleToParty,
+		&i.PaidAt,
 	)
 	return i, err
 }
@@ -446,7 +519,7 @@ SET title            = $2,
     status           = $9,
     updated_at       = now()
 WHERE id = $1
-RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party
+RETURNING id, campaign_id, title, description, giver, location, difficulty, status, created_by, created_at, updated_at, location_id, visible_to_party, paid_at
 `
 
 type UpdateQuestParams struct {
@@ -488,6 +561,7 @@ func (q *Queries) UpdateQuest(ctx context.Context, arg UpdateQuestParams) (Quest
 		&i.UpdatedAt,
 		&i.LocationID,
 		&i.VisibleToParty,
+		&i.PaidAt,
 	)
 	return i, err
 }

@@ -188,3 +188,42 @@
         $ref: "../openapi.yaml#/components/responses/Forbidden"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+
+/quests/{questId}/payout:
+  parameters:
+    - $ref: "../openapi.yaml#/components/parameters/QuestId"
+  post:
+    operationId: payOutQuest
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:run]
+    summary: >-
+      Pay a completed quest's rewards into the pack (DM only, #395). One gift
+      per hero through the gift door; a quest pays once.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/QuestPayoutRequest"
+    responses:
+      "200":
+        description: The quest, marked paid, and the heroes after the payout
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/QuestPayout"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+      "409":
+        description: The quest is not completed, or has already paid
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/Error"

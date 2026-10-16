@@ -1000,6 +1000,7 @@ type Quest struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	LocationID     pgtype.UUID        `json:"location_id"`
 	VisibleToParty bool               `json:"visible_to_party"`
+	PaidAt         pgtype.Timestamptz `json:"paid_at"`
 }
 
 type QuestClaim struct {
@@ -1009,11 +1010,13 @@ type QuestClaim struct {
 }
 
 type QuestReward struct {
-	ID      uuid.UUID  `json:"id"`
-	QuestID uuid.UUID  `json:"quest_id"`
-	Type    RewardType `json:"type"`
-	Label   string     `json:"label"`
-	Value   *string    `json:"value"`
+	ID      uuid.UUID   `json:"id"`
+	QuestID uuid.UUID   `json:"quest_id"`
+	Type    RewardType  `json:"type"`
+	Label   string      `json:"label"`
+	Value   *string     `json:"value"`
+	ItemID  pgtype.UUID `json:"item_id"`
+	Qty     int32       `json:"qty"`
 }
 
 type QuestVisibility struct {

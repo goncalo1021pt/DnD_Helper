@@ -1331,6 +1331,45 @@ paths:
           $ref: "#/components/responses/NotFound"
       tags:
         - Quests
+  /quests/{questId}/payout:
+    parameters:
+      - $ref: "#/components/parameters/QuestId"
+    post:
+      operationId: payOutQuest
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
+      summary: "Pay a completed quest's rewards into the pack (DM only, #395). One gift per hero through the gift door; a quest pays once."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestPayoutRequest"
+      responses:
+        "200":
+          description: The quest, marked paid, and the heroes after the payout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestPayout"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: The quest is not completed, or has already paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+      tags:
+        - Quests
   /me/tokens:
     get:
       operationId: listApiTokens
@@ -7412,6 +7451,17 @@ components:
         value:
           type: string
           nullable: true
+        itemId:
+          type: string
+          format: uuid
+          nullable: true
+          description: An `item` reward's armory entry; absent means a name written in.
+        qty:
+          type: integer
+          description: How many of an `item` reward (1 when it is not said).
+        payable:
+          type: boolean
+          description: Whether a payout can hand this over (#395) — a `gold` reward whose value reads as an amount in the table's coin, or an `item` reward with a name. Everything else stays words on the notice.
     QuestClaim:
       type: object
       required:
@@ -7430,6 +7480,59 @@ components:
         claimedAt:
           type: string
           format: date-time
+    QuestPayoutRequest:
+      type: object
+      description: How a completed quest's rewards reach the pack (#395). Gold is divided among `heroIds` (or given whole to each); every `item` reward is handed to the one hero named for it.
+      properties:
+        heroIds:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+          description: The seated heroes who share the gold reward(s).
+        goldMode:
+          type: string
+          enum:
+            - split
+            - each
+          description: Divide the gold among them (rounded down — the remainder is not paid), or give each the full amount. Split when left out.
+        items:
+          type: array
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/QuestPayoutItem"
+        announce:
+          type: boolean
+          description: Whether the table reads it in the chronicle; it does when left out.
+    QuestPayoutItem:
+      type: object
+      required:
+        - rewardId
+        - heroId
+      properties:
+        rewardId:
+          type: string
+          format: uuid
+        heroId:
+          type: string
+          format: uuid
+    QuestPayout:
+      type: object
+      required:
+        - quest
+        - heroes
+      properties:
+        quest:
+          $ref: "#/components/schemas/Quest"
+        heroes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Character"
+        remainder:
+          type: string
+          nullable: true
+          description: Gold the split could not divide, in the table's coin; it was not paid.
     Quest:
       type: object
       required:
@@ -7444,6 +7547,11 @@ components:
         - claims
         - claimedByMe
       properties:
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the rewards were paid out (#395); a quest pays once.
         id:
           type: string
           format: uuid
@@ -10300,6 +10408,14 @@ components:
         value:
           type: string
           nullable: true
+        itemId:
+          type: string
+          format: uuid
+          nullable: true
+        qty:
+          type: integer
+          minimum: 1
+          maximum: 999
     CreateQuestRequest:
       type: object
       required:
