@@ -166,6 +166,7 @@ info:
     | `session.moved` | the next gathering changes date | everyone | `SessionEventPayload` with `previousAt` |
     | `hero.levelled` | a seated hero rises a level | the owner and the DMs | `HeroLevelEventPayload` |
     | `hero.xp_awarded` | the DM grants or docks XP — one event per hero | the owner and the DMs | `HeroXpEventPayload` |
+    | `hero.gifted` | the DM gives a hero items or coin — one event per hero | the owner and the DMs | `HeroGiftEventPayload` |
     | `encounter.started` | a fight goes live | everyone | `EncounterEventPayload` |
     | `encounter.ended` | a fight stands down | everyone | `EncounterEventPayload` |
     | `chronicle.written` | somebody writes in the chronicle | everyone | `ChronicleEventPayload` (a 140-character excerpt) |
@@ -200,7 +201,7 @@ info:
     **secret once**, and never again. Ten webhooks per account.
 
     **A hook born of a token hears no more than the token could read.** Every
-    event belongs to a read scope — `heroes:read` for `hero.levelled` and
+    event belongs to a read scope — `heroes:read` for `hero.levelled`, `hero.gifted` and
     `hero.xp_awarded`, `campaigns:read` for everything else — and a hook
     registered through a token records that token's scopes and its table
     restriction. Naming an event the token could not read is refused with 403
@@ -2563,6 +2564,39 @@ paths:
       responses:
         "200":
           description: The heroes after the grant
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Character"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+      tags:
+        - Chronicle
+  /campaigns/{campaignId}/gifts:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    post:
+      operationId: giveGift
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:run
+      summary: "Give items and coin to seated heroes (DM only, #394). Items stack onto a matching row or arrive as a new one; coin lands in the purse, which is made when the hero has none. Written to the chronicle unless `announce` is false, and told to each hero's owner as `hero.gifted`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GiftRequest"
+      responses:
+        "200":
+          description: The heroes after the gift
           content:
             application/json:
               schema:
@@ -9596,6 +9630,53 @@ components:
         createdAt:
           type: string
           format: date-time
+    GiftItem:
+      type: object
+      description: One line of a gift — a library item or a written-in name.
+      properties:
+        contentId:
+          type: string
+          format: uuid
+          description: An armory item. Homebrew must be admitted by the table's codex.
+        name:
+          type: string
+          maxLength: 80
+          description: A written-in item, when there is no `contentId`.
+        qty:
+          type: integer
+          minimum: 1
+          maximum: 999
+          description: How many; one when left out.
+    GiftRequest:
+      type: object
+      required:
+        - heroIds
+      description: At least one of `items` and `coin` must be given.
+      properties:
+        heroIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            format: uuid
+          description: Seated heroes. Every one receives the whole gift.
+        items:
+          type: array
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/GiftItem"
+        coin:
+          type: string
+          maxLength: 80
+          description: An amount in the table's coin, such as "50 gp" or "2 gp, 5 sp" — parts separated by commas, each a number and one of the ladder's coins. A remainder below the smallest coin rounds up.
+        note:
+          type: string
+          maxLength: 200
+          description: A line of colour for the chronicle ("found in the vault").
+        announce:
+          type: boolean
+          description: Whether the table reads the gift in the chronicle — it does when left out. The hero's owner is always told, so a ring slipped to the rogue can stay between the two.
     DieGroup:
       type: object
       required:
@@ -10682,6 +10763,7 @@ components:
         - session.moved
         - hero.levelled
         - hero.xp_awarded
+        - hero.gifted
         - encounter.started
         - encounter.ended
         - chronicle.written
@@ -10818,6 +10900,36 @@ components:
         total:
           type: integer
         reason:
+          type: string
+    HeroGiftEventPayload:
+      type: object
+      description: The payload of hero.gifted — one event per hero, so its audience is that hero's owner and the DMs.
+      required:
+        - heroId
+        - heroName
+        - items
+      properties:
+        heroId:
+          type: string
+          format: uuid
+        heroName:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - qty
+            properties:
+              name:
+                type: string
+              qty:
+                type: integer
+        coin:
+          type: string
+          description: What was given in coin, in the table's own coins ("50 gp").
+        note:
           type: string
     EncounterEventPayload:
       type: object

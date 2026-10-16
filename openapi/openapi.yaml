@@ -134,6 +134,8 @@ paths:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1rolls"
   /campaigns/{campaignId}/xp:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1xp"
+  /campaigns/{campaignId}/gifts:
+    $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1gifts"
   /campaigns/{campaignId}/milestone:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1milestone"
   /campaigns/{campaignId}/milestone/revoke:
@@ -726,6 +728,10 @@ components:
 
     ChronicleEvent:
       $ref: "./components/chronicle.yaml#/ChronicleEvent"
+    GiftItem:
+      $ref: "./components/chronicle.yaml#/GiftItem"
+    GiftRequest:
+      $ref: "./components/chronicle.yaml#/GiftRequest"
     DieGroup:
       $ref: "./components/chronicle.yaml#/DieGroup"
     RollRequest:
@@ -848,6 +854,8 @@ components:
       $ref: "./components/events.yaml#/HeroLevelEventPayload"
     HeroXpEventPayload:
       $ref: "./components/events.yaml#/HeroXpEventPayload"
+    HeroGiftEventPayload:
+      $ref: "./components/events.yaml#/HeroGiftEventPayload"
     EncounterEventPayload:
       $ref: "./components/events.yaml#/EncounterEventPayload"
     ChronicleEventPayload:

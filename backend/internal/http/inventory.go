@@ -70,19 +70,32 @@ func toAPIInventoryItem(row db.ListCharacterItemsRow, viewer uuid.UUID) api.Inve
 
 // loadEditableCharacter is the shared prologue of the inventory handlers.
 func (s *Server) loadEditableCharacter(ctx context.Context, id uuid.UUID) (db.Character, error) {
+	character, _, err := s.loadEditableCharacterAs(ctx, id)
+	return character, err
+}
+
+// loadEditableCharacterAs is the same prologue for a handler that also needs
+// to know who is editing: the seat that let them in.
+func (s *Server) loadEditableCharacterAs(ctx context.Context, id uuid.UUID) (db.Character, db.Membership, error) {
 	character, err := s.queries.GetCharacter(ctx, id)
 	if err != nil {
-		return db.Character{}, err
+		return db.Character{}, db.Membership{}, err
 	}
-	if _, err := s.requireCharacterEditor(ctx, character); err != nil {
-		return db.Character{}, err
+	member, err := s.requireCharacterEditor(ctx, character)
+	if err != nil {
+		return db.Character{}, db.Membership{}, err
 	}
-	return character, nil
+	return character, member, nil
 }
+
+// errPurseRaise is what a player is told at a table when they try to put coin
+// in their own purse. Coin comes in through the DM, the shop and a quest's
+// reward (#394); spending is theirs.
+const errPurseRaise = "at a table coin comes from the DM, the shop or a quest — your purse can only be spent"
 
 // AddInventoryItem adds a library item or a free-text row to a hero's pack.
 func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryItemRequestObject) (api.AddInventoryItemResponseObject, error) {
-	character, err := s.loadEditableCharacter(ctx, uuid.UUID(request.CharacterId))
+	character, member, err := s.loadEditableCharacterAs(ctx, uuid.UUID(request.CharacterId))
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -153,6 +166,9 @@ func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryI
 	if err != nil {
 		return nil, err
 	}
+	if purse && tableLocked(character, member) {
+		return badRequest(errPurseRaise)
+	}
 	created, err := s.queries.AddCharacterItem(ctx, db.AddCharacterItemParams{
 		CharacterID: character.ID,
 		ContentID:   contentID,
@@ -209,7 +225,7 @@ func (s *Server) freshInventoryItem(ctx context.Context, row db.CharacterItem, v
 // UpdateInventoryItem changes quantity or equip state; equipping armor or a
 // shield unequips any other of the same type in the same transaction.
 func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInventoryItemRequestObject) (api.UpdateInventoryItemResponseObject, error) {
-	character, err := s.loadEditableCharacter(ctx, uuid.UUID(request.CharacterId))
+	character, member, err := s.loadEditableCharacterAs(ctx, uuid.UUID(request.CharacterId))
 	if err != nil {
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -240,6 +256,11 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 			return badRequest("quantity must be between 1 and 1,000,000")
 		}
 		qty = int32(*request.Body.Qty)
+		// At a table the purse may only go down (#394): raising it is the DM's
+		// gift, the shop's change or a quest's reward.
+		if row.IsPurse && qty > row.Qty && tableLocked(character, member) {
+			return badRequest(errPurseRaise)
+		}
 	}
 
 	equipped, slot := row.Equipped, row.Slot

@@ -49,6 +49,8 @@ import SkillsPanel from "./sheet/SkillsPanel";
 import ClassTablePanel from "./sheet/ClassTablePanel";
 import FeaturesPanel from "./sheet/FeaturesPanel";
 import { FeatureChoiceModal } from "./sheet/FeatureChoicePicker";
+import PurseControls from "./sheet/PurseControls";
+import GiftModal from "./dm/GiftModal";
 import { claimedElsewhere, levelsByClass, poolFor, trainingFromChoices } from "../lib/featureChoices";
 import PoolsPanel from "./sheet/PoolsPanel";
 import CreaturesPanel from "./sheet/CreaturesPanel";
@@ -85,6 +87,7 @@ export default function HeroSheetPage() {
   const [itemSearch, setItemSearch] = useState("");
   const [itemType, setItemType] = useState("");
   const [choosing, setChoosing] = useState<FeatureChoice | null>(null);
+  const [giving, setGiving] = useState(false);
 
   const character = detail?.character;
   const sheet = character?.sheet;
@@ -104,6 +107,13 @@ export default function HeroSheetPage() {
   // The coins this hero's table counts in, when they are seated at one.
   const coinage = memberships?.find((m) => m.campaign.id === character?.campaignId)?.campaign.coinage;
   const ladder = coinageOf(coinage);
+  // At a table the purse is the table's (#394): its player may spend it, but
+  // coin comes in through the DM, the shop or a quest. The DM of the table the
+  // hero sits at may also give to them from here.
+  const viewerRole = memberships?.find((m) => m.campaign.id === character?.campaignId)?.role;
+  const atTable = !!character?.campaignId;
+  const canRaisePurse = !atTable || viewerRole === "dm";
+  const dmHere = atTable && viewerRole === "dm";
   const packItems = (detail?.items ?? []).filter((i) => i.id !== purse?.id);
   const bySlot = Object.fromEntries(
     (Object.keys(SLOT_LABEL) as EquipSlot[]).map((s) => [s, detail?.items.find((i) => i.slot === s)]),
@@ -791,7 +801,18 @@ export default function HeroSheetPage() {
 
             {/* the pack: a game inventory grid */}
             <section>
-              <SectionLabel>The Pack</SectionLabel>
+              <div className="mb-1.5 flex items-center justify-between">
+                <SectionLabel>The Pack</SectionLabel>
+                {dmHere && (
+                  <button
+                    onClick={() => setGiving(true)}
+                    title="Give this hero items or coin"
+                    className="label-stamp btn-ghost-gold mb-2.5 flex cursor-pointer items-center gap-1 border-none px-2.5 py-1 text-[9px] tracking-[1px]"
+                  >
+                    <IconPlus size={11} strokeWidth={2} /> Give
+                  </button>
+                )}
+              </div>
               <div className="parchment px-4 py-4">
                 {packItems.length > 0 && (
                   <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -985,6 +1006,21 @@ export default function HeroSheetPage() {
                     Attune
                   </button>
                 ))}
+              {openItem.isPurse ? (
+                <div className="flex w-full items-start gap-3">
+                  <PurseControls
+                    qty={openItem.qty}
+                    coinage={coinage}
+                    canRaise={canRaisePurse}
+                    pending={updateItem.isPending}
+                    onSet={(qty) => updateItem.mutate({ itemId: openItem.id, qty })}
+                    onEmpty={() => {
+                      deleteItem.mutate(openItem.id);
+                      setOpenItemId(null);
+                    }}
+                  />
+                </div>
+              ) : (
               <div className="ml-auto flex items-center gap-1.5">
                 <button
                   disabled={openItem.qty <= 1 || updateItem.isPending}
@@ -1014,9 +1050,20 @@ export default function HeroSheetPage() {
                   <IconTrash size={13} strokeWidth={1.8} />
                 </button>
               </div>
+              )}
             </div>
           )}
         </ParchmentModal>
+      )}
+
+      {giving && character && (
+        <GiftModal
+          campaignId={character.campaignId!}
+          coinage={coinage}
+          heroes={[character]}
+          preselect={[character.id]}
+          onClose={() => setGiving(false)}
+        />
       )}
 
       {slotPicker && (

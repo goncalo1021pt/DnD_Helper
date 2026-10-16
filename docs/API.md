@@ -162,6 +162,7 @@ and `payload`. The catalogue:
 | `session.moved` | the next gathering changes date | everyone | `SessionEventPayload` with `previousAt` |
 | `hero.levelled` | a seated hero rises a level | the owner and the DMs | `HeroLevelEventPayload` |
 | `hero.xp_awarded` | the DM grants or docks XP — one event per hero | the owner and the DMs | `HeroXpEventPayload` |
+| `hero.gifted` | the DM gives a hero items or coin — one event per hero | the owner and the DMs | `HeroGiftEventPayload` |
 | `encounter.started` | a fight goes live | everyone | `EncounterEventPayload` |
 | `encounter.ended` | a fight stands down | everyone | `EncounterEventPayload` |
 | `chronicle.written` | somebody writes in the chronicle | everyone | `ChronicleEventPayload` (a 140-character excerpt) |
@@ -196,7 +197,7 @@ confines it to one table you sit at. The answer to `POST` carries the signing
 **secret once**, and never again. Ten webhooks per account.
 
 **A hook born of a token hears no more than the token could read.** Every
-event belongs to a read scope — `heroes:read` for `hero.levelled` and
+event belongs to a read scope — `heroes:read` for `hero.levelled`, `hero.gifted` and
 `hero.xp_awarded`, `campaigns:read` for everything else — and a hook
 registered through a token records that token's scopes and its table
 restriction. Naming an event the token could not read is refused with 403

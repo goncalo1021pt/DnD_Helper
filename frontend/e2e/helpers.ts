@@ -239,7 +239,8 @@ export async function seatHero(
 }
 
 /**
- * Coin for a hero: a free-text "Gold Pieces" row, the same shape the forge
+ * Coin for an UNSEATED hero (#394: at a table a purse is only spent, so fund
+ * before seating, or give through the DM's door). A free-text "Gold Pieces" row, the same shape the forge
  * stocks and the same name the sheet and the till read the purse by.
  */
 export async function fundHero(
