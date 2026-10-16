@@ -153,43 +153,22 @@ func (s *Server) GiveGift(ctx context.Context, request api.GiveGiftRequestObject
 				}
 				qty = int32(*it.Qty)
 			}
-			switch {
-			case it.ContentId != nil:
-				row, err := s.fetchVisibleContent(ctx, uuid.UUID(*it.ContentId), db.ContentKindItem, member.UserID)
-				if err != nil {
-					if errors.Is(err, pgx.ErrNoRows) {
-						return badRequest("unknown item")
-					}
-					return badRequest("that choice is not an item")
-				}
-				contentIDs = append(contentIDs, row.ID)
-				line := giftLine{contentID: pgUUID(row.ID), name: row.Name, qty: qty}
-				// A pack arrives as what is in it, at every door (#390).
-				if contents := contentsOf(row.Data); len(contents) > 0 {
-					if lib == nil {
-						l, err := s.itemLibraryFor(ctx, member.UserID)
-						if err != nil {
-							return nil, err
-						}
-						lib = l
-					}
-					line.stock = unpackedLines(lib, contents, qty)
-				}
-				lines = append(lines, line)
-			case it.Name != nil:
-				name := strings.TrimSpace(*it.Name)
-				if name == "" || len([]rune(name)) > 80 {
-					return badRequest("an item name must be between 1 and 80 characters")
-				}
-				// Coin is the coin field's: a row named for the coin would be a
-				// second till the shop never reads from.
-				if strings.EqualFold(name, ladder.purseName()) {
-					return badRequest("give coin with the coin field, not as an item")
-				}
-				lines = append(lines, giftLine{name: name, qty: qty})
-			default:
-				return badRequest("an item needs a library entry or a name")
+			var cid *uuid.UUID
+			if it.ContentId != nil {
+				id := uuid.UUID(*it.ContentId)
+				cid = &id
 			}
+			line, msg, err := s.giftLineFor(ctx, member.UserID, ladder, cid, it.Name, qty, &lib)
+			if err != nil {
+				return nil, err
+			}
+			if msg != "" {
+				return badRequest(msg)
+			}
+			if line.contentID.Valid {
+				contentIDs = append(contentIDs, uuid.UUID(line.contentID.Bytes))
+			}
+			lines = append(lines, line)
 		}
 	}
 	if len(lines) == 0 && coin == 0 {
@@ -233,37 +212,16 @@ func (s *Server) GiveGift(ctx context.Context, request api.GiveGiftRequestObject
 	defer tx.Rollback(ctx)
 	qtx := s.queries.WithTx(tx)
 	for _, hero := range targets {
-		items, err := qtx.ListCharacterItems(ctx, hero)
-		if err != nil {
-			return nil, err
-		}
 		var stock []giftLine
 		for _, line := range lines {
 			stock = append(stock, line.toStock()...)
 		}
-		if err := stockLines(ctx, qtx, hero, &items, stock); err != nil {
+		msg, err := fillPack(ctx, qtx, hero, stock, coin, ladder)
+		if err != nil {
 			return nil, err
 		}
-		if coin > 0 {
-			if purse := pickPurse(items); purse != nil {
-				locked, err := qtx.LockCharacterItem(ctx, purse.ID)
-				if err != nil {
-					return nil, err
-				}
-				if int64(locked.Qty)+coin > purseCeiling {
-					return badRequest("that would overfill a purse")
-				}
-				if _, err := qtx.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
-					ID: locked.ID, Qty: locked.Qty + int32(coin),
-					Equipped: locked.Equipped, Slot: locked.Slot, Attuned: locked.Attuned,
-				}); err != nil {
-					return nil, err
-				}
-			} else if _, err := qtx.AddCharacterItem(ctx, db.AddCharacterItemParams{
-				CharacterID: hero, Name: ladder.purseName(), Qty: int32(coin), IsPurse: true,
-			}); err != nil {
-				return nil, err
-			}
+		if msg != "" {
+			return badRequest(msg)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -362,6 +320,86 @@ func (s *Server) sayGift(
 			HeroId: openapi_types.UUID(t), HeroName: names[t], Items: items, Coin: coinText, Note: noteText,
 		})
 	}
+}
+
+// giftLineFor resolves one thing to give: a library item (a pack arrives as
+// what is in it, at every door — #390) or a written-in name. A non-empty
+// message is the reason it cannot be given. `lib` is read lazily and kept, so a
+// gift of many lines reads the armory once. Whether the codex admits a homebrew
+// item is the caller's to ask of `codexBlockers`, with the ids it collects.
+func (s *Server) giftLineFor(
+	ctx context.Context, userID uuid.UUID, ladder Coinage,
+	contentID *uuid.UUID, name *string, qty int32, lib *itemLibrary,
+) (giftLine, string, error) {
+	switch {
+	case contentID != nil:
+		row, err := s.fetchVisibleContent(ctx, *contentID, db.ContentKindItem, userID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return giftLine{}, "unknown item", nil
+			}
+			return giftLine{}, "that choice is not an item", nil
+		}
+		line := giftLine{contentID: pgUUID(row.ID), name: row.Name, qty: qty}
+		if contents := contentsOf(row.Data); len(contents) > 0 {
+			if *lib == nil {
+				l, err := s.itemLibraryFor(ctx, userID)
+				if err != nil {
+					return giftLine{}, "", err
+				}
+				*lib = l
+			}
+			line.stock = unpackedLines(*lib, contents, qty)
+		}
+		return line, "", nil
+	case name != nil:
+		written := strings.TrimSpace(*name)
+		if written == "" || len([]rune(written)) > 80 {
+			return giftLine{}, "an item name must be between 1 and 80 characters", nil
+		}
+		// Coin is the coin field's: a row named for the coin would be a
+		// second till the shop never reads from.
+		if strings.EqualFold(written, ladder.purseName()) {
+			return giftLine{}, "give coin with the coin field, not as an item", nil
+		}
+		return giftLine{name: written, qty: qty}, "", nil
+	default:
+		return giftLine{}, "an item needs a library entry or a name", nil
+	}
+}
+
+// fillPack puts goods and coin in one hero's pack — the one place that knows how
+// (stacking, the purse made when there is none), whoever is giving. A non-empty
+// message is a refusal to say; the caller rolls its transaction back.
+func fillPack(ctx context.Context, qtx *db.Queries, hero uuid.UUID, stock []giftLine, coin int64, ladder Coinage) (string, error) {
+	items, err := qtx.ListCharacterItems(ctx, hero)
+	if err != nil {
+		return "", err
+	}
+	if err := stockLines(ctx, qtx, hero, &items, stock); err != nil {
+		return "", err
+	}
+	if coin <= 0 {
+		return "", nil
+	}
+	if purse := pickPurse(items); purse != nil {
+		locked, err := qtx.LockCharacterItem(ctx, purse.ID)
+		if err != nil {
+			return "", err
+		}
+		if int64(locked.Qty)+coin > purseCeiling {
+			return "that would overfill a purse", nil
+		}
+		_, err = qtx.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
+			ID: locked.ID, Qty: locked.Qty + int32(coin),
+			Equipped: locked.Equipped, Slot: locked.Slot, Attuned: locked.Attuned,
+		})
+		return "", err
+	}
+	_, err = qtx.AddCharacterItem(ctx, db.AddCharacterItemParams{
+		CharacterID: hero, Name: ladder.purseName(), Qty: int32(coin), IsPurse: true,
+	})
+	return "", err
 }
 
 // joinGoods reads a list of things given — "a Torch, Rope and 50 gp".

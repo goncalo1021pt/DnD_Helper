@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   Location,
   QuestDifficulty,
@@ -7,6 +7,7 @@ import type {
   RewardType,
 } from "../api/client";
 import { LocationPicker } from "./LocationPicker";
+import { useRules } from "../hooks";
 import { IconEye, IconEyeOff, IconPlus, IconX } from "./ui/icons";
 
 const DIFFICULTIES: QuestDifficulty[] = ["trivial", "easy", "medium", "hard", "deadly"];
@@ -24,7 +25,7 @@ const TYPE_LABEL: Record<RewardType, string> = {
 };
 
 const VALUE_HINT: Record<RewardType, string> = {
-  gold: "e.g. 200 gp",
+  gold: "e.g. 200 gp — in the table's coin",
   item: "e.g. Cloak of Elvenkind",
   xp: "e.g. 700",
   reputation: "e.g. +2 with the Temple",
@@ -69,6 +70,69 @@ function Field({
       <span className="field-label">{label}</span>
       {children}
     </label>
+  );
+}
+
+/* An item reward: a name that may point at an armory entry (#395). Typing
+   searches the armory; picking one records its id so a payout hands over the
+   real thing, and editing the words afterwards falls back to a written-in name. */
+function ItemReward({
+  name,
+  itemId,
+  qty,
+  onChange,
+}: {
+  name: string;
+  itemId: string | null | undefined;
+  qty: number;
+  onChange: (patch: Partial<RewardInput>) => void;
+}) {
+  const { data: armory } = useRules("item");
+  const [open, setOpen] = useState(false);
+  const found = useMemo(() => {
+    const q = name.trim().toLowerCase();
+    if (!open || itemId || q.length < 2) return [];
+    return (armory ?? []).filter((i) => i.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [armory, name, itemId, open]);
+  return (
+    <div className="relative flex min-w-0 flex-1 items-center gap-2">
+      <input
+        className="input-parchment input-compact min-w-0 flex-1"
+        placeholder="Search the armory, or write a name"
+        value={name}
+        aria-label="Item reward"
+        onChange={(e) => {
+          setOpen(true);
+          onChange({ value: e.target.value, itemId: null });
+        }}
+      />
+      <input
+        type="number"
+        min={1}
+        max={999}
+        className="input-parchment input-compact w-16"
+        aria-label="Reward quantity"
+        value={qty}
+        onChange={(e) => onChange({ qty: Math.max(1, Math.min(999, Number(e.target.value) || 1)) })}
+      />
+      {found.length > 0 && (
+        <div className="absolute left-0 right-0 top-full z-10 mt-1 flex flex-col gap-1 rounded-[2px] bg-[#f3e6c8] p-1 shadow-lg">
+          {found.map((i) => (
+            <button
+              key={i.id}
+              type="button"
+              className="cursor-pointer rounded-[2px] border-none bg-transparent px-2 py-1 text-left text-[12.5px] text-ink-body hover:bg-[rgba(120,86,42,.15)]"
+              onClick={() => {
+                setOpen(false);
+                onChange({ value: i.name, itemId: i.id });
+              }}
+            >
+              <strong className="font-heading text-ink">{i.name}</strong>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -230,7 +294,7 @@ export default function QuestForm({
             <select
               className={`${input} w-32 cursor-pointer`}
               value={r.type}
-              onChange={(e) => setReward(i, { type: e.target.value as RewardType })}
+              onChange={(e) => setReward(i, { type: e.target.value as RewardType, itemId: null })}
             >
               {REWARD_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -238,12 +302,21 @@ export default function QuestForm({
                 </option>
               ))}
             </select>
-            <input
-              className={`${input} flex-1`}
-              placeholder={VALUE_HINT[r.type]}
-              value={r.value ?? ""}
-              onChange={(e) => setReward(i, { value: e.target.value })}
-            />
+            {r.type === "item" ? (
+              <ItemReward
+                name={r.value ?? ""}
+                itemId={r.itemId}
+                qty={r.qty ?? 1}
+                onChange={(patch) => setReward(i, patch)}
+              />
+            ) : (
+              <input
+                className={`${input} flex-1`}
+                placeholder={VALUE_HINT[r.type]}
+                value={r.value ?? ""}
+                onChange={(e) => setReward(i, { value: e.target.value })}
+              />
+            )}
             <button
               type="button"
               title="Remove reward"

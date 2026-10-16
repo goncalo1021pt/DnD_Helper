@@ -58,6 +58,8 @@ paths:
     $ref: "./paths/quests.yaml#/~1campaigns~1{campaignId}~1quests"
   /quests/{questId}:
     $ref: "./paths/quests.yaml#/~1quests~1{questId}"
+  /quests/{questId}/payout:
+    $ref: "./paths/quests.yaml#/~1quests~1{questId}~1payout"
 
   /me/tokens:
     $ref: "./paths/tokens.yaml#/~1me~1tokens"
@@ -557,6 +559,12 @@ components:
       $ref: "./components/quests.yaml#/QuestReward"
     QuestClaim:
       $ref: "./components/quests.yaml#/QuestClaim"
+    QuestPayoutRequest:
+      $ref: "./components/quests.yaml#/QuestPayoutRequest"
+    QuestPayoutItem:
+      $ref: "./components/quests.yaml#/QuestPayoutItem"
+    QuestPayout:
+      $ref: "./components/quests.yaml#/QuestPayout"
     Quest:
       $ref: "./components/quests.yaml#/Quest"
 

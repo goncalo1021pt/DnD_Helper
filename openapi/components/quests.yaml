@@ -24,6 +24,20 @@ QuestReward:
     value:
       type: string
       nullable: true
+    itemId:
+      type: string
+      format: uuid
+      nullable: true
+      description: An `item` reward's armory entry; absent means a name written in.
+    qty:
+      type: integer
+      description: How many of an `item` reward (1 when it is not said).
+    payable:
+      type: boolean
+      description: >-
+        Whether a payout can hand this over (#395) — a `gold` reward whose
+        value reads as an amount in the table's coin, or an `item` reward with
+        a name. Everything else stays words on the notice.
 
 QuestClaim:
   type: object
@@ -47,6 +61,11 @@ Quest:
   type: object
   required: [id, campaignId, title, description, difficulty, status, createdAt, rewards, claims, claimedByMe]
   properties:
+    paidAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: When the rewards were paid out (#395); a quest pays once.
     id:
       type: string
       format: uuid
@@ -109,6 +128,14 @@ RewardInput:
     value:
       type: string
       nullable: true
+    itemId:
+      type: string
+      format: uuid
+      nullable: true
+    qty:
+      type: integer
+      minimum: 1
+      maximum: 999
 
 CreateQuestRequest:
   type: object
@@ -176,3 +203,56 @@ UpdateQuestRequest:
       type: array
       items:
         $ref: "../openapi.yaml#/components/schemas/RewardInput"
+
+QuestPayoutRequest:
+  type: object
+  description: >-
+    How a completed quest's rewards reach the pack (#395). Gold is divided among
+    `heroIds` (or given whole to each); every `item` reward is handed to the one
+    hero named for it.
+  properties:
+    heroIds:
+      type: array
+      maxItems: 50
+      items:
+        type: string
+        format: uuid
+      description: The seated heroes who share the gold reward(s).
+    goldMode:
+      type: string
+      enum: [split, each]
+      description: Divide the gold among them (rounded down — the remainder is not paid), or give each the full amount. Split when left out.
+    items:
+      type: array
+      maxItems: 30
+      items:
+        $ref: "../openapi.yaml#/components/schemas/QuestPayoutItem"
+    announce:
+      type: boolean
+      description: Whether the table reads it in the chronicle; it does when left out.
+
+QuestPayoutItem:
+  type: object
+  required: [rewardId, heroId]
+  properties:
+    rewardId:
+      type: string
+      format: uuid
+    heroId:
+      type: string
+      format: uuid
+
+QuestPayout:
+  type: object
+  required: [quest, heroes]
+  properties:
+    quest:
+      $ref: "../openapi.yaml#/components/schemas/Quest"
+    heroes:
+      type: array
+      items:
+        $ref: "../openapi.yaml#/components/schemas/Character"
+    remainder:
+      type: string
+      nullable: true
+      description: Gold the split could not divide, in the table's coin; it was not paid.

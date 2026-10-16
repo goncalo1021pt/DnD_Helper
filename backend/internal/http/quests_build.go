@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -104,11 +105,21 @@ func insertRewards(ctx context.Context, q *db.Queries, questID uuid.UUID, reward
 		if label == "" {
 			continue
 		}
+		qty := int32(1)
+		if r.Qty != nil && *r.Qty >= 1 && *r.Qty <= 999 {
+			qty = int32(*r.Qty)
+		}
+		var itemID pgtype.UUID
+		if r.ItemId != nil && r.Type == api.RewardTypeItem {
+			itemID = pgUUID(uuid.UUID(*r.ItemId))
+		}
 		if _, err := q.AddReward(ctx, db.AddRewardParams{
 			QuestID: questID,
 			Type:    db.RewardType(string(r.Type)),
 			Label:   label,
 			Value:   r.Value,
+			ItemID:  itemID,
+			Qty:     qty,
 		}); err != nil {
 			return err
 		}
@@ -154,14 +165,29 @@ func (s *Server) buildQuests(ctx context.Context, campaignID uuid.UUID) ([]api.Q
 		return nil, err
 	}
 
+	campaign, err := s.queries.GetCampaign(ctx, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	ladder := coinageOf(campaign.Coinage)
+
 	rewardsByQuest := map[uuid.UUID][]api.QuestReward{}
 	for _, r := range rewards {
-		rewardsByQuest[r.QuestID] = append(rewardsByQuest[r.QuestID], api.QuestReward{
-			Id:    r.ID,
-			Type:  api.RewardType(string(r.Type)),
-			Label: r.Label,
-			Value: r.Value,
-		})
+		qty := int(r.Qty)
+		payable := rewardPayable(r, ladder)
+		reward := api.QuestReward{
+			Id:      r.ID,
+			Type:    api.RewardType(string(r.Type)),
+			Label:   r.Label,
+			Value:   r.Value,
+			Qty:     &qty,
+			Payable: &payable,
+		}
+		if r.ItemID.Valid {
+			id := openapi_types.UUID(r.ItemID.Bytes)
+			reward.ItemId = &id
+		}
+		rewardsByQuest[r.QuestID] = append(rewardsByQuest[r.QuestID], reward)
 	}
 
 	claimsByQuest := map[uuid.UUID][]api.QuestClaim{}
@@ -235,6 +261,11 @@ func toAPIQuest(q db.Quest, rewards []api.QuestReward, claims []api.QuestClaim, 
 	if claims == nil {
 		claims = []api.QuestClaim{}
 	}
+	var paidAt *time.Time
+	if q.PaidAt.Valid {
+		t := q.PaidAt.Time
+		paidAt = &t
+	}
 	return api.Quest{
 		Id:          q.ID,
 		CampaignId:  q.CampaignID,
@@ -248,5 +279,6 @@ func toAPIQuest(q db.Quest, rewards []api.QuestReward, claims []api.QuestClaim, 
 		Rewards:     rewards,
 		Claims:      claims,
 		ClaimedByMe: claimedByMe,
+		PaidAt:      paidAt,
 	}
 }

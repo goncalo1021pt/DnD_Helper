@@ -4,7 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
-import type { CreateQuestInput, UpdateQuestInput } from "../api/client";
+import type { CreateQuestInput, QuestPayoutInput, UpdateQuestInput } from "../api/client";
 
 export function useQuests(campaignId: string) {
   return useQuery({
@@ -104,3 +104,25 @@ export function useClaimQuest(campaignId: string) {
 //
 // Revealing a place changes which notices the board returns, so every
 // visibility mutation refreshes the quests cache alongside the locations one.
+
+/** Pay a completed quest's rewards into the heroes' packs (#395). */
+export function usePayOutQuest(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ questId, body }: { questId: string; body: QuestPayoutInput }) => {
+      const { data, error } = await api.POST("/quests/{questId}/payout", {
+        params: { path: { questId } },
+        body,
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (paid) => {
+      qc.invalidateQueries({ queryKey: ["quests", campaignId] });
+      qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      qc.invalidateQueries({ queryKey: ["my-characters"] });
+      qc.invalidateQueries({ queryKey: ["events", campaignId] });
+      for (const h of paid?.heroes ?? []) qc.invalidateQueries({ queryKey: ["character-detail", h.id] });
+    },
+  });
+}
