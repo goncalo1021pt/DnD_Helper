@@ -52,6 +52,17 @@ func toAPIInventoryItem(row db.ListCharacterItemsRow, viewer uuid.UUID) api.Inve
 		Attuned:  row.Attuned,
 		IsPurse:  &row.IsPurse,
 		Slot:     &slot,
+		Notes:    &row.Notes,
+	}
+	if row.CustomName != nil && *row.CustomName != "" {
+		out.CustomName = row.CustomName
+	}
+	// A written-in row's own stats (#396); a linked row's numbers are the entry's.
+	if !row.ContentID.Valid && len(row.CustomData) > 0 {
+		var own map[string]interface{}
+		if json.Unmarshal(row.CustomData, &own) == nil {
+			out.CustomData = &own
+		}
 	}
 	if row.ContentID.Valid && row.Kind != nil && row.Source != nil {
 		summary := ""
@@ -86,6 +97,33 @@ func (s *Server) loadEditableCharacterAs(ctx context.Context, id uuid.UUID) (db.
 		return db.Character{}, db.Membership{}, err
 	}
 	return character, member, nil
+}
+
+// maxItemNotes bounds a row's note; it is a line, not a document.
+const maxItemNotes = 500
+
+// errOwnStats is what a player is told at a table when they try to write the
+// numbers of their own item. The numbers are the table's, the #378 line.
+const errOwnStats = "at a table an item's numbers are the DM's — you can rename it and write a note"
+
+// ownItemData reads the stats a hero writes on a written-in row: the Archives'
+// item fields, checked as that form's are. Empty means none (a clear). A
+// message is the reason it was refused.
+func ownItemData(raw map[string]interface{}) ([]byte, string) {
+	if len(raw) == 0 {
+		return nil, ""
+	}
+	if t, _ := getStr(raw, "type"); t == "" {
+		raw["type"] = "gear"
+	}
+	if msg := validateContentData(db.ContentKindItem, raw); msg != "" {
+		return nil, msg
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil || len(encoded) > 16*1024 {
+		return nil, "that item's data is too large"
+	}
+	return encoded, ""
 }
 
 // errPurseRaise is what a player is told at a table when they try to put coin
@@ -123,6 +161,27 @@ func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryI
 			return badRequest("quantity must be between 1 and 1,000,000")
 		}
 		qty = int32(*body.Qty)
+	}
+
+	notes := ""
+	if body.Notes != nil {
+		notes = strings.TrimSpace(*body.Notes)
+		if len([]rune(notes)) > maxItemNotes {
+			return badRequest("a note is at most 500 characters")
+		}
+	}
+	var ownData []byte
+	if body.Data != nil && len(*body.Data) > 0 {
+		if body.ContentId != nil {
+			return badRequest("only a written-in item carries its own stats")
+		}
+		if tableLocked(character, member) {
+			return badRequest(errOwnStats)
+		}
+		var msg string
+		if ownData, msg = ownItemData(*body.Data); msg != "" {
+			return badRequest(msg)
+		}
 	}
 
 	var contentID pgtype.UUID
@@ -169,6 +228,9 @@ func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryI
 	if purse && tableLocked(character, member) {
 		return badRequest(errPurseRaise)
 	}
+	if purse && ownData != nil {
+		return badRequest("a purse carries no stats")
+	}
 	created, err := s.queries.AddCharacterItem(ctx, db.AddCharacterItemParams{
 		CharacterID: character.ID,
 		ContentID:   contentID,
@@ -178,6 +240,13 @@ func (s *Server) AddInventoryItem(ctx context.Context, request api.AddInventoryI
 	})
 	if err != nil {
 		return nil, err
+	}
+	if notes != "" || ownData != nil {
+		if created, err = s.queries.SetCharacterItemOwn(ctx, db.SetCharacterItemOwnParams{
+			ID: created.ID, CustomName: nil, Notes: notes, Data: ownData,
+		}); err != nil {
+			return nil, err
+		}
 	}
 	if err := s.syncCombatantAC(ctx, character); err != nil {
 		return nil, err
@@ -344,6 +413,60 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 		attuned = *request.Body.Attuned
 	}
 
+	// What the hero writes on the row itself (#396): a name, a note and, on a
+	// written-in row, the item's numbers.
+	customName, notes, ownData := row.CustomName, row.Notes, row.Data
+	ownChanged := false
+	if request.Body.Name != nil {
+		if row.IsPurse {
+			return badRequest("a purse keeps the name of the coin")
+		}
+		n := strings.TrimSpace(*request.Body.Name)
+		switch {
+		case len([]rune(n)) > 80:
+			return badRequest("item name must be between 1 and 80 characters")
+		case n == "" && !row.ContentID.Valid:
+			return badRequest("an item needs a name")
+		case n == "":
+			customName = nil
+		default:
+			customName = &n
+		}
+		ownChanged = true
+	}
+	if request.Body.Notes != nil {
+		notes = strings.TrimSpace(*request.Body.Notes)
+		if len([]rune(notes)) > maxItemNotes {
+			return badRequest("a note is at most 500 characters")
+		}
+		ownChanged = true
+	}
+	if request.Body.Data != nil {
+		switch {
+		case row.ContentID.Valid:
+			return badRequest("an item from the armory takes its numbers from the armory — write one in to give it its own")
+		case row.IsPurse:
+			return badRequest("a purse carries no stats")
+		case tableLocked(character, member):
+			return badRequest(errOwnStats)
+		}
+		var msg string
+		if ownData, msg = ownItemData(*request.Body.Data); msg != "" {
+			return badRequest(msg)
+		}
+		// The numbers changed under it, so it goes back in the pack: a sword
+		// made into a ring must not stay in a hand, and the bond is not assumed.
+		equipped, slot, attuned = false, "", false
+		ownChanged = true
+	}
+	if ownChanged {
+		if _, err := s.queries.SetCharacterItemOwn(ctx, db.SetCharacterItemOwnParams{
+			ID: row.ID, CustomName: customName, Notes: notes, Data: ownData,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	if _, err := s.queries.UpdateCharacterItem(ctx, db.UpdateCharacterItemParams{
 		ID:       row.ID,
 		Qty:      qty,
@@ -366,9 +489,15 @@ func (s *Server) UpdateInventoryItem(ctx context.Context, request api.UpdateInve
 }
 
 // equipContentData resolves the item data behind a row; false for free-text
-// rows and dangling references, which can neither equip nor attune.
+// rows without stats of their own and dangling references, which can neither
+// equip nor attune.
 func (s *Server) equipContentData(ctx context.Context, row db.CharacterItem) (itemData, bool) {
 	if !row.ContentID.Valid {
+		// A written-in row with stats of its own (#396) is the item it says.
+		var d itemData
+		if len(row.Data) > 0 && json.Unmarshal(row.Data, &d) == nil {
+			return d, true
+		}
 		return itemData{}, false
 	}
 	content, err := s.queries.GetContent(ctx, uuid.UUID(row.ContentID.Bytes))

@@ -1,4 +1,5 @@
 import type { CharacterDetail, InventoryItem, RulesContent } from "../../api/client";
+import { itemDataOf } from "../itemData";
 import { coinageOf, coinCounts, type Coin } from "../money";
 import { isMulticlass, multiclassLine } from "../classes";
 import { abilityMod } from "../abilities";
@@ -238,7 +239,7 @@ export function buildSheetValues({
   ];
   v.armorClass = abilities ? String(acFromEquipment(detail.items, abilities, acFeatures)) : "";
   v.shield = detail.items.some(
-    (i) => i.equipped && ((i.content?.data ?? {}) as { type?: string }).type === "shield",
+    (i) => i.equipped && (itemDataOf(i) as { type?: string }).type === "shield",
   );
   v.initiative = abilities ? sign(abilityMod(abilities.dex)) : "";
   v.speed = speciesData.speed ? `${speciesData.speed} ft.` : "";

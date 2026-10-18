@@ -473,6 +473,11 @@ func pickMergeTarget(items []db.ListCharacterItemsRow, contentID pgtype.UUID, na
 		if it.ID == skipID || it.Equipped || it.Attuned || it.Qty >= 999 {
 			continue
 		}
+		// A row a hero has written on (#396) is theirs: a fresh one never
+		// stacks onto it.
+		if it.Notes != "" || len(it.CustomData) > 0 || (it.CustomName != nil && *it.CustomName != "") {
+			continue
+		}
 		if contentID.Valid {
 			if it.ContentID.Valid && it.ContentID.Bytes == contentID.Bytes {
 				return it

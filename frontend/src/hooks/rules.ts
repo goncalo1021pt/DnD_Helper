@@ -241,12 +241,24 @@ export function useUpdateItem(characterId: string) {
       equipped?: boolean;
       slot?: EquipSlot;
       attuned?: boolean;
+      /** What the hero writes on the row itself (#396). */
+      name?: string;
+      notes?: string;
+      data?: Record<string, unknown>;
     }) => {
       const { data, error } = await api.PATCH(
         "/characters/{characterId}/items/{itemId}",
         {
           params: { path: { characterId, itemId: vars.itemId } },
-          body: { qty: vars.qty, equipped: vars.equipped, slot: vars.slot, attuned: vars.attuned },
+          body: {
+            qty: vars.qty,
+            equipped: vars.equipped,
+            slot: vars.slot,
+            attuned: vars.attuned,
+            name: vars.name,
+            notes: vars.notes,
+            data: vars.data,
+          },
         },
       );
       if (error) throw error;

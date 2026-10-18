@@ -28,6 +28,7 @@ import AbilityRow from "./ui/AbilityRow";
 import { abilityMod, modText } from "../lib/abilities";
 import SpellEntry, { SpellFlags } from "./ui/SpellEntry";
 import ContentEntry from "./ui/ContentEntry";
+import ItemEditor, { type ItemEdit } from "./sheet/ItemEditor";
 import RestPanel from "./sheet/RestPanel";
 import SpellSwapModal, { canSwapOn } from "./ui/SpellSwapModal";
 import { casterSourceFor } from "../lib/spellcasting";
@@ -82,6 +83,8 @@ export default function HeroSheetPage() {
   const [reading, setReading] = useState<RulesContent | null>(null);
   const [addChoice, setAddChoice] = useState("");
   const [freeText, setFreeText] = useState("");
+  // The item editor (#396): a row being edited, or "new" for writing one in.
+  const [editingItem, setEditingItem] = useState<InventoryItem | "new" | null>(null);
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [slotPicker, setSlotPicker] = useState<EquipSlot | null>(null);
   const [tab, setTab] = useState<"sheet" | "inventory">("sheet");
@@ -116,6 +119,10 @@ export default function HeroSheetPage() {
   const atTable = !!character?.campaignId;
   const canRaisePurse = !atTable || viewerRole === "dm";
   const dmHere = atTable && viewerRole === "dm";
+  // A name and a note are the owner's, and the DM's; the numbers are the table's
+  // once a hero sits at one (#378).
+  const canWords = canEdit || dmHere;
+  const canStats = (canEdit && !atTable) || dmHere;
   const packItems = (detail?.items ?? []).filter((i) => i.id !== purse?.id);
   const bySlot = Object.fromEntries(
     (Object.keys(SLOT_LABEL) as EquipSlot[]).map((s) => [s, detail?.items.find((i) => i.slot === s)]),
@@ -938,6 +945,12 @@ export default function HeroSheetPage() {
                     >
                       <IconPlus size={12} strokeWidth={2} />
                     </button>
+                    <button
+                      onClick={() => setEditingItem("new")}
+                      className="btn-base btn-ghost-ink h-9 px-3 text-[10px]"
+                    >
+                      Custom item
+                    </button>
                   </div>
                 )}
               </div>
@@ -958,6 +971,21 @@ export default function HeroSheetPage() {
         <ParchmentModal onClose={() => setOpenItemId(null)} maxWidth="max-w-[520px]">
           {openItem.content ? (
             <ContentEntry entry={openItem.content} />
+          ) : openItem.customData ? (
+            // A written-in row with stats of its own reads like the entry it is
+            // (the SRD source only keeps the origin badge off it — it is no homebrew).
+            <ContentEntry
+              entry={
+                {
+                  id: openItem.id,
+                  kind: "item",
+                  source: "srd",
+                  name: openItem.name,
+                  summary: "",
+                  data: openItem.customData,
+                } as unknown as RulesContent
+              }
+            />
           ) : (
             <div className="text-[13px]">
               <div className="font-display text-[15px] font-bold leading-tight text-ink">
@@ -967,6 +995,17 @@ export default function HeroSheetPage() {
                 Carried gear
               </div>
             </div>
+          )}
+          {openItem.notes && (
+            <p className="font-accent mb-0 mt-3 text-[13px] italic text-ink-body">{openItem.notes}</p>
+          )}
+          {canWords && !openItem.isPurse && (
+            <button
+              onClick={() => setEditingItem(openItem)}
+              className="btn-base btn-ghost-ink mt-3 px-3 py-2 text-[10.5px]"
+            >
+              Edit
+            </button>
           )}
           {canEdit && (
             <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[rgba(120,80,30,.25)] pt-3.5">
@@ -1065,6 +1104,33 @@ export default function HeroSheetPage() {
             </div>
           )}
         </ParchmentModal>
+      )}
+
+      {editingItem && (
+        <ItemEditor
+          item={editingItem === "new" ? undefined : editingItem}
+          canStats={canStats}
+          pending={addItem.isPending || updateItem.isPending}
+          onClose={() => setEditingItem(null)}
+          onSave={(edit: ItemEdit) => {
+            if (editingItem === "new") {
+              addItem.mutate(
+                { name: edit.name, qty: 1, notes: edit.notes || undefined, data: edit.data },
+                { onSuccess: () => setEditingItem(null) },
+              );
+              return;
+            }
+            updateItem.mutate(
+              {
+                itemId: editingItem.id,
+                name: edit.name !== editingItem.name ? edit.name : undefined,
+                notes: edit.notes !== (editingItem.notes ?? "") ? edit.notes : undefined,
+                data: edit.data,
+              },
+              { onSuccess: () => setEditingItem(null) },
+            );
+          }}
+        />
       )}
 
       {startingPack && character && (
