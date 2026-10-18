@@ -3824,6 +3824,14 @@ export interface components {
             slot?: "" | "armor" | "mainhand" | "offhand" | "bothhands" | "cloak" | "amulet" | "helm" | "belt" | "boots" | "gloves" | "bracers" | "ring1" | "ring2";
             /** @description The rules entry behind this row; null for free-text gear. */
             content?: components["schemas"]["RulesContent"];
+            /** @description A line of the owner's own on this row ("engraved with the family crest"). */
+            notes?: string;
+            /** @description What the hero calls it, when they renamed it; `name` already reads it. */
+            customName?: string | null;
+            /** @description The item's own stats on a written-in row (#396) — the fields the Archives' item form writes. Null on a row linked to the armory, which takes its numbers from the entry, and on a written-in row with none. */
+            customData?: {
+                [key: string]: unknown;
+            } | null;
         };
         InventoryItemInput: {
             /**
@@ -3834,8 +3842,20 @@ export interface components {
             name?: string;
             /** @default 1 */
             qty: number;
+            notes?: string;
+            /** @description The item's own stats (#396), for a written-in row only: the fields the Archives' item form writes, checked the way that form's are. At a table the numbers are the DM's, so a seated hero's owner may not set them. */
+            data?: {
+                [key: string]: unknown;
+            };
         };
         InventoryItemPatch: {
+            /** @description Rename the row. An empty name goes back to the armory's (or, for a written-in row, is refused). The purse cannot be renamed. */
+            name?: string;
+            notes?: string;
+            /** @description Set the item's own stats (#396), on a written-in row only; an empty object clears them. At a table the numbers are the DM's. */
+            data?: {
+                [key: string]: unknown;
+            };
             qty?: number;
             equipped?: boolean;
             /**

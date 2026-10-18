@@ -15,7 +15,7 @@ import (
 const addCharacterItem = `-- name: AddCharacterItem :one
 INSERT INTO character_items (character_id, content_id, name, qty, is_purse)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse
+RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse, data, notes, custom_name
 `
 
 type AddCharacterItemParams struct {
@@ -46,6 +46,9 @@ func (q *Queries) AddCharacterItem(ctx context.Context, arg AddCharacterItemPara
 		&i.Slot,
 		&i.Attuned,
 		&i.IsPurse,
+		&i.Data,
+		&i.Notes,
+		&i.CustomName,
 	)
 	return i, err
 }
@@ -80,7 +83,7 @@ func (q *Queries) DeleteCharacterItem(ctx context.Context, id uuid.UUID) error {
 }
 
 const getCharacterItem = `-- name: GetCharacterItem :one
-SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse FROM character_items WHERE id = $1
+SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse, data, notes, custom_name FROM character_items WHERE id = $1
 `
 
 func (q *Queries) GetCharacterItem(ctx context.Context, id uuid.UUID) (CharacterItem, error) {
@@ -97,6 +100,9 @@ func (q *Queries) GetCharacterItem(ctx context.Context, id uuid.UUID) (Character
 		&i.Slot,
 		&i.Attuned,
 		&i.IsPurse,
+		&i.Data,
+		&i.Notes,
+		&i.CustomName,
 	)
 	return i, err
 }
@@ -132,9 +138,11 @@ func (q *Queries) ListCharacterContentRefs(ctx context.Context, characterID uuid
 
 const listCharacterItems = `-- name: ListCharacterItems :many
 SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped, ci.slot,
-       ci.attuned, ci.is_purse,
-       COALESCE(rc.name, ci.name) AS name,
-       rc.kind, rc.source, rc.summary, rc.data, rc.created_by,
+       ci.attuned, ci.is_purse, ci.notes,
+       COALESCE(NULLIF(ci.custom_name, ''), rc.name, ci.name) AS name,
+       ci.custom_name,
+       ci.data AS custom_data,
+       rc.kind, rc.source, rc.summary, COALESCE(rc.data, ci.data) AS data, rc.created_by,
        u.name AS creator_name
 FROM character_items ci
 LEFT JOIN rules_content rc ON rc.id = ci.content_id
@@ -152,7 +160,10 @@ type ListCharacterItemsRow struct {
 	Slot        string         `json:"slot"`
 	Attuned     bool           `json:"attuned"`
 	IsPurse     bool           `json:"is_purse"`
+	Notes       string         `json:"notes"`
 	Name        string         `json:"name"`
+	CustomName  *string        `json:"custom_name"`
+	CustomData  []byte         `json:"custom_data"`
 	Kind        *ContentKind   `json:"kind"`
 	Source      *ContentSource `json:"source"`
 	Summary     *string        `json:"summary"`
@@ -180,7 +191,10 @@ func (q *Queries) ListCharacterItems(ctx context.Context, characterID uuid.UUID)
 			&i.Slot,
 			&i.Attuned,
 			&i.IsPurse,
+			&i.Notes,
 			&i.Name,
+			&i.CustomName,
+			&i.CustomData,
 			&i.Kind,
 			&i.Source,
 			&i.Summary,
@@ -255,7 +269,7 @@ func (q *Queries) ListCharacterSpells(ctx context.Context, characterID uuid.UUID
 }
 
 const lockCharacterItem = `-- name: LockCharacterItem :one
-SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse FROM character_items WHERE id = $1 FOR UPDATE
+SELECT id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse, data, notes, custom_name FROM character_items WHERE id = $1 FOR UPDATE
 `
 
 // The purse under lock: a buy reads the balance and spends it as one act, so
@@ -274,6 +288,9 @@ func (q *Queries) LockCharacterItem(ctx context.Context, id uuid.UUID) (Characte
 		&i.Slot,
 		&i.Attuned,
 		&i.IsPurse,
+		&i.Data,
+		&i.Notes,
+		&i.CustomName,
 	)
 	return i, err
 }
@@ -293,6 +310,48 @@ type RemoveCharacterSpellsParams struct {
 func (q *Queries) RemoveCharacterSpells(ctx context.Context, arg RemoveCharacterSpellsParams) error {
 	_, err := q.db.Exec(ctx, removeCharacterSpells, arg.CharacterID, arg.Column2)
 	return err
+}
+
+const setCharacterItemOwn = `-- name: SetCharacterItemOwn :one
+UPDATE character_items
+SET custom_name = $2, notes = $3, data = $4
+WHERE id = $1
+RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse, data, notes, custom_name
+`
+
+type SetCharacterItemOwnParams struct {
+	ID         uuid.UUID `json:"id"`
+	CustomName *string   `json:"custom_name"`
+	Notes      string    `json:"notes"`
+	Data       []byte    `json:"data"`
+}
+
+// What a hero adds to a row of their own (#396): a name, a note, and — on a
+// written-in row — the item's numbers. A NULL name falls back to the armory's.
+func (q *Queries) SetCharacterItemOwn(ctx context.Context, arg SetCharacterItemOwnParams) (CharacterItem, error) {
+	row := q.db.QueryRow(ctx, setCharacterItemOwn,
+		arg.ID,
+		arg.CustomName,
+		arg.Notes,
+		arg.Data,
+	)
+	var i CharacterItem
+	err := row.Scan(
+		&i.ID,
+		&i.CharacterID,
+		&i.ContentID,
+		&i.Name,
+		&i.Qty,
+		&i.Equipped,
+		&i.CreatedAt,
+		&i.Slot,
+		&i.Attuned,
+		&i.IsPurse,
+		&i.Data,
+		&i.Notes,
+		&i.CustomName,
+	)
+	return i, err
 }
 
 const unequipItems = `-- name: UnequipItems :exec
@@ -316,7 +375,7 @@ const updateCharacterItem = `-- name: UpdateCharacterItem :one
 UPDATE character_items
 SET qty = $2, equipped = $3, slot = $4, attuned = $5
 WHERE id = $1
-RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse
+RETURNING id, character_id, content_id, name, qty, equipped, created_at, slot, attuned, is_purse, data, notes, custom_name
 `
 
 type UpdateCharacterItemParams struct {
@@ -347,6 +406,9 @@ func (q *Queries) UpdateCharacterItem(ctx context.Context, arg UpdateCharacterIt
 		&i.Slot,
 		&i.Attuned,
 		&i.IsPurse,
+		&i.Data,
+		&i.Notes,
+		&i.CustomName,
 	)
 	return i, err
 }

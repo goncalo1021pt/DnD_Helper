@@ -30,7 +30,7 @@ interface ACCase {
   abilities: AbilityScores;
   sources: Array<Record<string, unknown>>;
   feats?: Array<Record<string, unknown>>;
-  items: Array<{ equipped: boolean; attuned?: boolean; data: Record<string, unknown> }>;
+  items: Array<{ equipped: boolean; attuned?: boolean; written?: boolean; data: Record<string, unknown> }>;
   ac: number;
 }
 
@@ -50,6 +50,8 @@ describe("the shared armour-class fixture", () => {
     expect(cases.some((c) => c.items.some((i) => typeof i.data.wear === "string"))).toBe(true);
     expect(cases.some((c) => c.items.some((i) => i.data.attunement === true && i.attuned))).toBe(true);
     expect(cases.some((c) => c.items.some((i) => i.data.attunement === true && !i.attuned))).toBe(true);
+    // Written-in gear (#396): a row with no entry still counts for what it says.
+    expect(cases.some((c) => c.items.some((i) => i.written && i.data.type === "armor"))).toBe(true);
   });
 
   it("agrees with acFromEquipment on every case", () => {
@@ -65,7 +67,8 @@ describe("the shared armour-class fixture", () => {
           ({
             equipped: i.equipped,
             attuned: i.attuned ?? false,
-            content: { data: i.data },
+            // A written-in row (#396) carries its stats itself, with no armory entry.
+            ...(i.written ? { customData: i.data } : { content: { data: i.data } }),
           }) as unknown as InventoryItem,
       );
       expect(acFromEquipment(items, c.abilities, features), c.name).toBe(c.ac);

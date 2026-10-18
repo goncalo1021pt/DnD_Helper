@@ -1,4 +1,5 @@
 import type { AbilityScores, InventoryItem } from "../api/client";
+import { hasItemData, itemDataOf } from "./itemData";
 import { abilityMod } from "./abilities";
 
 /** Proficiency bonus by character level (2024: +2 at 1, +6 at 17). */
@@ -143,8 +144,8 @@ export function acFromEquipment(
   let shield = 0;
   let worn = 0;
   for (const it of items) {
-    if (!it.equipped || !it.content) continue;
-    const d = it.content.data as ArmorData;
+    if (!it.equipped || !hasItemData(it)) continue;
+    const d = itemDataOf(it) as ArmorData;
     const eff = effBonus(d, it.attuned);
     if (d.type === "armor" && typeof d.ac === "number") {
       armored = true;
@@ -290,8 +291,8 @@ export function weaponAttacks(
   const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
   const out: WeaponAttack[] = [];
 
-  const held = items.filter((it) => it.equipped && it.content);
-  const dataOf = (it: InventoryItem) => (it.content?.data ?? {}) as WeaponData & { type?: string };
+  const held = items.filter((it) => it.equipped && hasItemData(it));
+  const dataOf = (it: InventoryItem) => itemDataOf(it) as WeaponData & { type?: string };
   const weapons = held.filter((it) => dataOf(it).type === "weapon" && dataOf(it).damage);
   const armored = held.some((it) => dataOf(it).type === "armor");
   const shielded = held.some((it) => dataOf(it).type === "shield");

@@ -698,6 +698,9 @@ type CharacterItem struct {
 	Slot        string             `json:"slot"`
 	Attuned     bool               `json:"attuned"`
 	IsPurse     bool               `json:"is_purse"`
+	Data        []byte             `json:"data"`
+	Notes       string             `json:"notes"`
+	CustomName  *string            `json:"custom_name"`
 }
 
 type CharacterNode struct {

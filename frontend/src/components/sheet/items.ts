@@ -12,6 +12,7 @@ cloak hangs on the shoulders, rings get the classic two — mirroring wearSlots
 in backend/internal/http/inventory.go.
 */
 import type { InventoryItem, RulesContent } from "../../api/client";
+import { itemDataOf } from "../../lib/itemData";
 
 export type EquipSlot =
   | "armor" | "mainhand" | "offhand" | "bothhands"
@@ -48,22 +49,22 @@ const WEAR_SLOTS: Record<string, EquipSlot[]> = {
 };
 
 export function itemTypeOf(it: InventoryItem): string {
-  return ((it.content?.data ?? {}) as { type?: string }).type ?? "";
+  return (itemDataOf(it) as { type?: string }).type ?? "";
 }
 
 export function wearOf(it: InventoryItem): string {
-  return ((it.content?.data ?? {}) as { wear?: string }).wear ?? "";
+  return (itemDataOf(it) as { wear?: string }).wear ?? "";
 }
 
 /** Whether this row's content asks for attunement. */
 export function needsAttunement(it: InventoryItem): boolean {
-  return ((it.content?.data ?? {}) as { attunement?: boolean }).attunement === true;
+  return (itemDataOf(it) as { attunement?: boolean }).attunement === true;
 }
 
 /** Which slots an inventory row can occupy. A Two-Handed weapon knows only
  * the two-handed grip; a Versatile one may take it for its bigger die. */
 export function slotsFor(it: InventoryItem): EquipSlot[] {
-  const props = ((it.content?.data ?? {}) as { properties?: string[] }).properties ?? [];
+  const props = (itemDataOf(it) as { properties?: string[] }).properties ?? [];
   switch (itemTypeOf(it)) {
     case "armor":
       return ["armor"];
@@ -109,7 +110,7 @@ export function armoryGroups(library: RulesContent[]): Array<[string, RulesConte
 /** The one number worth printing on a tile. The magic shows beside it — an
  * "AC 15 +1" reads as the armor and its enchantment, which is what it is. */
 export function keyStat(it: InventoryItem): string {
-  const d = (it.content?.data ?? {}) as {
+  const d = itemDataOf(it) as {
     ac?: number; acBonus?: number; damage?: string; damage2?: string;
     damageType?: string; bonus?: number; wear?: string;
   };

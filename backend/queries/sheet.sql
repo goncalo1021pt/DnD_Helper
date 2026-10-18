@@ -43,15 +43,25 @@ SET qty = $2, equipped = $3, slot = $4, attuned = $5
 WHERE id = $1
 RETURNING *;
 
+-- name: SetCharacterItemOwn :one
+-- What a hero adds to a row of their own (#396): a name, a note, and — on a
+-- written-in row — the item's numbers. A NULL name falls back to the armory's.
+UPDATE character_items
+SET custom_name = $2, notes = $3, data = $4
+WHERE id = $1
+RETURNING *;
+
 -- name: DeleteCharacterItem :exec
 DELETE FROM character_items WHERE id = $1;
 
 -- name: ListCharacterItems :many
 -- Inventory with live content; a snapshot name covers deleted content.
 SELECT ci.id, ci.character_id, ci.content_id, ci.qty, ci.equipped, ci.slot,
-       ci.attuned, ci.is_purse,
-       COALESCE(rc.name, ci.name) AS name,
-       rc.kind, rc.source, rc.summary, rc.data, rc.created_by,
+       ci.attuned, ci.is_purse, ci.notes,
+       COALESCE(NULLIF(ci.custom_name, ''), rc.name, ci.name) AS name,
+       ci.custom_name,
+       ci.data AS custom_data,
+       rc.kind, rc.source, rc.summary, COALESCE(rc.data, ci.data) AS data, rc.created_by,
        u.name AS creator_name
 FROM character_items ci
 LEFT JOIN rules_content rc ON rc.id = ci.content_id

@@ -355,6 +355,25 @@
       "ac": 17
     },
     {
+      "name": "a written-in breastplate counts as the armour it says it is",
+      "level": 1,
+      "abilities": { "str": 14, "dex": 14, "con": 12, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [{ "equipped": true, "written": true, "data": { "type": "armor", "category": "Medium", "ac": 14 } }],
+      "ac": 16
+    },
+    {
+      "name": "a written-in shield and a written-in +1 ring stack on a hero in a shirt",
+      "level": 1,
+      "abilities": { "str": 10, "dex": 14, "con": 10, "int": 10, "wis": 10, "cha": 10 },
+      "sources": [],
+      "items": [
+        { "equipped": true, "written": true, "data": { "type": "shield", "acBonus": 2 } },
+        { "equipped": true, "written": true, "data": { "type": "gear", "wear": "ring", "rarity": "rare", "bonus": 1 } }
+      ],
+      "ac": 15
+    },
+    {
       "name": "Defense does nothing for a hero in a shirt",
       "level": 1,
       "abilities": { "str": 10, "dex": 14, "con": 10, "int": 10, "wis": 10, "cha": 10 },

@@ -8465,6 +8465,18 @@ components:
           $ref: "#/components/schemas/RulesContent"
           nullable: true
           description: The rules entry behind this row; null for free-text gear.
+        notes:
+          type: string
+          description: A line of the owner's own on this row ("engraved with the family crest").
+        customName:
+          type: string
+          nullable: true
+          description: What the hero calls it, when they renamed it; `name` already reads it.
+        customData:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: The item's own stats on a written-in row (#396) — the fields the Archives' item form writes. Null on a row linked to the armory, which takes its numbers from the entry, and on a written-in row with none.
     InventoryItemInput:
       type: object
       properties:
@@ -8480,9 +8492,27 @@ components:
           minimum: 1
           maximum: 1000000
           default: 1
+        notes:
+          type: string
+          maxLength: 500
+        data:
+          type: object
+          additionalProperties: true
+          description: "The item's own stats (#396), for a written-in row only: the fields the Archives' item form writes, checked the way that form's are. At a table the numbers are the DM's, so a seated hero's owner may not set them."
     InventoryItemPatch:
       type: object
       properties:
+        name:
+          type: string
+          maxLength: 80
+          description: Rename the row. An empty name goes back to the armory's (or, for a written-in row, is refused). The purse cannot be renamed.
+        notes:
+          type: string
+          maxLength: 500
+        data:
+          type: object
+          additionalProperties: true
+          description: Set the item's own stats (#396), on a written-in row only; an empty object clears them. At a table the numbers are the DM's.
         qty:
           type: integer
           minimum: 1
