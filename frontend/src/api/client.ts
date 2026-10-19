@@ -121,6 +121,11 @@ export type CharacterTreeState =
 
 export type RulesContent =
   paths["/rules/{kind}"]["get"]["responses"]["200"]["content"]["application/json"][number];
+
+export type SearchResults =
+  paths["/campaigns/{campaignId}/search"]["get"]["responses"]["200"]["content"]["application/json"];
+export type SearchHit = SearchResults["hits"][number];
+export type SearchKind = SearchHit["kind"];
 export type RulesKind = "class" | "species" | "background" | "subclass" | "feat" | "spell" | "item" | "monster" | "rule";
 export type RulesContentInput =
   paths["/rules/{kind}"]["post"]["requestBody"]["content"]["application/json"];

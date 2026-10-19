@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useParams } from "react-router-dom";
 import type { Campaign, Role } from "../api/client";
 import { useCampaigns, useLiveCampaign, useMembers } from "../hooks";
@@ -6,7 +6,8 @@ import { railFamilies } from "../lib/sections";
 import InviteModal from "./InviteModal";
 import Person from "./ui/Person";
 import RoleBadge from "./ui/RoleBadge";
-import { IconKey } from "./ui/icons";
+import SearchDialog from "./SearchDialog";
+import { IconKey, IconSearch } from "./ui/icons";
 
 /** Context handed to the campaign pages (dashboard, board, party). */
 export interface CampaignContext {
@@ -78,6 +79,22 @@ function SectionRail({ role }: { role: Role }) {
   );
 }
 
+/* One box over the table (#321); "/" opens it too. */
+function SearchButton({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      onClick={onOpen}
+      title="Search this table (/)"
+      className="chip-hall cursor-pointer border-none px-3.5 py-[9px] transition hover:brightness-125"
+    >
+      <span className="text-gold-hair">
+        <IconSearch strokeWidth={1.8} />
+      </span>
+      <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">Search</span>
+    </button>
+  );
+}
+
 /* The door to the invite (#207) — a button, never the code itself. What sits
    behind it, including forging a new one, lives in InviteModal. */
 function InviteButton({ onOpen }: { onOpen: () => void }) {
@@ -110,6 +127,21 @@ export default function CampaignView() {
   // underneath stays as the fallback.
   useLiveCampaign(id);
   const [inviting, setInviting] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  // "/" opens the search from anywhere at the table (#321), unless the key is
+  // being typed into something.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      e.preventDefault();
+      setSearching(true);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (isLoading) {
     return (
@@ -172,14 +204,14 @@ export default function CampaignView() {
           <RoleBadge role={role} />
         </div>
 
-        {role === "dm" && (
-          <div className="flex flex-wrap items-center gap-3.5">
-            <InviteButton onOpen={() => setInviting(true)} />
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3.5">
+          <SearchButton onOpen={() => setSearching(true)} />
+          {role === "dm" && <InviteButton onOpen={() => setInviting(true)} />}
+        </div>
       </div>
 
       {inviting && <InviteModal campaign={campaign} onClose={() => setInviting(false)} />}
+      {searching && <SearchDialog campaignId={campaign.id} onClose={() => setSearching(false)} />}
 
       <SectionRail role={role} />
 

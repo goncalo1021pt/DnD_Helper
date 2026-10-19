@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
+import { useFocusTarget } from "../lib/focusTarget";
 import type { Location } from "../api/client";
 import { useCharacters, useCreateQuest, useLocations, useQuests } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
@@ -39,6 +40,8 @@ export default function QuestBoard() {
     setParams(next ? { place: next } : {}, { replace: true });
 
   const places = useMemo(() => locations ?? [], [locations]);
+  // A search result (#321) arrives as ?focus=<quest id>, on an unfiltered board.
+  useFocusTarget(!!quests);
 
   const shown = useMemo(() => {
     if (!quests) return [];

@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
+import { useOneShotParam } from "../lib/focusTarget";
 import type { BestiaryEntry, BestiarySection, RulesContent } from "../api/client";
 import {
   useAddBestiaryNote,
@@ -43,6 +44,13 @@ export default function BestiaryPage() {
   const create = useCreateBestiaryEntry(campaign.id);
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  // A search result (#321) arrives as ?open=<entry id>.
+  const [wantOpen, doneOpen] = useOneShotParam("open");
+  useEffect(() => {
+    if (!wantOpen) return;
+    setOpenId(wantOpen);
+    doneOpen();
+  }, [wantOpen, doneOpen]);
   const [logging, setLogging] = useState(false);
   const [title, setTitle] = useState("");
 

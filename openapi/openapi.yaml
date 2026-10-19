@@ -130,6 +130,8 @@ paths:
 
   /campaigns/{campaignId}/events:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1events"
+  /campaigns/{campaignId}/search:
+    $ref: "./paths/search.yaml#/~1campaigns~1{campaignId}~1search"
   /campaigns/{campaignId}/feed:
     $ref: "./paths/feed.yaml#/~1campaigns~1{campaignId}~1feed"
   /campaigns/{campaignId}/rolls:
@@ -831,6 +833,13 @@ components:
       $ref: "./components/npcs.yaml#/Npc"
     NpcInput:
       $ref: "./components/npcs.yaml#/NpcInput"
+    SearchKind:
+      $ref: "./components/search.yaml#/SearchKind"
+    SearchHit:
+      $ref: "./components/search.yaml#/SearchHit"
+    SearchResults:
+      $ref: "./components/search.yaml#/SearchResults"
+
     Friend:
       $ref: "./components/social.yaml#/Friend"
     FriendRoll:

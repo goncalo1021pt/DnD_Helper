@@ -2583,6 +2583,37 @@ paths:
           $ref: "#/components/responses/Forbidden"
       tags:
         - Chronicle
+  /campaigns/{campaignId}/search:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+    get:
+      operationId: searchCampaign
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:read
+      summary: Search everything a member can read at one table (#321)
+      description: "One box over the table's places, the Folk, quests, handouts, maps, the chronicle and the Bestiary, plus the rules as this table's codex rules them (and the Den, for its DMs). The answer is composed from the same list doors the screens read, called as the viewer, so a search can only ever find what the viewer could already read: a veiled innkeeper is not found, and a snippet is cut from text the viewer was already sent. A token without `rules:read` is answered from the table's shelves alone. Matching ignores case and accents; a name match ranks above a match in the text. At most eight hits per kind come back, and `counts` says how many there were in all. Fewer than two characters answers nothing."
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: What the viewer can read that matches, grouped by kind
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+      tags:
+        - Search
   /campaigns/{campaignId}/feed:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
@@ -10899,6 +10930,87 @@ components:
           format: uuid
           nullable: true
           description: "A sheet forged for one of this campaign's Folk (#227) — never a seated hero, because a sheet makes a person statted and not a party member. Sending the nil UUID strikes that body: it exists only for this person and nothing else points at it."
+    SearchKind:
+      type: string
+      description: "What a hit is, which is also how it opens: a place's page, a person on the Folk page, a notice on the board, a handout, a map, a chronicle line, a Bestiary entry, or a rules entry in the reader."
+      enum:
+        - place
+        - person
+        - quest
+        - handout
+        - map
+        - chronicle
+        - bestiary
+        - monster
+        - spell
+        - item
+        - feat
+        - rule
+        - class
+        - subclass
+        - species
+        - background
+      x-enum-varnames:
+        - HitPlace
+        - HitPerson
+        - HitQuest
+        - HitHandout
+        - HitMap
+        - HitChronicle
+        - HitBestiary
+        - HitMonster
+        - HitSpell
+        - HitItem
+        - HitFeat
+        - HitRule
+        - HitClass
+        - HitSubclass
+        - HitSpecies
+        - HitBackground
+    SearchHit:
+      type: object
+      required:
+        - kind
+        - id
+        - title
+        - nameMatch
+      properties:
+        kind:
+          $ref: "#/components/schemas/SearchKind"
+        id:
+          type: string
+          format: uuid
+          description: The thing's own id — a rules entry's content id for the rules kinds.
+        title:
+          type: string
+        subtitle:
+          type: string
+          description: Where it is or what it is — a person's place, a quest's state, a spell's kind.
+        snippet:
+          type: string
+          description: The words around the match when it was found in the text rather than the name, cut from what the viewer was already sent.
+        nameMatch:
+          type: boolean
+          description: True when the name (or title) matched, not only the text.
+    SearchResults:
+      type: object
+      required:
+        - query
+        - hits
+        - counts
+      properties:
+        query:
+          type: string
+        hits:
+          type: array
+          description: Grouped by kind in the order of SearchKind, best first within each.
+          items:
+            $ref: "#/components/schemas/SearchHit"
+        counts:
+          type: object
+          description: How many matched in all, per kind — more than the hits when a kind was cut at eight.
+          additionalProperties:
+            type: integer
     Friend:
       type: object
       required:
@@ -11925,6 +12037,7 @@ tags:
   - name: Rules
   - name: Creatures
   - name: Chronicle
+  - name: Search
   - name: Feed
   - name: Packs
   - name: Skill trees
