@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { CampaignMap, MapPin, MapPoint, MapShape } from "../api/client";
 import {
@@ -33,7 +33,7 @@ import {
 } from "../hooks";
 import type { CampaignContext } from "./CampaignView";
 import ParchmentModal from "./ui/ParchmentModal";
-import { IconBook, IconEye, IconEyeOff, IconMapPin, IconPencil, IconPlus, IconTrash } from "./ui/icons";
+import { IconBook, IconEye, IconEyeOff, IconMapPin, IconPencil, IconPlus, IconRuler, IconTrash } from "./ui/icons";
 import { AtlasModal } from "./map/AtlasModal";
 import { FogCanvas, revealSig } from "./map/FogCanvas";
 import { HangMapForm } from "./map/HangMapForm";
@@ -46,6 +46,9 @@ const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 import { PinMarker } from "./map/PinMarker";
 import { ShapeForm, type ShapeDraft } from "./map/ShapeForm";
 import { ShapeLayer } from "./map/ShapeLayer";
+import { MeasureBar } from "./map/MeasureBar";
+import { RoadCard } from "./map/RoadCard";
+import { formatDistance, runDistance } from "../lib/mapScale";
 import { RevealLedger } from "./map/RevealLedger";
 import { useMapView, BUILT_IN_ROWS, type BuiltInKey } from "./map/useMapView";
 import { useMapViewer } from "./map/useMapViewer";
@@ -160,6 +163,20 @@ export default function MapPage() {
     setDrawPoints([]);
   }
 
+  /*
+  Measuring (#357): anybody, any map — tap, tap, and the bar says how far.
+  Stored nowhere. A DM's bar also turns the run into the map's scale. And a
+  road pressed opens what it says about itself (RoadCard), not straight into
+  the DM's form, so a player reading a road learns its length too.
+  */
+  const [measuring, setMeasuring] = useState(false);
+  const [measurePoints, setMeasurePoints] = useState<MapPoint[]>([]);
+  const [roadCard, setRoadCard] = useState<MapShape | null>(null);
+  function stopMeasuring() {
+    setMeasuring(false);
+    setMeasurePoints([]);
+  }
+
   // A player draws their own line (#356); the DM draws the map's ink. An
   // existing shape is whatever it already is.
   const draftIsMark = shapeDraft
@@ -167,6 +184,9 @@ export default function MapPage() {
       ? !!shapeDraft.existing.authorUserId
       : !isDM
     : false;
+
+  // Who may change a drawn shape: the DM their ink, a player their own line.
+  const mayEditShape = (shape: MapShape) => (shape.authorUserId ? shape.authorUserId === myId : isDM);
 
   // A line needs two points to go anywhere, a region three to enclose any.
   const drawEnough = drawPoints.length >= (drawKind === "area" ? 3 : 2);
@@ -186,10 +206,18 @@ export default function MapPage() {
   finger landed on its label. That is the tap the DM was making anyway, done
   precisely.
   */
-  const toolActive = dropMode || stampMode || drawKind !== null;
+  const toolActive = dropMode || stampMode || drawKind !== null || measuring;
+
+  // Picking up any other tool puts the ruler down.
+  useEffect(() => {
+    if (dropMode || stampMode || drawKind) stopMeasuring();
+  }, [dropMode, stampMode, drawKind]);
 
   function snapDrawTo(pin: MapPin) {
     setDrawPoints((pts) => [...pts, { x: pin.x, y: pin.y }]);
+  }
+  function snapMeasureTo(pin: MapPin) {
+    setMeasurePoints((pts) => [...pts, { x: pin.x, y: pin.y }]);
   }
 
   // What a tap means is the page's business, not the viewer's: the viewer only
@@ -209,13 +237,16 @@ export default function MapPage() {
       onTap: (at) => {
         // A player holds tools too now (#356): their own pin and their own
         // line. Lifting the fog stays the DM's.
-        if (drawKind) setDrawPoints((pts) => [...pts, { x: at.x, y: at.y }]);
+        if (measuring) setMeasurePoints((pts) => [...pts, { x: at.x, y: at.y }]);
+        else if (drawKind) setDrawPoints((pts) => [...pts, { x: at.x, y: at.y }]);
         else if (dropMode) setNewPinAt(at);
         else if (isDM && stampMode) draftState.stamp(at);
       },
       onMapChanged: () => {
         setDropMode(false);
         stopDrawing();
+        stopMeasuring();
+        setRoadCard(null);
         setShapeDraft(null);
         setInkworkOpen(false);
         draftState.reset();
@@ -637,19 +668,23 @@ export default function MapPage() {
             <ShapeLayer
               shapes={drawnShapes}
               showNames={showNames}
-              draft={drawKind ? drawPoints : undefined}
+              draft={drawKind ? drawPoints : measuring ? measurePoints : undefined}
               drawingArea={drawKind === "area"}
               width={map.width}
               height={map.height}
               onOpen={
                 !toolActive
                   ? (shape: MapShape) =>
-                      setShapeDraft({ kind: shape.kind, points: shape.points, existing: shape })
+                      shape.kind === "line"
+                        ? setRoadCard(shape)
+                        : setShapeDraft({ kind: shape.kind, points: shape.points, existing: shape })
                   : undefined
               }
-              // The DM opens their own ink; a player's line opens for its
-              // author alone, and a DM pulls one from the Inkwork (#356).
-              canOpen={(shape) => (shape.authorUserId ? shape.authorUserId === myId : isDM)}
+              // A line answers anybody who can see it — it says how long it
+              // is (#357), and Edit on its card is for whoever may change it.
+              // A region opens the DM's own form; a player's line, its
+              // author's; a DM pulls one from the Inkwork (#356).
+              canOpen={(shape) => shape.kind === "line" || mayEditShape(shape)}
             />
             {drawnPins.map((p) => (
               <PinMarker
@@ -658,7 +693,7 @@ export default function MapPage() {
                 scale={view.scale}
                 showLabel={showNames}
                 passive={dropMode || stampMode}
-                onOpen={drawKind ? snapDrawTo : setOpenPin}
+                onOpen={drawKind ? snapDrawTo : measuring ? snapMeasureTo : setOpenPin}
               />
             ))}
           </div>
@@ -684,6 +719,29 @@ export default function MapPage() {
                 {label}
               </button>
             ))}
+            {/* The ruler (#357), everyone's: how far from here to there. It
+                lives on the rail rather than the toolbar, which already wraps
+                at a laptop's width — and a toolbar that wraps mid-gesture
+                moves the map out from under the finger. */}
+            <button
+              onClick={() => {
+                if (measuring) return stopMeasuring();
+                setDropMode(false);
+                setStampMode(false);
+                stopDrawing();
+                setMeasuring(true);
+              }}
+              title={measuring ? "Stop measuring" : "Measure"}
+              aria-label="Measure"
+              aria-pressed={measuring}
+              className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-[3px] border-none text-[#e0c890] transition hover:brightness-125"
+              style={{
+                background: measuring ? "rgba(139,37,32,.85)" : "rgba(16,9,5,.78)",
+                boxShadow: "inset 0 0 0 1px rgba(201,162,39,.4)",
+              }}
+            >
+              <IconRuler size={16} strokeWidth={1.9} />
+            </button>
           </div>
 
           {dropMode && (
@@ -725,6 +783,10 @@ export default function MapPage() {
                       ? "Tap along the road"
                       : "Tap along your route"
                   : `${drawPoints.length} ${drawPoints.length === 1 ? "point" : "points"}`}
+                {/* How long the road is so far, on a map with a scale (#357). */}
+                {drawKind === "line" && map.scale && drawPoints.length >= 2 && (
+                  <> · {formatDistance(runDistance(drawPoints, map) ?? 0, map.scale.unit)}</>
+                )}
               </span>
               {drawPoints.length > 0 && (
                 <button
@@ -751,6 +813,29 @@ export default function MapPage() {
                 Cancel
               </button>
             </div>
+          )}
+
+          {measuring && (
+            <MeasureBar
+              map={map}
+              points={measurePoints}
+              isDM={isDM}
+              pending={updateMap.isPending}
+              onUndo={() => setMeasurePoints((pts) => pts.slice(0, -1))}
+              onClear={() => setMeasurePoints([])}
+              onDone={stopMeasuring}
+              onScale={(distance, unit) =>
+                updateMap.mutate({
+                  mapId: map.id,
+                  body: {
+                    name: map.name,
+                    ...(map.parentMapId ? { parentMapId: map.parentMapId } : {}),
+                    scaleDistance: distance,
+                    scaleUnit: unit,
+                  },
+                })
+              }
+            />
           )}
 
           {/* the stamping bar: draft controls, nothing committed until Submit */}
@@ -1069,6 +1154,22 @@ export default function MapPage() {
             }
           />
         </ParchmentModal>
+      )}
+
+      {/* what a road says about itself (#357) */}
+      {roadCard && map && (
+        <RoadCard
+          shape={roadCard}
+          map={map}
+          heading={roadCard.authorUserId ? (roadCard.authorUserId === myId ? "Your route" : "A route") : "A road"}
+          fogged={!isDM && map.fogEnabled}
+          canEdit={mayEditShape(roadCard)}
+          onEdit={() => {
+            setShapeDraft({ kind: roadCard.kind, points: roadCard.points, existing: roadCard });
+            setRoadCard(null);
+          }}
+          onClose={() => setRoadCard(null)}
+        />
       )}
 
       {/* naming and styling a road or a region (#262), or a player's route (#356) */}

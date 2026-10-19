@@ -522,7 +522,8 @@ func (q *Queries) GetMapMeta(ctx context.Context, id uuid.UUID) (GetMapMetaRow, 
 
 const getMapMetaForCampaign = `-- name: GetMapMetaForCampaign :one
 SELECT m.id, m.realm_id, c.id AS campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height,
-       m.created_at, m.location_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party
+       m.created_at, m.location_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party,
+       m.scale_distance, m.scale_unit
 FROM maps m
 JOIN campaigns c ON c.realm_id = m.realm_id
 LEFT JOIN map_campaign_state s ON s.map_id = m.id AND s.campaign_id = c.id
@@ -546,6 +547,8 @@ type GetMapMetaForCampaignRow struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	LocationID     pgtype.UUID        `json:"location_id"`
 	VisibleToParty bool               `json:"visible_to_party"`
+	ScaleDistance  *float64           `json:"scale_distance"`
+	ScaleUnit      *string            `json:"scale_unit"`
 }
 
 // A map THROUGH one table (#234): the row with that table's veil overlaid, and
@@ -566,6 +569,8 @@ func (q *Queries) GetMapMetaForCampaign(ctx context.Context, arg GetMapMetaForCa
 		&i.CreatedAt,
 		&i.LocationID,
 		&i.VisibleToParty,
+		&i.ScaleDistance,
+		&i.ScaleUnit,
 	)
 	return i, err
 }
@@ -853,7 +858,7 @@ func (q *Queries) ListMapVisibilityByCampaign(ctx context.Context, campaignID uu
 const listMapsByCampaign = `-- name: ListMapsByCampaign :many
 SELECT m.id, m.realm_id, c.id AS campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height,
        m.created_at, m.location_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party,
-       l.name AS location_name
+       m.scale_distance, m.scale_unit, l.name AS location_name
 FROM maps m
 JOIN campaigns c ON c.realm_id = m.realm_id
 LEFT JOIN map_campaign_state s ON s.map_id = m.id AND s.campaign_id = c.id
@@ -874,6 +879,8 @@ type ListMapsByCampaignRow struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	LocationID     pgtype.UUID        `json:"location_id"`
 	VisibleToParty bool               `json:"visible_to_party"`
+	ScaleDistance  *float64           `json:"scale_distance"`
+	ScaleUnit      *string            `json:"scale_unit"`
 	LocationName   *string            `json:"location_name"`
 }
 
@@ -901,6 +908,8 @@ func (q *Queries) ListMapsByCampaign(ctx context.Context, campaignID uuid.UUID) 
 			&i.CreatedAt,
 			&i.LocationID,
 			&i.VisibleToParty,
+			&i.ScaleDistance,
+			&i.ScaleUnit,
 			&i.LocationName,
 		); err != nil {
 			return nil, err
@@ -1005,29 +1014,35 @@ func (q *Queries) UpdateMapLayer(ctx context.Context, arg UpdateMapLayerParams) 
 
 const updateMapMeta = `-- name: UpdateMapMeta :one
 UPDATE maps
-SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5
+SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5,
+    scale_distance = $6, scale_unit = $7
 WHERE id = $1
-RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id
+RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
+          scale_distance, scale_unit
 `
 
 type UpdateMapMetaParams struct {
-	ID          uuid.UUID   `json:"id"`
-	Name        string      `json:"name"`
-	ParentMapID pgtype.UUID `json:"parent_map_id"`
-	FogEnabled  bool        `json:"fog_enabled"`
-	LocationID  pgtype.UUID `json:"location_id"`
+	ID            uuid.UUID   `json:"id"`
+	Name          string      `json:"name"`
+	ParentMapID   pgtype.UUID `json:"parent_map_id"`
+	FogEnabled    bool        `json:"fog_enabled"`
+	LocationID    pgtype.UUID `json:"location_id"`
+	ScaleDistance *float64    `json:"scale_distance"`
+	ScaleUnit     *string     `json:"scale_unit"`
 }
 
 type UpdateMapMetaRow struct {
-	ID          uuid.UUID          `json:"id"`
-	RealmID     uuid.UUID          `json:"realm_id"`
-	ParentMapID pgtype.UUID        `json:"parent_map_id"`
-	Name        string             `json:"name"`
-	FogEnabled  bool               `json:"fog_enabled"`
-	Width       int32              `json:"width"`
-	Height      int32              `json:"height"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	LocationID  pgtype.UUID        `json:"location_id"`
+	ID            uuid.UUID          `json:"id"`
+	RealmID       uuid.UUID          `json:"realm_id"`
+	ParentMapID   pgtype.UUID        `json:"parent_map_id"`
+	Name          string             `json:"name"`
+	FogEnabled    bool               `json:"fog_enabled"`
+	Width         int32              `json:"width"`
+	Height        int32              `json:"height"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	LocationID    pgtype.UUID        `json:"location_id"`
+	ScaleDistance *float64           `json:"scale_distance"`
+	ScaleUnit     *string            `json:"scale_unit"`
 }
 
 func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (UpdateMapMetaRow, error) {
@@ -1037,6 +1052,8 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 		arg.ParentMapID,
 		arg.FogEnabled,
 		arg.LocationID,
+		arg.ScaleDistance,
+		arg.ScaleUnit,
 	)
 	var i UpdateMapMetaRow
 	err := row.Scan(
@@ -1049,6 +1066,8 @@ func (q *Queries) UpdateMapMeta(ctx context.Context, arg UpdateMapMetaParams) (U
 		&i.Height,
 		&i.CreatedAt,
 		&i.LocationID,
+		&i.ScaleDistance,
+		&i.ScaleUnit,
 	)
 	return i, err
 }

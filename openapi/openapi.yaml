@@ -700,6 +700,10 @@ components:
       $ref: "./components/maps.yaml#/CreateMapRequest"
     UpdateMapRequest:
       $ref: "./components/maps.yaml#/UpdateMapRequest"
+    MapScale:
+      $ref: "./components/maps.yaml#/MapScale"
+    MapScaleUnit:
+      $ref: "./components/maps.yaml#/MapScaleUnit"
     MapPinInput:
       $ref: "./components/maps.yaml#/MapPinInput"
     MapLayer:

@@ -9,6 +9,7 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
+	"math"
 	"net/http"
 	"strings"
 
@@ -46,6 +47,8 @@ type mapRow struct {
 	CreatedAt      pgtype.Timestamptz
 	LocationID     pgtype.UUID
 	VisibleToParty bool
+	ScaleDistance  *float64 // what the image's width spans (#357); nil = unmeasured
+	ScaleUnit      *string
 }
 
 // listedMapRow narrows the atlas query's row to the shared shape. sqlc gives
@@ -56,7 +59,7 @@ func listedMapRow(r db.ListMapsByCampaignRow) mapRow {
 		ID: r.ID, RealmID: r.RealmID, CampaignID: r.CampaignID, ParentMapID: r.ParentMapID,
 		Name: r.Name, FogEnabled: r.FogEnabled, Width: r.Width,
 		Height: r.Height, CreatedAt: r.CreatedAt, LocationID: r.LocationID,
-		VisibleToParty: r.VisibleToParty,
+		VisibleToParty: r.VisibleToParty, ScaleDistance: r.ScaleDistance, ScaleUnit: r.ScaleUnit,
 	}
 }
 
@@ -83,6 +86,10 @@ func toAPIMap(m mapRow, forDM bool, overrides []api.VisibilityOverride) api.Camp
 	if m.ParentMapID.Valid {
 		id := uuid.UUID(m.ParentMapID.Bytes)
 		out.ParentMapId = &id
+	}
+	// The scale is ground and no secret: a player measuring a road needs it.
+	if m.ScaleDistance != nil && m.ScaleUnit != nil {
+		out.Scale = &api.MapScale{Distance: *m.ScaleDistance, Unit: api.MapScaleUnit(*m.ScaleUnit)}
 	}
 	if forDM {
 		visible := m.VisibleToParty
@@ -533,12 +540,38 @@ func (s *Server) UpdateMap(ctx context.Context, request api.UpdateMapRequestObje
 			locID = resolved
 		}
 	}
+	// The scale (#357): absent is unchanged, 0 takes it off, and a distance
+	// keeps the unit it had unless a new one is named.
+	scaleDistance, scaleUnit := meta.ScaleDistance, meta.ScaleUnit
+	if d := request.Body.ScaleDistance; d != nil {
+		switch {
+		case *d == 0:
+			scaleDistance, scaleUnit = nil, nil
+		case *d < 0 || math.IsNaN(*d) || math.IsInf(*d, 0):
+			return api.UpdateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a scale is a distance greater than nothing"}}, nil
+		default:
+			scaleDistance = d
+		}
+	}
+	if u := request.Body.ScaleUnit; u != nil && scaleDistance != nil {
+		if !u.Valid() {
+			return api.UpdateMap400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a scale is in miles, km or feet"}}, nil
+		}
+		unit := string(*u)
+		scaleUnit = &unit
+	}
+	if scaleDistance != nil && scaleUnit == nil {
+		miles := string(api.Miles)
+		scaleUnit = &miles
+	}
 	row, err := s.queries.UpdateMapMeta(ctx, db.UpdateMapMetaParams{
-		ID:          request.MapId,
-		Name:        name,
-		ParentMapID: parent,
-		FogEnabled:  fog,
-		LocationID:  locID,
+		ID:            request.MapId,
+		Name:          name,
+		ParentMapID:   parent,
+		FogEnabled:    fog,
+		LocationID:    locID,
+		ScaleDistance: scaleDistance,
+		ScaleUnit:     scaleUnit,
 	})
 	if err != nil {
 		return nil, err
@@ -555,6 +588,7 @@ func (s *Server) UpdateMap(ctx context.Context, request api.UpdateMapRequestObje
 		ParentMapID: row.ParentMapID, Name: row.Name, FogEnabled: row.FogEnabled,
 		Width: row.Width, Height: row.Height, CreatedAt: row.CreatedAt,
 		LocationID: row.LocationID, VisibleToParty: meta.VisibleToParty,
+		ScaleDistance: row.ScaleDistance, ScaleUnit: row.ScaleUnit,
 	}
 	// A rename or a re-hang is shared ground: every table on the realm hears.
 	s.publishRealm(ctx, meta.RealmID, live.TopicMap)

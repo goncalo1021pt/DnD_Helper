@@ -8986,6 +8986,8 @@ components:
         fogEnabled:
           type: boolean
           description: When true, players see only what their reveal circles uncover.
+        scale:
+          $ref: "#/components/schemas/MapScale"
         width:
           type: integer
           description: Pixel width of the stored image.
@@ -9368,6 +9370,31 @@ components:
           format: uuid
           nullable: true
           description: The place this map depicts. Omitted means unchanged — like a shop, a map cannot be quietly unfiled by a request that says nothing.
+        scaleDistance:
+          type: number
+          format: double
+          minimum: 0
+          description: How far the full width of the image spans, in `scaleUnit` (#357). Omitted means unchanged; 0 takes the scale off the map.
+        scaleUnit:
+          $ref: "#/components/schemas/MapScaleUnit"
+    MapScale:
+      type: object
+      description: "How far things are on this map (#357): the distance the full width of the image spans. A point's x is a fraction of the width and its y of the height, so a distance is the hypotenuse of dx·width and dy·height, in pixels, times distance / width. Absent on a map nobody has measured."
+      required:
+        - distance
+        - unit
+      properties:
+        distance:
+          type: number
+          format: double
+        unit:
+          $ref: "#/components/schemas/MapScaleUnit"
+    MapScaleUnit:
+      type: string
+      enum:
+        - miles
+        - km
+        - feet
     MapPinInput:
       type: object
       required:

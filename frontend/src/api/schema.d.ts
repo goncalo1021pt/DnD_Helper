@@ -4106,6 +4106,7 @@ export interface components {
             name: string;
             /** @description When true, players see only what their reveal circles uncover. */
             fogEnabled: boolean;
+            scale?: components["schemas"]["MapScale"];
             /** @description Pixel width of the stored image. */
             width: number;
             height: number;
@@ -4321,7 +4322,21 @@ export interface components {
              * @description The place this map depicts. Omitted means unchanged — like a shop, a map cannot be quietly unfiled by a request that says nothing.
              */
             locationId?: string | null;
+            /**
+             * Format: double
+             * @description How far the full width of the image spans, in `scaleUnit` (#357). Omitted means unchanged; 0 takes the scale off the map.
+             */
+            scaleDistance?: number;
+            scaleUnit?: components["schemas"]["MapScaleUnit"];
         };
+        /** @description How far things are on this map (#357): the distance the full width of the image spans. A point's x is a fraction of the width and its y of the height, so a distance is the hypotenuse of dx·width and dy·height, in pixels, times distance / width. Absent on a map nobody has measured. */
+        MapScale: {
+            /** Format: double */
+            distance: number;
+            unit: components["schemas"]["MapScaleUnit"];
+        };
+        /** @enum {string} */
+        MapScaleUnit: "miles" | "km" | "feet";
         MapPinInput: {
             label: string;
             note?: string;
