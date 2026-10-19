@@ -149,7 +149,20 @@ body {
   }
 }
 
+/* A search result arriving at the thing it named (#321): one warm pulse. */
+@keyframes focusflash {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(224, 169, 78, 0);
+  }
+  25%, 60% {
+    box-shadow: 0 0 0 3px rgba(224, 169, 78, 0.85), 0 0 22px 4px rgba(224, 169, 78, 0.35);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .focus-flash {
+    animation-duration: 0.01s !important;
+  }
   .anim-sway,
   .anim-flicker,
   .anim-flame,
@@ -190,6 +203,10 @@ body {
 }
 .anim-shake {
   animation: shake 0.48s ease-in-out infinite;
+}
+.focus-flash {
+  border-radius: 4px;
+  animation: focusflash 2.2s ease-in-out both;
 }
 
 /* ---------- backgrounds & overlays ---------- */

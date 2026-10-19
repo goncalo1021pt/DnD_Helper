@@ -28,6 +28,7 @@ export * from "./chronicle";
 export * from "./handouts";
 export * from "./packs";
 export * from "./codex";
+export * from "./search";
 export * from "./trees";
 export * from "./maps";
 export * from "./encounters";

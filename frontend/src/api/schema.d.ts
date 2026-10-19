@@ -1082,6 +1082,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Search everything a member can read at one table (#321)
+         * @description One box over the table's places, the Folk, quests, handouts, maps, the chronicle and the Bestiary, plus the rules as this table's codex rules them (and the Den, for its DMs). The answer is composed from the same list doors the screens read, called as the viewer, so a search can only ever find what the viewer could already read: a veiled innkeeper is not found, and a snippet is cut from text the viewer was already sent. A token without `rules:read` is answered from the table's shelves alone. Matching ignores case and accents; a name match ranks above a match in the text. At most eight hits per kind come back, and `counts` says how many there were in all. Fewer than two characters answers nothing.
+         */
+        get: operations["searchCampaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/feed": {
         parameters: {
             query?: never;
@@ -5077,6 +5099,35 @@ export interface components {
              */
             characterId?: string | null;
         };
+        /**
+         * @description What a hit is, which is also how it opens: a place's page, a person on the Folk page, a notice on the board, a handout, a map, a chronicle line, a Bestiary entry, or a rules entry in the reader.
+         * @enum {string}
+         */
+        SearchKind: "place" | "person" | "quest" | "handout" | "map" | "chronicle" | "bestiary" | "monster" | "spell" | "item" | "feat" | "rule" | "class" | "subclass" | "species" | "background";
+        SearchHit: {
+            kind: components["schemas"]["SearchKind"];
+            /**
+             * Format: uuid
+             * @description The thing's own id — a rules entry's content id for the rules kinds.
+             */
+            id: string;
+            title: string;
+            /** @description Where it is or what it is — a person's place, a quest's state, a spell's kind. */
+            subtitle?: string;
+            /** @description The words around the match when it was found in the text rather than the name, cut from what the viewer was already sent. */
+            snippet?: string;
+            /** @description True when the name (or title) matched, not only the text. */
+            nameMatch: boolean;
+        };
+        SearchResults: {
+            query: string;
+            /** @description Grouped by kind in the order of SearchKind, best first within each. */
+            hits: components["schemas"]["SearchHit"][];
+            /** @description How many matched in all, per kind — more than the hits when a kind was cut at eight. */
+            counts: {
+                [key: string]: number;
+            };
+        };
         Friend: {
             /** Format: uuid */
             userId: string;
@@ -7653,6 +7704,32 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    searchCampaign: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What the viewer can read that matches, grouped by kind */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
+                };
+            };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };

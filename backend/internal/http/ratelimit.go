@@ -42,6 +42,7 @@ var routeCost = map[string]float64{
 	"/api/openapi.json":                     5,  // the contract, a few hundred KB (#348)
 	"/api/openapi.yaml":                     5,
 	"/api/mcp":                              5, // a tool reads several doors in one call (#318)
+	"/api/campaigns/{campaignId}/search":    5, // every shelf of a table and the rules, as one read (#321)
 }
 
 // costOf reads the matched route off the request. It runs inside the endpoint

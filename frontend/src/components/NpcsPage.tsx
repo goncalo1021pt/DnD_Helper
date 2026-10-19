@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
+import { useFocusTarget } from "../lib/focusTarget";
 import type { Character, Npc, RulesContent } from "../api/client";
 import type { CampaignContext } from "./CampaignView";
 import {
@@ -50,6 +51,8 @@ export default function NpcsPage() {
   const [name, setName] = useState("");
   const [where, setWhere] = useState("");
   const [reading, setReading] = useState<RulesContent | null>(null);
+  // A search result (#321) arrives as ?focus=<npc id>.
+  useFocusTarget(!!npcs);
 
   // Grouped by the place they are found in, because that is how a party meets
   // them — "we're in Phandalin, who do we know here?" — and unfiled folk last.
@@ -200,6 +203,7 @@ function NpcCard({
   return (
     <div
       className="rounded-[4px] p-3.5"
+      data-focus-id={npc.id}
       style={{ background: "rgba(0,0,0,.12)", boxShadow: "inset 0 0 0 1px rgba(201,162,39,.16)" }}
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

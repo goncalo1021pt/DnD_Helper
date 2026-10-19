@@ -1,0 +1,68 @@
+SearchKind:
+  type: string
+  description: >-
+    What a hit is, which is also how it opens: a place's page, a person on the
+    Folk page, a notice on the board, a handout, a map, a chronicle line, a
+    Bestiary entry, or a rules entry in the reader.
+  enum:
+    - place
+    - person
+    - quest
+    - handout
+    - map
+    - chronicle
+    - bestiary
+    - monster
+    - spell
+    - item
+    - feat
+    - rule
+    - class
+    - subclass
+    - species
+    - background
+  # Named apart from ContentKind's constants, which share these values:
+  # oapi-codegen otherwise renames the older enums' constants to keep them
+  # unique, breaking every caller.
+  x-enum-varnames: [HitPlace, HitPerson, HitQuest, HitHandout, HitMap, HitChronicle, HitBestiary, HitMonster, HitSpell, HitItem, HitFeat, HitRule, HitClass, HitSubclass, HitSpecies, HitBackground]
+
+SearchHit:
+  type: object
+  required: [kind, id, title, nameMatch]
+  properties:
+    kind:
+      $ref: "../openapi.yaml#/components/schemas/SearchKind"
+    id:
+      type: string
+      format: uuid
+      description: The thing's own id — a rules entry's content id for the rules kinds.
+    title:
+      type: string
+    subtitle:
+      type: string
+      description: Where it is or what it is — a person's place, a quest's state, a spell's kind.
+    snippet:
+      type: string
+      description: >-
+        The words around the match when it was found in the text rather than
+        the name, cut from what the viewer was already sent.
+    nameMatch:
+      type: boolean
+      description: True when the name (or title) matched, not only the text.
+
+SearchResults:
+  type: object
+  required: [query, hits, counts]
+  properties:
+    query:
+      type: string
+    hits:
+      type: array
+      description: Grouped by kind in the order of SearchKind, best first within each.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/SearchHit"
+    counts:
+      type: object
+      description: How many matched in all, per kind — more than the hits when a kind was cut at eight.
+      additionalProperties:
+        type: integer
