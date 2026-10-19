@@ -1135,9 +1135,9 @@ type User struct {
 	EmailVerified bool               `json:"email_verified"`
 	TotpSecret    *string            `json:"totp_secret"`
 	TotpEnabled   bool               `json:"totp_enabled"`
-	FriendCode    string             `json:"friend_code"`
 	EmailEvents   []string           `json:"email_events"`
 	NameChosen    bool               `json:"name_chosen"`
+	FriendTag     string             `json:"friend_tag"`
 }
 
 type UserBlock struct {

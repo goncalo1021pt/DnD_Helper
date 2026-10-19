@@ -40,11 +40,12 @@ func (s *Server) ListMembers(ctx context.Context, request api.ListMembersRequest
 	members := make([]api.Member, 0, len(rows))
 	for _, r := range rows {
 		members = append(members, api.Member{
-			UserId:   r.UserID,
-			Name:     r.Name,
-			Image:    r.Image,
-			Role:     toAPIRole(r.Role),
-			JoinedAt: r.CreatedAt.Time,
+			UserId:    r.UserID,
+			Name:      r.Name,
+			FriendTag: friendTag(r.Name, r.FriendTag),
+			Image:     r.Image,
+			Role:      toAPIRole(r.Role),
+			JoinedAt:  r.CreatedAt.Time,
 			// Who holds the table (#299): the owner is one of the DMs, and
 			// the roster says which.
 			IsOwner: r.UserID == campaign.OwnerUserID,

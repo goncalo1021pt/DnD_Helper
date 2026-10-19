@@ -4,8 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -23,34 +26,108 @@ Campaign chat already existed and is called the Chronicle. What did not was
 knowing somebody OUTSIDE a campaign, which is what this is: a link between two
 accounts that no campaign owns and that outlives any of them.
 
-Discovery is a CODE you hand out, not a search. The app already has exactly
-this idiom for campaigns, and it is right here for the same reasons: a search
-box over accounts is an enumeration door onto what is meant to be a private
-tavern, and half these accounts arrived through Google and have no username to
-be found by. A code is given deliberately, to one person, and can be reforged
-when it has been given to one person too many.
+Discovery is a TAG you hand out, not a search (#387 — it was a code until
+then). `Sam#4821` is the display name people already know and four digits that
+tell two Sams apart; you type the whole of it or nobody answers. A search box
+over accounts would be an enumeration door onto what is meant to be a private
+tavern, so the one thing a tag gives up against the old eight-symbol code —
+it is ten thousand guesses once you know a name — is paid back by counting the
+misses (friendMisses).
 
-The refusals are all the same 404, on purpose. A code nobody holds, a code held
-by somebody who has blocked you, and a code you have blocked all answer alike —
+The digits are drawn in the database, by a trigger under every write of a name
+(migration 77): a rename keeps them unless the new name already wears them.
+
+The refusals are all the same 404, on purpose. A tag nobody holds, a tag held
+by somebody who has blocked you, and a tag you have blocked all answer alike —
 a block that could be detected by probing would not be much of a block.
 */
 
-// friendCodeAlphabet leaves out the characters people misread aloud, because
-// this is a thing read over a table or a voice call: no O/0, no I/1/L.
-const friendCodeAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+// friendTag is how a tag is written: the name, a hash, the four digits.
+func friendTag(name, digits string) string { return name + "#" + digits }
 
-const friendCodeLen = 8
-
-func newFriendCode() (string, error) {
-	out := make([]byte, friendCodeLen)
-	for i := range out {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(friendCodeAlphabet))))
-		if err != nil {
-			return "", err
-		}
-		out[i] = friendCodeAlphabet[n.Int64()]
+// parseFriendTag reads "Sam#4821" back into its name and digits. The split is
+// on the LAST hash, so a name with one of its own still reads; the spaces a
+// paste brings along do not count, inside the name or around it.
+func parseFriendTag(raw string) (name, digits string, ok bool) {
+	i := strings.LastIndex(raw, "#")
+	if i < 0 {
+		return "", "", false
 	}
-	return string(out), nil
+	name = strings.Join(strings.Fields(raw[:i]), " ")
+	digits = strings.TrimSpace(raw[i+1:])
+	if name == "" || len(digits) != 4 || digits == "0000" {
+		return "", "", false
+	}
+	for _, r := range digits {
+		if r < '0' || r > '9' {
+			return "", "", false
+		}
+	}
+	return name, digits, true
+}
+
+// drawDigits is four digits, 0001-9999, for a tag drawn on request; the
+// database draws its own the same way when a name lands on taken digits.
+func drawDigits() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(9999))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%04d", n.Int64()+1), nil
+}
+
+// tagMissLimit is how many tags that answered nobody a person may try in
+// tagMissWindow before the door answers 429. Ten is generous for typos and
+// hopeless for walking the ten thousand digits of a name.
+const (
+	tagMissLimit  = 10
+	tagMissWindow = time.Hour
+)
+
+// missLedger counts each person's misses. In memory, like the rate limiter:
+// one container, and a restart forgiving everyone is fine.
+type missLedger struct {
+	mu     sync.Mutex
+	misses map[uuid.UUID][]time.Time
+	now    func() time.Time
+}
+
+func newMissLedger() *missLedger {
+	return &missLedger{misses: map[uuid.UUID][]time.Time{}, now: time.Now}
+}
+
+// wait says how long until who may miss again; zero means they may ask now.
+func (l *missLedger) wait(who uuid.UUID) time.Duration {
+	if l == nil {
+		return 0
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	now := l.now()
+	kept := l.misses[who][:0]
+	for _, t := range l.misses[who] {
+		if now.Sub(t) < tagMissWindow {
+			kept = append(kept, t)
+		}
+	}
+	if len(kept) == 0 {
+		delete(l.misses, who)
+		return 0
+	}
+	l.misses[who] = kept
+	if len(kept) < tagMissLimit {
+		return 0
+	}
+	return tagMissWindow - now.Sub(kept[0])
+}
+
+func (l *missLedger) miss(who uuid.UUID) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.misses[who] = append(l.misses[who], l.now())
 }
 
 // friendDirection reads a row from one side: who asked, and whether it stands.
@@ -74,7 +151,7 @@ func (s *Server) friendRoll(ctx context.Context, me uuid.UUID) (api.FriendRoll, 
 	if err != nil {
 		return api.FriendRoll{}, err
 	}
-	out := api.FriendRoll{FriendCode: user.FriendCode, Friends: []api.Friend{}, Blocked: []api.Friend{}}
+	out := api.FriendRoll{FriendTag: friendTag(user.Name, user.FriendTag), Friends: []api.Friend{}, Blocked: []api.Friend{}}
 	for _, r := range rows {
 		// The CASE that picks "the other one" comes back untyped, so it is
 		// asserted here rather than trusted.
@@ -126,30 +203,31 @@ func (s *Server) ListFriends(ctx context.Context, _ api.ListFriendsRequestObject
 	return api.ListFriends200JSONResponse(roll), nil
 }
 
-func (s *Server) ReforgeFriendCode(ctx context.Context, _ api.ReforgeFriendCodeRequestObject) (api.ReforgeFriendCodeResponseObject, error) {
+func (s *Server) NewFriendTag(ctx context.Context, _ api.NewFriendTagRequestObject) (api.NewFriendTagResponseObject, error) {
 	me, ok := auth.UserID(ctx)
 	if !ok {
-		return api.ReforgeFriendCode401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
+		return api.NewFriendTag401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
-	// Retry on the (vanishingly rare) collision, exactly as the invite code does.
-	for attempt := 0; attempt < 5; attempt++ {
-		code, err := newFriendCode()
-		if err != nil {
-			return nil, err
-		}
-		if _, err := s.queries.SetFriendCode(ctx, db.SetFriendCodeParams{ID: me, FriendCode: code}); err != nil {
-			if isUniqueViolation(err) {
-				continue
-			}
-			return nil, err
-		}
-		roll, err := s.friendRoll(ctx, me)
-		if err != nil {
-			return nil, err
-		}
-		return api.ReforgeFriendCode200JSONResponse(roll), nil
+	user, err := s.queries.GetUserByID(ctx, me)
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("could not draw a fresh friend code")
+	// New means different: draw until the digits are not the ones held. The
+	// trigger then moves them again if somebody of the same name holds them.
+	digits := user.FriendTag
+	for digits == user.FriendTag {
+		if digits, err = drawDigits(); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := s.queries.SetFriendTag(ctx, db.SetFriendTagParams{ID: me, FriendTag: digits}); err != nil {
+		return nil, err
+	}
+	roll, err := s.friendRoll(ctx, me)
+	if err != nil {
+		return nil, err
+	}
+	return api.NewFriendTag200JSONResponse(roll), nil
 }
 
 func (s *Server) AskFriend(ctx context.Context, request api.AskFriendRequestObject) (api.AskFriendResponseObject, error) {
@@ -157,19 +235,19 @@ func (s *Server) AskFriend(ctx context.Context, request api.AskFriendRequestObje
 	if !ok {
 		return api.AskFriend401JSONResponse{UnauthorizedJSONResponse: unauthorized()}, nil
 	}
-	code := ""
-	if request.Body != nil && request.Body.FriendCode != nil {
-		code = strings.TrimSpace(*request.Body.FriendCode)
+	tag := ""
+	if request.Body != nil && request.Body.Tag != nil {
+		tag = strings.TrimSpace(*request.Body.Tag)
 	}
 	byID := request.Body != nil && request.Body.UserId != nil
-	if (code == "") == !byID {
-		return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a friend code or a table-mate is required"}}, nil
+	if (tag == "") == !byID {
+		return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "a friend tag or a table-mate is required"}}, nil
 	}
 	var them db.User
 	var err error
 	if byID {
-		// A table-mate needs no code (#302); anybody else's id answers as a
-		// code nobody holds, so an id is no way to find a stranger.
+		// A table-mate needs no tag (#302); anybody else's id answers as a
+		// tag nobody holds, so an id is no way to find a stranger.
 		id := uuid.UUID(*request.Body.UserId)
 		if id == me {
 			return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "you cannot befriend yourself"}}, nil
@@ -186,9 +264,24 @@ func (s *Server) AskFriend(ctx context.Context, request api.AskFriendRequestObje
 			return nil, err
 		}
 	} else {
-		them, err = s.queries.GetUserByFriendCode(ctx, code)
+		// The ceiling is read before the lookup, so a guesser past it learns
+		// nothing more — not even whether this guess would have hit.
+		if wait := s.friendMisses.wait(me); wait > 0 {
+			mins := int(wait.Minutes()) + 1
+			return api.AskFriend429JSONResponse{TooManyRequestsJSONResponse: api.TooManyRequestsJSONResponse{
+				Error: fmt.Sprintf("too many tags that answered nobody — try again in %d minutes", mins),
+			}}, nil
+		}
+		name, digits, ok := parseFriendTag(tag)
+		if !ok {
+			return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
+				Error: "a tag is a name, #, and four digits — like Sam#4821",
+			}}, nil
+		}
+		them, err = s.queries.GetUserByFriendTag(ctx, db.GetUserByFriendTagParams{Name: name, Tag: digits})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
+				s.friendMisses.miss(me)
 				return api.AskFriend404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 			}
 			return nil, err
@@ -196,15 +289,19 @@ func (s *Server) AskFriend(ctx context.Context, request api.AskFriendRequestObje
 	}
 	if them.ID == me {
 		return api.AskFriend400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{
-			Error: "that is your own code — hand it to somebody else",
+			Error: "that is your own tag — hand it to somebody else",
 		}}, nil
 	}
-	// A block answers exactly as a code nobody holds does.
+	// A block answers exactly as a tag nobody holds does, and counts as the
+	// same miss, or the ceiling would tell the two apart.
 	blocked, err := s.queries.BlockedBetween(ctx, db.BlockedBetweenParams{BlockerID: me, BlockedID: them.ID})
 	if err != nil {
 		return nil, err
 	}
 	if blocked {
+		if !byID {
+			s.friendMisses.miss(me)
+		}
 		return api.AskFriend404JSONResponse{NotFoundJSONResponse: notFound()}, nil
 	}
 

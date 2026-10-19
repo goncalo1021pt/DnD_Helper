@@ -25,16 +25,17 @@ Friend:
 
 FriendRoll:
   type: object
-  required: [friendCode, friends, blocked]
+  required: [friendTag, friends, blocked]
   properties:
-    friendCode:
+    friendTag:
       type: string
+      example: "Sam#4821"
       description: >-
-        The code you hand somebody so they can ask to be your friend (#181).
-        Discovery is a code rather than a search: a search box over accounts is
-        an enumeration door onto a private tavern, and an account that arrived
-        through Google has no username to be found by. Reforging one leaves
-        every existing friendship alone.
+        What you hand somebody so they can ask to be your friend (#387): your
+        display name and four digits. Discovery is a tag you give rather than a
+        search — a search box over accounts is an enumeration door onto a
+        private tavern. Renaming keeps the digits unless the new name already
+        wears them; drawing a new tag leaves every existing friendship alone.
     friends:
       type: array
       items:
@@ -47,15 +48,19 @@ FriendRoll:
 AskFriendRequest:
   type: object
   description: >-
-    Exactly one of the two: a code somebody handed you, or the id of somebody
+    Exactly one of the two: a tag somebody handed you, or the id of somebody
     you already share a table with (#302) — the player beside you should not
-    need to read you a code. An id that is not a table-mate's answers 404, as a
-    code nobody holds does, so ids are no way to find strangers.
+    need to read you a tag. An id that is not a table-mate's answers 404, as a
+    tag nobody holds does, so ids are no way to find strangers.
   properties:
-    friendCode:
+    tag:
       type: string
-      minLength: 1
-      maxLength: 32
+      minLength: 6
+      maxLength: 48
+      example: "Sam#4821"
+      description: >-
+        A display name, `#`, and four digits. Case and the spaces around it do
+        not matter; the name must otherwise be written as its holder wrote it.
     userId:
       type: string
       format: uuid

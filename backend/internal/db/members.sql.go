@@ -123,7 +123,7 @@ func (q *Queries) ListBans(ctx context.Context, campaignID uuid.UUID) ([]ListBan
 
 const listMembers = `-- name: ListMembers :many
 
-SELECT m.user_id, m.role, m.created_at, u.name, u.image
+SELECT m.user_id, m.role, m.created_at, u.name, u.image, u.friend_tag
 FROM memberships m
 JOIN users u ON u.id = m.user_id
 WHERE m.campaign_id = $1
@@ -136,6 +136,7 @@ type ListMembersRow struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	Name      string             `json:"name"`
 	Image     *string            `json:"image"`
+	FriendTag string             `json:"friend_tag"`
 }
 
 // Membership management: the DM Menu's roster, kicks, and bans.
@@ -155,6 +156,7 @@ func (q *Queries) ListMembers(ctx context.Context, campaignID uuid.UUID) ([]List
 			&i.CreatedAt,
 			&i.Name,
 			&i.Image,
+			&i.FriendTag,
 		); err != nil {
 			return nil, err
 		}

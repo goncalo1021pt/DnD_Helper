@@ -7,13 +7,14 @@ import {
   useBlockUser,
   useDropFriend,
   useFriends,
-  useReforgeFriendCode,
+  useNewFriendTag,
   useSendDirectMessage,
   useThread,
   useThreads,
   useUnblockUser,
 } from "../hooks";
 import { IconUsers } from "./ui/icons";
+import { TagChip } from "./ui/TagChip";
 
 /*
 Friends, and talking to them (#181).
@@ -22,10 +23,9 @@ Campaign chat already existed and is called the Chronicle; this is what it never
 covered — knowing somebody outside a campaign, and saying something to one
 person rather than to the room.
 
-Discovery is a CODE you hand out, not a search. There is no box to type a name
-into on purpose: a search over accounts is an enumeration door onto what is
-meant to be a private tavern, and an account that arrived through Google has no
-username to be found by anyway.
+Discovery is a TAG you hand out, not a search (#387): `Sam#4821`, your name and
+four digits. The box takes the whole tag or nobody answers — a search over
+accounts is an enumeration door onto what is meant to be a private tavern.
 */
 
 function initialsOf(name: string) {
@@ -154,9 +154,9 @@ export default function CompanionsPage() {
   const drop = useDropFriend();
   const block = useBlockUser();
   const unblock = useUnblockUser();
-  const reforge = useReforgeFriendCode();
+  const newTag = useNewFriendTag();
 
-  const [code, setCode] = useState("");
+  const [tag, setTag] = useState("");
   const [askError, setAskError] = useState("");
   // A person's card elsewhere links straight into a conversation (#302).
   const [params] = useSearchParams();
@@ -172,20 +172,18 @@ export default function CompanionsPage() {
   const asked = useMemo(() => friends.filter((f) => f.direction === "asked"), [friends]);
   const unreadOf = (id: string) => threads?.find((t) => t.peerId === id)?.unread ?? 0;
 
-  function submitCode(e: FormEvent) {
+  function submitTag(e: FormEvent) {
     e.preventDefault();
-    const trimmed = code.trim();
+    const trimmed = tag.trim();
     if (!trimmed) return;
     setAskError("");
     ask.mutate(trimmed, {
-      onSuccess: () => setCode(""),
+      onSuccess: () => setTag(""),
       onError: (err) => {
         const msg = (err as { error?: string })?.error;
-        // A code nobody holds and a code held by somebody who blocked you
+        // A tag nobody holds and a tag held by somebody who blocked you
         // answer alike, so the words have to cover both without saying which.
-        setAskError(
-          msg && !/not found/i.test(msg) ? msg : "No one answers to that code.",
-        );
+        setAskError(msg && !/not found/i.test(msg) ? msg : "No one answers to that tag.");
       },
     });
   }
@@ -221,7 +219,7 @@ export default function CompanionsPage() {
         ) : isLoading ? (
           <p className="font-accent text-base italic text-[#9c855e]">Asking after them…</p>
         ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr,1fr]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.3fr_1fr]">
             <div className="space-y-6">
               {invited.length > 0 && (
                 <section className="panel-hall px-6 pb-5 pt-4">
@@ -263,7 +261,7 @@ export default function CompanionsPage() {
                       <IconUsers size={34} strokeWidth={1.4} />
                     </div>
                     <div className="font-accent text-[15px] italic text-[#9c855e]">
-                      — nobody yet. Hand somebody your code, or ask for theirs. —
+                      — nobody yet. Hand somebody your tag, or ask for theirs. —
                     </div>
                   </div>
                 ) : (
@@ -286,13 +284,13 @@ export default function CompanionsPage() {
                           onClick={() => setOpen({ userId: f.userId, name: f.name })}
                           className="btn-base btn-gold h-8 px-3 text-[10px]"
                         >
-                          Talk
+                          Message
                         </button>
                         <button
                           onClick={() => drop.mutate(f.userId)}
                           className="btn-base btn-ghost-gold h-8 px-3 text-[10px]"
                         >
-                          Part ways
+                          Remove
                         </button>
                         <button
                           onClick={() => block.mutate(f.userId)}
@@ -348,22 +346,17 @@ export default function CompanionsPage() {
             <div className="space-y-6">
               <section className="parchment px-7 py-6">
                 <h3 className="label-stamp m-0 mb-1.5 text-sm font-bold text-ink-strong">
-                  Your Sigil
+                  Your tag
                 </h3>
                 <p className="font-body m-0 mb-4 text-sm italic text-ink-body">
                   Hand this to somebody and they can ask for you. There is no
                   searching for people here, by design.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <code
-                    className="font-heading rounded-[3px] px-3 py-2 text-[17px] font-bold tracking-[3px] text-ink-strong"
-                    style={{ background: "rgba(60,35,15,.09)", boxShadow: "inset 0 0 0 1px rgba(60,35,15,.25)" }}
-                  >
-                    {roll?.friendCode ?? "········"}
-                  </code>
+                  <TagChip tag={roll?.friendTag} />
                   <button
                     onClick={() => {
-                      navigator.clipboard?.writeText(roll?.friendCode ?? "");
+                      navigator.clipboard?.writeText(roll?.friendTag ?? "");
                       setCopied(true);
                       setTimeout(() => setCopied(false), 1800);
                     }}
@@ -372,38 +365,41 @@ export default function CompanionsPage() {
                     {copied ? "Copied" : "Copy"}
                   </button>
                   <button
-                    onClick={() => reforge.mutate(undefined)}
-                    disabled={reforge.isPending}
-                    title="Retires the old code. Everyone you already know stays."
+                    onClick={() => newTag.mutate(undefined)}
+                    disabled={newTag.isPending}
+                    title="New digits under the same name. The old tag stops working; everyone you already know stays."
                     className="btn-base btn-ghost-ink h-9 px-3 text-[11px]"
                   >
-                    Reforge
+                    New tag
                   </button>
                 </div>
               </section>
 
               <section className="parchment px-7 py-6">
                 <h3 className="label-stamp m-0 mb-1.5 text-sm font-bold text-ink-strong">
-                  Ask for Someone
+                  Add a friend
                 </h3>
                 <p className="font-body m-0 mb-4 text-sm italic text-ink-body">
-                  Type the code they gave you.
+                  Type the tag they gave you — their name and the four digits.
                 </p>
-                <form onSubmit={submitCode} className="flex gap-2">
+                <form onSubmit={submitTag} className="flex gap-2">
                   <input
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    maxLength={32}
-                    aria-label="Their friend code"
-                    placeholder="Friend code"
-                    className="input-parchment input-compact font-heading flex-1 uppercase tracking-[2px]"
+                    value={tag}
+                    onChange={(e) => setTag(e.target.value)}
+                    maxLength={48}
+                    aria-label="Their tag"
+                    placeholder="Name#1234"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    className="input-parchment input-compact font-body min-w-0 flex-1 text-[15px]"
                   />
                   <button
                     type="submit"
-                    disabled={ask.isPending || !code.trim()}
+                    disabled={ask.isPending || !tag.trim()}
                     className="btn-base btn-wax clip-octagon h-10 px-5 text-xs"
                   >
-                    {ask.isPending ? "Asking…" : "Ask"}
+                    {ask.isPending ? "Adding…" : "Add"}
                   </button>
                 </form>
                 {askError && (
@@ -437,8 +433,8 @@ export default function CompanionsPage() {
                     Blocked
                   </h3>
                   <p className="font-body m-0 mb-4 text-sm italic text-ink-body">
-                    Nothing passes either way. Lifting it does not make you
-                    companions again — that has to be asked for.
+                    Nothing passes either way. Unblocking does not make you
+                    friends again — that has to be asked for.
                   </p>
                   <ul className="m-0 flex list-none flex-col gap-1 p-0">
                     {(roll?.blocked ?? []).map((b) => (
@@ -448,7 +444,7 @@ export default function CompanionsPage() {
                           onClick={() => unblock.mutate(b.userId)}
                           className="btn-base btn-ghost-ink h-7 px-2 text-[10px]"
                         >
-                          Lift it
+                          Unblock
                         </button>
                       </li>
                     ))}

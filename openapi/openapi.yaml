@@ -16,8 +16,8 @@ paths:
 
   /me/friends:
     $ref: "./paths/social.yaml#/~1me~1friends"
-  /me/friends/code:
-    $ref: "./paths/social.yaml#/~1me~1friends~1code"
+  /me/friends/tag:
+    $ref: "./paths/social.yaml#/~1me~1friends~1tag"
   /me/friends/{userId}:
     $ref: "./paths/social.yaml#/~1me~1friends~1{userId}"
   /me/blocks/{userId}:
@@ -497,6 +497,12 @@ components:
             $ref: "#/components/schemas/Error"
     BadRequest:
       description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Asked too often; the error says how long to wait
       content:
         application/json:
           schema:

@@ -19,13 +19,19 @@ Role:
 
 User:
   type: object
-  required: [id, name, provider, emailVerified, twofaEnabled, createdAt]
+  required: [id, name, friendTag, provider, emailVerified, twofaEnabled, createdAt]
   properties:
     id:
       type: string
       format: uuid
     name:
       type: string
+    friendTag:
+      type: string
+      example: "Sam#4821"
+      description: >-
+        The name and four digits a friend finds you by (#387). A rename keeps
+        the digits unless the new name already wears them.
     email:
       type: string
       nullable: true

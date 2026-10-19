@@ -105,6 +105,8 @@ export default function ProfilePage() {
   const [resetting, setResetting] = useState(false);
   const [removing, setRemoving] = useState<{ book: string; total: number } | null>(null);
   const [removed, setRemoved] = useState<number | null>(null);
+  // A rename that landed on digits somebody of that name already wore (#387).
+  const [movedTo, setMovedTo] = useState<string | null>(null);
 
   const user = me?.user;
   const memberships = me?.campaigns ?? [];
@@ -194,7 +196,7 @@ export default function ProfilePage() {
           )}
           <div className="min-w-[220px] flex-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <NameEditor name={user?.name ?? ""} />
+              <NameEditor name={user?.name ?? ""} tag={user?.friendTag ?? ""} onMoved={setMovedTo} />
               <span
                 className="label-stamp rounded-[2px] px-2 py-1 text-[9px] font-semibold tracking-[1.5px] text-gold-muted"
                 style={{
@@ -208,6 +210,19 @@ export default function ProfilePage() {
             <div className="font-accent mt-1 text-[13px] italic text-cream-muted">
               {user?.email ? `${user.email} · ` : ""}at the table since {memberSince}
             </div>
+            {user?.friendTag && (
+              <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2">
+                <span className="label-stamp text-[10px] tracking-[1.5px] text-gold-muted">Your tag</span>
+                <span className="font-body text-[14px] font-semibold text-cream" data-testid="profile-tag">
+                  {user.friendTag}
+                </span>
+              </div>
+            )}
+            {movedTo && (
+              <div className="font-accent mt-1 text-[13px] italic text-[#e0a94e]" role="status">
+                Somebody by that name already wore your digits — you are now {movedTo}.
+              </div>
+            )}
           </div>
           <GoldFrameButton onClick={() => logout.mutate()}>
             <IconLogOut size={14} strokeWidth={1.9} />
@@ -469,7 +484,15 @@ export default function ProfilePage() {
  * stays, whatever Discord or Google call you at the next sign-in. It is not
  * the username a password account signs in with.
  */
-function NameEditor({ name }: { name: string }) {
+function NameEditor({
+  name,
+  tag,
+  onMoved,
+}: {
+  name: string;
+  tag: string;
+  onMoved: (tag: string | null) => void;
+}) {
   const rename = useRenameMe();
   const [draft, setDraft] = useState<string | null>(null);
 
@@ -501,7 +524,14 @@ function NameEditor({ name }: { name: string }) {
       onSubmit={(e) => {
         e.preventDefault();
         if (!trimmed || trimmed === name) return setDraft(null);
-        rename.mutate(trimmed, { onSuccess: () => setDraft(null) });
+        rename.mutate(trimmed, {
+          onSuccess: (user) => {
+            setDraft(null);
+            // A rename keeps the digits unless the new name already wore them.
+            const digits = (t: string) => t.slice(t.lastIndexOf("#"));
+            onMoved(user && digits(user.friendTag) !== digits(tag) ? user.friendTag : null);
+          },
+        });
       }}
     >
       <input
