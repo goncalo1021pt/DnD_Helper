@@ -81,6 +81,11 @@ function PersonCard({
         <div className="min-w-0">
           <h3 className="font-display m-0 truncate text-[20px] font-black text-ink">{shownName}</h3>
           <div className="label-stamp text-[10px] tracking-[1.5px] text-ink-label">{standing}</div>
+          {member?.friendTag && (
+            <div className="font-body mt-0.5 text-[13px] text-ink-body" data-testid="person-tag">
+              {member.friendTag}
+            </div>
+          )}
         </div>
       </div>
 

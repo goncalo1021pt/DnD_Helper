@@ -45,12 +45,15 @@ type Server struct {
 	events *events.Bus
 	// webhooks registers and pings subscriptions (#295); nil in tests.
 	webhooks *webhooks.Service
+	// friendMisses counts tags that answered nobody (#387); nil counts nothing.
+	friendMisses *missLedger
 }
 
 func NewServer(pool *pgxpool.Pool) *Server {
 	return &Server{
 		pool: pool, queries: db.New(pool),
 		fogCache: newFogImageCache(), hub: live.New(),
+		friendMisses: newMissLedger(),
 	}
 }
 
@@ -460,6 +463,7 @@ func toAPIUser(u db.User) api.User {
 	return api.User{
 		Id:            u.ID,
 		Name:          u.Name,
+		FriendTag:     friendTag(u.Name, u.FriendTag),
 		Email:         u.Email,
 		Image:         u.Image,
 		Provider:      u.Provider,

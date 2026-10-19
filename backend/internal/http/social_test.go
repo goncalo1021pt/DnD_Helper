@@ -3,6 +3,7 @@ package http
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,33 +16,79 @@ import (
 // database: how a friend code is drawn, how a row reads from each side, and
 // what the composer will and will not accept.
 
-func TestAFriendCodeIsReadableAloud(t *testing.T) {
-	// It is read over a table or a voice call, so the characters people
-	// misread — O/0, I/1/L — are simply not in the alphabet.
-	for _, bad := range []string{"O", "0", "I", "1", "L"} {
-		if strings.Contains(friendCodeAlphabet, bad) {
-			t.Fatalf("%q is too easily misheard to be in a code read aloud", bad)
+func TestAFriendTagReadsBack(t *testing.T) {
+	cases := []struct {
+		raw, name, digits string
+		ok                bool
+	}{
+		{"Sam#4821", "Sam", "4821", true},
+		{"  sam #0042 ", "sam", "0042", true},
+		{"Mary   Ann#1234", "Mary Ann", "1234", true},
+		// The split is on the last hash, so a name may carry one of its own.
+		{"No#1 Fan#0007", "No#1 Fan", "0007", true},
+		{"Sam#0000", "", "", false},
+		{"Sam#482", "", "", false},
+		{"Sam#48210", "", "", false},
+		{"Sam#48a1", "", "", false},
+		{"#4821", "", "", false},
+		{"Sam4821", "", "", false},
+		{"3F9AWC2E", "", "", false}, // an old code is not a tag
+	}
+	for _, c := range cases {
+		name, digits, ok := parseFriendTag(c.raw)
+		if ok != c.ok || name != c.name || digits != c.digits {
+			t.Errorf("parseFriendTag(%q) = %q, %q, %v; want %q, %q, %v", c.raw, name, digits, ok, c.name, c.digits, c.ok)
 		}
 	}
+	if got := friendTag("Sam", "4821"); got != "Sam#4821" {
+		t.Errorf("friendTag wrote %q", got)
+	}
+}
+
+func TestDrawnDigitsAreATag(t *testing.T) {
 	seen := map[string]bool{}
-	for i := 0; i < 200; i++ {
-		code, err := newFriendCode()
+	for i := 0; i < 500; i++ {
+		d, err := drawDigits()
 		if err != nil {
-			t.Fatalf("drawing a code: %v", err)
+			t.Fatalf("drawing digits: %v", err)
 		}
-		if len(code) != friendCodeLen {
-			t.Fatalf("a code is %d characters, got %q", friendCodeLen, code)
+		if _, _, ok := parseFriendTag("Sam#" + d); !ok {
+			t.Fatalf("drew %q, which is not four digits a tag accepts", d)
 		}
-		for _, r := range code {
-			if !strings.ContainsRune(friendCodeAlphabet, r) {
-				t.Fatalf("%q is not from the alphabet", string(r))
-			}
-		}
-		seen[code] = true
+		seen[d] = true
 	}
-	// Not a distribution test — just that it is drawing rather than repeating.
-	if len(seen) < 190 {
-		t.Fatalf("200 draws produced only %d codes; that is not random enough to hand out", len(seen))
+	if len(seen) < 450 {
+		t.Fatalf("500 draws produced only %d distinct tags; that is not drawing", len(seen))
+	}
+}
+
+func TestMissesAreCountedForAnHour(t *testing.T) {
+	now := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	l := newMissLedger()
+	l.now = func() time.Time { return now }
+	me, other := uuid.New(), uuid.New()
+	for i := 0; i < tagMissLimit; i++ {
+		if w := l.wait(me); w != 0 {
+			t.Fatalf("refused after %d misses; the ceiling is %d", i, tagMissLimit)
+		}
+		l.miss(me)
+		now = now.Add(time.Minute)
+	}
+	if w := l.wait(me); w <= 0 {
+		t.Fatal("ten misses in ten minutes should close the door")
+	}
+	if w := l.wait(other); w != 0 {
+		t.Fatal("one person's misses must not count against another")
+	}
+	// The oldest miss was at 12:00; at 13:00 it has aged out and one try is back.
+	now = time.Date(2026, 10, 19, 13, 0, 0, 0, time.UTC)
+	if w := l.wait(me); w != 0 {
+		t.Fatalf("the oldest miss is an hour old, yet the door still waits %v", w)
+	}
+	var nilLedger *missLedger
+	nilLedger.miss(me)
+	if nilLedger.wait(me) != 0 {
+		t.Fatal("a nil ledger counts nothing")
 	}
 }
 

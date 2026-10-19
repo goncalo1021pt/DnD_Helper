@@ -1,8 +1,12 @@
--- name: GetUserByFriendCode :one
-SELECT * FROM users WHERE upper(friend_code) = upper($1);
+-- name: GetUserByFriendTag :one
+-- The whole tag or nobody (#387): the name as written, ignoring case, and the
+-- four digits exactly.
+SELECT * FROM users WHERE lower(name) = lower(@name::text) AND friend_tag = @tag::text;
 
--- name: SetFriendCode :one
-UPDATE users SET friend_code = $2 WHERE id = $1 RETURNING *;
+-- name: SetFriendTag :one
+-- A taken (name, tag) is redrawn by the users_friend_tag trigger, so this
+-- always lands; the caller reads back what it landed on.
+UPDATE users SET friend_tag = $2 WHERE id = $1 RETURNING *;
 
 -- name: GetFriendship :one
 -- The pair's row however it was asked, so a request cannot be duplicated by

@@ -167,12 +167,19 @@ func (q *Queries) GetFriendship(ctx context.Context, arg GetFriendshipParams) (F
 	return i, err
 }
 
-const getUserByFriendCode = `-- name: GetUserByFriendCode :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events, name_chosen FROM users WHERE upper(friend_code) = upper($1)
+const getUserByFriendTag = `-- name: GetUserByFriendTag :one
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag FROM users WHERE lower(name) = lower($1::text) AND friend_tag = $2::text
 `
 
-func (q *Queries) GetUserByFriendCode(ctx context.Context, upper interface{}) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByFriendCode, upper)
+type GetUserByFriendTagParams struct {
+	Name string `json:"name"`
+	Tag  string `json:"tag"`
+}
+
+// The whole tag or nobody (#387): the name as written, ignoring case, and the
+// four digits exactly.
+func (q *Queries) GetUserByFriendTag(ctx context.Context, arg GetUserByFriendTagParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByFriendTag, arg.Name, arg.Tag)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -187,9 +194,9 @@ func (q *Queries) GetUserByFriendCode(ctx context.Context, upper interface{}) (U
 		&i.EmailVerified,
 		&i.TotpSecret,
 		&i.TotpEnabled,
-		&i.FriendCode,
 		&i.EmailEvents,
 		&i.NameChosen,
+		&i.FriendTag,
 	)
 	return i, err
 }
@@ -516,17 +523,19 @@ func (q *Queries) SendPartyMessage(ctx context.Context, arg SendPartyMessagePara
 	return i, err
 }
 
-const setFriendCode = `-- name: SetFriendCode :one
-UPDATE users SET friend_code = $2 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, friend_code, email_events, name_chosen
+const setFriendTag = `-- name: SetFriendTag :one
+UPDATE users SET friend_tag = $2 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag
 `
 
-type SetFriendCodeParams struct {
-	ID         uuid.UUID `json:"id"`
-	FriendCode string    `json:"friend_code"`
+type SetFriendTagParams struct {
+	ID        uuid.UUID `json:"id"`
+	FriendTag string    `json:"friend_tag"`
 }
 
-func (q *Queries) SetFriendCode(ctx context.Context, arg SetFriendCodeParams) (User, error) {
-	row := q.db.QueryRow(ctx, setFriendCode, arg.ID, arg.FriendCode)
+// A taken (name, tag) is redrawn by the users_friend_tag trigger, so this
+// always lands; the caller reads back what it landed on.
+func (q *Queries) SetFriendTag(ctx context.Context, arg SetFriendTagParams) (User, error) {
+	row := q.db.QueryRow(ctx, setFriendTag, arg.ID, arg.FriendTag)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -541,9 +550,9 @@ func (q *Queries) SetFriendCode(ctx context.Context, arg SetFriendCodeParams) (U
 		&i.EmailVerified,
 		&i.TotpSecret,
 		&i.TotpEnabled,
-		&i.FriendCode,
 		&i.EmailEvents,
 		&i.NameChosen,
+		&i.FriendTag,
 	)
 	return i, err
 }

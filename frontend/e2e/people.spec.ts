@@ -78,6 +78,8 @@ test("a player reads who runs the table, and a name opens the person", async ({ 
   await runBy.getByRole("button", { name: dmAccount.username }).click();
   const card = player.getByRole("dialog");
   await expect(card.getByTestId("person-card")).toContainText("Dungeon Master · holds the table");
+  // And the tag they can be found by away from this table (#387).
+  await expect(card.getByTestId("person-tag")).toHaveText(new RegExp(`^${dmAccount.username}#\\d{4}$`));
   await card.getByRole("button", { name: "Ask to be friends" }).click();
   await expect(card.getByText("Asked — waiting on them")).toBeVisible();
 
@@ -96,7 +98,7 @@ test("a player reads who runs the table, and a name opens the person", async ({ 
   const refused = await stranger.request.post("/api/me/friends", { data: { userId: dmId } });
   expect(refused.status()).toBe(404);
   const both = await stranger.request.post("/api/me/friends", {
-    data: { userId: dmId, friendCode: "ABCDEFGH" },
+    data: { userId: dmId, tag: "Somebody#1234" },
   });
   expect(both.status()).toBe(400);
 

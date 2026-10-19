@@ -96,11 +96,17 @@ CampaignMembership:
 
 Member:
   type: object
-  required: [userId, name, role, joinedAt, isOwner]
+  required: [userId, name, friendTag, role, joinedAt, isOwner]
   properties:
     userId:
       type: string
       format: uuid
+    friendTag:
+      type: string
+      example: "Sam#4821"
+      description: >-
+        The tag a table-mate can be found by away from this table (#387) —
+        anybody here can already befriend them by id, so it tells no secret.
     isOwner:
       type: boolean
       description: >-
