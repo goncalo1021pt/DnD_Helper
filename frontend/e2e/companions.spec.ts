@@ -15,9 +15,9 @@ Campaign chat already existed and is called the Chronicle. These are the two
 rooms it never covered — one person, and one party — plus the link between
 accounts that no campaign owns.
 
-The parts worth pinning are the refusals. Discovery is a code and not a search,
-so a code nobody holds and a code held by somebody who blocked you must answer
-alike. A conversation opens between friends OR table-mates, and a block closes
+The parts worth pinning are the refusals. Discovery is a tag and not a search
+(#387), so a tag nobody holds and a tag held by somebody who blocked you must
+answer alike, and guessing at tags runs into a ceiling. A conversation opens between friends OR table-mates, and a block closes
 it in both directions. A party room's door is whoever rides with it.
 */
 
@@ -25,7 +25,7 @@ async function roll(request: APIRequestContext) {
   const res = await request.get("/api/me/friends");
   expect(res.ok(), await res.text()).toBeTruthy();
   return (await res.json()) as {
-    friendCode: string;
+    friendTag: string;
     friends: { userId: string; name: string; state: string; direction: string }[];
     blocked: { userId: string; name: string }[];
   };
@@ -40,45 +40,49 @@ async function person(browser: Parameters<typeof test>[0] extends never ? never 
   return { ctx, page };
 }
 
-test("a friend code is asked for, answered, and is the only way in", async ({ browser }) => {
+test("a friend tag is asked for, answered, and is the only way in", async ({ browser }) => {
   const a = await person(browser, "compa");
   const b = await person(browser, "compb");
 
+  // A tag is the name people already know and four digits.
+  const meB = (await (await b.page.request.get("/api/me")).json()).user;
   const bRoll = await roll(b.page.request);
-  expect(bRoll.friendCode).toHaveLength(8);
-  // The characters people misread are not in it — this is read aloud, so it
-  // has to hold for the code the DATABASE draws as well as the one Go does.
-  expect(bRoll.friendCode).not.toMatch(/[OI01L]/);
+  expect(bRoll.friendTag).toMatch(/^.+#\d{4}$/);
+  expect(bRoll.friendTag.startsWith(`${meB.name}#`)).toBeTruthy();
+  expect(meB.friendTag).toBe(bRoll.friendTag);
 
-  // And it still holds after reforging, which draws from Go's own alphabet.
-  const reforged = await b.page.request.post("/api/me/friends/code");
-  expect(reforged.ok(), await reforged.text()).toBeTruthy();
-  const fresh = (await reforged.json()).friendCode as string;
-  expect(fresh).toMatch(/^[A-Z2-9]{8}$/);
-  expect(fresh).not.toBe(bRoll.friendCode);
+  // New digits under the same name.
+  const redrawn = await b.page.request.post("/api/me/friends/tag");
+  expect(redrawn.ok(), await redrawn.text()).toBeTruthy();
+  const fresh = (await redrawn.json()).friendTag as string;
+  expect(fresh.startsWith(`${meB.name}#`)).toBeTruthy();
+  expect(fresh).not.toBe(bRoll.friendTag);
 
-  // A code nobody holds is refused, and says nothing about who does hold one.
+  // A tag nobody holds is refused, and says nothing about who does hold one.
   const nobody = await a.page.request.post("/api/me/friends", {
-    data: { friendCode: "ZZZZZZZZ" },
+    data: { tag: `Nobody ${Date.now()}#1234` },
   });
   expect(nobody.status()).toBe(404);
+  // Something that is not a tag at all — an old code — is a 400.
+  const notATag = await a.page.request.post("/api/me/friends", { data: { tag: "3F9AWC2E" } });
+  expect(notATag.status()).toBe(400);
 
-  // Your own code is not a way to befriend yourself.
+  // Your own tag is not a way to befriend yourself.
   const aRoll = await roll(a.page.request);
   const self = await a.page.request.post("/api/me/friends", {
-    data: { friendCode: aRoll.friendCode },
+    data: { tag: aRoll.friendTag },
   });
   expect(self.status()).toBe(400);
 
-  // A retired code is a code nobody holds.
+  // A retired tag is a tag nobody holds.
   const retired = await a.page.request.post("/api/me/friends", {
-    data: { friendCode: bRoll.friendCode },
+    data: { tag: bRoll.friendTag },
   });
   expect(retired.status()).toBe(404);
 
-  // Asking properly leaves it waiting on the other side, not accepted.
+  // Case and stray spaces do not matter; the digits do.
   const asked = await a.page.request.post("/api/me/friends", {
-    data: { friendCode: fresh },
+    data: { tag: `  ${fresh.toUpperCase()} ` },
   });
   expect(asked.ok(), await asked.text()).toBeTruthy();
   expect((await asked.json()).friends[0]).toMatchObject({ state: "pending", direction: "asked" });
@@ -110,11 +114,11 @@ test("two people asking each other means yes", async ({ browser }) => {
   const aRoll = await roll(a.page.request);
   const bRoll = await roll(b.page.request);
 
-  await a.page.request.post("/api/me/friends", { data: { friendCode: bRoll.friendCode } });
+  await a.page.request.post("/api/me/friends", { data: { tag: bRoll.friendTag } });
   // B does not answer A's request — B asks A, which is the same thing said the
   // other way round, and should not become a second row nobody can answer.
   const back = await b.page.request.post("/api/me/friends", {
-    data: { friendCode: aRoll.friendCode },
+    data: { tag: aRoll.friendTag },
   });
   expect(back.ok(), await back.text()).toBeTruthy();
 
@@ -167,7 +171,7 @@ test("a block stops it in both directions, and cannot be probed for", async ({ b
   const aRoll = await roll(a.page.request);
   const bRoll = await roll(b.page.request);
 
-  await a.page.request.post("/api/me/friends", { data: { friendCode: bRoll.friendCode } });
+  await a.page.request.post("/api/me/friends", { data: { tag: bRoll.friendTag } });
   const bSees = await roll(b.page.request);
   const aId = bSees.friends[0].userId;
   await b.page.request.put(`/api/me/friends/${aId}`);
@@ -180,15 +184,15 @@ test("a block stops it in both directions, and cannot be probed for", async ({ b
   expect(bAfter.friends).toHaveLength(0);
   expect(bAfter.blocked.map((x) => x.userId)).toEqual([aId]);
 
-  // A cannot send, cannot re-ask, and cannot tell a block from a bad code.
+  // A cannot send, cannot re-ask, and cannot tell a block from a bad tag.
   const bId = (await roll(a.page.request)).friends.length; // A's roll is empty too
   expect(bId).toBe(0);
   const reask = await a.page.request.post("/api/me/friends", {
-    data: { friendCode: bRoll.friendCode },
+    data: { tag: bRoll.friendTag },
   });
   expect(reask.status()).toBe(404);
   const nobody = await a.page.request.post("/api/me/friends", {
-    data: { friendCode: "ZZZZZZZZ" },
+    data: { tag: `Nobody ${Date.now()}#1234` },
   });
   expect(nobody.status()).toBe(reask.status());
 
@@ -204,7 +208,7 @@ test("a block stops it in both directions, and cannot be probed for", async ({ b
   await b.page.request.delete(`/api/me/blocks/${aId}`);
   expect((await roll(b.page.request)).friends).toHaveLength(0);
   expect((await roll(b.page.request)).blocked).toHaveLength(0);
-  expect(aRoll.friendCode).toBeTruthy();
+  expect(aRoll.friendTag).toBeTruthy();
 
   await a.ctx.close();
   await b.ctx.close();
@@ -265,4 +269,73 @@ test("a party's room is for whoever rides with it", async ({ browser }) => {
   await dm.ctx.close();
   await inParty.ctx.close();
   await outside.ctx.close();
+});
+
+test("a rename keeps its digits, and the profile shows the tag", async ({ browser }) => {
+  const a = await person(browser, "tagname");
+  const before = (await roll(a.page.request)).friendTag;
+  const digits = before.slice(before.lastIndexOf("#"));
+
+  const name = `Renamed ${Date.now()}`;
+  const renamed = await a.page.request.patch("/api/me", { data: { name } });
+  expect(renamed.ok(), await renamed.text()).toBeTruthy();
+  // A brand-new name cannot already wear these digits, so they stay.
+  expect((await renamed.json()).friendTag).toBe(`${name}${digits}`);
+  expect((await roll(a.page.request)).friendTag).toBe(`${name}${digits}`);
+
+  await a.page.goto("/questboard/profile");
+  await expect(a.page.getByTestId("profile-tag")).toHaveText(`${name}${digits}`);
+
+  await a.ctx.close();
+});
+
+test("guessing at tags runs into a ceiling, which a right guess cannot get past", async ({ browser }) => {
+  const a = await person(browser, "guessa");
+  const b = await person(browser, "guessb");
+  const bTag = (await roll(b.page.request)).friendTag;
+  const name = bTag.slice(0, bTag.lastIndexOf("#"));
+  const real = Number(bTag.slice(bTag.lastIndexOf("#") + 1));
+
+  // Ten misses — every one a digit that is not B's — are allowed.
+  let guess = 1;
+  for (let i = 0; i < 10; i++) {
+    if (guess === real) guess++;
+    const miss = await a.page.request.post("/api/me/friends", {
+      data: { tag: `${name}#${String(guess++).padStart(4, "0")}` },
+    });
+    expect(miss.status()).toBe(404);
+  }
+  // The eleventh is refused before it is looked up, so even the right tag
+  // answers 429 — the ceiling cannot be used to tell a hit from a miss.
+  const right = await a.page.request.post("/api/me/friends", { data: { tag: bTag } });
+  expect(right.status()).toBe(429);
+  expect((await right.json()).error).toMatch(/try again in \d+ minutes/);
+
+  await a.ctx.close();
+  await b.ctx.close();
+});
+
+test("a friend is added by typing their tag into the page", async ({ browser }) => {
+  const a = await person(browser, "uitaga");
+  const b = await person(browser, "uitagb");
+  const bTag = (await roll(b.page.request)).friendTag;
+  const bName = bTag.slice(0, bTag.lastIndexOf("#"));
+
+  await a.page.goto("/questboard/companions");
+  const mine = (await roll(a.page.request)).friendTag;
+  await expect(a.page.getByTestId("friend-tag")).toHaveText(mine);
+
+  const box = a.page.getByLabel("Their tag");
+  await box.fill(`${bName}#0000`);
+  await a.page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(a.page.getByText("a tag is a name, #, and four digits")).toBeVisible();
+
+  await box.fill(bTag);
+  await a.page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(box).toHaveValue("");
+  await expect(a.page.getByText("Asked, not yet answered")).toBeVisible();
+  await expect(a.page.getByRole("listitem").filter({ hasText: bName })).toBeVisible();
+
+  await a.ctx.close();
+  await b.ctx.close();
 });

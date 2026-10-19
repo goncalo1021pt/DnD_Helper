@@ -25,10 +25,14 @@ export function useFriends() {
 }
 
 /** Every friends act answers with the roll, so the cache takes it directly. */
-function useRollMutation<TVars>(run: (vars: TVars) => Promise<FriendRoll | undefined>) {
+function useRollMutation<TVars>(
+  run: (vars: TVars) => Promise<FriendRoll | undefined>,
+  meta?: Record<string, unknown>,
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: run,
+    meta,
     onSuccess: (roll) => {
       if (roll) qc.setQueryData(["friends"], roll);
       // Who you may message follows from who you are friends with.
@@ -37,15 +41,19 @@ function useRollMutation<TVars>(run: (vars: TVars) => Promise<FriendRoll | undef
   });
 }
 
+/** Ask by tag — `Sam#4821` (#387). The form says what went wrong itself. */
 export function useAskFriend() {
-  return useRollMutation(async (friendCode: string) => {
-    const { data, error } = await api.POST("/me/friends", { body: { friendCode } });
-    if (error) throw error;
-    return data;
-  });
+  return useRollMutation(
+    async (tag: string) => {
+      const { data, error } = await api.POST("/me/friends", { body: { tag } });
+      if (error) throw error;
+      return data;
+    },
+    { quiet: true },
+  );
 }
 
-/** Ask a table-mate by who they are, no code needed (#302). */
+/** Ask a table-mate by who they are, no tag needed (#302). */
 export function useBefriend() {
   return useRollMutation(async (userId: string) => {
     const { data, error } = await api.POST("/me/friends", { body: { userId } });
@@ -54,10 +62,14 @@ export function useBefriend() {
   });
 }
 
-export function useReforgeFriendCode() {
+/** New digits under the same name; the old tag stops answering. */
+export function useNewFriendTag() {
+  const qc = useQueryClient();
   return useRollMutation(async () => {
-    const { data, error } = await api.POST("/me/friends/code", {});
+    const { data, error } = await api.POST("/me/friends/tag", {});
     if (error) throw error;
+    // The profile shows the tag too, off /me.
+    qc.invalidateQueries({ queryKey: ["me"] });
     return data;
   });
 }

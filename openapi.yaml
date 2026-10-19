@@ -569,8 +569,8 @@ paths:
         - sessionCookie: []
         - bearerToken:
             - account:write
-      summary: Ask somebody to be your friend, by their code or as a table-mate
-      description: Answers 404 for a code nobody holds, and the same 404 for a code held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes.
+      summary: Ask somebody to be your friend, by their tag or as a table-mate
+      description: "Answers 404 for a tag nobody holds, and the same 404 for a tag held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes. Tags that answer nobody are counted: past ten in an hour the door answers 429 until the oldest miss is an hour old, since a name and four digits is ten thousand guesses and not four billion."
       requestBody:
         required: true
         content:
@@ -590,19 +590,21 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
       tags:
         - Social
-  /me/friends/code:
+  /me/friends/tag:
     post:
-      operationId: reforgeFriendCode
+      operationId: newFriendTag
       security:
         - sessionCookie: []
         - bearerToken:
             - account:write
-      summary: Draw a fresh friend code, retiring the old one
+      summary: Draw new digits for your tag, retiring the old one
       responses:
         "200":
-          description: The roll, carrying the new code
+          description: The roll, carrying the new tag
           content:
             application/json:
               schema:
@@ -7062,6 +7064,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Asked too often; the error says how long to wait
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     Health:
       type: object
@@ -7090,6 +7098,7 @@ components:
       required:
         - id
         - name
+        - friendTag
         - provider
         - emailVerified
         - twofaEnabled
@@ -7100,6 +7109,10 @@ components:
           format: uuid
         name:
           type: string
+        friendTag:
+          type: string
+          example: Sam#4821
+          description: The name and four digits a friend finds you by (#387). A rename keeps the digits unless the new name already wears them.
         email:
           type: string
           nullable: true
@@ -7248,6 +7261,7 @@ components:
       required:
         - userId
         - name
+        - friendTag
         - role
         - joinedAt
         - isOwner
@@ -7255,6 +7269,10 @@ components:
         userId:
           type: string
           format: uuid
+        friendTag:
+          type: string
+          example: Sam#4821
+          description: The tag a table-mate can be found by away from this table (#387) — anybody here can already befriend them by id, so it tells no secret.
         isOwner:
           type: boolean
           description: True for the member who holds the table (#299) — the one who founded it or was handed it. The owner is always a DM; a DM is not always the owner.
@@ -10916,13 +10934,14 @@ components:
     FriendRoll:
       type: object
       required:
-        - friendCode
+        - friendTag
         - friends
         - blocked
       properties:
-        friendCode:
+        friendTag:
           type: string
-          description: "The code you hand somebody so they can ask to be your friend (#181). Discovery is a code rather than a search: a search box over accounts is an enumeration door onto a private tavern, and an account that arrived through Google has no username to be found by. Reforging one leaves every existing friendship alone."
+          example: Sam#4821
+          description: "What you hand somebody so they can ask to be your friend (#387): your display name and four digits. Discovery is a tag you give rather than a search — a search box over accounts is an enumeration door onto a private tavern. Renaming keeps the digits unless the new name already wears them; drawing a new tag leaves every existing friendship alone."
         friends:
           type: array
           items:
@@ -10933,12 +10952,14 @@ components:
             $ref: "#/components/schemas/Friend"
     AskFriendRequest:
       type: object
-      description: "Exactly one of the two: a code somebody handed you, or the id of somebody you already share a table with (#302) — the player beside you should not need to read you a code. An id that is not a table-mate's answers 404, as a code nobody holds does, so ids are no way to find strangers."
+      description: "Exactly one of the two: a tag somebody handed you, or the id of somebody you already share a table with (#302) — the player beside you should not need to read you a tag. An id that is not a table-mate's answers 404, as a tag nobody holds does, so ids are no way to find strangers."
       properties:
-        friendCode:
+        tag:
           type: string
-          minLength: 1
-          maxLength: 32
+          minLength: 6
+          maxLength: 48
+          example: Sam#4821
+          description: A display name, `#`, and four digits. Case and the spaces around it do not matter; the name must otherwise be written as its holder wrote it.
         userId:
           type: string
           format: uuid

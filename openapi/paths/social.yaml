@@ -19,12 +19,15 @@
     security:
       - sessionCookie: []
       - bearerToken: [account:write]
-    summary: Ask somebody to be your friend, by their code or as a table-mate
+    summary: Ask somebody to be your friend, by their tag or as a table-mate
     description: >-
-      Answers 404 for a code nobody holds, and the same 404 for a code held by
+      Answers 404 for a tag nobody holds, and the same 404 for a tag held by
       somebody who has blocked you — a block that could be detected by probing
       would not be much of a block. Asking somebody who has already asked you
-      accepts instead, because two people asking each other means yes.
+      accepts instead, because two people asking each other means yes. Tags
+      that answer nobody are counted: past ten in an hour the door answers 429
+      until the oldest miss is an hour old, since a name and four digits is
+      ten thousand guesses and not four billion.
     requestBody:
       required: true
       content:
@@ -44,17 +47,19 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
       "404":
         $ref: "../openapi.yaml#/components/responses/NotFound"
+      "429":
+        $ref: "../openapi.yaml#/components/responses/TooManyRequests"
 
-/me/friends/code:
+/me/friends/tag:
   post:
-    operationId: reforgeFriendCode
+    operationId: newFriendTag
     security:
       - sessionCookie: []
       - bearerToken: [account:write]
-    summary: Draw a fresh friend code, retiring the old one
+    summary: Draw new digits for your tag, retiring the old one
     responses:
       "200":
-        description: The roll, carrying the new code
+        description: The roll, carrying the new tag
         content:
           application/json:
             schema:

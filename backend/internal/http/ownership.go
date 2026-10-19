@@ -71,7 +71,8 @@ func (s *Server) memberOut(ctx context.Context, campaign db.Campaign, userID uui
 		if r.UserID == userID {
 			return api.Member{
 				UserId: r.UserID, Name: r.Name, Image: r.Image,
-				Role: toAPIRole(r.Role), JoinedAt: r.CreatedAt.Time,
+				FriendTag: friendTag(r.Name, r.FriendTag),
+				Role:      toAPIRole(r.Role), JoinedAt: r.CreatedAt.Time,
 				IsOwner: r.UserID == campaign.OwnerUserID,
 			}, nil
 		}

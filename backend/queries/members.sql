@@ -2,7 +2,7 @@
 
 -- name: ListMembers :many
 -- Everyone at the table, DMs first, then players by seniority.
-SELECT m.user_id, m.role, m.created_at, u.name, u.image
+SELECT m.user_id, m.role, m.created_at, u.name, u.image, u.friend_tag
 FROM memberships m
 JOIN users u ON u.id = m.user_id
 WHERE m.campaign_id = $1

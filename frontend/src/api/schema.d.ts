@@ -53,8 +53,8 @@ export interface paths {
         get: operations["listFriends"];
         put?: never;
         /**
-         * Ask somebody to be your friend, by their code or as a table-mate
-         * @description Answers 404 for a code nobody holds, and the same 404 for a code held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes.
+         * Ask somebody to be your friend, by their tag or as a table-mate
+         * @description Answers 404 for a tag nobody holds, and the same 404 for a tag held by somebody who has blocked you — a block that could be detected by probing would not be much of a block. Asking somebody who has already asked you accepts instead, because two people asking each other means yes. Tags that answer nobody are counted: past ten in an hour the door answers 429 until the oldest miss is an hour old, since a name and four digits is ten thousand guesses and not four billion.
          */
         post: operations["askFriend"];
         delete?: never;
@@ -63,7 +63,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/me/friends/code": {
+    "/me/friends/tag": {
         parameters: {
             query?: never;
             header?: never;
@@ -72,8 +72,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Draw a fresh friend code, retiring the old one */
-        post: operations["reforgeFriendCode"];
+        /** Draw new digits for your tag, retiring the old one */
+        post: operations["newFriendTag"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3186,6 +3186,11 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /**
+             * @description The name and four digits a friend finds you by (#387). A rename keeps the digits unless the new name already wears them.
+             * @example Sam#4821
+             */
+            friendTag: string;
             email?: string | null;
             image?: string | null;
             /** @description Where the account came from — discord, google, local, or dev. */
@@ -3263,6 +3268,11 @@ export interface components {
         Member: {
             /** Format: uuid */
             userId: string;
+            /**
+             * @description The tag a table-mate can be found by away from this table (#387) — anybody here can already befriend them by id, so it tells no secret.
+             * @example Sam#4821
+             */
+            friendTag: string;
             /** @description True for the member who holds the table (#299) — the one who founded it or was handed it. The owner is always a DM; a DM is not always the owner. */
             isOwner: boolean;
             name: string;
@@ -5083,14 +5093,21 @@ export interface components {
             since: string;
         };
         FriendRoll: {
-            /** @description The code you hand somebody so they can ask to be your friend (#181). Discovery is a code rather than a search: a search box over accounts is an enumeration door onto a private tavern, and an account that arrived through Google has no username to be found by. Reforging one leaves every existing friendship alone. */
-            friendCode: string;
+            /**
+             * @description What you hand somebody so they can ask to be your friend (#387): your display name and four digits. Discovery is a tag you give rather than a search — a search box over accounts is an enumeration door onto a private tavern. Renaming keeps the digits unless the new name already wears them; drawing a new tag leaves every existing friendship alone.
+             * @example Sam#4821
+             */
+            friendTag: string;
             friends: components["schemas"]["Friend"][];
             blocked: components["schemas"]["Friend"][];
         };
-        /** @description Exactly one of the two: a code somebody handed you, or the id of somebody you already share a table with (#302) — the player beside you should not need to read you a code. An id that is not a table-mate's answers 404, as a code nobody holds does, so ids are no way to find strangers. */
+        /** @description Exactly one of the two: a tag somebody handed you, or the id of somebody you already share a table with (#302) — the player beside you should not need to read you a tag. An id that is not a table-mate's answers 404, as a tag nobody holds does, so ids are no way to find strangers. */
         AskFriendRequest: {
-            friendCode?: string;
+            /**
+             * @description A display name, `#`, and four digits. Case and the spaces around it do not matter; the name must otherwise be written as its holder wrote it.
+             * @example Sam#4821
+             */
+            tag?: string;
             /** Format: uuid */
             userId?: string;
         };
@@ -5588,6 +5605,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Asked too often; the error says how long to wait */
+        TooManyRequests: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
     parameters: {
         /** @description The campaign this is read or changed through — the table whose veil and fog apply (#234). A place or a map belongs to a realm that may hold several campaigns, so every id-addressed atlas route names the one it means; the route stays the resource, the campaign is the lens. */
@@ -5734,9 +5760,10 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
-    reforgeFriendCode: {
+    newFriendTag: {
         parameters: {
             query?: never;
             header?: never;
@@ -5745,7 +5772,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The roll, carrying the new code */
+            /** @description The roll, carrying the new tag */
             200: {
                 headers: {
                     [name: string]: unknown;
