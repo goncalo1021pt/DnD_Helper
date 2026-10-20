@@ -178,7 +178,11 @@ export default function QuestCard({
   };
 
   return (
-    <article className="relative" style={{ transform: `rotate(${rotationFor(quest.id)})` }}>
+    <article
+      className="relative"
+      data-focus-id={quest.id}
+      style={{ transform: `rotate(${rotationFor(quest.id)})` }}
+    >
       {/* nail pinning the notice */}
       <div className="nailhead absolute -top-[9px] left-1/2 z-[6] -translate-x-1/2" />
 

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
+import { useFocusTarget, useOneShotParam } from "../lib/focusTarget";
 import type { ChronicleEvent, Handout } from "../api/client";
 import { handoutImageUrl, useAddNote, useCharacters, useEvents, useHandouts } from "../hooks";
 import { formatWhen } from "../lib/dates";
@@ -92,7 +93,7 @@ export function EventLine({
   ) : null;
 
   return (
-    <div className="flex items-baseline gap-3">
+    <div className="flex items-baseline gap-3" data-focus-id={event.id}>
       <span
         className="mt-1 h-2 w-2 flex-none translate-y-[1px] rounded-full"
         style={{ background: tone, boxShadow: `0 0 6px ${tone}66` }}
@@ -147,6 +148,15 @@ export default function ChroniclePage() {
   // The satchel is the source of truth for both surfaces, so a lightbox opened
   // from a feed thumbnail shows the same title and caption the strip does.
   const handoutById = (id: string) => (handouts ?? []).find((h) => h.id === id) ?? null;
+
+  // A search result (#321) arrives as ?focus=<line> or ?handout=<id>.
+  useFocusTarget(!!events);
+  const [wantHandout, doneHandout] = useOneShotParam("handout");
+  useEffect(() => {
+    if (!wantHandout || !handouts) return;
+    setLooking(handouts.find((h) => h.id === wantHandout) ?? null);
+    doneHandout();
+  }, [wantHandout, handouts, doneHandout]);
 
   function post() {
     const message = note.trim();
