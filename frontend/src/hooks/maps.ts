@@ -124,8 +124,16 @@ export function useUpdateMap(campaignId: string) {
     mutationFn: async (vars: {
       mapId: string;
       // locationId: the place this map depicts (#229) — the nil UUID unfiles,
-      // absent means unchanged.
-      body: { name: string; parentMapId?: string; fogEnabled?: boolean; locationId?: string };
+      // absent means unchanged. scaleDistance: what the width spans (#357) —
+      // 0 takes the scale off, absent means unchanged.
+      body: {
+        name: string;
+        parentMapId?: string;
+        fogEnabled?: boolean;
+        locationId?: string;
+        scaleDistance?: number;
+        scaleUnit?: "miles" | "km" | "feet";
+      };
     }) => {
       const { data, error } = await api.PATCH("/maps/{mapId}", {
         params: { path: { mapId: vars.mapId }, query: { campaignId } },

@@ -11,7 +11,7 @@ RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created
 -- (no state row = veiled). The place a map depicts rides along by name (#229).
 SELECT m.id, m.realm_id, c.id AS campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height,
        m.created_at, m.location_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party,
-       l.name AS location_name
+       m.scale_distance, m.scale_unit, l.name AS location_name
 FROM maps m
 JOIN campaigns c ON c.realm_id = m.realm_id
 LEFT JOIN map_campaign_state s ON s.map_id = m.id AND s.campaign_id = c.id
@@ -31,7 +31,8 @@ WHERE id = $1;
 -- no row at all when the map is not on the campaign's realm — the same 404 as
 -- a map that never was, which is the whole point of the veil.
 SELECT m.id, m.realm_id, c.id AS campaign_id, m.parent_map_id, m.name, m.fog_enabled, m.width, m.height,
-       m.created_at, m.location_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party
+       m.created_at, m.location_id, COALESCE(s.visible_to_party, false)::boolean AS visible_to_party,
+       m.scale_distance, m.scale_unit
 FROM maps m
 JOIN campaigns c ON c.realm_id = m.realm_id
 LEFT JOIN map_campaign_state s ON s.map_id = m.id AND s.campaign_id = c.id
@@ -44,9 +45,11 @@ WHERE id = $1;
 
 -- name: UpdateMapMeta :one
 UPDATE maps
-SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5
+SET name = $2, parent_map_id = $3, fog_enabled = $4, location_id = $5,
+    scale_distance = $6, scale_unit = $7
 WHERE id = $1
-RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id;
+RETURNING id, realm_id, parent_map_id, name, fog_enabled, width, height, created_at, location_id,
+          scale_distance, scale_unit;
 
 -- name: DeleteMap :execrows
 DELETE FROM maps WHERE id = $1;

@@ -850,17 +850,19 @@ type LocationVisibility struct {
 }
 
 type Map struct {
-	ID          uuid.UUID          `json:"id"`
-	ParentMapID pgtype.UUID        `json:"parent_map_id"`
-	Name        string             `json:"name"`
-	Image       []byte             `json:"image"`
-	ContentType string             `json:"content_type"`
-	Width       int32              `json:"width"`
-	Height      int32              `json:"height"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	FogEnabled  bool               `json:"fog_enabled"`
-	LocationID  pgtype.UUID        `json:"location_id"`
-	RealmID     uuid.UUID          `json:"realm_id"`
+	ID            uuid.UUID          `json:"id"`
+	ParentMapID   pgtype.UUID        `json:"parent_map_id"`
+	Name          string             `json:"name"`
+	Image         []byte             `json:"image"`
+	ContentType   string             `json:"content_type"`
+	Width         int32              `json:"width"`
+	Height        int32              `json:"height"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	FogEnabled    bool               `json:"fog_enabled"`
+	LocationID    pgtype.UUID        `json:"location_id"`
+	RealmID       uuid.UUID          `json:"realm_id"`
+	ScaleDistance *float64           `json:"scale_distance"`
+	ScaleUnit     *string            `json:"scale_unit"`
 }
 
 type MapCampaignState struct {
