@@ -85,6 +85,15 @@ export const IconSearch = (p: IconProps) => (
   </Icon>
 );
 
+export const IconRuler = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M21.3 15.3 8.7 2.7a1 1 0 0 0-1.4 0L2.7 7.3a1 1 0 0 0 0 1.4l12.6 12.6a1 1 0 0 0 1.4 0l4.6-4.6a1 1 0 0 0 0-1.4Z" />
+    <path d="m7.5 10.5 2-2" />
+    <path d="m10.5 13.5 2-2" />
+    <path d="m13.5 16.5 2-2" />
+  </Icon>
+);
+
 export const IconRefresh = (p: IconProps) => (
   <Icon {...p}>
     <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />

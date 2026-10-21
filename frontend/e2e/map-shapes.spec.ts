@@ -288,10 +288,13 @@ test("a road answers a press, a region is still ground, and both can be rubbed o
       return { x: r.x, y: r.y, w: r.width, h: r.height };
     }, label);
 
-  // Pressing the road opens the form it has always had — the whole of #277.
+  // Pressing the road opens it — the whole of #277. Since #357 what opens is
+  // the road's own card (its length, for anybody), and the form is behind Edit.
   const road = await boxOf("High Road");
   expect(road, "the road should be drawn").toBeTruthy();
   await page.mouse.click(road!.x + road!.w / 2, road!.y + road!.h / 2);
+  await expect(page.getByTestId("road-card")).toContainText("The High Road");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("button", { name: "Rub it out" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel" }).click();
 
