@@ -40,5 +40,5 @@ export default function GrowingTextarea({
     }
   }
 
-  return <textarea ref={ref} rows={1} {...rest} onKeyDown={onKeyDown} className={`resize-none ${className}`} />;
+  return <textarea ref={ref} rows={1} {...rest} onKeyDown={onKeyDown} className={`resize-none py-2.5 ${className}`} />;
 }
