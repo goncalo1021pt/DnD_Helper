@@ -33,6 +33,36 @@ export function useAddNote(campaignId: string) {
   });
 }
 
+/** Reword a line (#411): a DM's story note or ruling, or a player's own chat. */
+export function useEditChronicleEntry(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: { eventId: string; message: string }) => {
+      const { data, error } = await api.PATCH("/events/{eventId}", {
+        params: { path: { eventId: vars.eventId }, query: { campaignId } },
+        body: { message: vars.message },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["events", campaignId] }),
+  });
+}
+
+/** Strike a line (#411). It undoes nothing the line recorded. */
+export function useDeleteChronicleEntry(campaignId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (eventId: string) => {
+      const { error } = await api.DELETE("/events/{eventId}", {
+        params: { path: { eventId }, query: { campaignId } },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["events", campaignId] }),
+  });
+}
+
 export function useGrantXP(campaignId: string) {
   const qc = useQueryClient();
   return useMutation({

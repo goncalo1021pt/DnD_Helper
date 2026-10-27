@@ -1148,6 +1148,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/{eventId}": {
+        parameters: {
+            query: {
+                /** @description The table the line belongs to — the lens it is reached through. */
+                campaignId: string;
+            };
+            header?: never;
+            path: {
+                eventId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Strike a chronicle line (#411)
+         * @description A DM strikes any line at their table; a player their own chat lines. Striking a line undoes nothing it recorded — the XP stays granted, the handout stays given. A line the caller may not strike answers 404.
+         */
+        delete: operations["deleteChronicleEntry"];
+        options?: never;
+        head?: never;
+        /**
+         * Reword a chronicle line (#411)
+         * @description A DM rewords their table's story notes and rulings; a player their own chat lines. Nobody rewords the app's record or another person's words. A line the caller may not reword answers 404, as one that is not there.
+         */
+        patch: operations["editChronicleEntry"];
+        trace?: never;
+    };
     "/campaigns/{campaignId}/xp": {
         parameters: {
             query?: never;
@@ -4628,6 +4657,9 @@ export interface components {
             /** @description Non-fatal notes about the import — chiefly entries whose name shadows an SRD entry of the same kind. Packs are meant to be additive (new classes, subclasses, feats, spells), so a shadowing entry usually means a book's extra class features were pasted onto a copy of the base class; the import still succeeds, but the library will now show both. */
             warnings?: string[];
         };
+        EditChronicleEntryRequest: {
+            message: string;
+        };
         ChronicleEvent: {
             /** Format: uuid */
             id: string;
@@ -4644,6 +4676,15 @@ export interface components {
             handoutId?: string | null;
             /** Format: date-time */
             createdAt: string;
+            /**
+             * Format: date-time
+             * @description When the line was last reworded (#411); absent if never.
+             */
+            editedAt?: string | null;
+            /** @description Whether the reader may reword this line (#411): a DM their table's story notes and rulings, a player their own chat. Nobody rewords the app's record or somebody else's words. */
+            canEdit: boolean;
+            /** @description Whether the reader may strike this line (#411): a DM any line at their table, a player their own chat. Striking undoes nothing the line recorded. */
+            canDelete: boolean;
         };
         /** @description One thing a choose-one line may be (a lute, a flute, a set of dice). */
         PackChoice: {
@@ -7702,6 +7743,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description Line breaks are kept (#411). */
                     message: string;
                     /** @description The DM's channel choice — "dm" (story note) or "rules" (a ruling); defaults to dm. Ignored for players, who always post to player chat. Plain string, validated server-side. */
                     category?: string;
@@ -7802,6 +7844,63 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteChronicleEntry: {
+        parameters: {
+            query: {
+                /** @description The table the line belongs to — the lens it is reached through. */
+                campaignId: string;
+            };
+            header?: never;
+            path: {
+                eventId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Struck */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    editChronicleEntry: {
+        parameters: {
+            query: {
+                /** @description The table the line belongs to — the lens it is reached through. */
+                campaignId: string;
+            };
+            header?: never;
+            path: {
+                eventId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditChronicleEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The line as it now reads */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChronicleEvent"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
     };

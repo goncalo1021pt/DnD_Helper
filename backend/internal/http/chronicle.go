@@ -40,7 +40,10 @@ func (s *Server) logEvent(ctx context.Context, campaignID, actorID uuid.UUID, ki
 	s.publish(campaignID, live.TopicChronicle)
 }
 
-func toAPIEvent(row db.ListEventsRow) api.ChronicleEvent {
+// toAPIEvent renders one line for one reader: what they may do with it is
+// decided here, once, so the screen only draws the doors it is handed.
+func toAPIEvent(row db.ListEventsRow, member db.Membership) api.ChronicleEvent {
+	canEdit, canDelete := eventRights(row.Kind, row.ActorUserID, member)
 	out := api.ChronicleEvent{
 		Id:        row.ID,
 		Kind:      row.Kind,
@@ -48,10 +51,16 @@ func toAPIEvent(row db.ListEventsRow) api.ChronicleEvent {
 		Message:   row.Message,
 		ActorName: row.ActorName,
 		CreatedAt: row.CreatedAt.Time,
+		CanEdit:   canEdit,
+		CanDelete: canDelete,
 	}
 	if row.HandoutID.Valid {
 		id := uuid.UUID(row.HandoutID.Bytes)
 		out.HandoutId = &id
+	}
+	if row.EditedAt.Valid {
+		t := row.EditedAt.Time
+		out.EditedAt = &t
 	}
 	return out
 }
@@ -121,7 +130,7 @@ func (s *Server) ListEvents(ctx context.Context, request api.ListEventsRequestOb
 	}
 	out := make([]api.ChronicleEvent, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toAPIEvent(row))
+		out = append(out, toAPIEvent(row, member))
 	}
 	return api.ListEvents200JSONResponse(out), nil
 }
@@ -142,8 +151,12 @@ func (s *Server) AddChronicleNote(ctx context.Context, request api.AddChronicleN
 			return nil, err
 		}
 	}
-	if request.Body == nil || strings.TrimSpace(request.Body.Message) == "" {
+	if request.Body == nil {
 		return api.AddChronicleNote400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "the chronicle rejects empty entries"}}, nil
+	}
+	message, problem := chronicleText(request.Body.Message)
+	if problem != "" {
+		return api.AddChronicleNote400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: problem}}, nil
 	}
 
 	// Players always post to player chat; the DM chooses story (note) or ruling.
@@ -159,7 +172,7 @@ func (s *Server) AddChronicleNote(ctx context.Context, request api.AddChronicleN
 		CampaignID:  campaignID,
 		ActorUserID: pgUUID(member.UserID),
 		Kind:        kind,
-		Message:     strings.TrimSpace(request.Body.Message),
+		Message:     message,
 	})
 	if err != nil {
 		return nil, err
@@ -176,6 +189,9 @@ func (s *Server) AddChronicleNote(ctx context.Context, request api.AddChronicleN
 		Message:   row.Message,
 		ActorName: &name,
 		CreatedAt: row.CreatedAt.Time,
+		// The author of a hand-written line may always reword and strike it.
+		CanEdit:   true,
+		CanDelete: true,
 	}), nil
 }
 

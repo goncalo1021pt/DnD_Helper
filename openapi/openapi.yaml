@@ -136,6 +136,8 @@ paths:
     $ref: "./paths/feed.yaml#/~1campaigns~1{campaignId}~1feed"
   /campaigns/{campaignId}/rolls:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1rolls"
+  /events/{eventId}:
+    $ref: "./paths/chronicle.yaml#/~1events~1{eventId}"
   /campaigns/{campaignId}/xp:
     $ref: "./paths/chronicle.yaml#/~1campaigns~1{campaignId}~1xp"
   /campaigns/{campaignId}/packs:
@@ -752,6 +754,8 @@ components:
     ImportReport:
       $ref: "./components/rules.yaml#/ImportReport"
 
+    EditChronicleEntryRequest:
+      $ref: "./components/chronicle.yaml#/EditChronicleEntryRequest"
     ChronicleEvent:
       $ref: "./components/chronicle.yaml#/ChronicleEvent"
     PackChoice:

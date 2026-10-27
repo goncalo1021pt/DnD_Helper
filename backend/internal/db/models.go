@@ -614,6 +614,7 @@ type CampaignEvent struct {
 	Message     string             `json:"message"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	HandoutID   pgtype.UUID        `json:"handout_id"`
+	EditedAt    pgtype.Timestamptz `json:"edited_at"`
 }
 
 type CampaignPack struct {

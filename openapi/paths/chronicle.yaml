@@ -53,7 +53,8 @@
               message:
                 type: string
                 minLength: 1
-                maxLength: 500
+                maxLength: 2000
+                description: Line breaks are kept (#411).
               category:
                 type: string
                 description: >
@@ -73,6 +74,68 @@
         $ref: "../openapi.yaml#/components/responses/Unauthorized"
       "403":
         $ref: "../openapi.yaml#/components/responses/Forbidden"
+
+/events/{eventId}:
+  parameters:
+    - name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    - name: campaignId
+      in: query
+      required: true
+      description: The table the line belongs to — the lens it is reached through.
+      schema:
+        type: string
+        format: uuid
+  patch:
+    operationId: editChronicleEntry
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Reword a chronicle line (#411)
+    description: >-
+      A DM rewords their table's story notes and rulings; a player their own
+      chat lines. Nobody rewords the app's record or another person's words.
+      A line the caller may not reword answers 404, as one that is not there.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/EditChronicleEntryRequest"
+    responses:
+      "200":
+        description: The line as it now reads
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/ChronicleEvent"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
+  delete:
+    operationId: deleteChronicleEntry
+    security:
+      - sessionCookie: []
+      - bearerToken: [campaigns:play]
+    summary: Strike a chronicle line (#411)
+    description: >-
+      A DM strikes any line at their table; a player their own chat lines.
+      Striking a line undoes nothing it recorded — the XP stays granted, the
+      handout stays given. A line the caller may not strike answers 404.
+    responses:
+      "204":
+        description: Struck
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "404":
+        $ref: "../openapi.yaml#/components/responses/NotFound"
 
 /campaigns/{campaignId}/xp:
   parameters:
