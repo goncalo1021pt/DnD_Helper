@@ -2563,7 +2563,8 @@ paths:
                 message:
                   type: string
                   minLength: 1
-                  maxLength: 500
+                  maxLength: 2000
+                  description: Line breaks are kept (#411).
                 category:
                   type: string
                   description: |
@@ -2680,6 +2681,67 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - Chronicle
+  /events/{eventId}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: campaignId
+        in: query
+        required: true
+        description: The table the line belongs to — the lens it is reached through.
+        schema:
+          type: string
+          format: uuid
+    patch:
+      operationId: editChronicleEntry
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
+      summary: Reword a chronicle line (#411)
+      description: A DM rewords their table's story notes and rulings; a player their own chat lines. Nobody rewords the app's record or another person's words. A line the caller may not reword answers 404, as one that is not there.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditChronicleEntryRequest"
+      responses:
+        "200":
+          description: The line as it now reads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChronicleEvent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+      tags:
+        - Chronicle
+    delete:
+      operationId: deleteChronicleEntry
+      security:
+        - sessionCookie: []
+        - bearerToken:
+            - campaigns:play
+      summary: Strike a chronicle line (#411)
+      description: A DM strikes any line at their table; a player their own chat lines. Striking a line undoes nothing it recorded — the XP stays granted, the handout stays given. A line the caller may not strike answers 404.
+      responses:
+        "204":
+          description: Struck
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
       tags:
@@ -10027,6 +10089,15 @@ components:
           items:
             type: string
           description: Non-fatal notes about the import — chiefly entries whose name shadows an SRD entry of the same kind. Packs are meant to be additive (new classes, subclasses, feats, spells), so a shadowing entry usually means a book's extra class features were pasted onto a copy of the base class; the import still succeeds, but the library will now show both.
+    EditChronicleEntryRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
     ChronicleEvent:
       type: object
       required:
@@ -10035,6 +10106,8 @@ components:
         - category
         - message
         - createdAt
+        - canEdit
+        - canDelete
       properties:
         id:
           type: string
@@ -10060,6 +10133,17 @@ components:
         createdAt:
           type: string
           format: date-time
+        editedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the line was last reworded (#411); absent if never.
+        canEdit:
+          type: boolean
+          description: "Whether the reader may reword this line (#411): a DM their table's story notes and rulings, a player their own chat. Nobody rewords the app's record or somebody else's words."
+        canDelete:
+          type: boolean
+          description: "Whether the reader may strike this line (#411): a DM any line at their table, a player their own chat. Striking undoes nothing the line recorded."
     PackChoice:
       type: object
       description: One thing a choose-one line may be (a lute, a flute, a set of dice).

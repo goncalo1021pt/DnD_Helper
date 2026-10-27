@@ -15,7 +15,7 @@ import (
 const addHandoutEvent = `-- name: AddHandoutEvent :one
 INSERT INTO campaign_events (campaign_id, actor_user_id, kind, message, handout_id)
 VALUES ($1, $2, 'handout', $3, $4)
-RETURNING id, campaign_id, actor_user_id, kind, message, created_at, handout_id
+RETURNING id, campaign_id, actor_user_id, kind, message, created_at, handout_id, edited_at
 `
 
 type AddHandoutEventParams struct {
@@ -43,6 +43,7 @@ func (q *Queries) AddHandoutEvent(ctx context.Context, arg AddHandoutEventParams
 		&i.Message,
 		&i.CreatedAt,
 		&i.HandoutID,
+		&i.EditedAt,
 	)
 	return i, err
 }

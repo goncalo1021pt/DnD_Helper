@@ -2,13 +2,23 @@ import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useFocusTarget, useOneShotParam } from "../lib/focusTarget";
 import type { ChronicleEvent, Handout } from "../api/client";
-import { handoutImageUrl, useAddNote, useCharacters, useEvents, useHandouts } from "../hooks";
+import {
+  handoutImageUrl,
+  useAddNote,
+  useCharacters,
+  useDeleteChronicleEntry,
+  useEditChronicleEntry,
+  useEvents,
+  useHandouts,
+} from "../hooks";
 import { formatWhen } from "../lib/dates";
 import type { CampaignContext } from "./CampaignView";
 import HandoutForm from "./chronicle/HandoutForm";
 import HandoutLightbox from "./chronicle/HandoutLightbox";
 import HandoutManageModal from "./chronicle/HandoutManageModal";
 import HandoutStrip from "./chronicle/HandoutStrip";
+import GrowingTextarea from "./ui/GrowingTextarea";
+import ParchmentModal from "./ui/ParchmentModal";
 
 /** Channel → accent + label, for the written entries (dm/rules/player/rolls). */
 const CATEGORY_META: Record<string, { label: string; tone: string }> = {
@@ -73,10 +83,14 @@ const FILTERS: Array<[string, string]> = [
 export function EventLine({
   event,
   onOpenHandout,
+  campaignId,
 }: {
   event: ChronicleEvent;
   onOpenHandout?: (handoutId: string) => void;
+  /** Given, the line offers whatever the reader may do with it (#411). */
+  campaignId?: string;
 }) {
+  const [editing, setEditing] = useState(false);
   const written = event.category !== "log";
   const tone = written
     ? CATEGORY_META[event.category]?.tone ?? "#a8967a"
@@ -99,7 +113,13 @@ export function EventLine({
         style={{ background: tone, boxShadow: `0 0 6px ${tone}66` }}
       />
       <div className="min-w-0 flex-1">
-        <div className="text-[13.5px] leading-snug text-cream-soft">{event.message}</div>
+        {editing && campaignId ? (
+          <LineEditor campaignId={campaignId} event={event} onDone={() => setEditing(false)} />
+        ) : (
+          <div className="whitespace-pre-wrap break-words text-[13.5px] leading-snug text-cream-soft">
+            {event.message}
+          </div>
+        )}
         {thumb &&
           (onOpenHandout ? (
             <button
@@ -123,8 +143,140 @@ export function EventLine({
           )}
           {" · "}
           {formatWhen(new Date(event.createdAt))}
+          {event.editedAt && <span title={new Date(event.editedAt).toLocaleString()}> · edited</span>}
         </div>
       </div>
+      {campaignId && !editing && (event.canEdit || event.canDelete) && (
+        <LineActions campaignId={campaignId} event={event} onEdit={() => setEditing(true)} />
+      )}
+    </div>
+  );
+}
+
+/** Rewording a line in place (#411). */
+function LineEditor({
+  campaignId,
+  event,
+  onDone,
+}: {
+  campaignId: string;
+  event: ChronicleEvent;
+  onDone: () => void;
+}) {
+  const edit = useEditChronicleEntry(campaignId);
+  const [text, setText] = useState(event.message);
+  const save = () => {
+    const message = text.trim();
+    if (!message || message === event.message) return onDone();
+    edit.mutate({ eventId: event.id, message }, { onSuccess: onDone });
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <GrowingTextarea
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onSubmit={save}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            onDone();
+          }
+        }}
+        maxLength={2000}
+        aria-label="Reword this line"
+        className="input-hall w-full text-[13.5px]"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={save}
+          disabled={!text.trim() || edit.isPending}
+          className="btn-base btn-gold h-7 px-3 py-0 text-[10px] disabled:opacity-40"
+        >
+          {edit.isPending ? "Saving…" : "Save"}
+        </button>
+        <button onClick={onDone} className="btn-base btn-ghost-gold h-7 px-3 py-0 text-[10px]">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * What the reader may do with a line (#411): a small ⋯ that opens Edit and
+ * Delete where they are allowed — the server says which, per line.
+ */
+function LineActions({
+  campaignId,
+  event,
+  onEdit,
+}: {
+  campaignId: string;
+  event: ChronicleEvent;
+  onEdit: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const strike = useDeleteChronicleEntry(campaignId);
+  const handWritten = event.kind === "note" || event.kind === "ruling" || event.kind === "player_note";
+  const linkClass =
+    "label-stamp cursor-pointer border-none bg-transparent px-1 text-[9.5px] font-semibold tracking-[1px] text-gold-muted transition hover:text-ember-bright";
+  return (
+    <div className="flex flex-none items-center gap-1 self-start">
+      {open && (
+        <>
+          {event.canEdit && (
+            <button
+              onClick={() => {
+                setOpen(false);
+                onEdit();
+              }}
+              className={linkClass}
+            >
+              Edit
+            </button>
+          )}
+          {event.canDelete && (
+            <button onClick={() => setConfirming(true)} className={linkClass}>
+              Delete
+            </button>
+          )}
+        </>
+      )}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Line actions"
+        aria-expanded={open}
+        className="cursor-pointer rounded-[3px] border-none bg-transparent px-1.5 text-[15px] leading-none text-gold-muted transition hover:text-ember-bright"
+      >
+        ⋯
+      </button>
+      {confirming && (
+        <ParchmentModal onClose={() => setConfirming(false)}>
+          <h3 className="font-display m-0 mb-2 text-center text-xl font-bold text-ink">Delete this line?</h3>
+          <p className="font-body m-0 mb-1 text-center text-[14px] text-ink-body">
+            It goes from the chronicle for everyone at the table.
+          </p>
+          {!handWritten && (
+            <p className="font-accent m-0 mb-1 text-center text-[13.5px] italic text-ink-label">
+              It undoes nothing it recorded — XP, rewards and handouts stay as they are.
+            </p>
+          )}
+          <div className="mt-5 flex justify-center gap-2.5">
+            <button
+              onClick={() => strike.mutate(event.id, { onSuccess: () => setConfirming(false) })}
+              disabled={strike.isPending}
+              className="btn-base btn-ghost-red px-4 py-2 text-[11px]"
+            >
+              {strike.isPending ? "Deleting…" : "Delete"}
+            </button>
+            <button onClick={() => setConfirming(false)} className="btn-base btn-ghost-ink px-4 py-2 text-[11px]">
+              Cancel
+            </button>
+          </div>
+        </ParchmentModal>
+      )}
     </div>
   );
 }
@@ -238,14 +390,14 @@ export default function ChroniclePage() {
             ))}
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-2">
-          <input
+        <div className="flex flex-wrap items-end gap-2">
+          {/* A line break is Shift+Enter at a keyboard and Enter on a phone (#411). */}
+          <GrowingTextarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") post();
-            }}
-            maxLength={500}
+            onSubmit={post}
+            maxLength={2000}
+            aria-label="Write in the chronicle"
             placeholder={
               isDM
                 ? channel === "rules"
@@ -281,6 +433,7 @@ export default function ChroniclePage() {
             <EventLine
               key={e.id}
               event={e}
+              campaignId={campaign.id}
               onOpenHandout={(id) => setLooking(handoutById(id))}
             />
           ))}

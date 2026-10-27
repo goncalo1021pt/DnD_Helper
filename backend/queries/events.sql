@@ -9,7 +9,7 @@ RETURNING *;
 -- channel (filtering on the computed column so it survives the LIMIT).
 WITH ev AS (
     SELECT e.id, e.campaign_id, e.actor_user_id, e.kind, e.message, e.created_at,
-           e.handout_id,
+           e.handout_id, e.edited_at,
            u.name AS actor_name,
            (CASE
                 WHEN e.kind = 'note'        THEN 'dm'
@@ -28,3 +28,16 @@ SELECT * FROM ev
 WHERE $2::text = 'all' OR category = $2::text
 ORDER BY created_at DESC
 LIMIT $3;
+
+-- name: GetEventForCampaign :one
+-- One line THROUGH its table: no row when it is not that table's, the same 404
+-- as a line that never was.
+SELECT * FROM campaign_events WHERE id = $1 AND campaign_id = $2;
+
+-- name: EditEventMessage :one
+UPDATE campaign_events SET message = $2, edited_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: DeleteEvent :execrows
+DELETE FROM campaign_events WHERE id = $1;

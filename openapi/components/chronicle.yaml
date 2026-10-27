@@ -1,6 +1,6 @@
 ChronicleEvent:
   type: object
-  required: [id, kind, category, message, createdAt]
+  required: [id, kind, category, message, createdAt, canEdit, canDelete]
   properties:
     id:
       type: string
@@ -31,6 +31,32 @@ ChronicleEvent:
     createdAt:
       type: string
       format: date-time
+    editedAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: When the line was last reworded (#411); absent if never.
+    canEdit:
+      type: boolean
+      description: >-
+        Whether the reader may reword this line (#411): a DM their table's
+        story notes and rulings, a player their own chat. Nobody rewords the
+        app's record or somebody else's words.
+    canDelete:
+      type: boolean
+      description: >-
+        Whether the reader may strike this line (#411): a DM any line at their
+        table, a player their own chat. Striking undoes nothing the line
+        recorded.
+
+EditChronicleEntryRequest:
+  type: object
+  required: [message]
+  properties:
+    message:
+      type: string
+      minLength: 1
+      maxLength: 2000
 
 DieGroup:
   type: object

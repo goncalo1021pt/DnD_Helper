@@ -15,7 +15,7 @@ import (
 const addEvent = `-- name: AddEvent :one
 INSERT INTO campaign_events (campaign_id, actor_user_id, kind, message)
 VALUES ($1, $2, $3, $4)
-RETURNING id, campaign_id, actor_user_id, kind, message, created_at, handout_id
+RETURNING id, campaign_id, actor_user_id, kind, message, created_at, handout_id, edited_at
 `
 
 type AddEventParams struct {
@@ -41,6 +41,73 @@ func (q *Queries) AddEvent(ctx context.Context, arg AddEventParams) (CampaignEve
 		&i.Message,
 		&i.CreatedAt,
 		&i.HandoutID,
+		&i.EditedAt,
+	)
+	return i, err
+}
+
+const deleteEvent = `-- name: DeleteEvent :execrows
+DELETE FROM campaign_events WHERE id = $1
+`
+
+func (q *Queries) DeleteEvent(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEvent, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const editEventMessage = `-- name: EditEventMessage :one
+UPDATE campaign_events SET message = $2, edited_at = now()
+WHERE id = $1
+RETURNING id, campaign_id, actor_user_id, kind, message, created_at, handout_id, edited_at
+`
+
+type EditEventMessageParams struct {
+	ID      uuid.UUID `json:"id"`
+	Message string    `json:"message"`
+}
+
+func (q *Queries) EditEventMessage(ctx context.Context, arg EditEventMessageParams) (CampaignEvent, error) {
+	row := q.db.QueryRow(ctx, editEventMessage, arg.ID, arg.Message)
+	var i CampaignEvent
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.ActorUserID,
+		&i.Kind,
+		&i.Message,
+		&i.CreatedAt,
+		&i.HandoutID,
+		&i.EditedAt,
+	)
+	return i, err
+}
+
+const getEventForCampaign = `-- name: GetEventForCampaign :one
+SELECT id, campaign_id, actor_user_id, kind, message, created_at, handout_id, edited_at FROM campaign_events WHERE id = $1 AND campaign_id = $2
+`
+
+type GetEventForCampaignParams struct {
+	ID         uuid.UUID `json:"id"`
+	CampaignID uuid.UUID `json:"campaign_id"`
+}
+
+// One line THROUGH its table: no row when it is not that table's, the same 404
+// as a line that never was.
+func (q *Queries) GetEventForCampaign(ctx context.Context, arg GetEventForCampaignParams) (CampaignEvent, error) {
+	row := q.db.QueryRow(ctx, getEventForCampaign, arg.ID, arg.CampaignID)
+	var i CampaignEvent
+	err := row.Scan(
+		&i.ID,
+		&i.CampaignID,
+		&i.ActorUserID,
+		&i.Kind,
+		&i.Message,
+		&i.CreatedAt,
+		&i.HandoutID,
+		&i.EditedAt,
 	)
 	return i, err
 }
@@ -48,7 +115,7 @@ func (q *Queries) AddEvent(ctx context.Context, arg AddEventParams) (CampaignEve
 const listEvents = `-- name: ListEvents :many
 WITH ev AS (
     SELECT e.id, e.campaign_id, e.actor_user_id, e.kind, e.message, e.created_at,
-           e.handout_id,
+           e.handout_id, e.edited_at,
            u.name AS actor_name,
            (CASE
                 WHEN e.kind = 'note'        THEN 'dm'
@@ -63,7 +130,7 @@ WITH ev AS (
     LEFT JOIN users u ON u.id = e.actor_user_id
     WHERE e.campaign_id = $1
 )
-SELECT id, campaign_id, actor_user_id, kind, message, created_at, handout_id, actor_name, category FROM ev
+SELECT id, campaign_id, actor_user_id, kind, message, created_at, handout_id, edited_at, actor_name, category FROM ev
 WHERE $2::text = 'all' OR category = $2::text
 ORDER BY created_at DESC
 LIMIT $3
@@ -83,6 +150,7 @@ type ListEventsRow struct {
 	Message     string             `json:"message"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	HandoutID   pgtype.UUID        `json:"handout_id"`
+	EditedAt    pgtype.Timestamptz `json:"edited_at"`
 	ActorName   *string            `json:"actor_name"`
 	Category    string             `json:"category"`
 }
@@ -107,6 +175,7 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListE
 			&i.Message,
 			&i.CreatedAt,
 			&i.HandoutID,
+			&i.EditedAt,
 			&i.ActorName,
 			&i.Category,
 		); err != nil {
