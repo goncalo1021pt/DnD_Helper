@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -160,6 +161,55 @@ func (s *Server) ServeMCP() http.Handler {
 	})
 }
 
+// mcpRateLimit is the limiter for this door (#417). A tool call refused by
+// the ceiling is answered inside the protocol — a tool result marked as an
+// error, saying how long to wait — because a client reads a bare 429 as the
+// connection failing, and the assistant tells its person the server is down
+// instead of waiting four seconds. Anything else refused (initialize, a list,
+// a body that is not one JSON-RPC call) keeps the plain 429.
+func (s *Server) mcpRateLimit(next http.Handler) http.Handler {
+	return s.limitWith(next, func(w http.ResponseWriter, r *http.Request, secs int) {
+		id, ok := mcpToolCallID(r)
+		if !ok {
+			refuseTooMany(w, r, secs)
+			return
+		}
+		text := fmt.Sprintf("Quest Board's rate limit for this token was reached: wait %d seconds, then try this call again.", secs)
+		if secs == 1 {
+			text = "Quest Board's rate limit for this token was reached: wait a second, then try this call again."
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      id,
+			"result": map[string]any{
+				"content": []map[string]string{{"type": "text", "text": text}},
+				"isError": true,
+			},
+		})
+	})
+}
+
+// mcpToolCallID reads a refused request's body for the one thing the answer
+// needs: the id of a tools/call. The body is never handed on — the call was
+// refused — so reading it costs nothing but the read.
+func mcpToolCallID(r *http.Request) (json.RawMessage, bool) {
+	if r.Method != http.MethodPost || r.Body == nil {
+		return nil, false
+	}
+	var call struct {
+		ID     json.RawMessage `json:"id"`
+		Method string          `json:"method"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&call); err != nil {
+		return nil, false
+	}
+	if call.Method != "tools/call" || len(call.ID) == 0 || string(call.ID) == "null" {
+		return nil, false
+	}
+	return call.ID, true
+}
+
 // --- naming things --------------------------------------------------------
 
 // tableRef finds one of the caller's tables by id or by name. An empty ref is
@@ -179,44 +229,125 @@ func (s *Server) tableRef(ctx context.Context, ref string) (api.CampaignMembersh
 		}
 		return api.CampaignMembership{}, refuse("Which table? You sit at %s.", listNames(tables, func(t api.CampaignMembership) string { return t.Campaign.Name }))
 	}
-	return pickOne(tables, ref, "table",
-		func(t api.CampaignMembership) uuid.UUID { return t.Campaign.Id },
-		func(t api.CampaignMembership) string { return t.Campaign.Name })
+	return pickOne(tables, ref, naming[api.CampaignMembership]{
+		what: "table",
+		id:   func(t api.CampaignMembership) uuid.UUID { return t.Campaign.Id },
+		name: func(t api.CampaignMembership) string { return t.Campaign.Name },
+		label: func(t api.CampaignMembership) string {
+			if t.Role == api.Dm {
+				return "you are DM"
+			}
+			return "you play"
+		},
+	})
 }
 
-// pickOne resolves a reference against a list: an id, else an exact name
-// (ignoring case), else the one name containing it. Two candidates is a
-// question back, never a guess.
-func pickOne[T any](items []T, ref, what string, idOf func(T) uuid.UUID, nameOf func(T) string) (T, error) {
+// naming is how pickOne reads a candidate: its id and name, and the few words
+// that tell two of the same name apart — "spell · srd", "Cleric 3 · at
+// Invasion" — because a list of identical names with ids is a question nobody
+// can answer (#420).
+type naming[T any] struct {
+	what  string
+	id    func(T) uuid.UUID
+	name  func(T) string
+	label func(T) string // optional
+	// prefer, when set, settles a tier holding both kinds of candidate: a
+	// codex entry over a feature of the same name inside another entry.
+	prefer func(T) bool
+	// idless, when set, marks a candidate whose id would name something
+	// else — a feature carries its class's id — so the list leaves it out.
+	idless func(T) bool
+	// narrow is what the refusal suggests beyond the id ("add kind").
+	narrow string
+}
+
+// echo is a caller's words quoted back in a refusal, cut short: a model that
+// sent sixty kilobytes as a name does not need them read back to it.
+func echo(s string) string { return excerpt(strings.TrimSpace(s), 100) }
+
+// pickMost is how many candidates an ambiguous name lists before it says how
+// many more there are: past a dozen the list is no help, and "ea" matches
+// three hundred codex entries.
+const pickMost = 15
+
+// pickOne resolves a reference against a list: an id; else the name, ranked
+// the way search ranks it (#321) — the exact name (ignoring case and
+// accents), else a name with a word starting with it, else a name containing
+// it anywhere. The first rank with anything in it decides: one candidate is
+// taken, several are a question back, never a guess.
+func pickOne[T any](items []T, ref string, n naming[T]) (T, error) {
 	var zero T
 	if id, err := uuid.Parse(ref); err == nil {
 		for _, it := range items {
-			if idOf(it) == id {
+			if n.id(it) == id {
 				return it, nil
 			}
 		}
-		return zero, notReadable("That " + what)
+		return zero, notReadable("That " + n.what)
 	}
-	low := strings.ToLower(ref)
-	var exact, partial []T
+	q := fold(strings.TrimSpace(ref)).runes
+	var exact, word, within []T
 	for _, it := range items {
-		n := strings.ToLower(nameOf(it))
+		name := fold(n.name(it))
 		switch {
-		case n == low:
+		case string(name.runes) == string(q):
 			exact = append(exact, it)
-		case strings.Contains(n, low):
-			partial = append(partial, it)
+		case name.wordIndex(q) >= 0:
+			word = append(word, it)
+		case name.index(q) >= 0:
+			within = append(within, it)
 		}
 	}
-	for _, set := range [][]T{exact, partial} {
+	for _, set := range [][]T{exact, word, within} {
+		if n.prefer != nil {
+			var preferred []T
+			for _, it := range set {
+				if n.prefer(it) {
+					preferred = append(preferred, it)
+				}
+			}
+			if len(preferred) > 0 {
+				set = preferred
+			}
+		}
 		switch {
 		case len(set) == 1:
 			return set[0], nil
 		case len(set) > 1:
-			return zero, refuse("More than one %s matches %q: %s. Use the id.", what, ref, namesWithIDs(set, idOf, nameOf))
+			return zero, refuse("More than one %s matches %q: %s", n.what, echo(ref), n.list(set))
 		}
 	}
-	return zero, refuse("No %s matches %q.", what, ref)
+	return zero, refuse("No %s matches %q.", n.what, echo(ref))
+}
+
+// list writes the candidates of an ambiguous name, at most pickMost of them,
+// and what to do next.
+func (n naming[T]) list(set []T) string {
+	parts := make([]string, 0, min(len(set), pickMost))
+	for _, it := range set[:min(len(set), pickMost)] {
+		tags := []string{}
+		if n.label != nil {
+			if l := n.label(it); l != "" {
+				tags = append(tags, l)
+			}
+		}
+		if n.idless == nil || !n.idless(it) {
+			tags = append(tags, n.id(it).String())
+		}
+		tag := strings.Join(tags, " · ")
+		parts = append(parts, fmt.Sprintf("%s (%s)", n.name(it), tag))
+	}
+	out := strings.Join(parts, "; ") + "."
+	if more := len(set) - pickMost; more > 0 {
+		out += fmt.Sprintf(" And %d more.", more)
+	}
+	out += " Use the id"
+	if n.narrow != "" {
+		out += ", " + n.narrow
+	} else if len(set) > pickMost {
+		out += ", or a longer name"
+	}
+	return out + "."
 }
 
 func listNames[T any](items []T, nameOf func(T) string) string {
@@ -225,12 +356,4 @@ func listNames[T any](items []T, nameOf func(T) string) string {
 		names = append(names, nameOf(it))
 	}
 	return strings.Join(names, ", ")
-}
-
-func namesWithIDs[T any](items []T, idOf func(T) uuid.UUID, nameOf func(T) string) string {
-	parts := make([]string, 0, len(items))
-	for _, it := range items {
-		parts = append(parts, fmt.Sprintf("%s (%s)", nameOf(it), idOf(it)))
-	}
-	return strings.Join(parts, "; ")
 }

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -175,7 +177,7 @@ func (s *Server) heroRef(ctx context.Context, ref, table string) (uuid.UUID, err
 			pool = append(pool, mine...)
 		}
 	}
-	if hit, err := pickOne(pool, ref, "hero", func(c api.Character) uuid.UUID { return c.Id }, func(c api.Character) string { return c.Name }); err == nil {
+	if hit, err := pickOne(pool, ref, heroNaming); err == nil {
 		return hit.Id, nil
 	}
 	var tables []api.CampaignMembership
@@ -206,8 +208,22 @@ func (s *Server) heroRef(ctx context.Context, ref, table string) (uuid.UUID, err
 			}
 		}
 	}
-	hit, err := pickOne(pool, ref, "hero", func(c api.Character) uuid.UUID { return c.Id }, func(c api.Character) string { return c.Name })
+	hit, err := pickOne(pool, ref, heroNaming)
 	return hit.Id, err
+}
+
+// heroNaming tells two heroes of one name apart by what they are and where
+// they sit.
+var heroNaming = naming[api.Character]{
+	what: "hero",
+	id:   func(c api.Character) uuid.UUID { return c.Id },
+	name: func(c api.Character) string { return c.Name },
+	label: func(c api.Character) string {
+		if c.CampaignName != nil {
+			return heroClassLine(c) + " at " + *c.CampaignName
+		}
+		return heroClassLine(c)
+	},
 }
 
 func signed(n int) string {
@@ -382,8 +398,21 @@ func (s *Server) renderSheet(ctx context.Context, d api.CharacterDetail) (string
 	}
 
 	if len(d.Items) > 0 {
+		// The purse counts base units (#195) — copper on the standard ladder —
+		// so it reads as the table's coin, the way the sheet's purse does, and
+		// never as a count of gold pieces a hundred times too rich (#418).
+		ladder := standardCoinage
+		if campaignID, seated := seatedCampaign(row); seated {
+			if campaign, err := s.queries.GetCampaign(ctx, campaignID); err == nil {
+				ladder = coinageOf(campaign.Coinage)
+			}
+		}
 		b.WriteString("## Gear\n\n")
 		for _, it := range d.Items {
+			if it.IsPurse != nil && *it.IsPurse {
+				fmt.Fprintf(&b, "- Purse: %s\n", formatCoins(int64(it.Qty), ladder))
+				continue
+			}
 			fmt.Fprintf(&b, "- %s", it.Name)
 			if it.Qty != 1 {
 				fmt.Fprintf(&b, " ×%d", it.Qty)
@@ -394,9 +423,6 @@ func (s *Server) renderSheet(ctx context.Context, d api.CharacterDetail) (string
 			}
 			if it.Attuned {
 				tags = append(tags, "attuned")
-			}
-			if it.IsPurse != nil && *it.IsPurse {
-				tags = append(tags, "purse")
 			}
 			if len(tags) > 0 {
 				fmt.Fprintf(&b, " _(%s)_", strings.Join(tags, ", "))
@@ -429,44 +455,168 @@ func (s *Server) renderSheet(ctx context.Context, d api.CharacterDetail) (string
 // --- lookup ---------------------------------------------------------------
 
 type lookupInput struct {
-	Name string `json:"name" jsonschema:"the entry's name, or part of it"`
-	Kind string `json:"kind,omitempty" jsonschema:"optional: spell, class, subclass, species, background, feat, item, rule or monster (monsters are the DM's)"`
+	Name string `json:"name" jsonschema:"the entry's or feature's name, or part of it"`
+	Kind string `json:"kind,omitempty" jsonschema:"optional: spell, class, subclass, species, background, feat, item, rule, monster (monsters are the DM's) or feature (a class, subclass or species feature such as Second Wind)"`
+	From string `json:"from,omitempty" jsonschema:"optional, for a feature: the class, subclass or species it belongs to, e.g. Paladin"`
 }
 
 var lookupKinds = []api.ContentKind{"spell", "feat", "item", "class", "subclass", "species", "background", "rule", "monster"}
 
-func addLookup(t *toolbox) {
-	tool(t, "lookup", "Look up a rule",
-		"Read an entry from the rules codex — the SRD and the homebrew you can see — by name: a spell, class, subclass, species, background, feat, item, rule, or (for a DM) a monster.",
-		func(ctx context.Context, in lookupInput) (string, error) {
-			kinds := lookupKinds
-			if k := strings.ToLower(strings.TrimSpace(in.Kind)); k != "" {
-				kinds = nil
-				for _, known := range lookupKinds {
-					if string(known) == k {
-						kinds = []api.ContentKind{known}
-					}
-				}
-				if kinds == nil {
-					return "", refuse("Unknown kind %q.", in.Kind)
+// featureKinds are the entries whose features and traits a lookup reads
+// inside: what hero_sheet lists under Features comes from these.
+var featureKinds = []api.ContentKind{"class", "subclass", "species", "background"}
+
+// codexHit is one thing a lookup can answer with: a whole entry, or one
+// feature inside an entry (#419) — the sheet names Second Wind and Lay On
+// Hands, and neither is an entry of its own.
+type codexHit struct {
+	entry   api.RulesContent
+	feature map[string]any // nil for the whole entry
+}
+
+func (h codexHit) name() string {
+	if h.feature != nil {
+		n, _ := h.feature["name"].(string)
+		return n
+	}
+	return h.entry.Name
+}
+
+// sourceLabel says where an entry comes from: the SRD, or whose homebrew.
+func sourceLabel(r api.RulesContent) string {
+	if r.CreatorName != nil {
+		return "homebrew by " + *r.CreatorName
+	}
+	return string(r.Source)
+}
+
+var codexNaming = naming[codexHit]{
+	what: "entry",
+	id:   func(h codexHit) uuid.UUID { return h.entry.Id },
+	name: codexHit.name,
+	label: func(h codexHit) string {
+		if h.feature != nil {
+			return "feature of " + h.entry.Name + featureLevel(h.feature)
+		}
+		return string(h.entry.Kind) + " · " + sourceLabel(h.entry)
+	},
+	prefer: func(h codexHit) bool { return h.feature == nil },
+	idless: func(h codexHit) bool { return h.feature != nil },
+	narrow: "add kind, or for a feature name its class in from",
+}
+
+var monsterNaming = naming[api.RulesContent]{
+	what: "monster",
+	id:   func(r api.RulesContent) uuid.UUID { return r.Id },
+	name: func(r api.RulesContent) string { return r.Name },
+	label: func(r api.RulesContent) string {
+		return "CR " + crLabel(factsOf(r).CRValue) + " · " + sourceLabel(r)
+	},
+}
+
+func featureLevel(f map[string]any) string {
+	if lvl, ok := f["level"].(float64); ok && lvl > 0 {
+		return fmt.Sprintf(", level %d", int(lvl))
+	}
+	return ""
+}
+
+// featuresOf is every feature and trait an entry carries, in its own order.
+func featuresOf(r api.RulesContent) []map[string]any {
+	var out []map[string]any
+	for _, key := range []string{"features", "traits"} {
+		list, _ := r.Data[key].([]any)
+		for _, x := range list {
+			if f, ok := x.(map[string]any); ok {
+				if n, _ := f["name"].(string); n != "" {
+					out = append(out, f)
 				}
 			}
-			var pool []api.RulesContent
-			for _, k := range kinds {
+		}
+	}
+	return out
+}
+
+func addLookup(t *toolbox) {
+	tool(t, "lookup", "Look up a rule",
+		"Read an entry from the rules codex — the SRD and the homebrew you can see — by name: a spell, class, subclass, species, background, feat, item, rule, or (for a DM) a monster. Also finds a feature inside a class, subclass or species, such as Second Wind or Lay On Hands, so the features hero_sheet lists can be read.",
+		func(ctx context.Context, in lookupInput) (string, error) {
+			kind := strings.ToLower(strings.TrimSpace(in.Kind))
+			from := strings.TrimSpace(in.From)
+			if from != "" && kind == "" {
+				kind = "feature"
+			}
+			var entryKinds, insideKinds []api.ContentKind
+			switch {
+			case kind == "":
+				entryKinds, insideKinds = lookupKinds, featureKinds
+			case kind == "feature":
+				insideKinds = featureKinds
+			default:
+				for _, known := range lookupKinds {
+					if string(known) == kind {
+						entryKinds = []api.ContentKind{known}
+						if slices.Contains(featureKinds, known) {
+							insideKinds = entryKinds
+						}
+					}
+				}
+				if entryKinds == nil {
+					return "", refuse("Unknown kind %q: use spell, class, subclass, species, background, feat, item, rule, monster or feature.", echo(in.Kind))
+				}
+			}
+			if from != "" {
+				entryKinds = nil
+			}
+			var pool []codexHit
+			for _, k := range lookupKinds {
+				whole, inside := slices.Contains(entryKinds, k), slices.Contains(insideKinds, k)
+				if !whole && !inside {
+					continue
+				}
 				list, ok, err := as[api.ListRules200JSONResponse](t.s.ListRules(ctx, api.ListRulesRequestObject{Kind: k}))
 				if err != nil {
 					return "", err
 				}
-				if ok {
-					pool = append(pool, list...)
+				if !ok {
+					continue
+				}
+				for _, r := range list {
+					if whole {
+						pool = append(pool, codexHit{entry: r})
+					}
+					if inside && (from == "" || fold(r.Name).index(fold(from).runes) >= 0) {
+						for _, f := range featuresOf(r) {
+							pool = append(pool, codexHit{entry: r, feature: f})
+						}
+					}
 				}
 			}
-			hit, err := pickOne(pool, strings.TrimSpace(in.Name), "entry", func(r api.RulesContent) uuid.UUID { return r.Id }, func(r api.RulesContent) string { return r.Name })
+			hit, err := pickOne(pool, strings.TrimSpace(in.Name), codexNaming)
 			if err != nil {
 				return "", err
 			}
-			return renderEntry(hit), nil
+			if hit.feature != nil {
+				return renderFeature(hit), nil
+			}
+			return renderEntry(hit.entry), nil
 		})
+}
+
+// renderFeature writes one feature with where it comes from, so a model
+// reading it knows whose Channel Divinity it is.
+func renderFeature(h codexHit) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n_feature of %s (%s)%s · %s_\n\n", h.name(), h.entry.Name, h.entry.Kind, featureLevel(h.feature), sourceLabel(h.entry))
+	text, _ := h.feature["summary"].(string)
+	if text == "" {
+		text, _ = h.feature["description"].(string)
+	}
+	if text == "" {
+		text = "_No text is written for this feature._"
+	}
+	b.WriteString(strings.TrimSpace(text) + "\n")
+	return b.String()
 }
 
 // renderEntry writes a codex entry: its short fields as a list, then its
@@ -481,6 +631,19 @@ func renderEntry(r api.RulesContent) string {
 	if r.Summary != "" {
 		b.WriteString(r.Summary + "\n\n")
 	}
+	desc, _ := r.Data["description"].(string)
+	if r.Kind == api.RulesContentKindMonster {
+		writeAbilities(&b, r.Data["abilities"])
+		// A monster's description is its whole stat block — AC, HP, speed, CR
+		// and every action — so the fields are listed only when it is not.
+		if strings.Contains(desc, "**AC**") {
+			if saves, _ := r.Data["saves"].(string); strings.TrimSpace(saves) != "" {
+				fmt.Fprintf(&b, "**Saves** %s\n", saves)
+			}
+			b.WriteString("\n" + plainEntities(desc) + "\n")
+			return b.String()
+		}
+	}
 	keys := make([]string, 0, len(r.Data))
 	for k := range r.Data {
 		keys = append(keys, k)
@@ -488,30 +651,15 @@ func renderEntry(r api.RulesContent) string {
 	sort.Strings(keys)
 	for _, k := range keys {
 		switch k {
-		case "description", "features", "featuresTable", "traits", "choices", "book", "startingEquipment", "pools", "companions", "forms", "scale":
+		case "description", "features", "featuresTable", "traits", "choices", "book", "startingEquipment", "pools", "companions", "forms", "scale", "abilities", "crValue":
 			continue
 		}
-		switch v := r.Data[k].(type) {
-		case string, float64, bool:
-			fmt.Fprintf(&b, "- **%s**: %v\n", k, v)
-		case []any:
-			parts := []string{}
-			for _, x := range v {
-				if s, ok := x.(string); ok {
-					parts = append(parts, s)
-				}
-			}
-			if len(parts) == len(v) && len(parts) > 0 {
-				fmt.Fprintf(&b, "- **%s**: %s\n", k, strings.Join(parts, ", "))
-			}
-		case map[string]any:
-			if raw, err := json.Marshal(v); err == nil && len(raw) < 200 {
-				fmt.Fprintf(&b, "- **%s**: %s\n", k, raw)
-			}
+		if v := plainValue(r.Data[k]); v != "" {
+			fmt.Fprintf(&b, "- **%s**: %s\n", k, v)
 		}
 	}
-	if desc, _ := r.Data["description"].(string); desc != "" {
-		b.WriteString("\n" + desc + "\n")
+	if desc != "" {
+		b.WriteString("\n" + plainEntities(desc) + "\n")
 	}
 	if table, _ := r.Data["featuresTable"].([]any); len(table) > 0 {
 		writeFeaturesTable(&b, table)
@@ -537,6 +685,91 @@ func renderEntry(r api.RulesContent) string {
 		}
 	}
 	return b.String()
+}
+
+// plainValue is a data field as words, or "" when it says nothing: a number,
+// a list joined, an object as "key value; key value" — never raw JSON, which a
+// model reads as noise and a person reads as a bug (#422). A list of numbers
+// that are all the same (a class's twenty zero cantrips) says nothing either.
+func plainValue(v any) string {
+	switch v := v.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	case bool:
+		if v {
+			return "yes"
+		}
+		return "no"
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	case []any:
+		parts := make([]string, 0, len(v))
+		same := true
+		for i, x := range v {
+			if p := plainValue(x); p != "" {
+				parts = append(parts, p)
+			}
+			if i > 0 && fmt.Sprint(x) != fmt.Sprint(v[0]) {
+				same = false
+			}
+		}
+		if len(v) > 1 && same {
+			if _, num := v[0].(float64); num {
+				return ""
+			}
+		}
+		return strings.Join(parts, ", ")
+	case map[string]any:
+		keys := make([]string, 0, len(v))
+		for k := range v {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		parts := []string{}
+		for _, k := range keys {
+			if p := plainValue(v[k]); p != "" {
+				parts = append(parts, k+" "+p)
+			}
+		}
+		return strings.Join(parts, "; ")
+	}
+	return ""
+}
+
+// writeAbilities is a monster's six scores as the books print them.
+func writeAbilities(b *strings.Builder, v any) {
+	scores, _ := v.(map[string]any)
+	if len(scores) == 0 {
+		return
+	}
+	parts := []string{}
+	for _, a := range []string{"str", "dex", "con", "int", "wis", "cha"} {
+		if n, ok := scores[a].(float64); ok {
+			parts = append(parts, fmt.Sprintf("%s %d (%s)", strings.ToUpper(a), int(n), signed(abilityMod(int(n)))))
+		}
+	}
+	if len(parts) > 0 {
+		b.WriteString(strings.Join(parts, " · ") + "\n\n")
+	}
+}
+
+// plainEntities drops the HTML spacing entities the imported stat blocks
+// indent their second paragraphs with; markdown read by a model shows them
+// as the literal "&emsp;".
+func plainEntities(s string) string {
+	return strings.NewReplacer("&emsp;", "", "&ensp;", "", "&nbsp;", " ").Replace(s)
+}
+
+// thousands writes 75000 as 75,000, the way the stat blocks print XP.
+func thousands(n int) string {
+	s := strconv.Itoa(n)
+	if n < 0 {
+		return "-" + thousands(-n)
+	}
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
 }
 
 // writeFeaturesTable draws a class's per-level columns (Rages, Cantrips,
@@ -667,7 +900,7 @@ func addTableBoard(t *toolbox) {
 type chronicleInput struct {
 	Table    string `json:"table,omitempty" jsonschema:"the table's id or name; may be left out when you sit at only one"`
 	Limit    int    `json:"limit,omitempty" jsonschema:"how many lines, newest first (default 50, at most 200)"`
-	Category string `json:"category,omitempty" jsonschema:"optional: dm (story notes), rules (rulings), player (table chat) or log (what happened in the app)"`
+	Category string `json:"category,omitempty" jsonschema:"optional: dm (story notes), rules (rulings), player (table chat), rolls (dice) or log (what happened in the app)"`
 	Since    string `json:"since,omitempty" jsonschema:"optional: only lines from this date on, as YYYY-MM-DD"`
 }
 
@@ -679,7 +912,10 @@ func writeEvents(b *strings.Builder, events []api.ChronicleEvent) {
 		if e.ActorName != nil && *e.ActorName != "" {
 			who = *e.ActorName + ": "
 		}
-		fmt.Fprintf(b, "- %s [%s] %s%s\n", e.CreatedAt.UTC().Format("2006-01-02 15:04"), e.Category, who, strings.TrimSpace(e.Message))
+		// A line may hold line breaks since #411; indented, they stay inside
+		// its list item instead of starting loose paragraphs.
+		msg := strings.ReplaceAll(strings.TrimSpace(e.Message), "\n", "\n  ")
+		fmt.Fprintf(b, "- %s [%s] %s%s\n", e.CreatedAt.UTC().Format("2006-01-02 15:04"), e.Category, who, msg)
 	}
 }
 
@@ -699,7 +935,7 @@ func addChronicle(t *toolbox) {
 			params := api.ListEventsParams{Limit: &limit}
 			if c := strings.TrimSpace(in.Category); c != "" {
 				if !validFilterCategory(c) {
-					return "", refuse("Unknown category %q: use dm, rules, player or log.", c)
+					return "", refuse("Unknown category %q: use dm, rules, player, rolls or log.", echo(c))
 				}
 				params.Category = &c
 			}
@@ -710,6 +946,11 @@ func addChronicle(t *toolbox) {
 			if !ok {
 				return "", notReadable("That table")
 			}
+			// A full page means there may be older lines the page did not
+			// reach; the handler has no cursor yet (#424), so the reader is
+			// at least told the window was cut rather than left to think it
+			// read everything (#422).
+			full := len(events) == limit
 			if in.Since != "" {
 				since, err := time.Parse("2006-01-02", in.Since)
 				if err != nil {
@@ -723,12 +964,22 @@ func addChronicle(t *toolbox) {
 				}
 				events = kept
 			}
+			// Every line kept and the page full: the window reached the page's
+			// edge, not the date's.
+			cut := full && (in.Since == "" || len(events) == limit)
 			if len(events) == 0 {
 				return fmt.Sprintf("Nothing in the chronicle of %s for that.", tb.Campaign.Name), nil
 			}
 			var b strings.Builder
 			fmt.Fprintf(&b, "# Chronicle of %s\n\n", tb.Campaign.Name)
 			writeEvents(&b, events)
+			if cut {
+				if limit < 200 {
+					fmt.Fprintf(&b, "\n_These are the newest %d lines; older ones exist. Raise limit (at most 200) to read further back._\n", limit)
+				} else {
+					b.WriteString("\n_These are the newest 200 lines; older ones exist, and this tool cannot read further back yet._\n")
+				}
+			}
 			return b.String(), nil
 		})
 }
@@ -772,7 +1023,21 @@ func addWhatsKnown(t *toolbox) {
 
 			full := false
 			if ref := strings.TrimSpace(in.Place); ref != "" {
-				root, err := pickOne(places, ref, "place", func(l api.Location) uuid.UUID { return l.Id }, func(l api.Location) string { return l.Name })
+				root, err := pickOne(places, ref, naming[api.Location]{
+					what: "place",
+					id:   func(l api.Location) uuid.UUID { return l.Id },
+					name: func(l api.Location) string { return l.Name },
+					label: func(l api.Location) string {
+						if l.ParentId != nil {
+							for _, p := range places {
+								if p.Id == *l.ParentId {
+									return "in " + p.Name
+								}
+							}
+						}
+						return ""
+					},
+				})
 				if err != nil {
 					return "", err
 				}
@@ -1015,11 +1280,7 @@ func addDenSearch(t *toolbox) {
 				hits = append(hits, m)
 			}
 			sort.SliceStable(hits, func(i, j int) bool {
-				a, b := factsOf(hits[i]).CRValue, factsOf(hits[j]).CRValue
-				if a == nil || b == nil {
-					return b != nil
-				}
-				return *a < *b
+				return crBefore(factsOf(hits[i]).CRValue, factsOf(hits[j]).CRValue)
 			})
 			if len(hits) == 0 {
 				return "Nothing in the Den matches that.", nil
@@ -1036,7 +1297,7 @@ func addDenSearch(t *toolbox) {
 			b.WriteString("\n\n")
 			for _, m := range hits {
 				f := factsOf(m)
-				fmt.Fprintf(&b, "- **%s** — %s %s, CR %s (%d XP), AC %v, HP %v", m.Name, f.Size, f.Type, crLabel(f.CRValue), rules.MonsterXP(mustJSON(m.Data)), f.AC, f.HP)
+				fmt.Fprintf(&b, "- **%s** — %s %s, CR %s (%s XP), AC %v, HP %v", m.Name, f.Size, f.Type, crLabel(f.CRValue), thousands(rules.MonsterXP(mustJSON(m.Data))), f.AC, f.HP)
 				if m.Mine {
 					b.WriteString(" · your homebrew")
 				}
@@ -1044,6 +1305,16 @@ func addDenSearch(t *toolbox) {
 			}
 			return b.String(), nil
 		})
+}
+
+// crBefore orders challenge ratings low to high, with a monster that has none
+// — a companion whose numbers scale with its hero — after every one that does
+// (#421): it is not the weakest thing in the Den, it is not on the scale.
+func crBefore(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a != nil && b == nil
+	}
+	return *a < *b
 }
 
 func mustJSON(v any) []byte {
@@ -1109,19 +1380,25 @@ func addEncounterCheck(t *toolbox) {
 			total := 0
 			b.WriteString("# Encounter check\n\n")
 			for _, foe := range in.Monsters {
-				m, err := pickOne(den, strings.TrimSpace(foe.Name), "monster", func(r api.RulesContent) uuid.UUID { return r.Id }, func(r api.RulesContent) string { return r.Name })
+				m, err := pickOne(den, strings.TrimSpace(foe.Name), monsterNaming)
 				if err != nil {
 					return "", err
 				}
 				n := max(foe.Count, 1)
+				if factsOf(m).CRValue == nil {
+					// A companion's numbers scale with its hero; it has no
+					// challenge rating and the budget does not count it.
+					fmt.Fprintf(&b, "- %d × %s — no challenge rating, not counted\n", n, m.Name)
+					continue
+				}
 				xp := rules.MonsterXP(mustJSON(m.Data))
 				total += xp * n
-				fmt.Fprintf(&b, "- %d × %s (CR %s) = %d XP\n", n, m.Name, crLabel(factsOf(m).CRValue), xp*n)
+				fmt.Fprintf(&b, "- %d × %s (CR %s) = %s XP\n", n, m.Name, crLabel(factsOf(m).CRValue), thousands(xp*n))
 			}
 			budget := rules.PartyBudget(levels)
 			band := rules.BandFor(total, budget)
-			fmt.Fprintf(&b, "\n**Total %d XP → %s** against %s.\n\nBudgets: low %d · moderate %d · high %d.\n",
-				total, band, who, budget.Low, budget.Moderate, budget.High)
+			fmt.Fprintf(&b, "\n**Total %s XP → %s** against %s.\n\nBudgets: low %s · moderate %s · high %s.\n",
+				thousands(total), band, who, thousands(budget.Low), thousands(budget.Moderate), thousands(budget.High))
 			return b.String(), nil
 		})
 }
