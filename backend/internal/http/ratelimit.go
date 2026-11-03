@@ -41,7 +41,7 @@ var routeCost = map[string]float64{
 	"/api/me/export":                        25, // everything you own, in one read (#317)
 	"/api/openapi.json":                     5,  // the contract, a few hundred KB (#348)
 	"/api/openapi.yaml":                     5,
-	"/api/mcp":                              5, // a tool reads several doors in one call (#318)
+	"/api/mcp":                              2, // a tool reads several doors in one call (#318), but an assistant makes dozens of calls in one answer (#417)
 	"/api/campaigns/{campaignId}/search":    5, // every shelf of a table and the rules, as one read (#321)
 }
 
@@ -182,6 +182,13 @@ func remoteIP(r *http.Request) string {
 // and the error body the SPA's notice layer already reads; a token refused
 // this way is marked on its row, so the profile can say the script is looping.
 func (s *Server) rateLimit(next http.Handler) http.Handler {
+	return s.limitWith(next, refuseTooMany)
+}
+
+// limitWith is the limiter with the refusal's shape left to the door: the
+// bucket, the metric and the token's throttled mark are the same everywhere,
+// and only what the caller reads differs (the MCP door answers in-protocol).
+func (s *Server) limitWith(next http.Handler, refuse func(w http.ResponseWriter, r *http.Request, secs int)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.limiter == nil {
 			next.ServeHTTP(w, r)
@@ -202,8 +209,12 @@ func (s *Server) rateLimit(next http.Handler) http.Handler {
 			secs = 1
 		}
 		w.Header().Set("Retry-After", strconv.Itoa(secs))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusTooManyRequests)
-		_ = json.NewEncoder(w).Encode(api.Error{Error: fmt.Sprintf("too many requests — try again in %ds", secs)})
+		refuse(w, r, secs)
 	})
+}
+
+func refuseTooMany(w http.ResponseWriter, _ *http.Request, secs int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusTooManyRequests)
+	_ = json.NewEncoder(w).Encode(api.Error{Error: fmt.Sprintf("too many requests — try again in %ds", secs)})
 }

@@ -101,7 +101,7 @@ func NewRouter(deps Deps) http.Handler {
 			// The MCP server (#318): a token only, and no scope of its own —
 			// each tool declares the scopes its reads need, and a token that
 			// lacks one never sees the tool.
-			g.With(srv.rateLimit).Handle("/mcp", srv.ServeMCP())
+			g.With(srv.mcpRateLimit).Handle("/mcp", srv.ServeMCP())
 
 			// Register the generated, type-checked operation handlers onto this
 			// subrouter (paths: /health, /me, /campaigns).

@@ -394,7 +394,7 @@ changes*).
 | `my_tables` | `campaigns:read` | the tables you sit at, your role, the next session |
 | `my_heroes` | `heroes:read` | your heroes, their classes and where they sit |
 | `hero_sheet` | `heroes:read`, `campaigns:read` | a sheet with the numbers worked out: AC, HP, slots, pools, spells, features, gear |
-| `lookup` | `rules:read` | a codex entry by name: SRD or homebrew you can see; monsters for a DM |
+| `lookup` | `rules:read` | a codex entry by name: SRD or homebrew you can see; monsters for a DM; or one feature inside a class, subclass or species (*Second Wind*), narrowed with `from` |
 | `table_board` | `campaigns:read` | the next session, the quests, the latest chronicle lines |
 | `chronicle` | `campaigns:read` | the chronicle read back, by category or from a date |
 | `whats_known` | `campaigns:read` | the places as a tree and the people under them; one place in full |
@@ -406,7 +406,10 @@ What holds it together:
 
 - **A token, never a cookie.** The door refuses a browser's session, so no
   page you visit can drive it. The token's table restriction and its limits
-  apply as at any other door; every call costs 5 against the ceiling.
+  apply as at any other door; every call costs 2 against the ceiling — on
+  the default token ceiling, 60 calls at once and 30 a minute after. A tool
+  call past the ceiling is answered as a tool result saying how long to wait,
+  not as a bare 429, so an assistant waits instead of calling the server down.
 - **A tool you could not use is not shown.** The list is built for each
   request from the token's scopes, so a player's key never learns the DM's
   tools exist. Mint one for the purpose — `heroes:read`, `campaigns:read` and
@@ -421,7 +424,10 @@ What holds it together:
   what those words could steer.
 
 Tables and heroes may be named by id or by name, and a table may be left out
-when you sit at only one.
+when you sit at only one. A name is read the way search reads one — the exact
+name, else a word starting with it, else anywhere in it — and when that still
+leaves several, the answer lists them with what each is (*Shield: spell · srd*,
+*Shield: item · srd*) so the next call can pass the id.
 
 **Claude Code:**
 

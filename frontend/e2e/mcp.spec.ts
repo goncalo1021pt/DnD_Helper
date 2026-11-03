@@ -82,6 +82,9 @@ test("the tools read as the screen does, for the person whose token it is", asyn
     skills: ["Athletics", "Survival"],
   });
   await seatHero(pl, heroId, campaign.id);
+  // Coin in the purse: stored in copper, read in the table's coin (#418).
+  const gift = await dm.post(`/api/campaigns/${campaign.id}/gifts`, { data: { heroIds: [heroId], coin: "2 gp, 3 sp" } });
+  expect(gift.ok(), await gift.text()).toBeTruthy();
 
   // A browser's session is not a key: the door wants a token.
   const viaCookie = await pl.post("/api/mcp", {
@@ -120,6 +123,23 @@ test("the tools read as the screen does, for the person whose token it is", asyn
   expect(sheet).toMatch(/Barbarian 1/);
   expect(sheet).toMatch(/\*\*AC\*\* \d+/);
   expect(sheet).toContain("Rage"); // a feature earned at level 1
+  expect(sheet).toContain("Purse: 2 gp 3 sp");
+  expect(sheet).not.toMatch(/×230/);
+
+  // The sheet sends the reader to lookup for a feature, and lookup finds it
+  // inside its class (#419).
+  const secondWind = await text(player, "lookup", { name: "Second Wind" });
+  expect(secondWind).toContain("feature of Fighter (class), level 1");
+  expect(secondWind).toContain("Bonus Action");
+
+  // An ambiguous name says what each candidate is (#420).
+  const shield = await call(player, "lookup", { name: "Shield" });
+  expect(shield.isError).toBeTruthy();
+  expect(shield.content[0].text).toMatch(/Shield \(spell · srd · /);
+  expect(shield.content[0].text).toMatch(/Shield \(item · srd · /);
+
+  // A full page of the chronicle says there is more behind it (#422).
+  expect(await text(player, "chronicle", { limit: 1 })).toContain("older ones exist");
 
   const fireball = await text(player, "lookup", { name: "Fireball", kind: "spell" });
   expect(fireball).toContain("# Fireball");
