@@ -1071,7 +1071,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** The campaign chronicle, newest first (members) */
+        /**
+         * The campaign chronicle, newest first (members)
+         * @description Newest first. To read further back, pass the id of the last line you received as `before` and the next page continues from there; `since` and `until` fence a window (a session) in the query itself, and paging inside it is the same `before`.
+         */
         get: operations["listEvents"];
         put?: never;
         /** Write an entry into the chronicle (any member; players post to player chat) */
@@ -7707,6 +7710,12 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                /** @description A cursor: the id of the oldest line of the page before. Returns the lines strictly older than it. A line that is not in this table's chronicle answers 400. */
+                before?: string;
+                /** @description Only lines written at or after this moment. */
+                since?: string;
+                /** @description Only lines written before this moment. Must be after `since`. */
+                until?: string;
                 /** @description Filter to one channel (all | dm | rules | player | log); omit or "all" for everything. Plain string, validated server-side. */
                 category?: string;
             };
@@ -7727,6 +7736,7 @@ export interface operations {
                     "application/json": components["schemas"]["ChronicleEvent"][];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
         };

@@ -128,18 +128,26 @@ WITH ev AS (
             END)::text AS category
     FROM campaign_events e
     LEFT JOIN users u ON u.id = e.actor_user_id
-    WHERE e.campaign_id = $1
+    WHERE e.campaign_id = $7
 )
 SELECT id, campaign_id, actor_user_id, kind, message, created_at, handout_id, edited_at, actor_name, category FROM ev
-WHERE $2::text = 'all' OR category = $2::text
-ORDER BY created_at DESC
-LIMIT $3
+WHERE ($1::text = 'all' OR category = $1::text)
+  AND ($2::timestamptz IS NULL OR created_at >= $2::timestamptz)
+  AND ($3::timestamptz IS NULL OR created_at < $3::timestamptz)
+  AND ($4::timestamptz IS NULL
+       OR (created_at, id) < ($4::timestamptz, $5::uuid))
+ORDER BY created_at DESC, id DESC
+LIMIT $6
 `
 
 type ListEventsParams struct {
-	CampaignID uuid.UUID `json:"campaign_id"`
-	Column2    string    `json:"column_2"`
-	Limit      int32     `json:"limit"`
+	Category   string             `json:"category"`
+	Since      pgtype.Timestamptz `json:"since"`
+	Until      pgtype.Timestamptz `json:"until"`
+	BeforeAt   pgtype.Timestamptz `json:"before_at"`
+	BeforeID   pgtype.UUID        `json:"before_id"`
+	RowLimit   int32              `json:"row_limit"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
 }
 
 type ListEventsRow struct {
@@ -158,8 +166,21 @@ type ListEventsRow struct {
 // The chronicle, newest first, with the actor's name and a derived channel
 // category. Pass 'all' to see everything, or a category to filter to one
 // channel (filtering on the computed column so it survives the LIMIT).
+// since/until fence a window and before_at/before_id are a cursor — the oldest
+// line of the previous page — all applied here, so a page is exactly the next
+// lines and not the newest ones filtered afterwards (#424). The id is the
+// tie-break: lines written in one transaction share now(), and a cursor on the
+// time alone would skip or repeat them.
 func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListEventsRow, error) {
-	rows, err := q.db.Query(ctx, listEvents, arg.CampaignID, arg.Column2, arg.Limit)
+	rows, err := q.db.Query(ctx, listEvents,
+		arg.Category,
+		arg.Since,
+		arg.Until,
+		arg.BeforeAt,
+		arg.BeforeID,
+		arg.RowLimit,
+		arg.CampaignID,
+	)
 	if err != nil {
 		return nil, err
 	}

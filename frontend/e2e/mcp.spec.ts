@@ -138,8 +138,20 @@ test("the tools read as the screen does, for the person whose token it is", asyn
   expect(shield.content[0].text).toMatch(/Shield \(spell · srd · /);
   expect(shield.content[0].text).toMatch(/Shield \(item · srd · /);
 
-  // A full page of the chronicle says there is more behind it (#422).
-  expect(await text(player, "chronicle", { limit: 1 })).toContain("older ones exist");
+  // A full page of the chronicle says where to read on from, and the cursor
+  // it prints leads to the older lines (#424).
+  const newest = await text(player, "chronicle", { limit: 1 });
+  expect(newest).toContain("Older lines exist");
+  const cursor = newest.match(/before=`([0-9a-f-]{36})`/)![1];
+  const older = await text(player, "chronicle", { limit: 1, before: cursor });
+  expect(older).toContain("Chronicle of");
+  expect(older).not.toBe(newest);
+  // A window is exact, in days: today holds what this test wrote, 2000 holds nothing.
+  const today = new Date().toISOString().slice(0, 10);
+  expect(await text(player, "chronicle", { since: today, until: today })).toContain("Chronicle of");
+  expect(await text(player, "chronicle", { since: "2000-01-01", until: "2000-01-01" })).toContain("Nothing in the chronicle");
+  expect((await call(player, "chronicle", { before: "not-an-id" })).isError).toBeTruthy();
+  expect((await call(player, "chronicle", { since: "2026-08-02", until: "2026-08-01" })).isError).toBeTruthy();
 
   const fireball = await text(player, "lookup", { name: "Fireball", kind: "spell" });
   expect(fireball).toContain("# Fireball");

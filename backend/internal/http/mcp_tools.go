@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
@@ -907,7 +908,34 @@ type chronicleInput struct {
 	Table    string `json:"table,omitempty" jsonschema:"the table's id or name; may be left out when you sit at only one"`
 	Limit    int    `json:"limit,omitempty" jsonschema:"how many lines, newest first (default 50, at most 200)"`
 	Category string `json:"category,omitempty" jsonschema:"optional: dm (story notes), rules (rulings), player (table chat), rolls (dice) or log (what happened in the app)"`
-	Since    string `json:"since,omitempty" jsonschema:"optional: only lines from this date on, as YYYY-MM-DD"`
+	Since    string `json:"since,omitempty" jsonschema:"optional: only lines from this date on, as YYYY-MM-DD (UTC)"`
+	Until    string `json:"until,omitempty" jsonschema:"optional: only lines up to the end of this date, as YYYY-MM-DD (UTC); with since it reads one session"`
+	Before   string `json:"before,omitempty" jsonschema:"optional: a line id from the end of a previous answer, to read the lines older than it"`
+}
+
+// chronicleWindow reads since and until as whole days, UTC: since opens its
+// day, until closes its own, so since == until is that one day. The query
+// takes the window as moments and until exclusive, hence the day added.
+func chronicleWindow(since, until string) (from, to *time.Time, err error) {
+	if v := strings.TrimSpace(since); v != "" {
+		d, perr := time.Parse("2006-01-02", v)
+		if perr != nil {
+			return nil, nil, refuse("since must be a date, YYYY-MM-DD.")
+		}
+		from = &d
+	}
+	if v := strings.TrimSpace(until); v != "" {
+		d, perr := time.Parse("2006-01-02", v)
+		if perr != nil {
+			return nil, nil, refuse("until must be a date, YYYY-MM-DD.")
+		}
+		d = d.AddDate(0, 0, 1)
+		to = &d
+	}
+	if from != nil && to != nil && !to.After(*from) {
+		return nil, nil, refuse("until is before since.")
+	}
+	return from, to, nil
 }
 
 func writeEvents(b *strings.Builder, events []api.ChronicleEvent) {
@@ -927,7 +955,7 @@ func writeEvents(b *strings.Builder, events []api.ChronicleEvent) {
 
 func addChronicle(t *toolbox) {
 	tool(t, "chronicle", "Chronicle",
-		"Read a table's chronicle back, oldest to newest: story notes, rulings, table chat and the log of what happened. Good for summarising past sessions. Lines are written by the people at the table.",
+		"Read a table's chronicle back, oldest to newest: story notes, rulings, table chat and the log of what happened. Good for summarising past sessions: give since and until (the same date for one day) to read exactly a session, and when the answer ends with a before= cursor, call again with it to read further back. Lines are written by the people at the table.",
 		func(ctx context.Context, in chronicleInput) (string, error) {
 			tb, err := t.s.tableRef(ctx, in.Table)
 			if err != nil {
@@ -938,53 +966,53 @@ func addChronicle(t *toolbox) {
 				limit = 50
 			}
 			limit = min(limit, 200)
-			params := api.ListEventsParams{Limit: &limit}
+			from, to, err := chronicleWindow(in.Since, in.Until)
+			if err != nil {
+				return "", err
+			}
+			// One line more than asked for is how a full page knows there is
+			// an older one, without a count query.
+			ask := limit + 1
+			params := api.ListEventsParams{Limit: &ask, Since: from, Until: to}
+			if b := strings.TrimSpace(in.Before); b != "" {
+				id, perr := uuid.Parse(b)
+				if perr != nil {
+					return "", refuse("before is a line id, as printed at the end of the previous answer.")
+				}
+				cursor := openapi_types.UUID(id)
+				params.Before = &cursor
+			}
 			if c := strings.TrimSpace(in.Category); c != "" {
 				if !validFilterCategory(c) {
 					return "", refuse("Unknown category %q: use dm, rules, player, rolls or log.", echo(c))
 				}
 				params.Category = &c
 			}
-			events, ok, err := as[api.ListEvents200JSONResponse](t.s.ListEvents(ctx, api.ListEventsRequestObject{CampaignId: tb.Campaign.Id, Params: params}))
+			resp, err := t.s.ListEvents(ctx, api.ListEventsRequestObject{CampaignId: tb.Campaign.Id, Params: params})
 			if err != nil {
 				return "", err
 			}
-			if !ok {
+			var events []api.ChronicleEvent
+			switch r := resp.(type) {
+			case api.ListEvents200JSONResponse:
+				events = r
+			case api.ListEvents400JSONResponse:
+				return "", refuse("%s.", strings.TrimSuffix(r.Error, "."))
+			default:
 				return "", notReadable("That table")
 			}
-			// A full page means there may be older lines the page did not
-			// reach; the handler has no cursor yet (#424), so the reader is
-			// at least told the window was cut rather than left to think it
-			// read everything (#422).
-			full := len(events) == limit
-			if in.Since != "" {
-				since, err := time.Parse("2006-01-02", in.Since)
-				if err != nil {
-					return "", refuse("since must be a date, YYYY-MM-DD.")
-				}
-				kept := events[:0]
-				for _, e := range events {
-					if !e.CreatedAt.Before(since) {
-						kept = append(kept, e)
-					}
-				}
-				events = kept
+			older := len(events) > limit
+			if older {
+				events = events[:limit]
 			}
-			// Every line kept and the page full: the window reached the page's
-			// edge, not the date's.
-			cut := full && (in.Since == "" || len(events) == limit)
 			if len(events) == 0 {
 				return fmt.Sprintf("Nothing in the chronicle of %s for that.", tb.Campaign.Name), nil
 			}
 			var b strings.Builder
 			fmt.Fprintf(&b, "# Chronicle of %s\n\n", tb.Campaign.Name)
 			writeEvents(&b, events)
-			if cut {
-				if limit < 200 {
-					fmt.Fprintf(&b, "\n_These are the newest %d lines; older ones exist. Raise limit (at most 200) to read further back._\n", limit)
-				} else {
-					b.WriteString("\n_These are the newest 200 lines; older ones exist, and this tool cannot read further back yet._\n")
-				}
+			if older {
+				fmt.Fprintf(&b, "\n_Older lines exist. Call chronicle again with before=`%s` (and the same table, category, since and until) to read on._\n", events[len(events)-1].Id)
 			}
 			return b.String(), nil
 		})
