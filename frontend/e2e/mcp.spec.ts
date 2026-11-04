@@ -20,7 +20,7 @@ carry the drafts, marked — that a token is shown only the tools its scopes
 cover, and that a browser's session is no key to it.
 */
 
-type ToolResult = { content: Array<{ type: string; text: string }>; isError?: boolean };
+type ToolResult = { content: Array<{ type: string; text: string; data?: string; mimeType?: string }>; isError?: boolean };
 
 let nextId = 1;
 
@@ -102,7 +102,7 @@ test("the tools read as the screen does, for the person whose token it is", asyn
   });
   expect((hello.result as { serverInfo: { name: string } }).serverInfo.name).toBe("questboard");
   expect(await toolNames(player)).toEqual(
-    ["chronicle", "hero_sheet", "lookup", "my_heroes", "my_tables", "party", "table_board", "whats_known"],
+    ["chronicle", "handouts", "hero_sheet", "lookup", "my_heroes", "my_tables", "party", "quest", "table_board", "whats_known"],
   );
 
   expect(await text(player, "my_tables")).toContain(tableName);
@@ -179,4 +179,71 @@ test("the tools read as the screen does, for the person whose token it is", asyn
   expect(await toolNames(reader)).toEqual(["lookup"]);
 
   for (const ctx of [dm, pl, player, runner, reader]) await ctx.dispose();
+});
+
+/** A 1x1 PNG: the handouts' bytes only need to be a picture the server can measure. */
+const PIXEL_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+test("a whole quest, and the handouts a player was given (#425)", async () => {
+  const dm = await playwrightRequest.newContext();
+  await registerViaAPI(dm, newAccount("dm"));
+  const campaign = await createCampaign(dm, unique("Letters Table "));
+
+  const description = `${"The sea is wide and the road is long. ".repeat(12)}\n\nBring word back to the Guildmistress.`;
+  const made = await dm.post(`/api/campaigns/${campaign.id}/quests`, {
+    data: { title: "Reach the sea", description, locationId: null, rewards: [{ type: "gold", label: "Gold", value: "50 gp" }] },
+  });
+  expect(made.status(), await made.text()).toBe(201);
+  const draft = await dm.post(`/api/campaigns/${campaign.id}/quests`, { data: { title: "The vault job", locationId: null, visibleToParty: false } });
+  expect(draft.status(), await draft.text()).toBe(201);
+
+  const hand = async (title: string, visibleToParty: boolean) => {
+    const res = await dm.post(`/api/campaigns/${campaign.id}/handouts`, {
+      data: { title, caption: "Sealed in red wax", imageBase64: PIXEL_PNG, visibleToParty },
+    });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  };
+  await hand("Letter from the Guildmistress", true);
+  await hand("Vault plans", false);
+
+  const pl = await playwrightRequest.newContext();
+  await registerViaAPI(pl, newAccount("pl"));
+  await joinCampaign(pl, campaign.inviteCode);
+
+  // --- the player ---------------------------------------------------------
+  const player = await mint(pl, ["campaigns:read"]);
+  expect(await toolNames(player)).toEqual(["chronicle", "handouts", "my_tables", "party", "quest", "table_board", "whats_known"]);
+
+  const board = await text(player, "table_board");
+  expect(board).toContain("Use quest for a whole notice");
+  expect(board).not.toContain("Bring word back"); // the board still cuts the description to a line
+
+  const whole = await text(player, "quest", { quest: "reach the sea" });
+  expect(whole).toContain("Bring word back to the Guildmistress."); // the second paragraph is there
+  expect(whole).toContain("Gold (50 gp)");
+  // A drafted notice cannot be named into view.
+  expect((await call(player, "quest", { quest: "vault" })).isError).toBeTruthy();
+
+  const list = await text(player, "handouts");
+  expect(list).toContain("Letter from the Guildmistress");
+  expect(list).not.toContain("Vault plans");
+  expect(list).not.toContain("hidden from the party");
+
+  const letter = await call(player, "handouts", { handout: "guildmistress" });
+  expect(letter.isError, letter.content[0]?.text).toBeFalsy();
+  expect(letter.content[0].text).toContain("Sealed in red wax");
+  const picture = letter.content.find((c) => c.type === "image");
+  expect(picture?.mimeType).toBe("image/png");
+  expect(picture?.data).toBe(PIXEL_PNG);
+  // A veiled prop is no more readable by name than it is in the list.
+  expect((await call(player, "handouts", { handout: "Vault plans" })).isError).toBeTruthy();
+
+  // --- the DM -------------------------------------------------------------
+  const runner = await mint(dm, ["campaigns:read"]);
+  expect(await text(runner, "quest", { quest: "vault" })).toContain("hidden from the party");
+  expect(await text(runner, "handouts")).toMatch(/Vault plans.*hidden from the party/);
+  const plans = await call(runner, "handouts", { handout: "Vault plans" });
+  expect(plans.content.some((c) => c.type === "image")).toBeTruthy();
+
+  for (const ctx of [dm, pl, player, runner]) await ctx.dispose();
 });

@@ -66,10 +66,10 @@ func TestMCPShowsOnlyTheToolsAGrantHolds(t *testing.T) {
 		{"nothing", token(), []string{}},
 		{"rules only", token(auth.RulesRead), []string{"lookup"}},
 		{"a player's reading", token(auth.HeroesRead, auth.CampaignsRead, auth.RulesRead),
-			[]string{"chronicle", "hero_sheet", "lookup", "my_heroes", "my_tables", "party", "table_board", "whats_known"}},
+			[]string{"chronicle", "handouts", "hero_sheet", "lookup", "my_heroes", "my_tables", "party", "quest", "table_board", "whats_known"}},
 		{"a DM's reading", token(auth.HeroesRead, auth.CampaignsRun, auth.RulesRead),
-			[]string{"chronicle", "den_search", "encounter_check", "hero_sheet", "lookup", "my_heroes", "my_tables", "party", "table_board", "whats_known"}},
-		{"run without rules", token(auth.CampaignsRun), []string{"chronicle", "my_tables", "party", "table_board", "whats_known"}},
+			[]string{"chronicle", "den_search", "encounter_check", "handouts", "hero_sheet", "lookup", "my_heroes", "my_tables", "party", "quest", "table_board", "whats_known"}},
+		{"run without rules", token(auth.CampaignsRun), []string{"chronicle", "handouts", "my_tables", "party", "quest", "table_board", "whats_known"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
