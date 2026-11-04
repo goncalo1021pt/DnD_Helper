@@ -54,7 +54,7 @@ revoked token stops working on its very next call.
 // request and reflecting the same structs every time would be wasted work.
 var mcpSchemas = mcp.NewSchemaCache()
 
-const mcpInstructions = `Quest Board is a D&D campaign helper. These tools read it as the person whose token you hold: their tables (campaigns), their heroes, the rules codex, and what each table knows — quests, places, people, the chronicle. Everything is read-only, and you only ever see what that person could see in the app; a DM sees their own drafts and hidden things, marked as hidden.
+const mcpInstructions = `Quest Board is a D&D campaign helper. These tools read it as the person whose token you hold: their tables (campaigns), their heroes, the rules codex, and what each table knows — quests, handouts, places, people, the chronicle. Everything is read-only, and you only ever see what that person could see in the app; a DM sees their own drafts and hidden things, marked as hidden.
 
 Tables and heroes can be named by id or by name. Start with my_tables to see what is there.`
 
@@ -89,10 +89,22 @@ type toolbox struct {
 	grant auth.Grant
 }
 
-// tool registers a read-only tool whose answer is markdown. The caller is put
-// back on the context whatever the transport did with it, so every handler
-// the tool calls sees exactly the identity and grant the request came with.
+// tool registers a read-only tool whose answer is markdown.
 func tool[In any](t *toolbox, name, title, description string, run func(ctx context.Context, in In) (string, error)) {
+	toolWith(t, name, title, description, func(ctx context.Context, in In) ([]mcp.Content, error) {
+		text, err := run(ctx, in)
+		if err != nil {
+			return nil, err
+		}
+		return []mcp.Content{&mcp.TextContent{Text: text}}, nil
+	})
+}
+
+// toolWith is tool for an answer that is more than text — a handout comes
+// back as words and its picture (#425). The caller is put back on the context
+// whatever the transport did with it, so every handler the tool calls sees
+// exactly the identity and grant the request came with.
+func toolWith[In any](t *toolbox, name, title, description string, run func(ctx context.Context, in In) ([]mcp.Content, error)) {
 	mcp.AddTool(t.ms, &mcp.Tool{
 		Name:        name,
 		Title:       title,
@@ -100,7 +112,7 @@ func tool[In any](t *toolbox, name, title, description string, run func(ctx cont
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: new(bool)},
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, any, error) {
 		ctx = auth.WithGrant(auth.WithUser(ctx, t.uid), t.grant)
-		text, err := run(ctx, in)
+		content, err := run(ctx, in)
 		if err != nil {
 			var r refusal
 			if !errors.As(err, &r) {
@@ -109,7 +121,7 @@ func tool[In any](t *toolbox, name, title, description string, run func(ctx cont
 			}
 			return nil, nil, err
 		}
-		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}}, nil, nil
+		return &mcp.CallToolResult{Content: content}, nil, nil
 	})
 }
 

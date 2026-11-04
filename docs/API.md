@@ -396,6 +396,8 @@ changes*).
 | `hero_sheet` | `heroes:read`, `campaigns:read` | a sheet with the numbers worked out: AC, HP, slots, pools, spells, features, gear |
 | `lookup` | `rules:read` | a codex entry by name: SRD or homebrew you can see; monsters for a DM; or one feature inside a class, subclass or species (*Second Wind*), narrowed with `from` |
 | `table_board` | `campaigns:read` | the next session, the quests, the latest chronicle lines |
+| `quest` | `campaigns:read` | one notice in full: the whole description, rewards, who claimed it, whether it was paid out |
+| `handouts` | `campaigns:read` | the letters, maps and clues handed to the party: a list, or one by name with its picture |
 | `chronicle` | `campaigns:read` | the chronicle read back, by category or from a date |
 | `whats_known` | `campaigns:read` | the places as a tree and the people under them; one place in full |
 | `party` | `campaigns:read` | who runs the table, the heroes, the allies traveling with them |
@@ -423,7 +425,12 @@ What holds it together:
   people's words in the assistant's context, and a tool that could write is
   what those words could steer.
 
-Tables and heroes may be named by id or by name, and a table may be left out
+A handout is a picture, so reading one returns the picture with the words: as
+stored when it is modest, otherwise shrunk to 1568 px on its long edge as a
+JPEG, which is as much as a model reads of it. A handout given to one hero is
+listed, and its picture returned, only to that hero's player and the DMs.
+
+Tables, heroes, quests and handouts may be named by id or by name, and a table may be left out
 when you sit at only one. A name is read the way search reads one — the exact
 name, else a word starting with it, else anywhere in it — and when that still
 leaves several, the answer lists them with what each is (*Shield: spell · srd*,

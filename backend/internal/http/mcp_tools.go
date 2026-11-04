@@ -34,6 +34,8 @@ var mcpTools = []mcpTool{
 	{"hero_sheet", []auth.Scope{auth.HeroesRead, auth.CampaignsRead}, addHeroSheet},
 	{"lookup", []auth.Scope{auth.RulesRead}, addLookup},
 	{"table_board", []auth.Scope{auth.CampaignsRead}, addTableBoard},
+	{"quest", []auth.Scope{auth.CampaignsRead}, addQuest},
+	{"handouts", []auth.Scope{auth.CampaignsRead}, addHandouts},
 	{"chronicle", []auth.Scope{auth.CampaignsRead}, addChronicle},
 	{"whats_known", []auth.Scope{auth.CampaignsRead}, addWhatsKnown},
 	{"party", []auth.Scope{auth.CampaignsRead}, addParty},
@@ -818,7 +820,7 @@ type tableInput struct {
 
 func addTableBoard(t *toolbox) {
 	tool(t, "table_board", "Table board",
-		"A table at a glance: the next session, the quests on the board (with who claimed them and their rewards), and the latest chronicle lines.",
+		"A table at a glance: the next session, the quests on the board (with who claimed them and their rewards; quest reads one whole), and the latest chronicle lines.",
 		func(ctx context.Context, in tableInput) (string, error) {
 			tb, err := t.s.tableRef(ctx, in.Table)
 			if err != nil {
@@ -879,6 +881,10 @@ func addTableBoard(t *toolbox) {
 					fmt.Fprintf(&b, "\n  %s", d)
 				}
 				b.WriteString("\n")
+			}
+
+			if len(quests) > 0 {
+				b.WriteString("\n_Use quest for a whole notice._\n")
 			}
 
 			limit := 10
