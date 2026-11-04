@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
@@ -114,11 +116,31 @@ func (s *Server) ListEvents(ctx context.Context, request api.ListEventsRequestOb
 	if request.Params.Category != nil && validFilterCategory(*request.Params.Category) {
 		category = *request.Params.Category
 	}
-	rows, err := s.queries.ListEvents(ctx, db.ListEventsParams{
-		CampaignID: campaignID,
-		Column2:    category,
-		Limit:      limit,
-	})
+	arg := db.ListEventsParams{CampaignID: campaignID, Category: category, RowLimit: limit}
+	if p := request.Params; p.Since != nil {
+		arg.Since = pgtype.Timestamptz{Time: *p.Since, Valid: true}
+	}
+	if p := request.Params; p.Until != nil {
+		arg.Until = pgtype.Timestamptz{Time: *p.Until, Valid: true}
+	}
+	if arg.Since.Valid && arg.Until.Valid && !arg.Until.Time.After(arg.Since.Time) {
+		return api.ListEvents400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "until must be after since"}}, nil
+	}
+	// A cursor is a line of THIS table's chronicle: resolved through the table
+	// (the 404 of another table's line reads the same as one that never was),
+	// so an id is no way to learn anything about another campaign.
+	if request.Params.Before != nil {
+		at, err := s.queries.GetEventForCampaign(ctx, db.GetEventForCampaignParams{ID: uuid.UUID(*request.Params.Before), CampaignID: campaignID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return api.ListEvents400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "that line is not in this chronicle: start again without before"}}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		arg.BeforeAt = at.CreatedAt
+		arg.BeforeID = pgtype.UUID{Bytes: at.ID, Valid: true}
+	}
+	rows, err := s.queries.ListEvents(ctx, arg)
 	if err != nil {
 		return nil, err
 	}

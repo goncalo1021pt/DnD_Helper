@@ -398,7 +398,7 @@ changes*).
 | `table_board` | `campaigns:read` | the next session, the quests, the latest chronicle lines |
 | `quest` | `campaigns:read` | one notice in full: the whole description, rewards, who claimed it, whether it was paid out |
 | `handouts` | `campaigns:read` | the letters, maps and clues handed to the party: a list, or one by name with its picture |
-| `chronicle` | `campaigns:read` | the chronicle read back, by category or from a date |
+| `chronicle` | `campaigns:read` | the chronicle read back, by category, by a window of days (`since`, `until`), and past one page with a `before` cursor |
 | `whats_known` | `campaigns:read` | the places as a tree and the people under them; one place in full |
 | `party` | `campaigns:read` | who runs the table, the heroes, the allies traveling with them |
 | `den_search` | `rules:read`, `campaigns:run` | Den monsters by words, type and challenge rating |
@@ -429,6 +429,14 @@ A handout is a picture, so reading one returns the picture with the words: as
 stored when it is modest, otherwise shrunk to 1568 px on its long edge as a
 JPEG, which is as much as a model reads of it. A handout given to one hero is
 listed, and its picture returned, only to that hero's player and the DMs.
+
+The chronicle is read back the same way over REST: `GET /campaigns/{id}/events`
+is newest first, and `before=<id of the last line you got>` returns the page
+after it, so a client can walk a long campaign from the end to the beginning.
+`since` and `until` fence a window in the query itself — a session, not the
+newest lines filtered afterwards. The `chronicle` tool takes the same, as days
+(`since` and `until` the same date is one day, UTC), and ends a full page with
+the cursor to call again with.
 
 Tables, heroes, quests and handouts may be named by id or by name, and a table may be left out
 when you sit at only one. A name is read the way search reads one — the exact

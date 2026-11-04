@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -345,5 +346,26 @@ func TestMCPRateLimitAnswersInProtocol(t *testing.T) {
 	}
 	if rec := call(`not json`); rec.Code != http.StatusTooManyRequests {
 		t.Errorf("a body that is no call keeps the plain 429, got %d", rec.Code)
+	}
+}
+
+func TestChronicleWindow(t *testing.T) {
+	from, to, err := chronicleWindow("2026-08-01", "2026-08-01")
+	if err != nil || from == nil || to == nil {
+		t.Fatalf("one day: %v %v %v", from, to, err)
+	}
+	if got := to.Sub(*from); got != 24*time.Hour {
+		t.Errorf("since == until should be one whole day, got %v", got)
+	}
+	if from, to, err := chronicleWindow("", ""); err != nil || from != nil || to != nil {
+		t.Errorf("no window should stay open: %v %v %v", from, to, err)
+	}
+	if _, to, _ := chronicleWindow("", "2026-08-31"); to == nil || to.Format("2006-01-02") != "2026-09-01" {
+		t.Errorf("until closes its own day, so the query stops at the next midnight: %v", to)
+	}
+	for _, bad := range [][2]string{{"yesterday", ""}, {"", "31/08/2026"}, {"2026-08-02", "2026-08-01"}} {
+		if _, _, err := chronicleWindow(bad[0], bad[1]); err == nil {
+			t.Errorf("%v should be refused", bad)
+		}
 	}
 }
