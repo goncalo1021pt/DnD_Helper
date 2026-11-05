@@ -29,7 +29,7 @@ func (q *Queries) AddRecoveryCode(ctx context.Context, arg AddRecoveryCodeParams
 const adoptEmail = `-- name: AdoptEmail :one
 UPDATE users SET email = $2, email_verified = true
 WHERE id = $1 AND nullif(trim(email), '') IS NULL
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour
 `
 
 type AdoptEmailParams struct {
@@ -61,6 +61,8 @@ func (q *Queries) AdoptEmail(ctx context.Context, arg AdoptEmailParams) (User, e
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
@@ -117,12 +119,12 @@ const createLocalUser = `-- name: CreateLocalUser :one
 WITH new_user AS (
     INSERT INTO users (name, username, email, password_hash, provider, provider_id)
     VALUES ($1, $2, $3, $4, 'local', lower($2))
-    RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at
+    RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour
 ), door AS (
     INSERT INTO user_identities (user_id, provider, provider_id)
     SELECT id, 'local', lower($2) FROM new_user
 )
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at FROM new_user
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour FROM new_user
 `
 
 type CreateLocalUserParams struct {
@@ -150,6 +152,8 @@ type CreateLocalUserRow struct {
 	FriendTag           string             `json:"friend_tag"`
 	DeletionRequestedAt pgtype.Timestamptz `json:"deletion_requested_at"`
 	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
+	EmailDigestEvents   []string           `json:"email_digest_events"`
+	DigestHour          int16              `json:"digest_hour"`
 }
 
 // Register a username+password account. Display name defaults to the username;
@@ -183,6 +187,8 @@ func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
@@ -190,7 +196,7 @@ func (q *Queries) CreateLocalUser(ctx context.Context, arg CreateLocalUserParams
 const createOAuthUser = `-- name: CreateOAuthUser :one
 INSERT INTO users (name, email, image, provider, provider_id, email_verified)
 VALUES ($1, $2, $3, $4, $5, true)
-RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at
+RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour
 `
 
 type CreateOAuthUserParams struct {
@@ -230,6 +236,8 @@ func (q *Queries) CreateOAuthUser(ctx context.Context, arg CreateOAuthUserParams
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
@@ -262,7 +270,7 @@ func (q *Queries) EnableTOTP(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAnyUserByEmail = `-- name: GetAnyUserByEmail :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour FROM users
 WHERE lower(nullif(trim(email), '')) = lower(trim($1))
 `
 
@@ -289,24 +297,33 @@ func (q *Queries) GetAnyUserByEmail(ctx context.Context, btrim string) (User, er
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
 
 const getEmailEvents = `-- name: GetEmailEvents :one
-SELECT email_events, (email_events IS NULL)::boolean AS use_defaults
+SELECT email_events, (email_events IS NULL)::boolean AS use_defaults, email_digest_events, digest_hour
 FROM users WHERE id = $1
 `
 
 type GetEmailEventsRow struct {
-	EmailEvents []string `json:"email_events"`
-	UseDefaults bool     `json:"use_defaults"`
+	EmailEvents       []string `json:"email_events"`
+	UseDefaults       bool     `json:"use_defaults"`
+	EmailDigestEvents []string `json:"email_digest_events"`
+	DigestHour        int16    `json:"digest_hour"`
 }
 
 func (q *Queries) GetEmailEvents(ctx context.Context, id uuid.UUID) (GetEmailEventsRow, error) {
 	row := q.db.QueryRow(ctx, getEmailEvents, id)
 	var i GetEmailEventsRow
-	err := row.Scan(&i.EmailEvents, &i.UseDefaults)
+	err := row.Scan(
+		&i.EmailEvents,
+		&i.UseDefaults,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
+	)
 	return i, err
 }
 
@@ -332,7 +349,7 @@ func (q *Queries) GetEmailToken(ctx context.Context, tokenHash string) (EmailTok
 }
 
 const getLocalUserByEmail = `-- name: GetLocalUserByEmail :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour FROM users
 WHERE provider = 'local' AND lower(email) = lower($1)
 `
 
@@ -360,12 +377,14 @@ func (q *Queries) GetLocalUserByEmail(ctx context.Context, lower string) (User, 
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
 
 const getLocalUserByLogin = `-- name: GetLocalUserByLogin :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour FROM users
 WHERE provider = 'local'
   AND password_hash IS NOT NULL
   AND (lower(username) = lower($1) OR lower(email) = lower($1))
@@ -394,6 +413,8 @@ func (q *Queries) GetLocalUserByLogin(ctx context.Context, lower string) (User, 
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
@@ -444,7 +465,7 @@ func (q *Queries) GetSpentEmailToken(ctx context.Context, tokenHash string) (Ema
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at FROM users WHERE id = $1
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -468,12 +489,14 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
 
 const getUserByIdentity = `-- name: GetUserByIdentity :one
-SELECT u.id, u.name, u.email, u.image, u.provider, u.provider_id, u.created_at, u.username, u.password_hash, u.email_verified, u.totp_secret, u.totp_enabled, u.email_events, u.name_chosen, u.friend_tag, u.deletion_requested_at, u.deleted_at FROM users u
+SELECT u.id, u.name, u.email, u.image, u.provider, u.provider_id, u.created_at, u.username, u.password_hash, u.email_verified, u.totp_secret, u.totp_enabled, u.email_events, u.name_chosen, u.friend_tag, u.deletion_requested_at, u.deleted_at, u.email_digest_events, u.digest_hour FROM users u
 JOIN user_identities i ON i.user_id = u.id
 WHERE i.provider = $1 AND i.provider_id = $2
 `
@@ -506,12 +529,14 @@ func (q *Queries) GetUserByIdentity(ctx context.Context, arg GetUserByIdentityPa
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
 
 const getVerifiedUserByEmail = `-- name: GetVerifiedUserByEmail :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour FROM users
 WHERE email_verified
   AND lower(nullif(trim(email), '')) = lower(trim($1))
 `
@@ -540,6 +565,8 @@ func (q *Queries) GetVerifiedUserByEmail(ctx context.Context, btrim string) (Use
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
@@ -590,7 +617,8 @@ func (q *Queries) LinkIdentity(ctx context.Context, arg LinkIdentityParams) (Use
 }
 
 const listEmailRecipients = `-- name: ListEmailRecipients :many
-SELECT u.id, u.name, u.email, u.email_events, (u.email_events IS NULL)::boolean AS use_defaults
+SELECT u.id, u.name, u.email, u.email_events, (u.email_events IS NULL)::boolean AS use_defaults,
+       u.email_digest_events, u.digest_hour
 FROM users u
 JOIN memberships m ON m.user_id = u.id AND m.campaign_id = $2
 WHERE u.id = ANY($1::uuid[])
@@ -605,11 +633,13 @@ type ListEmailRecipientsParams struct {
 }
 
 type ListEmailRecipientsRow struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Email       *string   `json:"email"`
-	EmailEvents []string  `json:"email_events"`
-	UseDefaults bool      `json:"use_defaults"`
+	ID                uuid.UUID `json:"id"`
+	Name              string    `json:"name"`
+	Email             *string   `json:"email"`
+	EmailEvents       []string  `json:"email_events"`
+	UseDefaults       bool      `json:"use_defaults"`
+	EmailDigestEvents []string  `json:"email_digest_events"`
+	DigestHour        int16     `json:"digest_hour"`
 }
 
 // Who in an audience can be emailed about a table: a confirmed address, and
@@ -630,6 +660,8 @@ func (q *Queries) ListEmailRecipients(ctx context.Context, arg ListEmailRecipien
 			&i.Email,
 			&i.EmailEvents,
 			&i.UseDefaults,
+			&i.EmailDigestEvents,
+			&i.DigestHour,
 		); err != nil {
 			return nil, err
 		}
@@ -690,7 +722,7 @@ func (q *Queries) RecordAdminAction(ctx context.Context, arg RecordAdminActionPa
 
 const refreshOAuthProfile = `-- name: RefreshOAuthProfile :one
 UPDATE users SET name = CASE WHEN name_chosen THEN name ELSE $2 END, image = $3
-WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at
+WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour
 `
 
 type RefreshOAuthProfileParams struct {
@@ -725,6 +757,8 @@ func (q *Queries) RefreshOAuthProfile(ctx context.Context, arg RefreshOAuthProfi
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
@@ -784,7 +818,7 @@ func (q *Queries) SetTOTPSecret(ctx context.Context, arg SetTOTPSecretParams) er
 }
 
 const setUserName = `-- name: SetUserName :one
-UPDATE users SET name = $2, name_chosen = true WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at
+UPDATE users SET name = $2, name_chosen = true WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour
 `
 
 type SetUserNameParams struct {
@@ -815,6 +849,8 @@ func (q *Queries) SetUserName(ctx context.Context, arg SetUserNameParams) (User,
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }

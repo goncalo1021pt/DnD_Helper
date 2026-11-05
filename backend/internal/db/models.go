@@ -729,6 +729,18 @@ type CharacterTree struct {
 	PicksGranted int32     `json:"picks_granted"`
 }
 
+type DigestItem struct {
+	ID         uuid.UUID          `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	WebhookID  pgtype.UUID        `json:"webhook_id"`
+	CampaignID uuid.UUID          `json:"campaign_id"`
+	EventID    pgtype.UUID        `json:"event_id"`
+	Name       string             `json:"name"`
+	Line       string             `json:"line"`
+	DueAt      pgtype.Timestamptz `json:"due_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type DirectMessage struct {
 	ID          uuid.UUID          `json:"id"`
 	SenderID    uuid.UUID          `json:"sender_id"`
@@ -1143,6 +1155,8 @@ type User struct {
 	FriendTag           string             `json:"friend_tag"`
 	DeletionRequestedAt pgtype.Timestamptz `json:"deletion_requested_at"`
 	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
+	EmailDigestEvents   []string           `json:"email_digest_events"`
+	DigestHour          int16              `json:"digest_hour"`
 }
 
 type UserBlock struct {
@@ -1196,6 +1210,8 @@ type Webhook struct {
 	DisabledAt     pgtype.Timestamptz `json:"disabled_at"`
 	DisabledReason *string            `json:"disabled_reason"`
 	Format         string             `json:"format"`
+	Cadence        string             `json:"cadence"`
+	DigestHour     int16              `json:"digest_hour"`
 }
 
 type WebhookDelivery struct {
@@ -1211,4 +1227,5 @@ type WebhookDelivery struct {
 	LastStatus    *int32             `json:"last_status"`
 	LastError     *string            `json:"last_error"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Carries       int32              `json:"carries"`
 }

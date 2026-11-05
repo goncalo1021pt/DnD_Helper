@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
@@ -28,11 +29,23 @@ import (
 // feed.
 var Defaults = []events.Name{events.SessionScheduled, events.SessionMoved, events.HandoutGiven}
 
-// Offered reports whether an event may be emailed at all. A chronicle line
-// per email is a flood; that one waits for a digest, and is refused here so
-// the preference cannot even be set.
+// Offered reports whether an event may be emailed AS IT HAPPENS. A chronicle
+// line per email is a flood; that one is for the daily digest (#339) alone,
+// and is refused here so "now" cannot even be chosen for it.
 func Offered(n events.Name) bool {
 	return n != events.ChronicleWritten
+}
+
+// WantsDaily reports whether a person put this event in their daily digest.
+// There are no defaults to fall back on: a digest is opt-in, so nobody
+// receives one they did not choose.
+func WantsDaily(digest []string, n events.Name) bool {
+	for _, c := range digest {
+		if c == string(n) {
+			return true
+		}
+	}
+	return false
 }
 
 // Wants reads a person's choice: NULL in the column (useDefaults) means the
@@ -98,7 +111,7 @@ func deriveKey(sessionKey string) []byte {
 // mail provider must not hold a handler.
 func (s *Service) Subscriber() events.Subscriber {
 	return func(ctx context.Context, e events.Event) {
-		if s.send == nil || len(e.Audience) == 0 || !Offered(e.Name) {
+		if s.send == nil || len(e.Audience) == 0 {
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
@@ -108,13 +121,17 @@ func (s *Service) Subscriber() events.Subscriber {
 			log.Printf("notify: recipients for %s: %v", e.Name, err)
 			return
 		}
-		var to []db.ListEmailRecipientsRow
+		var to, later []db.ListEmailRecipientsRow
 		for _, r := range rows {
-			if r.Email != nil && Wants(r.EmailEvents, r.UseDefaults, e.Name) {
+			switch {
+			case r.Email == nil:
+			case Wants(r.EmailEvents, r.UseDefaults, e.Name):
 				to = append(to, r)
+			case WantsDaily(r.EmailDigestEvents, e.Name):
+				later = append(later, r)
 			}
 		}
-		if len(to) == 0 {
+		if len(to) == 0 && len(later) == 0 {
 			return
 		}
 		h := events.Happening{Name: e.Name, Payload: events.AsMap(e.Payload)}
@@ -127,8 +144,31 @@ func (s *Service) Subscriber() events.Subscriber {
 			}
 		}
 		line := events.Describe(h, humanTime)
+		s.hold(ctx, e, later, line)
+		if len(to) == 0 {
+			return
+		}
 		link := s.tableLink(e.Campaign)
 		go s.deliver(to, e.Name, h.Campaign, line, link)
+	}
+}
+
+// hold keeps a line for the daily digest (#339), rendered now so the
+// audience and the veil stay the emitter's decision, due at each person's hour.
+func (s *Service) hold(ctx context.Context, e events.Event, who []db.ListEmailRecipientsRow, line string) {
+	now := time.Now()
+	for _, r := range who {
+		err := s.q.InsertDigestItem(ctx, db.InsertDigestItemParams{
+			UserID:     pgtype.UUID{Bytes: r.ID, Valid: true},
+			CampaignID: e.Campaign,
+			EventID:    pgtype.UUID{Bytes: e.ID, Valid: e.ID != uuid.Nil},
+			Name:       string(e.Name),
+			Line:       line,
+			DueAt:      pgtype.Timestamptz{Time: events.NextDigest(now, int(r.DigestHour)), Valid: true},
+		})
+		if err != nil {
+			log.Printf("notify: hold %s for %s: %v", e.Name, r.ID, err)
+		}
 	}
 }
 
@@ -206,7 +246,15 @@ func (s *Service) Unsubscribe(ctx context.Context, token string) error {
 	if !ok {
 		return ErrBadToken
 	}
-	return s.q.SetEmailEvents(ctx, db.SetEmailEventsParams{ID: id, EmailEvents: []string{}})
+	u, err := s.q.GetEmailEvents(ctx, id)
+	if err != nil {
+		return err
+	}
+	// Everything off — and what was waiting for the digest goes with it.
+	if err := s.q.SetEmailDigest(ctx, db.SetEmailDigestParams{ID: id, EmailEvents: []string{}, EmailDigestEvents: []string{}, DigestHour: u.DigestHour}); err != nil {
+		return err
+	}
+	return s.q.DeleteUserDigest(ctx, pgtype.UUID{Bytes: id, Valid: true})
 }
 
 // ErrBadToken is an unsubscribe token that names nobody.

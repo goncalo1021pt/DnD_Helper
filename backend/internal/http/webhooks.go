@@ -153,9 +153,15 @@ func (s *Server) CreateWebhook(ctx context.Context, request api.CreateWebhookReq
 		format = string(*in.Format)
 	}
 
+	cadence, hour, msg := readCadence(in.Cadence, in.DigestHour, format)
+	if msg != "" {
+		return api.CreateWebhook400JSONResponse{BadRequestJSONResponse: badRequest(msg)}, nil
+	}
+
 	secret := webhooks.NewSecret()
 	row, err := s.queries.CreateWebhook(ctx, db.CreateWebhookParams{
 		UserID: pgtype.UUID{Bytes: uid, Valid: true}, Url: rawURL, Secret: secret, Events: names, CampaignID: campaign, Scopes: capScopes, Format: format,
+		Cadence: cadence, DigestHour: hour,
 	})
 	if err != nil {
 		return nil, err
@@ -163,7 +169,7 @@ func (s *Server) CreateWebhook(ctx context.Context, request api.CreateWebhookReq
 	full := db.GetWebhookForUserRow{
 		ID: row.ID, UserID: row.UserID, Url: row.Url, Secret: row.Secret, Events: row.Events,
 		CampaignID: row.CampaignID, Scopes: row.Scopes, CreatedAt: row.CreatedAt, Failures: row.Failures,
-		DisabledAt: row.DisabledAt, DisabledReason: row.DisabledReason, CampaignName: campaignName, Format: row.Format,
+		DisabledAt: row.DisabledAt, DisabledReason: row.DisabledReason, CampaignName: campaignName, Format: row.Format, Cadence: row.Cadence, DigestHour: row.DigestHour,
 	}
 	shown := secret
 	if format == webhooks.FormatDiscord {
@@ -260,12 +266,14 @@ func toAPIWebhook(r db.GetWebhookForUserRow) api.Webhook {
 		names = append(names, api.EventName(e))
 	}
 	out := api.Webhook{
-		Id:        openapi_types.UUID(r.ID),
-		Url:       r.Url,
-		Format:    api.WebhookFormat(r.Format),
-		Events:    names,
-		CreatedAt: r.CreatedAt.Time,
-		Failures:  int(r.Failures),
+		Id:         openapi_types.UUID(r.ID),
+		Url:        r.Url,
+		Format:     api.WebhookFormat(r.Format),
+		Cadence:    api.WebhookCadence(r.Cadence),
+		DigestHour: int(r.DigestHour),
+		Events:     names,
+		CreatedAt:  r.CreatedAt.Time,
+		Failures:   int(r.Failures),
 	}
 	if r.CampaignID.Valid {
 		id := openapi_types.UUID(r.CampaignID.Bytes)
@@ -298,6 +306,7 @@ func toAPIWebhookDelivery(r db.WebhookDelivery) api.WebhookDelivery {
 		Id:        openapi_types.UUID(r.ID),
 		Name:      r.Name,
 		Attempts:  int(r.Attempts),
+		Carries:   int(r.Carries),
 		CreatedAt: r.CreatedAt.Time,
 		Body:      body,
 		LastError: r.LastError,
@@ -319,4 +328,32 @@ func toAPIWebhookDelivery(r db.WebhookDelivery) api.WebhookDelivery {
 		out.NextAttemptAt = &t
 	}
 	return out
+}
+
+// defaultDigestHour is when a daily hook or digest is sent unless told
+// otherwise: evening, UTC.
+const defaultDigestHour = 18
+
+// readCadence reads the cadence a hook is asked for (#339). Daily is for a
+// Discord-format hook alone — a script wants each event as it happens — and
+// the hour is a UTC hour. The string is a 400's message, empty when fine.
+func readCadence(c *api.WebhookCadence, hour *int, format string) (string, int16, string) {
+	cadence := webhooks.CadenceImmediate
+	if c != nil {
+		if !c.Valid() {
+			return "", 0, "unknown cadence " + string(*c)
+		}
+		cadence = string(*c)
+	}
+	h := int16(defaultDigestHour)
+	if hour != nil {
+		if *hour < 0 || *hour > 23 {
+			return "", 0, "digestHour is an hour, 0 to 23 (UTC)"
+		}
+		h = int16(*hour)
+	}
+	if cadence == webhooks.CadenceDaily && format != webhooks.FormatDiscord {
+		return "", 0, "only a Discord message can be daily — a signed webhook hears each event as it happens"
+	}
+	return cadence, h, ""
 }

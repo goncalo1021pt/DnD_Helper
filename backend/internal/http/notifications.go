@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -57,12 +59,56 @@ func (s *Server) SetNotificationSettings(ctx context.Context, request api.SetNot
 	}
 	for _, n := range names {
 		if !notify.Offered(events.Name(n)) {
-			return api.SetNotificationSettings400JSONResponse{BadRequestJSONResponse: badRequest(n + " is not offered by email")}, nil
+			return api.SetNotificationSettings400JSONResponse{BadRequestJSONResponse: badRequest(n + " is not offered immediately by email — put it in digestEvents")}, nil
 		}
+	}
+	cur, err := s.queries.GetEmailEvents(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	// The digest list and the hour are optional on the wire: absent leaves
+	// them alone, so a script that only ever set emailEvents keeps working.
+	digest := cur.EmailDigestEvents
+	if request.Body.DigestEvents != nil {
+		var bad string
+		digest, bad = eventNames(*request.Body.DigestEvents)
+		if bad != "" {
+			return api.SetNotificationSettings400JSONResponse{BadRequestJSONResponse: badRequest("unknown event " + bad)}, nil
+		}
+	}
+	hour := cur.DigestHour
+	if request.Body.DigestHour != nil {
+		if *request.Body.DigestHour < 0 || *request.Body.DigestHour > 23 {
+			return api.SetNotificationSettings400JSONResponse{BadRequestJSONResponse: badRequest("digestHour is an hour, 0 to 23 (UTC)")}, nil
+		}
+		hour = int16(*request.Body.DigestHour)
+	}
+	// One event, one cadence: asking for it now and daily both is a mistake
+	// the picker cannot make, so a script that does is told.
+	now := map[string]bool{}
+	for _, n := range names {
+		now[n] = true
+	}
+	for _, n := range digest {
+		if now[n] {
+			return api.SetNotificationSettings400JSONResponse{BadRequestJSONResponse: badRequest(n + " is in both emailEvents and digestEvents")}, nil
+		}
+	}
+	if digest == nil {
+		digest = []string{}
 	}
 	// An empty list is a choice — none — and must reach the column as one,
 	// never as the NULL that means "the defaults".
-	if err := s.queries.SetEmailEvents(ctx, db.SetEmailEventsParams{ID: uid, EmailEvents: names}); err != nil {
+	if err := s.queries.SetEmailDigest(ctx, db.SetEmailDigestParams{ID: uid, EmailEvents: names, EmailDigestEvents: digest, DigestHour: hour}); err != nil {
+		return nil, err
+	}
+	// What is already waiting follows the hour; what is no longer wanted goes.
+	if err := s.queries.PruneUserDigest(ctx, db.PruneUserDigestParams{UserID: pgtype.UUID{Bytes: uid, Valid: true}, Column2: digest}); err != nil {
+		return nil, err
+	}
+	if err := s.queries.RescheduleUserDigest(ctx, db.RescheduleUserDigestParams{
+		UserID: pgtype.UUID{Bytes: uid, Valid: true}, DueAt: pgtype.Timestamptz{Time: events.NextDigest(time.Now(), int(hour)), Valid: true},
+	}); err != nil {
 		return nil, err
 	}
 	out, err := s.notificationSettings(ctx, uid)
@@ -95,7 +141,11 @@ func (s *Server) notificationSettings(ctx context.Context, uid uuid.UUID) (api.N
 	for _, id := range muted {
 		mutedIDs = append(mutedIDs, openapi_types.UUID(id))
 	}
-	out := api.NotificationSettings{EmailEvents: names, EmailVerified: user.EmailVerified, MutedCampaignIds: mutedIDs}
+	digest := make([]api.EventName, 0, len(chosen.EmailDigestEvents))
+	for _, n := range chosen.EmailDigestEvents {
+		digest = append(digest, api.EventName(n))
+	}
+	out := api.NotificationSettings{EmailEvents: names, DigestEvents: digest, DigestHour: int(chosen.DigestHour), EmailVerified: user.EmailVerified, MutedCampaignIds: mutedIDs}
 	if user.Email != nil && *user.Email != "" {
 		out.EmailAddress = user.Email
 	}
@@ -182,11 +232,21 @@ func (s *Server) SetTableChannel(ctx context.Context, request api.SetTableChanne
 	if bad != "" {
 		return api.SetTableChannel400JSONResponse{BadRequestJSONResponse: badRequest("unknown event " + bad)}, nil
 	}
-	if _, err := s.queries.UpsertTableChannel(ctx, db.UpsertTableChannelParams{
+	cadence, hour, msg := readCadence(request.Body.Cadence, request.Body.DigestHour, webhooks.FormatDiscord)
+	if msg != "" {
+		return api.SetTableChannel400JSONResponse{BadRequestJSONResponse: badRequest(msg)}, nil
+	}
+	ch, err := s.queries.UpsertTableChannel(ctx, db.UpsertTableChannelParams{
 		Url: rawURL, Secret: webhooks.NewSecret(), Events: names, CampaignID: pgtype.UUID{Bytes: campaignID, Valid: true},
-	}); err != nil {
+		Cadence: cadence, DigestHour: hour,
+	})
+	if err != nil {
 		return nil, err
 	}
+	// Going back to immediate, or moving the hour, must not strand what is
+	// waiting: lines held for a digest follow the hour, and are sent now-ish
+	// when the hook is no longer daily.
+	s.rescheduleHook(ctx, ch.ID, cadence, int(hour))
 	s.logEvent(ctx, campaignID, member.UserID, "table_rules", "The DM hangs a herald's horn on the table — its channel hears what everyone hears")
 	c, err := s.queries.GetCampaign(ctx, campaignID)
 	if err != nil {
@@ -293,4 +353,19 @@ func (s *Server) Unsubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// rescheduleHook keeps a table channel's held lines honest when the channel
+// is set again: the lines move to the new hour, and a channel that is no
+// longer daily has them sent in the next pass rather than stranded.
+func (s *Server) rescheduleHook(ctx context.Context, hook uuid.UUID, cadence string, hour int) {
+	due := events.NextDigest(time.Now(), hour)
+	if cadence != webhooks.CadenceDaily {
+		due = time.Now().Add(-time.Second)
+	}
+	if err := s.queries.RescheduleHookDigest(ctx, db.RescheduleHookDigestParams{
+		WebhookID: pgtype.UUID{Bytes: hook, Valid: true}, DueAt: pgtype.Timestamptz{Time: due, Valid: true},
+	}); err != nil {
+		log.Printf("digest: reschedule %s: %v", hook, err)
+	}
 }

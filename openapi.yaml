@@ -274,6 +274,15 @@ info:
     Mentions are switched off in what is posted (`allowed_mentions: {parse: []}`):
     a quest title is somebody's own text and must not ping a channel.
 
+    A Discord hook may also be **daily** (#339): `cadence: "daily"` with an optional
+    `digestHour` (a UTC hour, default 18). Its events are held and posted as one
+    message a day — one embed per table, a line per event, ten embeds to a message
+    and a count of what a long day left out — and a day with nothing in it posts
+    nothing. The delivery log shows it as one delivery named `digest` whose
+    `carries` is the number of events inside. A signed Quest Board hook cannot be
+    daily (400): a script wants each event as it happens, and a digest would be a
+    second envelope to document.
+
     ## Notifications
 
     What reaches you *outside* the app (#316): email to your confirmed address,
@@ -283,13 +292,20 @@ info:
 
     ```
     GET /me/notifications                          account:read
-    PUT /me/notifications                          account:write   {emailEvents[]}
+    PUT /me/notifications                          account:write   {emailEvents[], digestEvents?[], digestHour?}
     PUT /campaigns/{campaignId}/mute               campaigns:play  {muted}
     ```
 
-    `emailEvents` is the list of catalogue names that reach your inbox; empty is
-    none. `chronicle.written` is not offered by email — a line per line is a
-    flood — and is refused with 400. Nothing is sent to an address that has not
+    `emailEvents` is the list of catalogue names that reach your inbox as they
+    happen; empty is none. `chronicle.written` is not offered **as it happens** — a
+    line per line is a flood — and is refused there with 400. It is for the
+    **daily digest** (#339): `digestEvents` names the events collected into one
+    email a day at `digestHour` (a UTC hour; the profile shows it in your own
+    time), a section for each table and a line for each event, and a day with
+    nothing in it sends nothing. An event is in one list or the other, never both
+    (400), and nobody is subscribed to a digest they did not choose. Both fields
+    are optional on the way in — absent leaves them as they are, so a script that
+    only ever set `emailEvents` keeps working. Nothing is sent to an address that has not
     been confirmed; the choices are kept for when it is. A **mute** is a fact
     about your seat at one table: no email about that table while it holds,
     whatever the list says, and leaving the table drops it. Webhooks are
@@ -304,7 +320,7 @@ info:
     A DM may hang a Discord channel on the table itself:
 
     ```
-    PUT    /campaigns/{campaignId}/channel         campaigns:run   {url, events[]}
+    PUT    /campaigns/{campaignId}/channel         campaigns:run   {url, events[], cadence?, digestHour?}
     DELETE /campaigns/{campaignId}/channel         campaigns:run
     POST   /campaigns/{campaignId}/channel/ping    campaigns:run
     ```
@@ -11893,6 +11909,8 @@ components:
         - id
         - url
         - format
+        - cadence
+        - digestHour
         - events
         - createdAt
         - failures
@@ -11904,6 +11922,13 @@ components:
           type: string
         format:
           $ref: "#/components/schemas/WebhookFormat"
+        cadence:
+          $ref: "#/components/schemas/WebhookCadence"
+        digestHour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: The hour of the daily digest, in UTC. Meaningful only when `cadence` is `daily`.
         events:
           type: array
           description: The catalogue names it wants; empty means every one.
@@ -11948,6 +11973,14 @@ components:
         format:
           $ref: "#/components/schemas/WebhookFormat"
           description: Absent means `questboard`.
+        cadence:
+          $ref: "#/components/schemas/WebhookCadence"
+          description: Absent means `immediate`. `daily` is refused (400) on a `questboard` hook.
+        digestHour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: The UTC hour a `daily` hook is sent at. Absent means 18.
         events:
           type: array
           description: The catalogue names to hear; empty means every one.
@@ -11979,13 +12012,17 @@ components:
         - attempts
         - createdAt
         - body
+        - carries
       properties:
         id:
           type: string
           format: uuid
         name:
           type: string
-          description: The event name, or `ping`.
+          description: The event name, `ping`, or `digest` for a daily digest.
+        carries:
+          type: integer
+          description: How many events this delivery carries — 1, except a digest.
         attempts:
           type: integer
         createdAt:
@@ -12061,20 +12098,40 @@ components:
       enum:
         - questboard
         - discord
+    WebhookCadence:
+      type: string
+      description: |
+        When a hook is told (#339). `immediate` is one message per event as it happens. `daily` holds the events and sends one message a day at the hook's `digestHour`, with nothing sent on a day with nothing in it. Only a `discord` hook may be daily — a script wants each event as it happens.
+      enum:
+        - immediate
+        - daily
     NotificationSettings:
       type: object
       description: |
         What reaches a person outside the app (#316). Email goes to the account's confirmed address; a Discord channel of their own is a webhook with `format: discord`. A new account is told about the next gathering and a handout to them, and nothing else, until it says otherwise.
       required:
         - emailEvents
+        - digestEvents
+        - digestHour
         - emailVerified
         - mutedCampaignIds
       properties:
         emailEvents:
           type: array
-          description: The catalogue names that reach the inbox; empty means none.
+          description: The catalogue names emailed as they happen; empty means none.
           items:
             $ref: "#/components/schemas/EventName"
+        digestEvents:
+          type: array
+          description: |
+            The catalogue names emailed once a day instead (#339), in one message with a section per table. Never overlaps `emailEvents`. Nobody is subscribed to a digest they did not choose.
+          items:
+            $ref: "#/components/schemas/EventName"
+        digestHour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: The hour the digest is sent at, in UTC.
         emailAddress:
           type: string
           description: Where they go. Absent when the account has no address.
@@ -12096,15 +12153,34 @@ components:
         emailEvents:
           type: array
           description: |
-            The catalogue names to be emailed about; empty for none. `chronicle.written` is not offered by email — a line per line is a flood — and is refused with 400.
+            The catalogue names to be emailed about as they happen; empty for none. `chronicle.written` is not offered immediately — a line per line is a flood — and is refused with 400; put it in `digestEvents`.
           items:
             $ref: "#/components/schemas/EventName"
+        digestEvents:
+          type: array
+          description: |
+            The names to be emailed once a day. Absent leaves the list as it is, so a script that only sets `emailEvents` keeps working. A name in both lists is refused with 400.
+          items:
+            $ref: "#/components/schemas/EventName"
+        digestHour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: The UTC hour of the digest. Absent leaves it as it is.
     TableChannelInput:
       type: object
       required:
         - url
         - events
       properties:
+        cadence:
+          $ref: "#/components/schemas/WebhookCadence"
+          description: Absent means `immediate`.
+        digestHour:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: The UTC hour of a `daily` channel. Absent means 18.
         url:
           type: string
           description: A Discord incoming-webhook URL, or any URL that accepts a Discord-shaped message.

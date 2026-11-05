@@ -171,7 +171,7 @@ func (q *Queries) DeleteWebhooksOfUser(ctx context.Context, userID pgtype.UUID) 
 }
 
 const findLiveUserForOperator = `-- name: FindLiveUserForOperator :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at FROM users
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour FROM users
 WHERE deleted_at IS NULL
   AND (lower(username) = lower($1) OR lower(email) = lower($1))
 LIMIT 1
@@ -200,6 +200,8 @@ func (q *Queries) FindLiveUserForOperator(ctx context.Context, lower string) (Us
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }

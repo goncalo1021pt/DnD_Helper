@@ -5564,6 +5564,9 @@ export interface components {
             id: string;
             url: string;
             format: components["schemas"]["WebhookFormat"];
+            cadence: components["schemas"]["WebhookCadence"];
+            /** @description The hour of the daily digest, in UTC. Meaningful only when `cadence` is `daily`. */
+            digestHour: number;
             /** @description The catalogue names it wants; empty means every one. */
             events: components["schemas"]["EventName"][];
             /**
@@ -5589,6 +5592,10 @@ export interface components {
             url: string;
             /** @description Absent means `questboard`. */
             format?: components["schemas"]["WebhookFormat"];
+            /** @description Absent means `immediate`. `daily` is refused (400) on a `questboard` hook. */
+            cadence?: components["schemas"]["WebhookCadence"];
+            /** @description The UTC hour a `daily` hook is sent at. Absent means 18. */
+            digestHour?: number;
             /** @description The catalogue names to hear; empty means every one. */
             events: components["schemas"]["EventName"][];
             /**
@@ -5606,8 +5613,10 @@ export interface components {
         WebhookDelivery: {
             /** Format: uuid */
             id: string;
-            /** @description The event name, or `ping`. */
+            /** @description The event name, `ping`, or `digest` for a daily digest. */
             name: string;
+            /** @description How many events this delivery carries — 1, except a digest. */
+            carries: number;
             attempts: number;
             /** Format: date-time */
             createdAt: string;
@@ -5660,10 +5669,19 @@ export interface components {
          * @enum {string}
          */
         WebhookFormat: "questboard" | "discord";
+        /**
+         * @description When a hook is told (#339). `immediate` is one message per event as it happens. `daily` holds the events and sends one message a day at the hook's `digestHour`, with nothing sent on a day with nothing in it. Only a `discord` hook may be daily — a script wants each event as it happens.
+         * @enum {string}
+         */
+        WebhookCadence: "immediate" | "daily";
         /** @description What reaches a person outside the app (#316). Email goes to the account's confirmed address; a Discord channel of their own is a webhook with `format: discord`. A new account is told about the next gathering and a handout to them, and nothing else, until it says otherwise. */
         NotificationSettings: {
-            /** @description The catalogue names that reach the inbox; empty means none. */
+            /** @description The catalogue names emailed as they happen; empty means none. */
             emailEvents: components["schemas"]["EventName"][];
+            /** @description The catalogue names emailed once a day instead (#339), in one message with a section per table. Never overlaps `emailEvents`. Nobody is subscribed to a digest they did not choose. */
+            digestEvents: components["schemas"]["EventName"][];
+            /** @description The hour the digest is sent at, in UTC. */
+            digestHour: number;
             /** @description Where they go. Absent when the account has no address. */
             emailAddress?: string;
             /** @description Nothing is sent to an address that has not been confirmed, whatever emailEvents says — the preferences are kept for when it is. */
@@ -5672,10 +5690,18 @@ export interface components {
             mutedCampaignIds: string[];
         };
         NotificationSettingsInput: {
-            /** @description The catalogue names to be emailed about; empty for none. `chronicle.written` is not offered by email — a line per line is a flood — and is refused with 400. */
+            /** @description The catalogue names to be emailed about as they happen; empty for none. `chronicle.written` is not offered immediately — a line per line is a flood — and is refused with 400; put it in `digestEvents`. */
             emailEvents: components["schemas"]["EventName"][];
+            /** @description The names to be emailed once a day. Absent leaves the list as it is, so a script that only sets `emailEvents` keeps working. A name in both lists is refused with 400. */
+            digestEvents?: components["schemas"]["EventName"][];
+            /** @description The UTC hour of the digest. Absent leaves it as it is. */
+            digestHour?: number;
         };
         TableChannelInput: {
+            /** @description Absent means `immediate`. */
+            cadence?: components["schemas"]["WebhookCadence"];
+            /** @description The UTC hour of a `daily` channel. Absent means 18. */
+            digestHour?: number;
             /** @description A Discord incoming-webhook URL, or any URL that accepts a Discord-shaped message. */
             url: string;
             /** @description The catalogue names to post; empty means every one the whole table may hear. Whatever is named, the channel only ever receives an event whose audience is the entire table. */

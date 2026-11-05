@@ -62,24 +62,45 @@ test("the profile's email choices start at the defaults, persist, and refuse the
   await expect(section.getByText("The board", { exact: true })).toBeVisible();
   await expect(section.getByText("The next gathering changes date")).toBeVisible();
   await expect(section.getByText("session.moved")).toHaveCount(0);
-  await expect(section.locator('input[name="email-session.moved"]')).toBeChecked();
-  await expect(section.locator('input[name="email-quest.posted"]')).not.toBeChecked();
-  // The chronicle is not offered at all.
-  await expect(section.locator('input[name="email-chronicle.written"]')).toHaveCount(0);
+  const mode = (event: string, value: string) => section.locator(`input[name="email-${event}"][value="${value}"]`);
+  // Each event is off, now or daily (#339): a radio group, and the defaults show as "now".
+  await expect(mode("session.moved", "now")).toBeChecked();
+  await expect(mode("quest.posted", "off")).toBeChecked();
+  // The chronicle is daily or nothing: a line per email is a flood, so it has no "now".
+  await expect(mode("chronicle.written", "now")).toHaveCount(0);
+  await expect(mode("chronicle.written", "off")).toBeChecked();
+  // The digest hour appears only once something is daily.
+  await expect(page.getByTestId("digest-hour")).toHaveCount(0);
 
-  await section.locator('input[name="email-session.moved"]').uncheck();
-  await section.locator('input[name="email-quest.posted"]').check();
-  await expect(section.locator('input[name="email-quest.posted"]')).toBeChecked();
+  await mode("session.moved", "off").check();
+  await mode("quest.posted", "now").check();
+  await mode("chronicle.written", "daily").check();
+  await expect(page.getByTestId("digest-hour")).toBeVisible();
+  await expect(mode("quest.posted", "now")).toBeChecked();
   await page.reload();
-  await expect(page.getByTestId("notifications-settings").locator('input[name="email-session.moved"]')).not.toBeChecked();
-  await expect(page.getByTestId("notifications-settings").locator('input[name="email-quest.posted"]')).toBeChecked();
+  const again = page.getByTestId("notifications-settings");
+  await expect(again.locator('input[name="email-session.moved"][value="off"]')).toBeChecked();
+  await expect(again.locator('input[name="email-quest.posted"][value="now"]')).toBeChecked();
+  await expect(again.locator('input[name="email-chronicle.written"][value="daily"]')).toBeChecked();
 
-  // Through the API: the chronicle is refused, and an empty list is none.
+  // The hour is a UTC hour on the wire, shown in the reader's own time.
+  await again.locator('select[name="digest-hour"]').selectOption("7");
+  await expect.poll(async () => (await (await page.request.get("/api/me/notifications")).json()).digestHour).toBe(7);
+
+  // Through the API: the chronicle is refused as it happens, an empty list is none,
+  // and the digest list is left alone when a script does not send it.
   const refused = await page.request.put("/api/me/notifications", { data: { emailEvents: ["chronicle.written"] } });
   expect(refused.status()).toBe(400);
+  const both = await page.request.put("/api/me/notifications", { data: { emailEvents: ["quest.posted"], digestEvents: ["quest.posted"] } });
+  expect(both.status(), "one event, one cadence").toBe(400);
+  const badHour = await page.request.put("/api/me/notifications", { data: { emailEvents: [], digestHour: 24 } });
+  expect(badHour.status()).toBe(400);
   const none = await page.request.put("/api/me/notifications", { data: { emailEvents: [] } });
   expect(none.status()).toBe(200);
-  expect((await none.json()).emailEvents).toEqual([]);
+  const kept = await none.json();
+  expect(kept.emailEvents).toEqual([]);
+  expect(kept.digestEvents, "absent leaves the digest alone, so an older script keeps working").toEqual(["chronicle.written"]);
+  expect(kept.digestHour).toBe(7);
 });
 
 test("a mute is a fact about the seat: set from the player menu, read on /me, gone on leaving", async ({ page }) => {
@@ -349,4 +370,165 @@ test("a confirmed player is emailed about the next gathering, with a way out; th
   expect(mailsTo(readFileSync(logPath!, "utf8").slice(mark2), confirmed.email)).toHaveLength(0);
 
   for (const c of [dm, confirmedCtx, unconfirmedCtx, mutedCtx]) await c.dispose();
+});
+
+/*
+The daily digest (#339). Events a person asked for daily are held and sent as
+one message at their hour; the dev door (`POST /api/dev/send-digests`, never
+mounted in production) makes everything held due and runs both passes once, so
+nothing here waits for 18:00.
+*/
+
+const sendDigests = async (ctx: APIRequestContext) => {
+  const res = await ctx.post("/api/dev/send-digests");
+  expect(res.status(), await res.text()).toBe(200);
+  return (await res.json()) as { emails: number; deliveries: number };
+};
+
+test("a daily Discord hook gets one message for the day, one embed per table; a signed hook cannot be daily", async ({ page }) => {
+  const rx = await receiver();
+  try {
+    await registerViaAPI(page.request, newAccount("dd"));
+    const campaign = await createCampaign(page.request, unique("Digest "));
+
+    // Daily is for a Discord message alone: a script wants each event as it happens.
+    const refused = await page.request.post("/api/me/webhooks", { data: { url: hookUrl(rx.port, "/signed"), events: [], campaignId: null, cadence: "daily" } });
+    expect(refused.status(), "a signed hook cannot be daily").toBe(400);
+    const badHour = await page.request.post("/api/me/webhooks", { data: { url: hookUrl(rx.port, "/h"), events: [], campaignId: null, format: "discord", cadence: "daily", digestHour: 30 } });
+    expect(badHour.status()).toBe(400);
+
+    // Through the form: pick Discord, then "Once a day".
+    await page.goto("/questboard/profile");
+    await page.getByRole("button", { name: "New webhook" }).click();
+    await page.locator('input[name="webhook-url"]').fill(hookUrl(rx.port, "/daily"));
+    await page.getByRole("radio", { name: /Discord message/ }).check();
+    await page.getByRole("radio", { name: /Once a day/ }).check();
+    await page.locator('input[name="event-quest.posted"]').check();
+    await page.getByRole("button", { name: "Register" }).click();
+    await expect(page.getByTestId("hook-daily")).toBeVisible();
+
+    // Two events, nothing sent yet.
+    await postQuest(page.request, campaign.id, "Rats in the cellar");
+    await postQuest(page.request, campaign.id, "Wolves on the road");
+    await new Promise((r) => setTimeout(r, 3000));
+    expect(rx.got.length, "held for the digest, not sent as it happens").toBe(0);
+
+    // The hour strikes: one delivery carrying both.
+    const first = await sendDigests(page.request);
+    expect(first.deliveries).toBe(1);
+    await waitFor(() => rx.got.length >= 1);
+    expect(rx.got.length).toBe(1);
+    const msg = JSON.parse(rx.got[0].body) as { embeds: { title: string; description: string; url?: string }[]; allowed_mentions: { parse: string[] } };
+    expect(msg.embeds).toHaveLength(1);
+    expect(msg.embeds[0].title).toBe(campaign.name);
+    expect(msg.embeds[0].description).toContain("Rats in the cellar");
+    expect(msg.embeds[0].description).toContain("Wolves on the road");
+    expect(msg.embeds[0].url).toContain(`/questboard/campaigns/${campaign.id}`);
+    expect(msg.allowed_mentions.parse).toEqual([]);
+
+    // The log shows one delivery carrying two events.
+    const hook = (await (await page.request.get("/api/me/webhooks")).json())[0] as { id: string };
+    const log = (await (await page.request.get(`/api/me/webhooks/${hook.id}/deliveries`)).json()) as { name: string; carries: number }[];
+    expect(log.filter((d) => d.name === "digest")).toEqual([expect.objectContaining({ carries: 2 })]);
+    await page.getByRole("button", { name: "Deliveries" }).click();
+    await expect(page.getByTestId("delivery-log")).toContainText("daily digest");
+    await expect(page.getByTestId("delivery-log")).toContainText("2 events");
+
+    // A digest with nothing in it sends nothing.
+    const quiet = await sendDigests(page.request);
+    expect(quiet.deliveries).toBe(0);
+    await new Promise((r) => setTimeout(r, 3000));
+    expect(rx.got.length).toBe(1);
+  } finally {
+    rx.server.close();
+  }
+});
+
+test("the table's channel can be daily: it hears nothing until the hour, then one message", async ({ page }) => {
+  const rx = await receiver();
+  try {
+    await registerViaAPI(page.request, newAccount("hd"));
+    const campaign = await createCampaign(page.request, unique("Herald "));
+    await page.goto(`/questboard/campaigns/${campaign.id}/dm`);
+    const herald = page.getByTestId("herald-section");
+    await herald.getByRole("button", { name: "Connect a channel" }).click();
+    await page.locator('input[name="herald-url"]').fill(hookUrl(rx.port, "/herald"));
+    await page.getByRole("dialog").getByRole("radio", { name: /Once a day/ }).check();
+    await page.getByRole("button", { name: "Hang it" }).click();
+    await expect(herald.getByTestId("herald-daily")).toBeVisible();
+
+    await postQuest(page.request, campaign.id, "Rats in the cellar");
+    await postQuest(page.request, campaign.id, "Wolves on the road");
+    await new Promise((r) => setTimeout(r, 3000));
+    expect(rx.got.length).toBe(0);
+    expect((await sendDigests(page.request)).deliveries).toBe(1);
+    await waitFor(() => rx.got.length >= 1);
+    const msg = JSON.parse(rx.got[0].body) as { embeds: { description: string }[] };
+    expect(msg.embeds[0].description).toContain("Rats in the cellar");
+    expect(msg.embeds[0].description).toContain("Wolves on the road");
+
+    // Setting it back to immediate: what is held is sent on the next pass,
+    // and from then on each event goes at once.
+    await postQuest(page.request, campaign.id, "A third thing");
+    const back = await page.request.put(`/api/campaigns/${campaign.id}/channel`, { data: { url: hookUrl(rx.port, "/herald"), events: [], cadence: "immediate" } });
+    expect(back.status(), await back.text()).toBe(200);
+    expect((await sendDigests(page.request)).deliveries).toBe(1);
+    await waitFor(() => rx.got.length >= 2);
+    await postQuest(page.request, campaign.id, "A fourth thing");
+    await waitFor(() => rx.got.length >= 3);
+    expect((JSON.parse(rx.got[2].body) as { content: string }).content).toContain("A fourth thing");
+  } finally {
+    rx.server.close();
+  }
+});
+
+test("a player's daily email is one message with both lines, and a quiet day sends none", async () => {
+  const logPath = process.env.E2E_SERVER_LOG;
+  test.skip(!logPath, "set E2E_SERVER_LOG to the server's log file to read the mail it would have sent");
+
+  const dm = await playwrightRequest.newContext();
+  await registerViaAPI(dm, newAccount("dm"));
+  const campaign = await createCampaign(dm, unique("Table "));
+  const fan = newAccount("fan");
+  const fanCtx = await playwrightRequest.newContext();
+  await registerViaAPI(fanCtx, fan);
+  await confirmAddress(fanCtx, logPath!, fan.email);
+  await joinCampaign(fanCtx, campaign.inviteCode);
+
+  // Chronicle lines daily, nothing else.
+  const set = await fanCtx.put("/api/me/notifications", { data: { emailEvents: [], digestEvents: ["chronicle.written"] } });
+  expect(set.status(), await set.text()).toBe(200);
+
+  const mark = readFileSync(logPath!, "utf8").length;
+  for (const line of ["The bridge is out", "Torches at the ford"]) {
+    expect((await dm.post(`/api/campaigns/${campaign.id}/events`, { data: { message: line } })).status()).toBe(201);
+  }
+  await new Promise((r) => setTimeout(r, 3000));
+  expect(mailsTo(readFileSync(logPath!, "utf8").slice(mark), fan.email), "held, not sent as it happens").toHaveLength(0);
+
+  expect((await sendDigests(dm)).emails).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => mailsTo(readFileSync(logPath!, "utf8").slice(mark), fan.email).length, { timeout: 10_000 }).toBe(1);
+  const mail = mailsTo(readFileSync(logPath!, "utf8").slice(mark), fan.email)[0];
+  expect(mail).toContain(campaign.name);
+  expect(mail).toContain("The bridge is out");
+  expect(mail).toContain("Torches at the ford");
+  expect(mail).toContain("List-Unsubscribe-Post: List-Unsubscribe=One-Click");
+
+  // Nothing new: nothing sent.
+  const mark2 = readFileSync(logPath!, "utf8").length;
+  await sendDigests(dm);
+  await new Promise((r) => setTimeout(r, 2000));
+  expect(mailsTo(readFileSync(logPath!, "utf8").slice(mark2), fan.email)).toHaveLength(0);
+
+  // A line held, then taken out of the digest, never arrives.
+  await dm.post(`/api/campaigns/${campaign.id}/events`, { data: { message: "A late line" } });
+  await new Promise((r) => setTimeout(r, 1500));
+  expect((await fanCtx.put("/api/me/notifications", { data: { emailEvents: [], digestEvents: [] } })).status()).toBe(200);
+  const mark3 = readFileSync(logPath!, "utf8").length;
+  await sendDigests(dm);
+  await new Promise((r) => setTimeout(r, 2000));
+  expect(mailsTo(readFileSync(logPath!, "utf8").slice(mark3), fan.email)).toHaveLength(0);
+
+  await dm.dispose();
+  await fanCtx.dispose();
 });

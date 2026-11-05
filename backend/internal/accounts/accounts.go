@@ -153,6 +153,7 @@ func (s *Service) Purge(ctx context.Context, userID uuid.UUID, trigger string) e
 		{"email tokens", q.DeleteEmailTokensOfUser},
 		{"api tokens", q.DeleteAPITokensOfUser},
 		{"webhooks", func(ctx context.Context, id uuid.UUID) error { return q.DeleteWebhooksOfUser(ctx, pgUUID(id)) }},
+		{"digest", func(ctx context.Context, id uuid.UUID) error { return q.DeleteUserDigest(ctx, pgUUID(id)) }},
 		{"recovery codes", q.DeleteRecoveryCodes},
 		{"friendships", q.DeleteFriendshipsOfUser},
 		{"blocks", q.DeleteBlocksOfUser},

@@ -168,7 +168,7 @@ func (q *Queries) GetFriendship(ctx context.Context, arg GetFriendshipParams) (F
 }
 
 const getUserByFriendTag = `-- name: GetUserByFriendTag :one
-SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at FROM users WHERE lower(name) = lower($1::text) AND friend_tag = $2::text
+SELECT id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour FROM users WHERE lower(name) = lower($1::text) AND friend_tag = $2::text
 `
 
 type GetUserByFriendTagParams struct {
@@ -199,6 +199,8 @@ func (q *Queries) GetUserByFriendTag(ctx context.Context, arg GetUserByFriendTag
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }
@@ -526,7 +528,7 @@ func (q *Queries) SendPartyMessage(ctx context.Context, arg SendPartyMessagePara
 }
 
 const setFriendTag = `-- name: SetFriendTag :one
-UPDATE users SET friend_tag = $2 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at
+UPDATE users SET friend_tag = $2 WHERE id = $1 RETURNING id, name, email, image, provider, provider_id, created_at, username, password_hash, email_verified, totp_secret, totp_enabled, email_events, name_chosen, friend_tag, deletion_requested_at, deleted_at, email_digest_events, digest_hour
 `
 
 type SetFriendTagParams struct {
@@ -557,6 +559,8 @@ func (q *Queries) SetFriendTag(ctx context.Context, arg SetFriendTagParams) (Use
 		&i.FriendTag,
 		&i.DeletionRequestedAt,
 		&i.DeletedAt,
+		&i.EmailDigestEvents,
+		&i.DigestHour,
 	)
 	return i, err
 }

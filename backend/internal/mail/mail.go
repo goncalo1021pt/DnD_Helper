@@ -200,6 +200,88 @@ func Notification(n Notice) Message {
 	}
 }
 
+// DigestTable is one table's part of a daily digest (#339).
+type DigestTable struct {
+	Name  string
+	Link  string
+	Lines []string
+}
+
+// MaxDigestLines is how many lines one table gets in a digest before it
+// says how many more there were; a very busy table must not make an email
+// nobody reads.
+const MaxDigestLines = 30
+
+// DigestMail is what a daily digest says: a section per table, a line per
+// event, with the same way out a notice carries.
+type DigestMail struct {
+	Tables   []DigestTable
+	Link     string // where the button goes when more than one table is in it
+	Unsub    string
+	OneClick string
+}
+
+// Digest builds the daily email. The lines are the ones events.Describe
+// wrote when each event happened, so they read as the notices would have;
+// they are user text and are escaped here.
+func Digest(d DigestMail) Message {
+	total := 0
+	for _, t := range d.Tables {
+		total += len(t.Lines)
+	}
+	subject := "What happened at your tables"
+	cta, link := "Open Quest Board", d.Link
+	if len(d.Tables) == 1 {
+		subject = "What happened at " + d.Tables[0].Name
+		cta, link = "Open "+d.Tables[0].Name, d.Tables[0].Link
+	}
+	var intro, text strings.Builder
+	for i, t := range d.Tables {
+		lines := t.Lines
+		more := 0
+		if len(lines) > MaxDigestLines {
+			more = len(lines) - MaxDigestLines
+			lines = lines[:MaxDigestLines]
+		}
+		if i > 0 {
+			intro.WriteString("<br>")
+			text.WriteString("\n")
+		}
+		intro.WriteString("<b>" + html.EscapeString(t.Name) + "</b><br>")
+		text.WriteString(t.Name + "\n")
+		for _, l := range lines {
+			intro.WriteString("&bull; " + html.EscapeString(l) + "<br>")
+			text.WriteString("- " + l + "\n")
+		}
+		if more > 0 {
+			intro.WriteString(fmt.Sprintf("<i>…and %d more.</i><br>", more))
+			text.WriteString(fmt.Sprintf("...and %d more.\n", more))
+		}
+	}
+	events := "events"
+	if total == 1 {
+		events = "event"
+	}
+	htmlBody := renderEmail(content{
+		Preheader: fmt.Sprintf("%d %s since yesterday.", total, events),
+		Intro:     intro.String(),
+		CTALabel:  cta,
+		Link:      link,
+		Note:      "You asked for these once a day instead of one email each.",
+		Footer:    "Sent by Quest Board.",
+		Unsub:     d.Unsub,
+	})
+	return Message{
+		Subject: subject,
+		HTML:    htmlBody,
+		Text:    fmt.Sprintf("%s\nOpen: %s\n\nStop these emails: %s\nOr choose which ones reach you under Settings on your profile.", text.String(), link, d.Unsub),
+		Headers: map[string]string{
+			"List-Unsubscribe":      "<" + d.OneClick + ">",
+			"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+		},
+	}
+}
+
 // TokenCreated tells the account that an API token was just minted on it
 // (#294). It is the one tripwire an account signed in through a provider has,
 // since re-authentication before minting cannot ask for a password it never
