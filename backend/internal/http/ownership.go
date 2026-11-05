@@ -181,6 +181,14 @@ func (s *Server) TransferCampaign(ctx context.Context, request api.TransferCampa
 		return nil, err
 	}
 
+	// Not to somebody who has asked to leave (#322): the table would go with
+	// them when the week is up, and an owner cannot be purged.
+	if leaving, err := s.queries.IsPendingDeletion(ctx, heirID); err != nil {
+		return nil, err
+	} else if leaving {
+		return api.TransferCampaign400JSONResponse{BadRequestJSONResponse: api.BadRequestJSONResponse{Error: "that player has asked to delete their account"}}, nil
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return nil, err

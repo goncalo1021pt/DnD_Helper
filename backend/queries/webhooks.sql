@@ -33,8 +33,10 @@ WHERE id = $1 AND user_id = sqlc.arg(user_id)::uuid;
 -- The fan-out (#315 → #295): every live hook of anyone in the audience.
 -- A table's own channel has no owner and is never selected here.
 -- name: ListLiveWebhooksForUsers :many
-SELECT * FROM webhooks
-WHERE user_id = ANY($1::uuid[]) AND disabled_at IS NULL;
+-- An account waiting out its deletion (#322) hears nothing.
+SELECT * FROM webhooks w
+WHERE w.user_id = ANY($1::uuid[]) AND w.disabled_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = w.user_id AND u.deletion_requested_at IS NOT NULL);
 
 -- The table's own channel (#316): a hook with no owner, selected by the
 -- table it hangs on rather than by the audience.

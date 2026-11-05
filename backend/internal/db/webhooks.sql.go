@@ -376,12 +376,14 @@ func (q *Queries) ListLiveTableChannels(ctx context.Context, campaignID pgtype.U
 }
 
 const listLiveWebhooksForUsers = `-- name: ListLiveWebhooksForUsers :many
-SELECT id, user_id, url, secret, events, campaign_id, scopes, created_at, failures, disabled_at, disabled_reason, format FROM webhooks
-WHERE user_id = ANY($1::uuid[]) AND disabled_at IS NULL
+SELECT id, user_id, url, secret, events, campaign_id, scopes, created_at, failures, disabled_at, disabled_reason, format FROM webhooks w
+WHERE w.user_id = ANY($1::uuid[]) AND w.disabled_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = w.user_id AND u.deletion_requested_at IS NOT NULL)
 `
 
 // The fan-out (#315 → #295): every live hook of anyone in the audience.
 // A table's own channel has no owner and is never selected here.
+// An account waiting out its deletion (#322) hears nothing.
 func (q *Queries) ListLiveWebhooksForUsers(ctx context.Context, dollar_1 []uuid.UUID) ([]Webhook, error) {
 	rows, err := q.db.Query(ctx, listLiveWebhooksForUsers, dollar_1)
 	if err != nil {

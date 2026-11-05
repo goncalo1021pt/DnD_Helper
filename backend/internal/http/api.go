@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -14,6 +15,7 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	"github.com/goncalo1021pt/questboard/backend/internal/accounts"
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
@@ -47,13 +49,20 @@ type Server struct {
 	webhooks *webhooks.Service
 	// friendMisses counts tags that answered nobody (#387); nil counts nothing.
 	friendMisses *missLedger
+	// deletionMisses counts wrong answers to "are you sure" (#322): a password
+	// guessed at an open session is the walk-up the question exists to stop.
+	deletionMisses *missLedger
+	// sessions ends an account's sessions when it is scheduled for deletion;
+	// nil in tests, where there are none. accounts holds the grace period.
+	sessions *scs.SessionManager
+	accounts *accounts.Service
 }
 
 func NewServer(pool *pgxpool.Pool) *Server {
 	return &Server{
 		pool: pool, queries: db.New(pool),
 		fogCache: newFogImageCache(), hub: live.New(),
-		friendMisses: newMissLedger(),
+		friendMisses: newMissLedger(), deletionMisses: newMissLedger(),
 	}
 }
 

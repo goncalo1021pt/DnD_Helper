@@ -7,6 +7,7 @@ import Embers from "./ui/Embers";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import ParchmentModal from "./ui/ParchmentModal";
 import SiteFooter from "./ui/SiteFooter";
+import { deletionDay, readDeletion } from "../lib/deletionNotice";
 import { IconCoins, IconHome, IconScroll, IconUsers } from "./ui/icons";
 
 /*
@@ -498,6 +499,10 @@ export default function LandingPage() {
   const [authError] = useState(readAuthError);
   const [loginOpen, setLoginOpen] = useState(!!authError);
 
+  // A deletion just scheduled signs the account out and lands here: say the day
+  // they have to come back by (#322). Read once, like the auth error.
+  const [scheduledDeletion] = useState(readDeletion);
+
   // Only strangers see the landing — entering means knocking first.
   const enter = () => setLoginOpen(true);
 
@@ -525,6 +530,16 @@ export default function LandingPage() {
         </div>
         <GoldFrameButton onClick={enter}>Log In</GoldFrameButton>
       </header>
+
+      {scheduledDeletion && (
+        <div
+          role="status"
+          className="font-body relative z-[6] mx-auto mb-2 max-w-[1240px] rounded-[4px] border border-[#8b2520]/40 bg-[#8b2520]/15 px-5 py-3 text-[13.5px] text-[#f3e6c8] sm:mx-11"
+        >
+          Your account is scheduled to be deleted on <b>{deletionDay(scheduledDeletion)}</b>. Log in before then to keep
+          it.
+        </div>
+      )}
 
       {/* hero */}
       <main className="relative z-[5] mx-auto grid max-w-[1240px] grid-cols-1 items-center gap-16 px-6 pb-[70px] pt-12 sm:px-11 lg:grid-cols-[minmax(0,1.04fr)_minmax(0,.92fr)]">

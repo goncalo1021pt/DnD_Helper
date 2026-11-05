@@ -67,6 +67,12 @@ paths:
     $ref: "./paths/tokens.yaml#/~1me~1tokens~1{tokenId}"
   /me/export:
     $ref: "./paths/export.yaml#/~1me~1export"
+  /me/deletion:
+    $ref: "./paths/account.yaml#/~1me~1deletion"
+  /me/deletion/email:
+    $ref: "./paths/account.yaml#/~1me~1deletion~1email"
+  /me/deletion/confirm:
+    $ref: "./paths/account.yaml#/~1me~1deletion~1confirm"
   /me/webhooks:
     $ref: "./paths/webhooks.yaml#/~1me~1webhooks"
   /me/webhooks/{webhookId}:
@@ -933,6 +939,16 @@ components:
       $ref: "./components/notifications.yaml#/NotificationSettingsInput"
     TableChannelInput:
       $ref: "./components/notifications.yaml#/TableChannelInput"
+    AccountDeletion:
+      $ref: "./components/account.yaml#/AccountDeletion"
+    AccountDeletionBlocker:
+      $ref: "./components/account.yaml#/AccountDeletionBlocker"
+    AccountDeletionRequest:
+      $ref: "./components/account.yaml#/AccountDeletionRequest"
+    AccountDeletionConfirm:
+      $ref: "./components/account.yaml#/AccountDeletionConfirm"
+    AccountDeletionScheduled:
+      $ref: "./components/account.yaml#/AccountDeletionScheduled"
     MeExport:
       $ref: "./components/export.yaml#/MeExport"
     MeExportAccount:

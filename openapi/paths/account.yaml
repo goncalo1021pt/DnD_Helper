@@ -1,0 +1,103 @@
+# Account deletion (#322). Every operation here is session-only: a token may
+# neither schedule a deletion nor confirm one, so a leaked key cannot take an
+# account away from its owner.
+
+/me/deletion:
+  get:
+    operationId: getAccountDeletion
+    security:
+      - sessionCookie: []
+    summary: What deleting this account would take, and how to confirm it (session only)
+    description: >
+      Says which way this account confirms a deletion (`password`, an emailed
+      `email` link, or typing its `name` when it has neither), how many days it
+      waits before it is carried out, and any campaigns the caller still owns —
+      a table is handed over or disbanded first, and those block the deletion.
+    responses:
+      "200":
+        description: The account's deletion terms
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/AccountDeletion"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+  post:
+    operationId: requestAccountDeletion
+    security:
+      - sessionCookie: []
+    summary: Schedule this account's deletion (session only)
+    description: >
+      For a password account send its `password`; for an account with neither a
+      password nor a confirmed address, its `name`. An account that confirms by
+      email uses `POST /me/deletion/email` instead. On success the account is
+      signed out everywhere, its API tokens stop working, and it is deleted when
+      the grace period is up unless somebody signs in to it first.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/AccountDeletionRequest"
+    responses:
+      "200":
+        description: Scheduled
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/AccountDeletionScheduled"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "403":
+        $ref: "../openapi.yaml#/components/responses/Forbidden"
+      "429":
+        $ref: "../openapi.yaml#/components/responses/TooManyRequests"
+
+/me/deletion/email:
+  post:
+    operationId: sendAccountDeletionLink
+    security:
+      - sessionCookie: []
+    summary: Email the one-time link that confirms a deletion (session only)
+    description: >
+      For an account that signs in through Discord or Google. The link goes to
+      the confirmed address on file, is good for an hour and once, and opens a
+      page that asks again before anything is scheduled.
+    responses:
+      "202":
+        description: The link was sent
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"
+      "429":
+        $ref: "../openapi.yaml#/components/responses/TooManyRequests"
+
+/me/deletion/confirm:
+  post:
+    operationId: confirmAccountDeletion
+    security:
+      - sessionCookie: []
+    summary: Confirm a deletion with the emailed token (session only)
+    description: >
+      The token proves the address and the session proves the account; both are
+      needed, so a link that falls into the wrong hands does nothing alone.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../openapi.yaml#/components/schemas/AccountDeletionConfirm"
+    responses:
+      "200":
+        description: Scheduled
+        content:
+          application/json:
+            schema:
+              $ref: "../openapi.yaml#/components/schemas/AccountDeletionScheduled"
+      "400":
+        $ref: "../openapi.yaml#/components/responses/BadRequest"
+      "401":
+        $ref: "../openapi.yaml#/components/responses/Unauthorized"

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/goncalo1021pt/questboard/backend/internal/accounts"
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
@@ -269,22 +270,7 @@ func (s *Server) removeMemberTx(ctx context.Context, campaignID, userID uuid.UUI
 	defer tx.Rollback(ctx)
 	qtx := s.queries.WithTx(tx)
 
-	if _, err := qtx.DeleteMembership(ctx, db.DeleteMembershipParams{UserID: userID, CampaignID: campaignID}); err != nil {
-		return err
-	}
-	if err := qtx.DeleteTableBornOfUser(ctx, db.DeleteTableBornOfUserParams{OwnerUserID: userID, CampaignID: pgUUID(campaignID)}); err != nil {
-		return err
-	}
-	if err := qtx.UnseatCharactersOfUser(ctx, db.UnseatCharactersOfUserParams{OwnerUserID: userID, CampaignID: pgUUID(campaignID)}); err != nil {
-		return err
-	}
-	if err := qtx.ReleaseQuestClaimsOfUser(ctx, db.ReleaseQuestClaimsOfUserParams{UserID: userID, CampaignID: campaignID}); err != nil {
-		return err
-	}
-	if err := qtx.ClearPartyForUserAtCampaign(ctx, db.ClearPartyForUserAtCampaignParams{OwnerUserID: userID, CampaignID: pgUUID(campaignID)}); err != nil {
-		return err
-	}
-	if err := qtx.DeleteSeatRequestsOfUser(ctx, db.DeleteSeatRequestsOfUserParams{OwnerUserID: userID, CampaignID: campaignID}); err != nil {
+	if err := accounts.LeaveTable(ctx, qtx, userID, campaignID); err != nil {
 		return err
 	}
 	if ban {

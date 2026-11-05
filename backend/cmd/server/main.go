@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/goncalo1021pt/questboard/backend/internal/accounts"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/config"
 	"github.com/goncalo1021pt/questboard/backend/internal/db"
@@ -96,12 +97,20 @@ func run() error {
 	notices := notify.New(pool, notify.Options{Mailer: mailer, BaseURL: cfg.BaseURL, Key: cfg.SessionKey})
 	bus.Subscribe(notices.Subscriber())
 
+	// Account deletion (#322): the sweep that anonymises an account when its
+	// grace is up. The router gives it a way to nudge a table's roster once the
+	// live hub exists.
+	people := accounts.New(pool, accounts.Options{Mailer: mailer, BaseURL: cfg.BaseURL, Grace: cfg.AccountDeletionGrace})
+	go people.Run(ctx)
+
 	router := apphttp.NewRouter(apphttp.Deps{
 		Mailer:         mailer,
 		BaseURL:        cfg.BaseURL,
 		Events:         bus,
 		Webhooks:       hooks,
 		Notify:         notices,
+		Accounts:       people,
+		DevDoors:       devEnabled,
 		RateLimits:     apphttp.RateLimits{Token: cfg.RateLimitToken, IP: cfg.RateLimitIP, Session: cfg.RateLimitSession},
 		Pool:           pool,
 		SessionManager: sessions,

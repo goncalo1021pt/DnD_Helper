@@ -202,7 +202,7 @@ func (o *OAuth) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := Login(r.Context(), o.sm, user.ID); err != nil {
+	if err := o.signIn(r.Context(), user.ID); err != nil {
 		http.Error(w, "failed to start session", http.StatusInternalServerError)
 		return
 	}

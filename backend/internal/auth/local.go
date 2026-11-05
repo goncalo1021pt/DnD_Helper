@@ -107,7 +107,7 @@ func (o *OAuth) register(w http.ResponseWriter, r *http.Request) {
 	// enter unverified and are nudged to confirm.
 	o.sendVerification(r.Context(), user.ID, email)
 
-	if err := Login(r.Context(), o.sm, user.ID); err != nil {
+	if err := o.signIn(r.Context(), user.ID); err != nil {
 		http.Error(w, "failed to start session", http.StatusInternalServerError)
 		return
 	}
@@ -157,7 +157,7 @@ func (o *OAuth) localLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := Login(r.Context(), o.sm, user.ID); err != nil {
+	if err := o.signIn(r.Context(), user.ID); err != nil {
 		http.Error(w, "failed to start session", http.StatusInternalServerError)
 		return
 	}

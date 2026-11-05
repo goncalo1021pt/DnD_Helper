@@ -534,6 +534,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What deleting this account would take, and how to confirm it (session only)
+         * @description Says which way this account confirms a deletion (`password`, an emailed `email` link, or typing its `name` when it has neither), how many days it waits before it is carried out, and any campaigns the caller still owns — a table is handed over or disbanded first, and those block the deletion.
+         */
+        get: operations["getAccountDeletion"];
+        put?: never;
+        /**
+         * Schedule this account's deletion (session only)
+         * @description For a password account send its `password`; for an account with neither a password nor a confirmed address, its `name`. An account that confirms by email uses `POST /me/deletion/email` instead. On success the account is signed out everywhere, its API tokens stop working, and it is deleted when the grace period is up unless somebody signs in to it first.
+         */
+        post: operations["requestAccountDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/deletion/email": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the one-time link that confirms a deletion (session only)
+         * @description For an account that signs in through Discord or Google. The link goes to the confirmed address on file, is good for an hour and once, and opens a page that asks again before anything is scheduled.
+         */
+        post: operations["sendAccountDeletionLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/deletion/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a deletion with the emailed token (session only)
+         * @description The token proves the address and the session proves the account; both are needed, so a link that falls into the wrong hands does nothing alone.
+         */
+        post: operations["confirmAccountDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/webhooks": {
         parameters: {
             query?: never;
@@ -5617,6 +5681,39 @@ export interface components {
             /** @description The catalogue names to post; empty means every one the whole table may hear. Whatever is named, the channel only ever receives an event whose audience is the entire table. */
             events: components["schemas"]["EventName"][];
         };
+        AccountDeletion: {
+            /**
+             * @description How this account confirms: its `password`, a link sent by `email`, or typing its `name` (an account with neither a password nor a confirmed address).
+             * @enum {string}
+             */
+            method: "password" | "email" | "name";
+            /** @description Days between confirming and the deletion being carried out. */
+            graceDays: number;
+            /** @description Campaigns the caller owns. Hand them over or disband them first. */
+            blockers: components["schemas"]["AccountDeletionBlocker"][];
+        };
+        AccountDeletionBlocker: {
+            /** Format: uuid */
+            campaignId: string;
+            name: string;
+        };
+        AccountDeletionRequest: {
+            /** @description The account password, for a password account. */
+            password?: string;
+            /** @description The account's own name, typed, for an account with no other way to confirm. */
+            name?: string;
+        };
+        AccountDeletionConfirm: {
+            /** @description The token from the emailed link. */
+            token: string;
+        };
+        AccountDeletionScheduled: {
+            /**
+             * Format: date-time
+             * @description When the account will be deleted unless somebody signs in first.
+             */
+            scheduledFor: string;
+        };
         /** @description Everything the caller owns, as one document (#317). Built from the same doors the app reads through, so a veil that holds on the screen holds here: a player's table carries what the board shows them, a DM's carries the drafts. A token gets only the sections its scopes could read, and the rest are named in `omitted`. Images are URLs, re-checked on fetch, never bytes. Not an import. */
         MeExport: {
             /** @description The shape's version; 1. */
@@ -6723,6 +6820,102 @@ export interface operations {
                     "application/json": components["schemas"]["MeExport"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account's deletion terms */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    requestAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountDeletionRequest"];
+            };
+        };
+        responses: {
+            /** @description Scheduled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionScheduled"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    sendAccountDeletionLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The link was sent */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    confirmAccountDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountDeletionConfirm"];
+            };
+        };
+        responses: {
+            /** @description Scheduled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDeletionScheduled"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

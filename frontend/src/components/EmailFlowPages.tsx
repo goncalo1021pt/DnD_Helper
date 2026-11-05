@@ -3,7 +3,14 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { passwordStrength } from "../lib/password";
 import { apiFetch } from "../lib/http";
-import { announceAuthChange } from "../hooks";
+import {
+  announceAuthChange,
+  deletionError,
+  useConfirmAccountDeletion,
+  useCurrentUser,
+  useForgetSession,
+} from "../hooks";
+import { deletionDay } from "../lib/deletionNotice";
 
 /** Centered parchment card on the hearth — the shell for the email flows. */
 function AuthShell({ title, children }: { title: string; children: ReactNode }) {
@@ -313,6 +320,94 @@ export function UnsubscribePage() {
         </p>
       )}
       {backToTavern}
+    </AuthShell>
+  );
+}
+
+/**
+ * The page an account-deletion link opens (#322). It asks before it acts — a
+ * mail scanner follows every link it finds, and a link that deleted on a GET
+ * would be spent by the scanner — and it needs the signed-in session as well as
+ * the token: the mail proves the address, the session proves the account.
+ */
+export function ConfirmDeletionPage() {
+  const [params] = useSearchParams();
+  const token = params.get("token") ?? "";
+  const { data: me, isLoading } = useCurrentUser();
+  const confirm = useConfirmAccountDeletion();
+  const forgetSession = useForgetSession();
+  const [scheduled, setScheduled] = useState<string | null>(null);
+
+  if (scheduled) {
+    return (
+      <AuthShell title="Account scheduled">
+        <p className="font-body m-0 mb-3 text-center text-[14px] text-ink-body">
+          Your account will be deleted on <b>{deletionDay(scheduled)}</b>.
+        </p>
+        <p className="font-body m-0 text-center text-[13px] italic text-ink-body">
+          You have been signed out everywhere. To keep it, sign in again before then — that cancels the deletion.
+        </p>
+        <div className="mt-5 text-center">
+          <Link
+            to="/"
+            onClick={forgetSession}
+            className="btn-base btn-gold clip-octagon inline-flex h-10 items-center px-6 text-[12px] no-underline"
+          >
+            Back to the front door
+          </Link>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <AuthShell title="Delete account">
+        <p className="font-body m-0 text-center text-[14px] italic text-ink-body">One moment…</p>
+      </AuthShell>
+    );
+  }
+
+  if (!token || !me) {
+    return (
+      <AuthShell title="Delete account">
+        <p className="font-body m-0 text-center text-[14px] text-ink-body">
+          {token
+            ? "Sign in to the account you want to delete, then open this link again."
+            : "This link is missing its token. Ask for a new one from your profile."}
+        </p>
+        {backToTavern}
+      </AuthShell>
+    );
+  }
+
+  return (
+    <AuthShell title="Delete account">
+      <p className="font-body m-0 mb-3 text-center text-[14px] text-ink-body">
+        Delete the account <b>{me.user.name}</b>? You will be signed out everywhere and your API tokens will stop working.
+        You have a week to change your mind: signing in again before then cancels it.
+      </p>
+      <p className="font-body m-0 mb-4 text-center text-[12.5px] italic text-ink-body">
+        Your heroes and everything personal go; what you wrote at a table stays, as from a departed player.
+      </p>
+      {confirm.isError && (
+        <div className="font-body mb-3 text-center text-sm italic text-[#8b2520]">
+          {deletionError(confirm.error, "That link did not work — ask for another from your profile.")}
+        </div>
+      )}
+      <div className="flex items-center justify-center gap-4">
+        <Link to="/questboard/profile" className="label-stamp text-[12px] text-ink-label no-underline hover:text-ink">
+          Cancel
+        </Link>
+        <button
+          onClick={() => confirm.mutate(token, { onSuccess: (d) => setScheduled(d.scheduledFor) })}
+          disabled={confirm.isPending}
+          className="btn-base clip-octagon h-10 px-6 text-[12px] disabled:cursor-not-allowed disabled:opacity-50"
+          style={{ background: "#8b2520", color: "#f3e6c8" }}
+        >
+          {confirm.isPending ? "Scheduling…" : "Yes, delete my account"}
+        </button>
+      </div>
     </AuthShell>
   );
 }
