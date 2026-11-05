@@ -170,6 +170,7 @@ FROM users u
 JOIN memberships m ON m.user_id = u.id AND m.campaign_id = $2
 WHERE u.id = ANY($1::uuid[])
   AND u.email IS NOT NULL AND u.email <> '' AND u.email_verified
+  AND u.deletion_requested_at IS NULL
   AND NOT m.muted;
 
 -- name: GetEmailEvents :one

@@ -40,3 +40,4 @@ export * from "./webhooks";
 export * from "./export";
 export * from "./notifications";
 export * from "./startingPacks";
+export * from "./accountDeletion";

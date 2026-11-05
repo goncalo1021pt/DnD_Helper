@@ -348,6 +348,31 @@ info:
     It is not an import. There is a **Download my data** button on the profile,
     under Settings.
 
+    ---
+
+    ## Deleting an account
+
+    ```
+    GET  /me/deletion           session only
+    POST /me/deletion           session only   {password?, name?}
+    POST /me/deletion/email     session only
+    POST /me/deletion/confirm   session only   {token}
+    ```
+
+    **No token can reach these, whatever its scopes**: a key must never be able to take
+    an account from its owner. A browser asks; the account waits out a **grace period
+    of seven days** (`graceDays`), signed out everywhere with its API tokens stopped,
+    and **signing in again cancels it**. After the week it is anonymised in place —
+    heroes, friends, tokens, webhooks and the address are struck; what the person
+    wrote at a table and in messages stays, as from "a departed player".
+
+    `GET` says which way this account confirms (`method`): its `password`; a one-time
+    link sent to its confirmed `email` (`POST /me/deletion/email`, then
+    `POST /me/deletion/confirm` with the token the link carries, from the signed-in
+    session — the mail proves the address and the session proves the account); or its
+    typed `name` when it has neither. It lists `blockers`: a campaign you own is
+    handed over or disbanded first.
+
     ## Doors outside the contract
 
     A few doors are mounted by hand rather than generated from the contract, so
@@ -1485,6 +1510,101 @@ paths:
           $ref: "#/components/responses/Unauthorized"
       tags:
         - Export
+  /me/deletion:
+    get:
+      operationId: getAccountDeletion
+      security:
+        - sessionCookie: []
+      summary: What deleting this account would take, and how to confirm it (session only)
+      description: |
+        Says which way this account confirms a deletion (`password`, an emailed `email` link, or typing its `name` when it has neither), how many days it waits before it is carried out, and any campaigns the caller still owns — a table is handed over or disbanded first, and those block the deletion.
+      responses:
+        "200":
+          description: The account's deletion terms
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountDeletion"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      tags:
+        - Account
+    post:
+      operationId: requestAccountDeletion
+      security:
+        - sessionCookie: []
+      summary: Schedule this account's deletion (session only)
+      description: |
+        For a password account send its `password`; for an account with neither a password nor a confirmed address, its `name`. An account that confirms by email uses `POST /me/deletion/email` instead. On success the account is signed out everywhere, its API tokens stop working, and it is deleted when the grace period is up unless somebody signs in to it first.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountDeletionRequest"
+      responses:
+        "200":
+          description: Scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountDeletionScheduled"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+      tags:
+        - Account
+  /me/deletion/email:
+    post:
+      operationId: sendAccountDeletionLink
+      security:
+        - sessionCookie: []
+      summary: Email the one-time link that confirms a deletion (session only)
+      description: |
+        For an account that signs in through Discord or Google. The link goes to the confirmed address on file, is good for an hour and once, and opens a page that asks again before anything is scheduled.
+      responses:
+        "202":
+          description: The link was sent
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+      tags:
+        - Account
+  /me/deletion/confirm:
+    post:
+      operationId: confirmAccountDeletion
+      security:
+        - sessionCookie: []
+      summary: Confirm a deletion with the emailed token (session only)
+      description: |
+        The token proves the address and the session proves the account; both are needed, so a link that falls into the wrong hands does nothing alone.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountDeletionConfirm"
+      responses:
+        "200":
+          description: Scheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountDeletionScheduled"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+      tags:
+        - Account
   /me/webhooks:
     get:
       operationId: listWebhooks
@@ -11994,6 +12114,66 @@ components:
             The catalogue names to post; empty means every one the whole table may hear. Whatever is named, the channel only ever receives an event whose audience is the entire table.
           items:
             $ref: "#/components/schemas/EventName"
+    AccountDeletion:
+      type: object
+      required:
+        - method
+        - graceDays
+        - blockers
+      properties:
+        method:
+          type: string
+          enum:
+            - password
+            - email
+            - name
+          description: |
+            How this account confirms: its `password`, a link sent by `email`, or typing its `name` (an account with neither a password nor a confirmed address).
+        graceDays:
+          type: integer
+          description: Days between confirming and the deletion being carried out.
+        blockers:
+          type: array
+          description: Campaigns the caller owns. Hand them over or disband them first.
+          items:
+            $ref: "#/components/schemas/AccountDeletionBlocker"
+    AccountDeletionBlocker:
+      type: object
+      required:
+        - campaignId
+        - name
+      properties:
+        campaignId:
+          type: string
+          format: uuid
+        name:
+          type: string
+    AccountDeletionRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          description: The account password, for a password account.
+        name:
+          type: string
+          description: The account's own name, typed, for an account with no other way to confirm.
+    AccountDeletionConfirm:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: The token from the emailed link.
+    AccountDeletionScheduled:
+      type: object
+      required:
+        - scheduledFor
+      properties:
+        scheduledFor:
+          type: string
+          format: date-time
+          description: When the account will be deleted unless somebody signs in first.
     MeExport:
       type: object
       description: |
@@ -12186,6 +12366,7 @@ tags:
   - name: Quests
   - name: Tokens
   - name: Export
+  - name: Account
   - name: Webhooks
   - name: Notifications
   - name: Heroes

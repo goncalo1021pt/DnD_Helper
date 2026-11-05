@@ -104,6 +104,18 @@ var (
 		},
 		[]string{"result"},
 	)
+
+	// accountsDeleted counts accounts anonymised by the purge (#322), by what
+	// started it: the sweep when the grace ran out, or the operator.
+	accountsDeleted = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: "accounts",
+			Name:      "deleted_total",
+			Help:      "Accounts purged and anonymised, by trigger (sweep, operator).",
+		},
+		[]string{"trigger"},
+	)
 )
 
 func init() {
@@ -118,6 +130,7 @@ func init() {
 		gameEvents,
 		rateLimitRefusals,
 		webhookDeliveries,
+		accountsDeleted,
 	)
 }
 
@@ -169,4 +182,6 @@ func EncounterRun()    { gameEvents.WithLabelValues("encounter_run").Inc() }
 func WebhookDelivery(result string) { webhookDeliveries.WithLabelValues(result).Inc() }
 
 // RateLimited records one 429, by the ceiling that fired (#314).
+func AccountDeleted(trigger string) { accountsDeleted.WithLabelValues(trigger).Inc() }
+
 func RateLimited(ceiling string) { rateLimitRefusals.WithLabelValues(ceiling).Inc() }

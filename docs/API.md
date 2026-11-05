@@ -344,6 +344,31 @@ requests against the rate ceiling.
 It is not an import. There is a **Download my data** button on the profile,
 under Settings.
 
+---
+
+## Deleting an account
+
+```
+GET  /me/deletion           session only
+POST /me/deletion           session only   {password?, name?}
+POST /me/deletion/email     session only
+POST /me/deletion/confirm   session only   {token}
+```
+
+**No token can reach these, whatever its scopes**: a key must never be able to take
+an account from its owner. A browser asks; the account waits out a **grace period
+of seven days** (`graceDays`), signed out everywhere with its API tokens stopped,
+and **signing in again cancels it**. After the week it is anonymised in place —
+heroes, friends, tokens, webhooks and the address are struck; what the person
+wrote at a table and in messages stays, as from "a departed player".
+
+`GET` says which way this account confirms (`method`): its `password`; a one-time
+link sent to its confirmed `email` (`POST /me/deletion/email`, then
+`POST /me/deletion/confirm` with the token the link carries, from the signed-in
+session — the mail proves the address and the session proves the account); or its
+typed `name` when it has neither. It lists `blockers`: a campaign you own is
+handed over or disbanded first.
+
 ## Doors outside the contract
 
 A few doors are mounted by hand rather than generated from the contract, so

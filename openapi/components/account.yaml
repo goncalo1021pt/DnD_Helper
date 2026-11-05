@@ -1,0 +1,56 @@
+AccountDeletion:
+  type: object
+  required: [method, graceDays, blockers]
+  properties:
+    method:
+      type: string
+      enum: [password, email, name]
+      description: >
+        How this account confirms: its `password`, a link sent by `email`, or
+        typing its `name` (an account with neither a password nor a confirmed
+        address).
+    graceDays:
+      type: integer
+      description: Days between confirming and the deletion being carried out.
+    blockers:
+      type: array
+      description: Campaigns the caller owns. Hand them over or disband them first.
+      items:
+        $ref: "../openapi.yaml#/components/schemas/AccountDeletionBlocker"
+
+AccountDeletionBlocker:
+  type: object
+  required: [campaignId, name]
+  properties:
+    campaignId:
+      type: string
+      format: uuid
+    name:
+      type: string
+
+AccountDeletionRequest:
+  type: object
+  properties:
+    password:
+      type: string
+      description: The account password, for a password account.
+    name:
+      type: string
+      description: The account's own name, typed, for an account with no other way to confirm.
+
+AccountDeletionConfirm:
+  type: object
+  required: [token]
+  properties:
+    token:
+      type: string
+      description: The token from the emailed link.
+
+AccountDeletionScheduled:
+  type: object
+  required: [scheduledFor]
+  properties:
+    scheduledFor:
+      type: string
+      format: date-time
+      description: When the account will be deleted unless somebody signs in first.

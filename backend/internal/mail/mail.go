@@ -262,3 +262,67 @@ func ResetPassword(link string) (subject, htmlBody, textBody string) {
 	textBody = fmt.Sprintf("Reset your Quest Board password with this link (expires in 1 hour, single use):\n\n%s", link)
 	return
 }
+
+// DeleteAccountLink asks the address on file to confirm a deletion (#322). The
+// link opens a page that asks again before it acts, so a mail scanner that
+// follows what it finds deletes nothing.
+func DeleteAccountLink(link string) (subject, htmlBody, textBody string) {
+	subject = "Confirm deleting your Quest Board account"
+	htmlBody = renderEmail(content{
+		Preheader: "Confirm that you want your Quest Board account deleted.",
+		Intro:     "Someone asked to delete this Quest Board account. If it was you, confirm below. You will have a week to change your mind: signing in again cancels it.",
+		CTALabel:  "Continue to delete my account",
+		Link:      link,
+		Note:      "This link expires in 1 hour and can be used once. Nothing is deleted until you confirm on the page it opens.",
+		Footer:    "If this wasn't you, ignore this email and change your password.",
+	})
+	textBody = fmt.Sprintf("Someone asked to delete this Quest Board account. If it was you, confirm here (expires in 1 hour, single use):\n\n%s\n\nYou will have a week to change your mind: signing in again cancels it. If this wasn't you, ignore this email and change your password.", link)
+	return
+}
+
+// DeletionScheduled tells the account that its deletion is on the calendar
+// (#322): the day, and that signing in before it cancels. It is the tripwire
+// for an account whose session someone else sat at.
+func DeletionScheduled(day, link string) (subject, htmlBody, textBody string) {
+	subject = "Your Quest Board account will be deleted on " + day
+	htmlBody = renderEmail(content{
+		Preheader: "Sign in before " + day + " to keep your account.",
+		Intro:     "Your account is scheduled to be deleted on <b>" + html.EscapeString(day) + "</b>. You have been signed out everywhere and your API tokens have stopped working. To keep the account, just sign in again before then.",
+		CTALabel:  "Sign in to keep my account",
+		Link:      link,
+		Note:      "After that day your heroes and everything personal are struck; what you wrote at a table stays, as from a departed player.",
+		Footer:    "If you did not ask for this, sign in now to cancel it and change your password.",
+	})
+	textBody = fmt.Sprintf("Your Quest Board account is scheduled to be deleted on %s. You have been signed out everywhere and your API tokens have stopped working. To keep it, sign in again before then:\n\n%s\n\nIf you did not ask for this, sign in now to cancel it and change your password.", day, link)
+	return
+}
+
+// DeletionCancelled says a scheduled deletion was undone by signing in (#322),
+// and that the tokens it revoked stay revoked.
+func DeletionCancelled(link string) (subject, htmlBody, textBody string) {
+	subject = "Your Quest Board account deletion was cancelled"
+	htmlBody = renderEmail(content{
+		Preheader: "You signed in, so your account stays.",
+		Intro:     "You signed in again, so the deletion of your account was cancelled and everything is as it was. API tokens that were revoked when you asked stay revoked; make new ones from your profile if you need them.",
+		CTALabel:  "Open Quest Board",
+		Link:      link,
+		Footer:    "If this wasn't you, change your password.",
+	})
+	textBody = fmt.Sprintf("You signed in again, so the deletion of your Quest Board account was cancelled. API tokens revoked when you asked stay revoked.\n\n%s\n\nIf this wasn't you, change your password.", link)
+	return
+}
+
+// AccountDeleted is the last word (#322), sent to the address captured before
+// the account was scrubbed.
+func AccountDeleted(link string) (subject, htmlBody, textBody string) {
+	subject = "Your Quest Board account was deleted"
+	htmlBody = renderEmail(content{
+		Preheader: "Your account is gone.",
+		Intro:     "Your account was deleted, as you asked. Your heroes and everything personal are gone; what you wrote at a table stays, as from a departed player. You are welcome back whenever you like with a new account.",
+		CTALabel:  "Visit Quest Board",
+		Link:      link,
+		Footer:    "This is the last email you will get from us.",
+	})
+	textBody = fmt.Sprintf("Your Quest Board account was deleted, as you asked. What you wrote at a table stays, as from a departed player. You are welcome back with a new account whenever you like:\n\n%s", link)
+	return
+}

@@ -6,11 +6,14 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/goncalo1021pt/questboard/backend/internal/accounts"
 	"github.com/goncalo1021pt/questboard/backend/internal/api"
 	"github.com/goncalo1021pt/questboard/backend/internal/auth"
 	"github.com/goncalo1021pt/questboard/backend/internal/events"
+	"github.com/goncalo1021pt/questboard/backend/internal/live"
 	"github.com/goncalo1021pt/questboard/backend/internal/mail"
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 	"github.com/goncalo1021pt/questboard/backend/internal/notify"
@@ -29,6 +32,8 @@ type Deps struct {
 	Events         *events.Bus       // the catalogue (#315); nil emits into silence
 	Webhooks       *webhooks.Service // subscriptions (#295); nil refuses to register any
 	Notify         *notify.Service   // notices by email (#316); nil closes the unsubscribe door
+	Accounts       *accounts.Service // the purge and its grace (#322); nil falls back to the default week
+	DevDoors       bool              // mount the development-only doors (APP_ENV != production)
 }
 
 // NewRouter builds the application router: API routes under /api (session-aware)
@@ -49,6 +54,10 @@ func NewRouter(deps Deps) http.Handler {
 	srv.events = deps.Events
 	srv.webhooks = deps.Webhooks
 	srv.notify = deps.Notify
+	srv.sessions, srv.accounts = deps.SessionManager, deps.Accounts
+	if deps.Accounts != nil {
+		deps.Accounts.SetPublish(func(id uuid.UUID) { srv.publish(id, live.TopicParty) })
+	}
 	strict := api.NewStrictHandler(srv, nil)
 
 	r.Route("/api", func(ar chi.Router) {
@@ -60,6 +69,13 @@ func NewRouter(deps Deps) http.Handler {
 		// bearer loader is not mounted here, so a token holds no identity at
 		// these doors whatever it was minted with (#294).
 		ar.Route("/auth", deps.OAuth.Routes)
+
+		// Development only, like dev login: run the purge sweep now with the
+		// grace waived, so the e2e can drive a real deletion without waiting a
+		// week (#322). Never mounted in production.
+		if deps.DevDoors && deps.Accounts != nil {
+			ar.Post("/dev/purge-accounts", srv.devPurgeAccounts)
+		}
 
 		// The unsubscribe door (#316) needs no session and takes no bearer:
 		// the token in the link is the proof, and a mail client's one-click

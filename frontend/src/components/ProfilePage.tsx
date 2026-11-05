@@ -18,6 +18,7 @@ import TwoFactorSettings from "./TwoFactorSettings";
 import ApiTokensSettings from "./ApiTokensSettings";
 import WebhooksSettings from "./WebhooksSettings";
 import YourDataSettings from "./YourDataSettings";
+import AccountDeletionSettings from "./AccountDeletionSettings";
 import NotificationsSettings from "./NotificationsSettings";
 import GoldFrameButton from "./ui/GoldFrameButton";
 import ParchmentModal from "./ui/ParchmentModal";
@@ -362,6 +363,10 @@ export default function ProfilePage() {
             <IconBook size={14} /> Your data
           </div>
           <YourDataSettings />
+          <div className="label-stamp mb-2 mt-6 flex items-center gap-2 text-[11px] tracking-[2px] text-[#9c855e]">
+            <IconShield size={14} /> Delete account
+          </div>
+          <AccountDeletionSettings />
         </div>
       </div>
 

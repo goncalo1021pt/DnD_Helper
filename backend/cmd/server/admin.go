@@ -45,8 +45,13 @@ const adminUsage = `Quest Board operator commands — run on the production host
   unlock-2fa   Clear a user's two-factor auth after they lose both their
                authenticator and their recovery codes.
 
+  delete-account  Schedule an account's deletion (a week's grace, as from the
+               profile), purge it at once with --now, or undo a scheduled one
+               with --cancel. For a request that arrives by email.
+
 Usage:
   server admin unlock-2fa --login <username-or-email> [--note "..."] [--confirm]
+  server admin delete-account --login <username-or-email> [--now | --cancel] [--note "..."] [--confirm]
 
 Without --confirm nothing is written: it prints who matched so you can check
 the name before acting.
@@ -54,6 +59,9 @@ the name before acting.
 Examples:
   server admin unlock-2fa --login player@example.com
   server admin unlock-2fa --login bryn --note "verified on Discord voice" --confirm
+  server admin delete-account --login player@example.com
+  server admin delete-account --login bryn --note "asked by email" --confirm
+  server admin delete-account --login bryn --now --confirm
 `
 
 // runAdmin dispatches the operator subcommands. Returns an error for the caller
@@ -66,6 +74,8 @@ func runAdmin(args []string) error {
 	switch args[0] {
 	case "unlock-2fa":
 		return runUnlock2FA(args[1:])
+	case "delete-account":
+		return runDeleteAccount(args[1:])
 	case "help", "-h", "--help":
 		fmt.Print(adminUsage)
 		return nil

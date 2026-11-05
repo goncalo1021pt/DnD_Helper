@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestGetenvInt(t *testing.T) {
 	t.Setenv("QB_TEST_INT", "")
@@ -19,6 +22,24 @@ func TestGetenvInt(t *testing.T) {
 		t.Setenv("QB_TEST_INT", bad)
 		if _, err := getenvInt("QB_TEST_INT", 60); err == nil {
 			t.Fatalf("%q should be a startup error, not a silent default", bad)
+		}
+	}
+}
+
+func TestGetenvDuration(t *testing.T) {
+	t.Setenv("QB_TEST_GRACE", "")
+	if d, err := getenvDuration("QB_TEST_GRACE", 7*24*time.Hour); err != nil || d != 7*24*time.Hour {
+		t.Errorf("unset should fall back: %v %v", d, err)
+	}
+	t.Setenv("QB_TEST_GRACE", "72h")
+	if d, err := getenvDuration("QB_TEST_GRACE", time.Hour); err != nil || d != 72*time.Hour {
+		t.Errorf("72h: %v %v", d, err)
+	}
+	// Under an hour is refused: the sweep ticks hourly and could not honour it.
+	for _, bad := range []string{"30m", "0", "-5h", "soon"} {
+		t.Setenv("QB_TEST_GRACE", bad)
+		if _, err := getenvDuration("QB_TEST_GRACE", time.Hour); err == nil {
+			t.Errorf("%q should be refused", bad)
 		}
 	}
 }

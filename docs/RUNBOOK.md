@@ -266,6 +266,70 @@ much.
 
 ---
 
+## Someone asks you to delete their account
+
+People delete their own accounts from the profile (**Settings → Delete account**):
+a week's grace, a confirmation by password, an emailed link, or their typed name,
+and signing in again before the day cancels it. This is for the person who writes
+to you instead.
+
+What a deletion is: the account is **anonymised in place**. The `users` row stays
+as a tombstone — `name = 'a departed player'`, no address, avatar, password,
+identities or sessions, `deleted_at` set — so everything that points at it keeps
+working: their chronicle lines, party-room messages and the other side of every
+conversation stay, read as from "a departed player". Their heroes, friends,
+blocks, tokens, webhooks and unadmitted homebrew are struck; the bodies of the
+Folk a co-DM forged go to the table's owner; their address is freed, so they can
+register again.
+
+### 1. See who you are about to touch
+
+```sh
+docker compose exec app /server admin delete-account --login player@example.com
+```
+
+Without `--confirm` nothing is written. It prints the name, the tables and heroes,
+whether a deletion is already scheduled — and refuses if they still **own a
+campaign**: a table is handed over (`Transfer ownership`) or disbanded first, by
+them, or by you in the database if they are gone.
+
+### 2. Schedule it, or purge it now
+
+```sh
+docker compose exec app /server admin delete-account --login bryn --note "asked by email" --confirm
+docker compose exec app /server admin delete-account --login bryn --now --note "erasure request" --confirm
+```
+
+The first does what the profile does: signs them out everywhere, revokes their API
+tokens, emails them the day, and the hourly sweep purges it when the week is up
+(`ACCOUNT_DELETION_GRACE`, default `168h`). `--now` purges at once, for a request
+that is an erasure and cannot wait a week.
+
+### 3. Undo one
+
+```sh
+docker compose exec app /server admin delete-account --login bryn --cancel --confirm
+```
+
+They can sign in as before; their API tokens stay revoked, and they make new ones.
+Signing in does the same thing without you.
+
+### Reading the trail
+
+```sh
+docker compose exec postgres psql -U questboard -d questboard -c "SELECT created_at, action, target_label, note FROM admin_actions WHERE action LIKE 'account_%' ORDER BY created_at DESC LIMIT 20;"
+```
+
+The trail **names nobody** — an `account <id>` label, never an address — because a
+record that kept the address of the person it deleted would be a copy of the thing
+being erased. The id ties it to the tombstone.
+
+One limit to know: the tombstones all read "a departed player", and the friend tag's
+four digits keep them apart. Past ten thousand deletions the trigger cannot draw a
+free tag; that is a problem for an instance far larger than this one.
+
+---
+
 ## Why there is no admin page for this
 
 Clearing someone's two-factor auth is the single most dangerous thing this app

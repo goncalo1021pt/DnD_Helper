@@ -224,7 +224,7 @@ func (o *OAuth) twofaVerify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	o.clearPending(r)
-	if err := Login(r.Context(), o.sm, uid); err != nil {
+	if err := o.signIn(r.Context(), uid); err != nil {
 		http.Error(w, "failed to start session", http.StatusInternalServerError)
 		return
 	}

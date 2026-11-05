@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet } from "react-router-dom";
 import type { CurrentUser } from "../api/client";
 import { apiFetch } from "../lib/http";
 import { initials, medallionFor } from "../lib/party";
+import { forgetDeletion } from "../lib/deletionNotice";
 import { useLiveAccount } from "../hooks";
 import Crest from "./ui/Crest";
 import SiteFooter from "./ui/SiteFooter";
@@ -50,6 +51,9 @@ export default function AppShell({ user }: { user: CurrentUser["user"] }) {
   // request or a message arrives wherever the person happens to be looking,
   // and makes /me stale so the badge below follows it.
   useLiveAccount(!!user);
+  // Being in the tavern means signed in, which is what cancels a scheduled
+  // deletion (#322): the landing's reminder is stale from here on.
+  useEffect(() => forgetDeletion(), []);
   // Carried by /me, which the shell already has. Two queries of its own here
   // would ride along on every page in the app for the sake of one number.
   const waiting = (user.waiting?.requests ?? 0) + (user.waiting?.unread ?? 0);

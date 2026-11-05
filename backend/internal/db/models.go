@@ -1126,21 +1126,23 @@ type TwofaRecoveryCode struct {
 }
 
 type User struct {
-	ID            uuid.UUID          `json:"id"`
-	Name          string             `json:"name"`
-	Email         *string            `json:"email"`
-	Image         *string            `json:"image"`
-	Provider      string             `json:"provider"`
-	ProviderID    string             `json:"provider_id"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	Username      *string            `json:"username"`
-	PasswordHash  *string            `json:"password_hash"`
-	EmailVerified bool               `json:"email_verified"`
-	TotpSecret    *string            `json:"totp_secret"`
-	TotpEnabled   bool               `json:"totp_enabled"`
-	EmailEvents   []string           `json:"email_events"`
-	NameChosen    bool               `json:"name_chosen"`
-	FriendTag     string             `json:"friend_tag"`
+	ID                  uuid.UUID          `json:"id"`
+	Name                string             `json:"name"`
+	Email               *string            `json:"email"`
+	Image               *string            `json:"image"`
+	Provider            string             `json:"provider"`
+	ProviderID          string             `json:"provider_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	Username            *string            `json:"username"`
+	PasswordHash        *string            `json:"password_hash"`
+	EmailVerified       bool               `json:"email_verified"`
+	TotpSecret          *string            `json:"totp_secret"`
+	TotpEnabled         bool               `json:"totp_enabled"`
+	EmailEvents         []string           `json:"email_events"`
+	NameChosen          bool               `json:"name_chosen"`
+	FriendTag           string             `json:"friend_tag"`
+	DeletionRequestedAt pgtype.Timestamptz `json:"deletion_requested_at"`
+	DeletedAt           pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type UserBlock struct {

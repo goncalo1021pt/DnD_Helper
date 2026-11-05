@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -28,6 +29,9 @@ type Config struct {
 	RateLimitToken   int // per API token
 	RateLimitIP      int // per client IP, for bearer and anonymous requests
 	RateLimitSession int // per signed-in person; generous, a browser bursts on page load
+
+	// AccountDeletionGrace is how long a scheduled deletion waits (#322).
+	AccountDeletionGrace time.Duration
 
 	Discord OAuthProvider
 	Google  OAuthProvider
@@ -93,6 +97,12 @@ func Load() (*Config, error) {
 		*v.dst = n
 	}
 
+	grace, err := getenvDuration("ACCOUNT_DELETION_GRACE", 7*24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	cfg.AccountDeletionGrace = grace
+
 	var missing []string
 	if cfg.DatabaseURL == "" {
 		missing = append(missing, "DATABASE_URL")
@@ -105,6 +115,21 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// getenvDuration reads a Go duration ("168h"), or the fallback when unset. A
+// grace shorter than an hour is refused: the sweep ticks hourly, so it could
+// not honour it, and "0" would delete on the next tick.
+func getenvDuration(key string, fallback time.Duration) (time.Duration, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d < time.Hour {
+		return 0, fmt.Errorf("%s must be a duration of at least an hour, like 168h; got %q", key, raw)
+	}
+	return d, nil
 }
 
 func (c *Config) IsProduction() bool { return c.Env == "production" }
