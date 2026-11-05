@@ -96,6 +96,7 @@ func run() error {
 	// Discord channel is a webhook in a different format and lives above.
 	notices := notify.New(pool, notify.Options{Mailer: mailer, BaseURL: cfg.BaseURL, Key: cfg.SessionKey})
 	bus.Subscribe(notices.Subscriber())
+	go notices.Run(ctx) // the daily digest (#339)
 
 	// Account deletion (#322): the sweep that anonymises an account when its
 	// grace is up. The router gives it a way to nudge a table's roster once the

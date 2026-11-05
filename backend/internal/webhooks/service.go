@@ -25,6 +25,12 @@ import (
 	"github.com/goncalo1021pt/questboard/backend/internal/metrics"
 )
 
+// Cadences a Discord-format hook may keep (#339).
+const (
+	CadenceImmediate = "immediate"
+	CadenceDaily     = "daily"
+)
+
 const (
 	// MaxPerUser caps subscriptions per account.
 	MaxPerUser = 10
@@ -172,8 +178,28 @@ func (s *Service) Fanout() events.Subscriber {
 		}
 		hooks = append(hooks, channels...)
 		bodies := map[string][]byte{}
+		var env *Envelope
 		for _, h := range hooks {
 			if !Hears(h, e.Campaign, e.Name) {
+				continue
+			}
+			if h.Cadence == CadenceDaily {
+				// Held for the digest (#339): the line is said now, so the
+				// audience and the veil stay the emitter's decision.
+				if env == nil {
+					v := s.envelope(ctx, e)
+					env = &v
+				}
+				if err := s.q.InsertDigestItem(ctx, db.InsertDigestItemParams{
+					WebhookID:  pgtype.UUID{Bytes: h.ID, Valid: true},
+					CampaignID: e.Campaign,
+					EventID:    pgtype.UUID{Bytes: e.ID, Valid: e.ID != uuid.Nil},
+					Name:       string(e.Name),
+					Line:       discordLine(*env),
+					DueAt:      pgtype.Timestamptz{Time: events.NextDigest(s.now(), int(h.DigestHour)), Valid: true},
+				}); err != nil {
+					log.Printf("webhooks: hold %s for %s: %v", e.Name, h.ID, err)
+				}
 				continue
 			}
 			body, ok := bodies[h.Format]
@@ -245,15 +271,22 @@ func (s *Service) Ping(ctx context.Context, hookID uuid.UUID, format string) (uu
 	return row.ID, nil
 }
 
-// Run is the worker: every tick, claim what is due and post it, until ctx ends.
+// Run is the worker: every tick, claim what is due and post it, until ctx
+// ends. Once a minute it also turns the lines held for a daily digest (#339)
+// into deliveries, which this same loop then posts with the same retries.
 func (s *Service) Run(ctx context.Context) {
 	t := time.NewTicker(s.opts.Tick)
 	defer t.Stop()
+	var lastDigest time.Time
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			if now := s.now(); now.Sub(lastDigest) >= time.Minute {
+				lastDigest = now
+				s.QueueDueDigests(ctx)
+			}
 			if err := s.deliverDue(ctx); err != nil && ctx.Err() == nil {
 				log.Printf("webhooks: worker: %v", err)
 			}

@@ -6,13 +6,22 @@ WebhookFormat:
     with no secret to keep.
   enum: [questboard, discord]
 
+WebhookCadence:
+  type: string
+  description: >
+    When a hook is told (#339). `immediate` is one message per event as it
+    happens. `daily` holds the events and sends one message a day at the
+    hook's `digestHour`, with nothing sent on a day with nothing in it. Only a
+    `discord` hook may be daily — a script wants each event as it happens.
+  enum: [immediate, daily]
+
 Webhook:
   type: object
   description: >
     A standing order (#295): tell this URL when these events happen. It belongs
     to a person and hears only what that person could see in the app — the
     audience the emitter decided is the only gate.
-  required: [id, url, format, events, createdAt, failures]
+  required: [id, url, format, cadence, digestHour, events, createdAt, failures]
   properties:
     id:
       type: string
@@ -21,6 +30,13 @@ Webhook:
       type: string
     format:
       $ref: "../openapi.yaml#/components/schemas/WebhookFormat"
+    cadence:
+      $ref: "../openapi.yaml#/components/schemas/WebhookCadence"
+    digestHour:
+      type: integer
+      minimum: 0
+      maximum: 23
+      description: The hour of the daily digest, in UTC. Meaningful only when `cadence` is `daily`.
     events:
       type: array
       description: The catalogue names it wants; empty means every one.
@@ -67,6 +83,14 @@ WebhookInput:
     format:
       $ref: "../openapi.yaml#/components/schemas/WebhookFormat"
       description: Absent means `questboard`.
+    cadence:
+      $ref: "../openapi.yaml#/components/schemas/WebhookCadence"
+      description: Absent means `immediate`. `daily` is refused (400) on a `questboard` hook.
+    digestHour:
+      type: integer
+      minimum: 0
+      maximum: 23
+      description: The UTC hour a `daily` hook is sent at. Absent means 18.
     events:
       type: array
       description: The catalogue names to hear; empty means every one.
@@ -94,14 +118,17 @@ WebhookCreated:
 WebhookDelivery:
   type: object
   description: One attempt to reach the URL, and where it stands.
-  required: [id, name, attempts, createdAt, body]
+  required: [id, name, attempts, createdAt, body, carries]
   properties:
     id:
       type: string
       format: uuid
     name:
       type: string
-      description: The event name, or `ping`.
+      description: The event name, `ping`, or `digest` for a daily digest.
+    carries:
+      type: integer
+      description: How many events this delivery carries — 1, except a digest.
     attempts:
       type: integer
     createdAt:

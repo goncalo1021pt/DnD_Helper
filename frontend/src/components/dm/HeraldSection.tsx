@@ -1,7 +1,9 @@
 import { useState } from "react";
-import type { Campaign, EventName } from "../../api/client";
+import type { Campaign, EventName, WebhookCadence } from "../../api/client";
 import { usePingTableChannel, useRemoveTableChannel, useSetTableChannel } from "../../hooks";
 import { TABLE_EVENTS, labelOf } from "../../lib/events";
+import { DEFAULT_DIGEST_HOUR, localLabel } from "../../lib/digest";
+import DigestWhen from "../DigestWhen";
 import EventPicker from "../EventPicker";
 import ParchmentModal from "../ui/ParchmentModal";
 
@@ -52,6 +54,9 @@ export default function HeraldSection({ campaign }: { campaign: Campaign }) {
         <div className="grid gap-2">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="break-all font-mono text-[12.5px] text-[#e6d5af]" data-testid="herald-url">{channel.url}</span>
+            {channel.cadence === "daily" && (
+              <span className="label-stamp text-[9px] tracking-[1.5px] text-[#9c855e]" data-testid="herald-daily">DAILY {localLabel(channel.digestHour)}</span>
+            )}
             {channel.disabledAt && <span className="label-stamp text-[9px] tracking-[1.5px] text-[#d68a72]">DISABLED</span>}
             {!channel.disabledAt && channel.failures > 0 && (
               <span className="label-stamp text-[9px] tracking-[1.5px] text-[#e0a458]">FAILING</span>
@@ -109,6 +114,8 @@ function ChannelModal({ campaign, onClose }: { campaign: Campaign; onClose: () =
   const set = useSetTableChannel(campaign.id);
   const [url, setUrl] = useState(campaign.channel?.url ?? "");
   const [picked, setPicked] = useState<Set<EventName>>(new Set(campaign.channel?.events ?? []));
+  const [cadence, setCadence] = useState<WebhookCadence>(campaign.channel?.cadence ?? "immediate");
+  const [hour, setHour] = useState(campaign.channel?.digestHour ?? DEFAULT_DIGEST_HOUR);
   const ready = url.trim().length > 0 && !set.isPending;
 
   function toggle(name: EventName) {
@@ -122,7 +129,7 @@ function ChannelModal({ campaign, onClose }: { campaign: Campaign; onClose: () =
 
   function submit() {
     if (!ready) return;
-    set.mutate({ url: url.trim(), events: [...picked] }, { onSuccess: onClose });
+    set.mutate({ url: url.trim(), events: [...picked], cadence, digestHour: hour }, { onSuccess: onClose });
   }
 
   return (
@@ -147,6 +154,11 @@ function ChannelModal({ campaign, onClose }: { campaign: Campaign; onClose: () =
           onKeyDown={(e) => e.key === "Enter" && submit()}
         />
       </label>
+
+      <span className="field-label">When</span>
+      <div className="mb-3 mt-1">
+        <DigestWhen cadence={cadence} hour={hour} onChange={(c, h) => { setCadence(c); setHour(h); }} surface="parchment" namePrefix="herald" />
+      </div>
 
       <span className="field-label">Which events</span>
       <p className="font-body m-0 mb-1.5 mt-0.5 text-[11.5px] italic text-ink-body">

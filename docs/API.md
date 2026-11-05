@@ -270,6 +270,15 @@ POST /me/webhooks   {url, events[], campaignId?, format: "discord"}
 Mentions are switched off in what is posted (`allowed_mentions: {parse: []}`):
 a quest title is somebody's own text and must not ping a channel.
 
+A Discord hook may also be **daily** (#339): `cadence: "daily"` with an optional
+`digestHour` (a UTC hour, default 18). Its events are held and posted as one
+message a day — one embed per table, a line per event, ten embeds to a message
+and a count of what a long day left out — and a day with nothing in it posts
+nothing. The delivery log shows it as one delivery named `digest` whose
+`carries` is the number of events inside. A signed Quest Board hook cannot be
+daily (400): a script wants each event as it happens, and a digest would be a
+second envelope to document.
+
 ## Notifications
 
 What reaches you *outside* the app (#316): email to your confirmed address,
@@ -279,13 +288,20 @@ else, until it says otherwise.
 
 ```
 GET /me/notifications                          account:read
-PUT /me/notifications                          account:write   {emailEvents[]}
+PUT /me/notifications                          account:write   {emailEvents[], digestEvents?[], digestHour?}
 PUT /campaigns/{campaignId}/mute               campaigns:play  {muted}
 ```
 
-`emailEvents` is the list of catalogue names that reach your inbox; empty is
-none. `chronicle.written` is not offered by email — a line per line is a
-flood — and is refused with 400. Nothing is sent to an address that has not
+`emailEvents` is the list of catalogue names that reach your inbox as they
+happen; empty is none. `chronicle.written` is not offered **as it happens** — a
+line per line is a flood — and is refused there with 400. It is for the
+**daily digest** (#339): `digestEvents` names the events collected into one
+email a day at `digestHour` (a UTC hour; the profile shows it in your own
+time), a section for each table and a line for each event, and a day with
+nothing in it sends nothing. An event is in one list or the other, never both
+(400), and nobody is subscribed to a digest they did not choose. Both fields
+are optional on the way in — absent leaves them as they are, so a script that
+only ever set `emailEvents` keeps working. Nothing is sent to an address that has not
 been confirmed; the choices are kept for when it is. A **mute** is a fact
 about your seat at one table: no email about that table while it holds,
 whatever the list says, and leaving the table drops it. Webhooks are
@@ -300,7 +316,7 @@ turns them back on one event at a time.
 A DM may hang a Discord channel on the table itself:
 
 ```
-PUT    /campaigns/{campaignId}/channel         campaigns:run   {url, events[]}
+PUT    /campaigns/{campaignId}/channel         campaigns:run   {url, events[], cadence?, digestHour?}
 DELETE /campaigns/{campaignId}/channel         campaigns:run
 POST   /campaigns/{campaignId}/channel/ping    campaigns:run
 ```

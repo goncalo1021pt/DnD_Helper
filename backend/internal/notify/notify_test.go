@@ -52,3 +52,22 @@ func TestWants(t *testing.T) {
 		t.Error("the chronicle is not offered by email")
 	}
 }
+
+func TestWantsDailyIsOptIn(t *testing.T) {
+	// A digest is never a default: nobody is subscribed until they chose.
+	for _, n := range events.All {
+		if WantsDaily(nil, n) || WantsDaily([]string{}, n) {
+			t.Errorf("%s is in a digest nobody chose", n)
+		}
+	}
+	if !WantsDaily([]string{"chronicle.written"}, events.ChronicleWritten) {
+		t.Error("a chosen name must be wanted")
+	}
+	if WantsDaily([]string{"chronicle.written"}, events.QuestClaimed) {
+		t.Error("only the chosen names")
+	}
+	// The chronicle is for the digest alone: never immediate, always allowed daily.
+	if Offered(events.ChronicleWritten) {
+		t.Error("a chronicle line must not be offered as it happens")
+	}
+}

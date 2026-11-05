@@ -338,3 +338,21 @@ func (s *Server) devPurgeAccounts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]int{"purged": purged})
 }
+
+// devSendDigests makes every held digest line due and runs both digest
+// passes once (#339). Mounted only outside production.
+func (s *Server) devSendDigests(w http.ResponseWriter, r *http.Request) {
+	if err := s.queries.MakeAllDigestsDue(r.Context()); err != nil {
+		http.Error(w, "could not make the lines due", http.StatusInternalServerError)
+		return
+	}
+	out := map[string]int{"emails": 0, "deliveries": 0}
+	if s.notify != nil {
+		out["emails"] = s.notify.SendDueDigests(r.Context())
+	}
+	if s.webhooks != nil {
+		out["deliveries"] = s.webhooks.QueueDueDigests(r.Context())
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(out)
+}

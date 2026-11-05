@@ -77,6 +77,12 @@ func NewRouter(deps Deps) http.Handler {
 			ar.Post("/dev/purge-accounts", srv.devPurgeAccounts)
 		}
 
+		// Development only: make every held digest line due and send them now,
+		// so the e2e need not wait for 18:00 (#339). Never mounted in production.
+		if deps.DevDoors {
+			ar.Post("/dev/send-digests", srv.devSendDigests)
+		}
+
 		// The unsubscribe door (#316) needs no session and takes no bearer:
 		// the token in the link is the proof, and a mail client's one-click
 		// POST carries nothing else.

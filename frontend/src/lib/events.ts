@@ -42,8 +42,15 @@ export const EVENTS: EventEntry[] = [
 /** The sentence for a name, for a row that lists what a hook hears. */
 export const labelOf = (name: EventName): string => EVENTS.find((e) => e.name === name)?.label ?? name;
 
-/** What may be emailed (#316): everything but the chronicle, a line per line being a flood. */
-export const EMAIL_EVENTS = EVENTS.filter((e) => e.name !== "chronicle.written");
+/**
+ * What may be emailed: everything. Since #339 the chronicle is on the list too
+ * — but only as a daily digest, never as it happens (a line per email is a
+ * flood), which the picker enforces and the server refuses.
+ */
+export const EMAIL_EVENTS = EVENTS;
+
+/** The events a daily digest is for (#339): the chatty ones. A suggestion, not a default. */
+export const DIGEST_SUITED: EventName[] = ["chronicle.written", "hero.xp_awarded", "quest.claimed"];
 
 /**
  * What a table's channel is offered (#316): the events whose audience can be

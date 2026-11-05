@@ -933,6 +933,8 @@ components:
       $ref: "./components/webhooks.yaml#/WebhookPing"
     WebhookFormat:
       $ref: "./components/webhooks.yaml#/WebhookFormat"
+    WebhookCadence:
+      $ref: "./components/webhooks.yaml#/WebhookCadence"
     NotificationSettings:
       $ref: "./components/notifications.yaml#/NotificationSettings"
     NotificationSettingsInput:

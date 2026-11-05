@@ -1,8 +1,8 @@
 -- Webhooks (#295): subscriptions and their deliveries.
 
 -- name: CreateWebhook :one
-INSERT INTO webhooks (user_id, url, secret, events, campaign_id, scopes, format)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO webhooks (user_id, url, secret, events, campaign_id, scopes, format, cadence, digest_hour)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: ListWebhooksByUser :many
@@ -54,10 +54,10 @@ WHERE w.campaign_id = $1 AND w.user_id IS NULL;
 -- Setting the channel again replaces the URL and the names and gives a
 -- disabled one another chance, since a DM pasting a fresh URL means it.
 -- name: UpsertTableChannel :one
-INSERT INTO webhooks (user_id, url, secret, events, campaign_id, format)
-VALUES (NULL, $1, $2, $3, $4, 'discord')
+INSERT INTO webhooks (user_id, url, secret, events, campaign_id, format, cadence, digest_hour)
+VALUES (NULL, $1, $2, $3, $4, 'discord', $5, $6)
 ON CONFLICT (campaign_id) WHERE user_id IS NULL DO UPDATE
-SET url = EXCLUDED.url, events = EXCLUDED.events,
+SET url = EXCLUDED.url, events = EXCLUDED.events, cadence = EXCLUDED.cadence, digest_hour = EXCLUDED.digest_hour,
     disabled_at = NULL, disabled_reason = NULL, failures = 0
 RETURNING *;
 

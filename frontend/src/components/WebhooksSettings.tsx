@@ -1,7 +1,9 @@
 import { useState } from "react";
-import type { CampaignMembership, EventName, Webhook, WebhookCreated, WebhookDelivery, WebhookFormat } from "../api/client";
+import type { CampaignMembership, EventName, Webhook, WebhookCadence, WebhookCreated, WebhookDelivery, WebhookFormat } from "../api/client";
 import { useCreateWebhook, useDeleteWebhook, useEnableWebhook, usePingWebhook, useWebhookDeliveries, useWebhooks } from "../hooks";
 import { EVENTS, isDiscordUrl, labelOf } from "../lib/events";
+import { DEFAULT_DIGEST_HOUR, localLabel } from "../lib/digest";
+import DigestWhen from "./DigestWhen";
 import EventPicker from "./EventPicker";
 import ParchmentModal from "./ui/ParchmentModal";
 
@@ -67,6 +69,9 @@ function WebhookRow({ hook, onRemove }: { hook: Webhook; onRemove: () => void })
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="break-all font-mono text-[12.5px] text-[#e6d5af]">{hook.url}</span>
             {hook.format === "discord" && <span className="label-stamp text-[9px] tracking-[1.5px] text-[#9c855e]">DISCORD</span>}
+            {hook.cadence === "daily" && (
+              <span className="label-stamp text-[9px] tracking-[1.5px] text-[#9c855e]" data-testid="hook-daily">DAILY {localLabel(hook.digestHour)}</span>
+            )}
             {disabled && <span className="label-stamp text-[9px] tracking-[1.5px] text-[#d68a72]">DISABLED</span>}
             {!disabled && hook.failures > 0 && (
               <span className="label-stamp text-[9px] tracking-[1.5px] text-[#e0a458]">FAILING</span>
@@ -154,7 +159,8 @@ function DeliveryLine({ d }: { d: WebhookDelivery }) {
         : { text: `retrying${d.nextAttemptAt ? ` at ${fmtWhen(d.nextAttemptAt)}` : ""}`, color: "#e0a458" };
   return (
     <li className="flex flex-wrap items-baseline gap-x-2 py-0.5 font-body text-[12px] text-[#c9b183]">
-      <span className="font-mono text-[11px] text-[#e6d5af]">{d.name}</span>
+      <span className="font-mono text-[11px] text-[#e6d5af]">{d.name === "digest" ? "daily digest" : d.name}</span>
+      {d.carries > 1 && <span className="text-[#cdb582]">{d.carries} events</span>}
       <span style={{ color: state.color }}>{state.text}</span>
       <span className="text-[#9c855e]">
         {d.attempts > 0 ? `${d.attempts} ${d.attempts === 1 ? "attempt" : "attempts"}` : ""}
@@ -172,6 +178,8 @@ function AddModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; onC
   const [campaignId, setCampaignId] = useState("");
   const [format, setFormat] = useState<WebhookFormat>("questboard");
   const [formatTouched, setFormatTouched] = useState(false);
+  const [cadence, setCadence] = useState<WebhookCadence>("immediate");
+  const [hour, setHour] = useState(DEFAULT_DIGEST_HOUR);
   const [created, setCreated] = useState<WebhookCreated | null>(null);
   const [copied, setCopied] = useState(false);
   const ready = url.trim().length > 0 && !create.isPending;
@@ -195,7 +203,14 @@ function AddModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; onC
   function submit() {
     if (!ready) return;
     create.mutate(
-      { url: url.trim(), events: [...picked], campaignId: campaignId || null, format },
+      {
+        url: url.trim(),
+        events: [...picked],
+        campaignId: campaignId || null,
+        format,
+        // Only a Discord message can be daily; a signed hook is always immediate.
+        ...(format === "discord" ? { cadence, digestHour: hour } : {}),
+      },
       // A Discord hook is unsigned: there is no secret to show, so the door
       // closes on success.
       { onSuccess: (made) => (made.secret ? setCreated(made) : onClose()) },
@@ -273,6 +288,15 @@ function AddModal({ campaigns, onClose }: { campaigns: CampaignMembership[]; onC
               </label>
             ))}
           </div>
+
+          {format === "discord" && (
+            <>
+              <span className="field-label">When</span>
+              <div className="mb-3 mt-1">
+                <DigestWhen cadence={cadence} hour={hour} onChange={(c, h) => { setCadence(c); setHour(h); }} surface="parchment" namePrefix="webhook" />
+              </div>
+            </>
+          )}
 
           <span className="field-label">Which events</span>
           <p className="font-body m-0 mb-1.5 mt-0.5 text-[11.5px] italic text-ink-body">You only ever hear what you could see here.</p>

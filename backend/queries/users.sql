@@ -165,7 +165,8 @@ UPDATE users SET email_events = $2 WHERE id = $1;
 -- the table not muted. Which events they want is read off email_events by
 -- the caller, since NULL there means the defaults.
 -- name: ListEmailRecipients :many
-SELECT u.id, u.name, u.email, u.email_events, (u.email_events IS NULL)::boolean AS use_defaults
+SELECT u.id, u.name, u.email, u.email_events, (u.email_events IS NULL)::boolean AS use_defaults,
+       u.email_digest_events, u.digest_hour
 FROM users u
 JOIN memberships m ON m.user_id = u.id AND m.campaign_id = $2
 WHERE u.id = ANY($1::uuid[])
@@ -174,7 +175,7 @@ WHERE u.id = ANY($1::uuid[])
   AND NOT m.muted;
 
 -- name: GetEmailEvents :one
-SELECT email_events, (email_events IS NULL)::boolean AS use_defaults
+SELECT email_events, (email_events IS NULL)::boolean AS use_defaults, email_digest_events, digest_hour
 FROM users WHERE id = $1;
 
 -- name: ListMutedCampaigns :many
