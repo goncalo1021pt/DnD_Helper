@@ -42,9 +42,12 @@ function SourceStamp({ entry }: { entry: RulesContent }) {
   const stamp = originStamp(entry);
   if (!stamp) return null;
   return (
-    <span className="label-stamp ml-2 text-[8px] tracking-[1px] text-[#8b2520]">
-      {stamp}
-    </span>
+    <>
+      {" "}
+      <span className="label-stamp ml-1 select-none text-[8px] tracking-[1px] text-[#8b2520]">
+        {stamp}
+      </span>
+    </>
   );
 }
 
